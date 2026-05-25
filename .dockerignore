@@ -1,0 +1,47 @@
+# --- secrets ---
+.env
+.env.*
+!.env.example
+
+# --- generated data ---
+data/
+
+# --- vcs ---
+.git/
+.gitignore
+
+# --- python ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.benchmarks/
+.ipynb_checkpoints/
+
+# --- node / web build ---
+web/node_modules/
+web/dist/
+web/.vite/
+node_modules/
+
+# --- editor / OS ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- internal scratch ---
+.audit_*.md
+next.md
+next_Steps.md
+*.old
+image*.png
+*.log
+
+# --- docs / tests not needed at runtime ---
+docs/
+tests/
+.claude/

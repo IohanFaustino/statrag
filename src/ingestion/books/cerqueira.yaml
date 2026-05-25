@@ -1,0 +1,23 @@
+slug: cerqueira
+name: "Deep Learning for Time Series Cookbook: Use PyTorch and Python to Forecast, Classify, and Detect Anomalies"
+field: ml_dp
+theme: Deep Learning for Time Series
+authors:
+  - Vitor Cerqueira
+  - Luís Roque
+edition: "1st"
+year: 2024
+# Preprocessed: Packt cookbook flat-OCR — every `#` demoted to `##`.
+# Atwan template; see src/ingestion/processed/cerqueira_preproc.py.
+# Line numbers preserved (no dedup needed; promoted=118).
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/cerqueira_fixed.md
+chapters:
+  ch01: { title: "Getting Started with Time Series", line_start: 231, line_end: 919 }
+  ch02: { title: "Getting Started with PyTorch", line_start: 920, line_end: 1449 }
+  ch03: { title: "Univariate Time Series Forecasting", line_start: 1450, line_end: 2794 }
+  ch04: { title: "Forecasting with PyTorch Lightning", line_start: 2795, line_end: 3686 }
+  ch05: { title: "Global Forecasting Models", line_start: 3687, line_end: 4494 }
+  ch06: { title: "Advanced Deep Learning Architectures for Time Series Forecasting", line_start: 4495, line_end: 5390 }
+  ch07: { title: "Probabilistic Time Series Forecasting", line_start: 5391, line_end: 6292 }
+  ch08: { title: "Deep Learning for Time Series Classification", line_start: 6293, line_end: 6966 }
+  ch09: { title: "Deep Learning for Time Series Anomaly Detection", line_start: 6967, line_end: null }

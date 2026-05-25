@@ -1,0 +1,82 @@
+slug: hansen
+name: Probability and Statistics for Economists
+field: introduction
+theme: Probability and Statistics
+authors:
+  - Bruce E. Hansen
+edition: "1st"
+year: 2022
+source_path: /home/iohan/Documents/Books/Process/Files/Output/Econometrics/Probability and Statistics for Economists -- Bruce E Hansen -- Princeton, 2022 -- Princeton University Press -- isbn13 9780691235943 -- 6a40b3cc2725d27274fb269460f62226 -- Anna’s Archive/Probability and Statistics for Economists -- Bruce E Hansen -- Princeton, 2022 -- Princeton University Press -- isbn13 9780691235943 -- 6a40b3cc2725d27274fb269460f62226 -- Anna’s Archive.md
+chapters:
+  ch01:
+    title: Basic Probability Theory
+    line_start: 659
+    line_end: 1565
+  ch02:
+    title: Random Variables
+    line_start: 1566
+    line_end: 2967
+  ch03:
+    title: Parametric Distributions
+    line_start: 2968
+    line_end: 3542
+  ch04:
+    title: Multivariate Distributions
+    line_start: 3543
+    line_end: 5034
+  ch05:
+    title: Normal and Related Distributions
+    line_start: 5035
+    line_end: 5637
+  ch06:
+    title: Sampling
+    line_start: 5638
+    line_end: 6543
+  ch07:
+    title: Law of Large Numbers
+    line_start: 6544
+    line_end: 7274
+  ch08:
+    title: Central Limit Theorem
+    line_start: 7275
+    line_end: 7856
+  ch09:
+    title: Advanced Asymptotic Theory
+    line_start: 7857
+    line_end: 8402
+  ch10:
+    title: Maximum Likelihood Estimation
+    line_start: 8403
+    line_end: 10416
+  ch11:
+    title: Method of Moments
+    line_start: 10417
+    line_end: 10840
+  ch12:
+    title: Numerical Optimization
+    line_start: 10841
+    line_end: 11708
+  ch13:
+    title: Hypothesis Testing
+    line_start: 11709
+    line_end: 12637
+  ch14:
+    title: Confidence Intervals
+    line_start: 12638
+    line_end: 13044
+  ch15:
+    title: Shrinkage Estimation
+    line_start: 13045
+    line_end: 13484
+  ch16:
+    title: Bayesian Methods
+    line_start: 13485
+    line_end: 14203
+  ch17:
+    title: Nonparametric Density Estimation
+    line_start: 14204
+    line_end: 14929
+  ch18:
+    title: Empirical Process Theory
+    line_start: 14930
+    line_end: null

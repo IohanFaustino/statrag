@@ -1,0 +1,86 @@
+slug: wooldridge
+name: Introductory Econometrics — A Modern Approach
+field: introduction
+theme: Econometrics
+authors:
+  - Jeffrey M. Wooldridge
+edition: "7th"
+year: 2018
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Introduction/2018_Wooldridge/vlm/2018_Wooldridge.md
+chapters:
+  ch01:
+    title: "The Nature of Econometrics and Economic Data"
+    line_start: 1330
+    line_end: 1775
+  ch02:
+    title: "The Simple Regression Model"
+    line_start: 1776
+    line_end: 3535
+  ch03:
+    title: "Multiple Regression Analysis: Estimation"
+    line_start: 3536
+    line_end: 5548
+  ch04:
+    title: "Multiple Regression Analysis: Inference"
+    line_start: 5549
+    line_end: 7408
+  ch05:
+    title: "Multiple Regression Analysis: OLS Asymptotics"
+    line_start: 7409
+    line_end: 7957
+  ch06:
+    title: "Multiple Regression Analysis: Further Issues"
+    line_start: 7958
+    line_end: 9472
+  ch07:
+    title: "Multiple Regression Analysis with Qualitative Information"
+    line_start: 9473
+    line_end: 11080
+  ch08:
+    title: "Heteroskedasticity"
+    line_start: 11081
+    line_end: 12285
+  ch09:
+    title: "More on Specification and Data Issues"
+    line_start: 12286
+    line_end: 13731
+  ch10:
+    title: "Basic Regression Analysis with Time Series Data"
+    line_start: 13732
+    line_end: 14883
+  ch11:
+    title: "Further Issues in Using OLS with Time Series Data"
+    line_start: 14884
+    line_end: 16085
+  ch12:
+    title: "Serial Correlation and Heteroskedasticity in Time Series Regressions"
+    line_start: 16086
+    line_end: 17261
+  ch13:
+    title: "Pooling Cross Sections across Time: Simple Panel Data Methods"
+    line_start: 17262
+    line_end: 18509
+  ch14:
+    title: "Advanced Panel Data Methods"
+    line_start: 18510
+    line_end: 19448
+  ch15:
+    title: "Instrumental Variables Estimation and Two-Stage Least Squares"
+    line_start: 19449
+    line_end: 20863
+  ch16:
+    title: "Simultaneous Equations Models"
+    line_start: 20864
+    line_end: 21846
+  ch17:
+    title: "Limited Dependent Variable Models and Sample Selection Corrections"
+    line_start: 21847
+    line_end: 23237
+  ch18:
+    title: "Advanced Time Series Topics"
+    line_start: 23238
+    line_end: 24661
+  ch19:
+    title: "Carrying Out an Empirical Project"
+    line_start: 24662
+    line_end: null

@@ -1,0 +1,23 @@
+slug: spark_ts
+name: "Time Series Analysis with Spark: A practical guide to processing, modeling, and forecasting time series with Apache Spark"
+field: econometrics
+theme: Time Series
+authors:
+  - Yoni Ramaswami
+edition: "1st"
+year: 2024
+# Preprocessed: every `#` demoted to `##`. See spark_ts_preproc.py.
+# Line numbers preserved (dedupes replaced with blank lines).
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/spark_ts_fixed.md
+chapters:
+  ch01: { title: "What Are Time Series?", line_start: 311, line_end: 856 }
+  ch02: { title: "Why Time Series Analysis?", line_start: 857, line_end: 1368 }
+  ch03: { title: "Introduction to Apache Spark", line_start: 1369, line_end: 1808 }
+  ch04: { title: "End-to-End View of a Time Series Analysis Project", line_start: 1820, line_end: 2580 }
+  ch05: { title: "Data Preparation", line_start: 2581, line_end: 3186 }
+  ch06: { title: "Exploratory Data Analysis", line_start: 3187, line_end: 3788 }
+  ch07: { title: "Building and Testing Models", line_start: 3789, line_end: 4537 }
+  ch08: { title: "Going at Scale", line_start: 4549, line_end: 5147 }
+  ch09: { title: "Going to Production", line_start: 5148, line_end: 5708 }
+  ch10: { title: "Going Further with Apache Spark", line_start: 5709, line_end: 6185 }
+  ch11: { title: "Recent Developments in Time Series Analysis", line_start: 6186, line_end: 6494 }

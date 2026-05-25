@@ -1,0 +1,52 @@
+# --- secrets ---
+.env
+.env.*
+!.env.example
+
+# --- generated data (rebuild from zero) ---
+data/
+!data/.gitkeep
+
+# --- python ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.benchmarks/
+.ipynb_checkpoints/
+
+# --- node / web ---
+web/node_modules/
+web/dist/
+web/.vite/
+web/coverage/
+node_modules/
+
+# --- editor / OS ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- internal audits / scratch ---
+.audit_*.md
+next.md
+next_Steps.md
+*.old
+image.png
+image*.png
+
+# --- logs ---
+*.log
+logs/
+
+# --- claude local cache ---
+.claude/

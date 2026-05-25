@@ -1,0 +1,62 @@
+slug: neal
+name: Introduction to Causal Inference from a Machine Learning Perspective
+field: introduction
+theme: Causal Inference
+authors:
+  - Brady Neal
+edition: "draft"
+year: 2020
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Introduction/2020_Neal/vlm/2020_Neal.md
+chapters:
+  ch01:
+    title: "Motivation: Why You Might Care"
+    line_start: 470
+    line_end: 625
+  ch02:
+    title: Potential Outcomes
+    line_start: 626
+    line_end: 1110
+  ch03:
+    title: The Flow of Association and Causation in Graphs
+    line_start: 1111
+    line_end: 2167
+  ch04:
+    title: Causal Models
+    line_start: 2168
+    line_end: 3071
+  ch05:
+    title: Randomized Experiments
+    line_start: 3072
+    line_end: 3200
+  ch06:
+    title: Nonparametric Identification
+    line_start: 3201
+    line_end: 3779
+  ch07:
+    title: Estimation
+    line_start: 3780
+    line_end: 4307
+  ch08:
+    title: "Unobserved Confounding: Bounds and Sensitivity Analysis"
+    line_start: 4308
+    line_end: 5064
+  ch09:
+    title: Instrumental Variables
+    line_start: 5065
+    line_end: 5497
+  ch10:
+    title: Difference in Differences
+    line_start: 5498
+    line_end: 5711
+  ch11:
+    title: Causal Discovery from Observational Data
+    line_start: 5712
+    line_end: 6317
+  ch12:
+    title: Causal Discovery from Interventional Data
+    line_start: 6318
+    line_end: 6378
+  ch14:
+    title: Counterfactuals and Mediation
+    line_start: 6379
+    line_end: null

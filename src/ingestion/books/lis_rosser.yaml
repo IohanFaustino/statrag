@@ -1,0 +1,27 @@
+slug: lis_rosser
+name: Basic Mathematics for Economists
+field: math
+theme: Mathematics for Economics
+authors:
+  - Mike Rosser
+  - Piotr Lis
+edition: "4th"
+year: 2025
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Math/2025_Lis_Rosser/vlm/2025_Lis_Rosser.md
+chapters:
+  ch01: { title: "Introduction", line_start: 452, line_end: 590 }
+  ch02: { title: "Arithmetic", line_start: 591, line_end: 1589 }
+  ch03: { title: "Introduction to algebra", line_start: 1590, line_end: 2831 }
+  ch04: { title: "Graphs and functions", line_start: 2832, line_end: 4750 }
+  ch05: { title: "Simultaneous linear equations", line_start: 4751, line_end: 6987 }
+  ch06: { title: "Linear programming", line_start: 6988, line_end: 7924 }
+  ch07: { title: "Quadratic equations", line_start: 7925, line_end: 8681 }
+  ch08: { title: "Financial mathematics – series, time and investment", line_start: 8682, line_end: 11844 }
+  ch09: { title: "Introduction to calculus", line_start: 11845, line_end: 12957 }
+  ch10: { title: "Unconstrained optimization", line_start: 12958, line_end: 13809 }
+  ch11: { title: "Partial differentiation", line_start: 13810, line_end: 15999 }
+  ch12: { title: "Constrained optimization", line_start: 16000, line_end: 17793 }
+  ch13: { title: "Further topics in differentiation and integration", line_start: 17794, line_end: 19689 }
+  ch14: { title: "Dynamics and difference equations", line_start: 19690, line_end: 21509 }
+  ch15: { title: "Exponential functions, continuous growth and differential equations", line_start: 21510, line_end: 23179 }
+  ch16: { title: "Matrix algebra", line_start: 23180, line_end: null }

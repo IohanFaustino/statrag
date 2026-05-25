@@ -1,0 +1,31 @@
+slug: das
+name: "Econometrics in Theory and Practice: Analysis of Cross Section, Time Series and Panel Data with Stata 15.1"
+field: econometrics
+theme: Applied Econometrics with Stata
+authors:
+  - Panchanan Das
+edition: "1st"
+year: 2019
+# Clean EPUB-MD with `# N.` chapter and `## N.N` section headers; no preproc.
+# Part dividers (`# Part I…`) are excluded from chapter slices to avoid
+# overwriting current_h1 during streaming parse.
+source_path: /home/iohan/Downloads/EPUB/markdown/Econometrics in Theory and Practice_ Analysis of Cross Section, Time Series and Panel Data with Stata 15.1/Econometrics in Theory and Practice_ Analysis of Cross Section, Time Series and Panel Data with Stata 15.1.md
+chapters:
+  ch01: { title: "Introduction to Econometrics and Statistical Software", line_start: 265, line_end: 1317 }
+  ch02: { title: "Linear Regression Model: Properties and Estimation", line_start: 1318, line_end: 2706 }
+  ch03: { title: "Linear Regression Model: Goodness of Fit and Testing of Hypothesis", line_start: 2707, line_end: 3730 }
+  ch04: { title: "Linear Regression Model: Relaxing the Classical Assumptions", line_start: 3731, line_end: 4421 }
+  ch05: { title: "Analysis of Collinear Data: Multicollinearity", line_start: 4422, line_end: 4903 }
+  ch06: { title: "Linear Regression Model: Qualitative Variables as Predictors", line_start: 4910, line_end: 5212 }
+  ch07: { title: "Limited Dependent Variable Model", line_start: 5213, line_end: 6250 }
+  ch08: { title: "Multivariate Analysis", line_start: 6251, line_end: 7509 }
+  ch09: { title: "Time Series: Data Generating Process", line_start: 7516, line_end: 7913 }
+  ch10: { title: "Stationary Time Series", line_start: 7914, line_end: 9539 }
+  ch11: { title: "Nonstationarity, Unit Root and Structural Break", line_start: 9540, line_end: 11250 }
+  ch12: { title: "Cointegration, Error Correction and Vector Autoregression", line_start: 11251, line_end: 12879 }
+  ch13: { title: "Modelling Volatility Clustering", line_start: 12880, line_end: 13632 }
+  ch14: { title: "Time Series Forecasting", line_start: 13633, line_end: 14211 }
+  ch15: { title: "Panel Data Analysis: Static Models", line_start: 14218, line_end: 15302 }
+  ch16: { title: "Panel Data Static Model: Testing of Hypotheses", line_start: 15303, line_end: 15665 }
+  ch17: { title: "Panel Unit Root Test", line_start: 15666, line_end: 16625 }
+  ch18: { title: "Dynamic Panel Model", line_start: 16626, line_end: null }

@@ -1,0 +1,365 @@
+/* T19 TutorView + T21 SettingsPicker styles.
+   Loaded after neon.css so neon variables (--accent, --pill, --muted)
+   are available. */
+
+/* ─── TutorView ─────────────────────────────────────────────────────── */
+
+.tutor-view {
+  font: 15px/1.6 var(--font-body, system-ui, sans-serif);
+}
+
+.tutor-view__section { margin: 0; }
+.tutor-view__section--lead { margin-bottom: 4px; }
+
+.tutor-view__h2 {
+  color: var(--accent, #E5484D);
+  font-size: 16px;
+  margin: 22px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line, #1f2937);
+  text-align: center;
+}
+
+.tutor-view__h2--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line, #1f2937);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.tutor-view__h2--toggle:hover { opacity: 0.85; }
+.tutor-view__h2-chevron {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  transition: transform 150ms ease;
+  color: var(--accent, #E5484D);
+}
+.tutor-view__h2-chevron--open { transform: rotate(90deg); }
+.tutor-view__h2-text { color: var(--accent, #E5484D); }
+
+.tutor-view__section-body { margin-top: 4px; }
+
+.tutor-view__para {
+  margin: 8px 0;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.tutor-view__strong {
+  font-weight: 600;
+}
+
+.tutor-view__em {
+  font-style: italic;
+}
+
+.tutor-view__quote {
+  margin: 12px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--accent, #E5484D);
+  background: rgba(229, 72, 77, 0.05);
+  border-radius: 2px;
+  font-style: normal;
+}
+
+.tutor-view__math-block {
+  margin: 14px auto;
+  padding: 10px 12px;
+  background: rgba(229, 72, 77, 0.04);
+  border: 1px solid rgba(229, 72, 77, 0.25);
+  border-radius: 4px;
+  overflow-x: auto;
+  text-align: center;   /* centre the KaTeX display formula in its box */
+}
+
+/* Centered subsection header flanked by dashes — "— Bias —" */
+.tutor-view__h3 {
+  text-align: center;
+  margin: 1em 0 0.4em;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--accent, #E5484D);
+}
+.tutor-view__h3::before { content: "—— "; opacity: 0.5; }
+.tutor-view__h3::after  { content: " ——"; opacity: 0.5; }
+
+/* Citation pills — inline */
+.tutor-view__pill {
+  display: inline-block;
+  background: var(--pill, rgba(229, 72, 77, 0.12));
+  color: var(--accent, #E5484D);
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 2px;
+  text-decoration: none;
+  cursor: pointer;
+  vertical-align: super;
+  line-height: 1.4;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.tutor-view__pill:hover,
+.tutor-view__pill--hover {
+  background: var(--accent, #E5484D);
+  color: #1a0608;
+}
+
+/* Sources panel */
+.tutor-view__sources {
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line, #1f2937);
+  font-size: 13px;
+  color: var(--muted, #94a3b8);
+}
+.tutor-view__sources-title {
+  margin: 0 0 8px;
+  color: var(--accent, #E5484D);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tutor-view__sources-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--accent, #E5484D);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+}
+.tutor-view__sources-toggle:hover { opacity: 0.85; }
+.tutor-view__sources-chevron {
+  display: inline-block;
+  width: 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  transition: transform 150ms ease;
+  color: var(--accent, #E5484D);
+}
+.tutor-view__sources-chevron--open { transform: rotate(90deg); }
+.tutor-view__sources-count {
+  font-weight: 500;
+  color: var(--muted, #94a3b8);
+  margin-left: 4px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tutor-view__sources-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.tutor-view__src {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  transition: background-color 150ms ease;
+}
+.tutor-view__src--hover {
+  background: rgba(229, 72, 77, 0.06);
+}
+.tutor-view__src-num {
+  font-weight: 700;
+  color: var(--accent, #E5484D);
+  margin-right: 4px;
+}
+.tutor-view__src-meta {
+  color: var(--fg, #e2e8f0);
+}
+.tutor-view__src-quote {
+  margin-top: 4px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line, #1f2937);
+  font-style: italic;
+  color: var(--muted, #94a3b8);
+}
+
+/* ─── SettingsPicker (Config popover — card themed) ──────────────────── */
+
+.settings-picker { position: relative; }
+
+.settings-picker__panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 320px;
+  background: var(--bg-elevated);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+  box-shadow: var(--shadow-popover), var(--glass-edge);
+  z-index: 50;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.settings-picker__hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-picker__reset {
+  background: none;
+  border: 0;
+  color: var(--accent-primary);
+  cursor: default;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 120ms, color 120ms;
+}
+.settings-picker__reset:hover {
+  background: var(--accent-primary-soft);
+  color: var(--text-primary);
+}
+
+.sp-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sp-row:last-child { border-bottom: none; }
+
+.sp-row__lbl {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.sp-row__lbl--inline {
+  gap: 10px;
+  flex-direction: row;
+  margin-bottom: 0;
+}
+
+.sp-row__val {
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.sp-row__hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* Number input — card surface */
+.sp-row input[type="number"] {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.sp-row input[type="number"]:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-ring);
+}
+
+/* Range slider — themed track + thumb (kills default blue) */
+.sp-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  outline: none;
+  margin: 0;
+  padding: 0;
+}
+.sp-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+}
+.sp-row input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+}
+.sp-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: 2px solid var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 0 10px var(--accent-primary-ring);
+  cursor: default;
+}
+.sp-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: 2px solid var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 0 10px var(--accent-primary-ring);
+  cursor: default;
+}
+
+/* Checkbox accent */
+.sp-row--inline input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-primary);
+}
+
+/* ─── Reduced-motion override ────────────────────────────────────────── */
+/* Zero out all accordion + chevron transitions for users who prefer
+   reduced motion (WCAG 2.3 Success Criterion 2.3.3 / Apple Reduced Motion). */
+@media (prefers-reduced-motion: reduce) {
+  .tutor-view__section-body-wrapper,
+  .tutor-view__chevron {
+    transition-duration: 0ms !important;
+  }
+}

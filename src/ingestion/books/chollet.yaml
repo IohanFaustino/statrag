@@ -1,0 +1,31 @@
+slug: chollet
+name: Deep Learning with Python
+field: ml_dp
+theme: Deep Learning
+authors:
+  - François Chollet
+  - Matthew Watson
+edition: "3rd"
+year: 2025
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/ML & DP/2025_Chollet_Watson/vlm/2025_Chollet_Watson.md
+chapters:
+  ch01: { title: "What is deep learning?", line_start: 690, line_end: 1311 }
+  ch02: { title: "The mathematical building blocks of neural networks", line_start: 1312, line_end: 2977 }
+  ch03: { title: "Introduction to TensorFlow, PyTorch, JAX, and Keras", line_start: 2978, line_end: 4793 }
+  ch04: { title: "Classification and regression", line_start: 4794, line_end: 6055 }
+  ch05: { title: "Fundamentals of machine learning", line_start: 6056, line_end: 7350 }
+  ch06: { title: "The universal workflow of machine learning", line_start: 7351, line_end: 7769 }
+  ch07: { title: "A deep dive on Keras", line_start: 7770, line_end: 9602 }
+  ch08: { title: "Image classification", line_start: 9603, line_end: 11029 }
+  ch09: { title: "ConvNet architecture patterns", line_start: 11030, line_end: 11564 }
+  ch10: { title: "Interpreting what ConvNets learn", line_start: 11565, line_end: 12503 }
+  ch11: { title: "Image segmentation", line_start: 12504, line_end: 13334 }
+  ch12: { title: "Object detection", line_start: 13335, line_end: 14069 }
+  ch13: { title: "Timeseries forecasting", line_start: 14070, line_end: 15328 }
+  ch14: { title: "Text classification", line_start: 15329, line_end: 16737 }
+  ch15: { title: "Language models and the Transformer", line_start: 16738, line_end: 18294 }
+  ch16: { title: "Text generation", line_start: 18295, line_end: 19648 }
+  ch17: { title: "Image generation", line_start: 19649, line_end: 20875 }
+  ch18: { title: "Best practices for the real world", line_start: 20876, line_end: 21734 }
+  ch19: { title: "The future of AI", line_start: 21735, line_end: 22410 }
+  ch20: { title: "Conclusions", line_start: 22411, line_end: null }

@@ -1,0 +1,22 @@
+slug: peters
+name: "Elements of Causal Inference: Foundations and Learning Algorithms"
+field: causal_inference
+theme: Causal Inference
+authors:
+  - Jonas Peters
+  - Dominik Janzing
+  - Bernhard Schölkopf
+edition: "1st"
+year: 2017
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Causal Inference/2017_Jonas_Peters_Dominik_Janzing_Bernhard_Schölkopf/vlm/2017_Jonas_Peters_Dominik_Janzing_Bernhard_Schölkopf.md
+chapters:
+  ch01: { title: "Statistical and Causal Models", line_start: 249, line_end: 485 }
+  ch02: { title: "Assumptions for Causal Inference", line_start: 486, line_end: 759 }
+  ch03: { title: "Cause-Effect Models", line_start: 760, line_end: 1045 }
+  ch04: { title: "Learning Cause-Effect Models", line_start: 1046, line_end: 1748 }
+  ch05: { title: "Connections to Machine Learning, I", line_start: 1749, line_end: 1999 }
+  ch06: { title: "Multivariate Causal Models", line_start: 2000, line_end: 3586 }
+  ch07: { title: "Learning Multivariate Causal Models", line_start: 3587, line_end: 4007 }
+  ch08: { title: "Connections to Machine Learning, II", line_start: 4008, line_end: 4377 }
+  ch09: { title: "Hidden Variables", line_start: 4378, line_end: 5083 }
+  ch10: { title: "Time Series", line_start: 5084, line_end: null }

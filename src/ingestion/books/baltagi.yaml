@@ -1,0 +1,24 @@
+slug: baltagi
+name: Econometrics
+field: econometrics
+theme: Econometrics
+authors:
+  - Badi H. Baltagi
+edition: "6th"
+year: 2021
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Econometrics/2021_Baltagi/vlm/2021_Baltagi.md
+chapters:
+  ch01: { title: "What Is Econometrics?", line_start: 691, line_end: 871 }
+  ch02: { title: "Basic Statistical Concepts", line_start: 872, line_end: 2595 }
+  ch03: { title: "Simple Linear Regression", line_start: 2596, line_end: 3575 }
+  ch04: { title: "Multiple Regression Analysis", line_start: 3576, line_end: 4279 }
+  ch05: { title: "Violations of the Classical Assumptions", line_start: 4280, line_end: 5284 }
+  ch06: { title: "Distributed Lags and Dynamic Models", line_start: 5285, line_end: 5806 }
+  ch07: { title: "The General Linear Model: The Basics", line_start: 5807, line_end: 6839 }
+  ch08: { title: "Regression Diagnostics and Specification Tests", line_start: 6840, line_end: 8193 }
+  ch09: { title: "Generalized Least Squares", line_start: 8194, line_end: 8830 }
+  ch10: { title: "Seemingly Unrelated Regressions", line_start: 8831, line_end: 9354 }
+  ch11: { title: "Simultaneous Equations Model", line_start: 9355, line_end: 10973 }
+  ch12: { title: "Pooling Time-Series of Cross-Section Data", line_start: 10974, line_end: 11924 }
+  ch13: { title: "Limited Dependent Variables", line_start: 11925, line_end: 13228 }
+  ch14: { title: "Time-Series Analysis", line_start: 13229, line_end: null }

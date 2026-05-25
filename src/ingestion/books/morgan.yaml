@@ -1,0 +1,30 @@
+slug: morgan
+name: "Handbook of Causal Analysis for Social Research"
+field: causal_inference
+theme: Causal Inference
+authors:
+  - Stephen L. Morgan (ed.)
+edition: "1st"
+year: 2013
+# Preprocessed source — see library/_processed/morgan_preproc.py.
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/morgan_fixed.md
+chapters:
+  ch01: { title: "Introduction", line_start: 262, line_end: 319 }
+  ch02: { title: "A History of Causal Analysis in the Social Sciences", line_start: 320, line_end: 577 }
+  ch03: { title: "Types of Causes", line_start: 578, line_end: 817 }
+  ch04: { title: "Research Design: Toward a Realistic Role for Causal Analysis", line_start: 818, line_end: 1246 }
+  ch05: { title: "Causal Models and Counterfactuals", line_start: 1247, line_end: 1587 }
+  ch06: { title: "Mixed Methods and Causal Analysis", line_start: 1588, line_end: 1848 }
+  ch07: { title: "Fixed Effects, Random Effects, and Hybrid Models for Causal Analysis", line_start: 1849, line_end: 2178 }
+  ch08: { title: "Heteroscedastic Regression Models for the Systematic Analysis of Residual Variances", line_start: 2179, line_end: 2573 }
+  ch09: { title: "Group Differences in Generalized Linear Models", line_start: 2574, line_end: 2853 }
+  ch10: { title: "Counterfactual Causal Analysis and Nonlinear Probability Models", line_start: 2854, line_end: 3478 }
+  ch11: { title: "Causal Effect Heterogeneity", line_start: 3479, line_end: 3936 }
+  ch12: { title: "New Perspectives on Causal Mediation Analysis", line_start: 3937, line_end: 4526 }
+  ch13: { title: "Graphical Causal Models", line_start: 4527, line_end: 5300 }
+  ch14: { title: "The Causal Implications of Mechanistic Thinking: Identification Using DAGs", line_start: 5301, line_end: 5908 }
+  ch15: { title: "Eight Myths About Causality and Structural Equation Models", line_start: 5909, line_end: 6671 }
+  ch16: { title: "Heterogeneous Agents, Social Interactions, and Causal Inference", line_start: 6672, line_end: 7060 }
+  ch17: { title: "Social Networks and Causal Inference", line_start: 7061, line_end: 7375 }
+  ch18: { title: "Partial Identification and Sensitivity Analysis", line_start: 7376, line_end: 7896 }
+  ch19: { title: "What You Can Learn from Wrong Causal Models", line_start: 7897, line_end: null }

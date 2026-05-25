@@ -1,0 +1,33 @@
+slug: hernan
+name: "Causal Inference: What If"
+field: causal_inference
+theme: Causal Inference
+authors:
+  - Miguel A. Hernán
+  - James M. Robins
+edition: "2020 edition"
+year: 2020
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Causal Inference/2020_Hernán_Robins/vlm/2020_Hernán_Robins.md
+chapters:
+  ch01: { title: "A definition of causal effect", line_start: 248, line_end: 464 }
+  ch02: { title: "Randomized experiments", line_start: 465, line_end: 730 }
+  ch03: { title: "Observational studies", line_start: 731, line_end: 1026 }
+  ch04: { title: "Effect modification", line_start: 1027, line_end: 1338 }
+  ch05: { title: "Interaction", line_start: 1339, line_end: 1608 }
+  ch06: { title: "Graphical representation of causal effects", line_start: 1609, line_end: 1943 }
+  ch07: { title: "Confounding", line_start: 1944, line_end: 2433 }
+  ch08: { title: "Selection bias", line_start: 2434, line_end: 2890 }
+  ch09: { title: "Measurement bias", line_start: 2891, line_end: 3292 }
+  ch10: { title: "Random variability", line_start: 3293, line_end: 3533 }
+  ch11: { title: "Why model?", line_start: 3534, line_end: 3841 }
+  ch12: { title: "IP weighting and marginal structural models", line_start: 3842, line_end: 4076 }
+  ch13: { title: "Standardization and the parametric g-formula", line_start: 4077, line_end: 4274 }
+  ch14: { title: "G-estimation of structural nested models", line_start: 4275, line_end: 4585 }
+  ch15: { title: "Outcome regression and propensity scores", line_start: 4586, line_end: 4792 }
+  ch16: { title: "Instrumental variable estimation", line_start: 4793, line_end: 5321 }
+  ch17: { title: "Causal survival analysis", line_start: 5322, line_end: 5784 }
+  ch18: { title: "Variable selection for causal inference", line_start: 5785, line_end: 6019 }
+  ch19: { title: "Time-varying treatments", line_start: 6020, line_end: 6530 }
+  ch20: { title: "Treatment-confounder feedback", line_start: 6531, line_end: 6867 }
+  ch21: { title: "G-methods for time-varying treatments", line_start: 6868, line_end: 7486 }
+  ch22: { title: "Target trial emulation", line_start: 7487, line_end: null }

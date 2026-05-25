@@ -1,0 +1,33 @@
+slug: gujarati
+name: Basic Econometrics
+field: econometrics
+theme: Econometrics
+authors:
+  - Damodar N. Gujarati
+  - Dawn C. Porter
+edition: "5th"
+year: 2008
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Econometrics/2008_Gujarati_Porter/vlm/2008_Gujarati_Porter.md
+chapters:
+  ch01: { title: "The Nature of Regression Analysis", line_start: 2159, line_end: 2610 }
+  ch02: { title: "Two-Variable Regression Analysis: Some Basic Ideas", line_start: 2611, line_end: 3232 }
+  ch03: { title: "Two-Variable Regression Model: The Problem of Estimation", line_start: 3233, line_end: 4992 }
+  ch04: { title: "Classical Normal Linear Regression Model (CNLRM)", line_start: 4993, line_end: 5366 }
+  ch05: { title: "Two-Variable Regression: Interval Estimation and Hypothesis Testing", line_start: 5367, line_end: 6672 }
+  ch06: { title: "Extensions of the Two-Variable Linear Regression Model", line_start: 6673, line_end: 8585 }
+  ch07: { title: "Multiple Regression Analysis: The Problem of Estimation", line_start: 8586, line_end: 10469 }
+  ch08: { title: "Multiple Regression Analysis: The Problem of Inference", line_start: 10470, line_end: 12459 }
+  ch09: { title: "Dummy Variable Regression Models", line_start: 12460, line_end: 14070 }
+  ch10: { title: "Multicollinearity", line_start: 14071, line_end: 15558 }
+  ch11: { title: "Heteroscedasticity", line_start: 15559, line_end: 17970 }
+  ch12: { title: "Autocorrelation", line_start: 17971, line_end: 20627 }
+  ch13: { title: "Econometric Modeling: Model Specification and Diagnostic Testing", line_start: 20628, line_end: 22726 }
+  ch14: { title: "Nonlinear Regression Models", line_start: 22727, line_end: 23344 }
+  ch15: { title: "Qualitative Response Regression Models", line_start: 23345, line_end: 24905 }
+  ch16: { title: "Panel Data Regression Models", line_start: 24906, line_end: 25589 }
+  ch17: { title: "Dynamic Econometric Models: Autoregressive and Distributed-Lag Models", line_start: 25590, line_end: 27637 }
+  ch18: { title: "Simultaneous-Equation Models", line_start: 27638, line_end: 28352 }
+  ch19: { title: "The Identification Problem", line_start: 28353, line_end: 29404 }
+  ch20: { title: "Simultaneous-Equation Methods", line_start: 29405, line_end: 30587 }
+  ch21: { title: "Time Series Econometrics: Some Basic Concepts", line_start: 30588, line_end: 32052 }
+  ch22: { title: "Time Series Econometrics: Forecasting", line_start: 32053, line_end: null }

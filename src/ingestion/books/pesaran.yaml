@@ -1,0 +1,45 @@
+slug: pesaran
+name: Time Series and Panel Data Econometrics
+field: econometrics
+theme: Time Series and Panel Data
+authors:
+  - M. Hashem Pesaran
+edition: "1st"
+year: 2015
+# Preprocessed from EPUB-converted markdown (link-wrapped headers).
+# See src/ingestion/processed/pesaran_preproc.py
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/pesaran_fixed.md
+chapters:
+  ch01: { title: "Relationship Between Two Variables", line_start: 1728, line_end: 2343 }
+  ch02: { title: "Multiple Regression", line_start: 2344, line_end: 3133 }
+  ch03: { title: "Hypothesis Testing in Regression Models", line_start: 3134, line_end: 4019 }
+  ch04: { title: "Heteroskedasticity", line_start: 4020, line_end: 4315 }
+  ch05: { title: "Autocorrelated Disturbances", line_start: 4316, line_end: 5023 }
+  ch06: { title: "Introduction to Dynamic Economic Modelling", line_start: 5024, line_end: 5543 }
+  ch07: { title: "Predictability of Asset Returns and the Efficient Market Hypothesis", line_start: 5544, line_end: 6193 }
+  ch08: { title: "Asymptotic Theory", line_start: 6194, line_end: 7031 }
+  ch09: { title: "Maximum Likelihood Estimation", line_start: 7032, line_end: 7877 }
+  ch10: { title: "Generalized Method of Moments", line_start: 7878, line_end: 8321 }
+  ch11: { title: "Model Selection and Testing Non-Nested Hypotheses", line_start: 8322, line_end: 8935 }
+  ch12: { title: "Introduction to Stochastic Processes", line_start: 8936, line_end: 9457 }
+  ch13: { title: "Spectral Analysis", line_start: 9458, line_end: 9705 }
+  ch14: { title: "Estimation of Stationary Time Series Processes", line_start: 9706, line_end: 10443 }
+  ch15: { title: "Unit Root Processes", line_start: 10444, line_end: 11439 }
+  ch16: { title: "Trend and Cycle Decomposition", line_start: 11440, line_end: 11861 }
+  ch17: { title: "Introduction to Forecasting", line_start: 11862, line_end: 12866 }
+  ch18: { title: "Measurement and Modelling of Volatility", line_start: 12867, line_end: 13357 }
+  ch19: { title: "Multivariate Analysis", line_start: 13358, line_end: 14311 }
+  ch20: { title: "Multivariate Rational Expectations Models", line_start: 14312, line_end: 15369 }
+  ch21: { title: "Vector Autoregressive Models", line_start: 15370, line_end: 15775 }
+  ch22: { title: "Cointegration Analysis", line_start: 15776, line_end: 16897 }
+  ch23: { title: "VARX Modelling", line_start: 16898, line_end: 17393 }
+  ch24: { title: "Impulse Response Analysis", line_start: 17394, line_end: 18073 }
+  ch25: { title: "Modelling the Conditional Correlation of Asset Returns", line_start: 18074, line_end: 18519 }
+  ch26: { title: "Panel Data Models with Strictly Exogenous Regressors", line_start: 18520, line_end: 19634 }
+  ch27: { title: "Short T Dynamic Panel Data Models", line_start: 19635, line_end: 20238 }
+  ch28: { title: "Large Heterogeneous Panel Data Models", line_start: 20239, line_end: 21375 }
+  ch29: { title: "Cross-Sectional Dependence in Panels", line_start: 21376, line_end: 22205 }
+  ch30: { title: "Spatial Panel Econometrics", line_start: 22206, line_end: 22603 }
+  ch31: { title: "Unit Roots and Cointegration in Panels", line_start: 22604, line_end: 23467 }
+  ch32: { title: "Aggregation of Large Panels", line_start: 23468, line_end: 24423 }
+  ch33: { title: "Theory and Practice of GVAR Modelling", line_start: 24424, line_end: 25129 }

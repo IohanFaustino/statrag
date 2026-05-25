@@ -1,0 +1,36 @@
+slug: murphy
+name: "Probabilistic Machine Learning: An Introduction"
+field: introduction
+theme: Probabilistic Machine Learning
+authors:
+  - Kevin P. Murphy
+edition: "1st"
+year: 2022
+# Preprocessed from EPUB-converted markdown — chapter/section heads were
+# encoded as TOC-back links; preprocessor rewrites them as proper #/##/###
+# headers. See src/ingestion/processed/murphy_preproc.py.
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/murphy_fixed.md
+chapters:
+  ch01: { title: "Introduction", line_start: 1675, line_end: 2272 }
+  ch02: { title: "Probability: Univariate Models", line_start: 2273, line_end: 3540 }
+  ch03: { title: "Probability: Multivariate Models", line_start: 3541, line_end: 4236 }
+  ch04: { title: "Statistics", line_start: 4237, line_end: 5823 }
+  ch05: { title: "Decision Theory", line_start: 5824, line_end: 6721 }
+  ch06: { title: "Information Theory", line_start: 6722, line_end: 7330 }
+  ch07: { title: "Linear Algebra", line_start: 7331, line_end: 8812 }
+  ch08: { title: "Optimization", line_start: 8813, line_end: 10032 }
+  ch09: { title: "Linear Discriminant Analysis", line_start: 10033, line_end: 10441 }
+  ch10: { title: "Logistic Regression", line_start: 10442, line_end: 11199 }
+  ch11: { title: "Linear Regression", line_start: 11200, line_end: 12241 }
+  ch12: { title: "Generalized Linear Models", line_start: 12242, line_end: 12456 }
+  ch13: { title: "Neural Networks for Structured Data", line_start: 12457, line_end: 13316 }
+  ch14: { title: "Neural Networks for Images", line_start: 13317, line_end: 13970 }
+  ch15: { title: "Neural Networks for Sequences", line_start: 13971, line_end: 14827 }
+  ch16: { title: "Exemplar-based Methods", line_start: 14828, line_end: 15263 }
+  ch17: { title: "Kernel Methods", line_start: 15264, line_end: 16055 }
+  ch18: { title: "Trees, Forests, Bagging, and Boosting", line_start: 16056, line_end: 16530 }
+  ch19: { title: "Learning with Fewer Labeled Examples", line_start: 16531, line_end: 17082 }
+  ch20: { title: "Dimensionality Reduction", line_start: 17083, line_end: 18423 }
+  ch21: { title: "Clustering", line_start: 18424, line_end: 18927 }
+  ch22: { title: "Recommender Systems", line_start: 18928, line_end: 19137 }
+  ch23: { title: "Graph Embeddings", line_start: 19138, line_end: null }

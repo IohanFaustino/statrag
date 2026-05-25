@@ -1,0 +1,16 @@
+slug: mackay
+name: Mathematical Foundations of Machine Learning
+field: math
+theme: Machine Learning Mathematics
+authors:
+  - David MacKay
+edition: "1st"
+year: 2024
+# Preprocessed: every `#` demoted to `##`. See library/_processed/mackay_preproc.py.
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/mackay_fixed.md
+chapters:
+  ch01: { title: "Introduction to Machine Learning", line_start: 114, line_end: 557 }
+  ch02: { title: "Machine Learning Algorithms", line_start: 558, line_end: 778 }
+  ch03: { title: "Neural Network Learning Models", line_start: 779, line_end: 1068 }
+  ch04: { title: "Learning Through Uniform Convergence", line_start: 1069, line_end: 1202 }
+  ch05: { title: "Data Science Lifecycle and Technologies", line_start: 1203, line_end: null }

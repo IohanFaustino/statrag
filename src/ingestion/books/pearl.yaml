@@ -1,0 +1,16 @@
+slug: pearl
+name: "Causal Inference in Statistics: A Primer"
+field: causal_inference
+theme: Causal Inference
+authors:
+  - Judea Pearl
+  - Madelyn Glymour
+  - Nicholas P. Jewell
+edition: "1st"
+year: 2016
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Causal Inference/2016_Pearl_Glaymour_Jewell/vlm/2016_Pearl_Glaymour_Jewell.md
+chapters:
+  ch01: { title: "Preliminaries: Statistical and Causal Models", line_start: 326, line_end: 1366 }
+  ch02: { title: "Graphical Models and Their Applications", line_start: 1367, line_end: 1921 }
+  ch03: { title: "The Effects of Interventions", line_start: 1922, line_end: 3116 }
+  ch04: { title: "Counterfactuals and Their Applications", line_start: 3117, line_end: null }

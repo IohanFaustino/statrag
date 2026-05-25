@@ -1,0 +1,36 @@
+slug: goodfellow
+name: "Deep Learning"
+field: ml_dp
+theme: Deep Learning
+authors:
+  - Ian Goodfellow
+  - Yoshua Bengio
+  - Aaron Courville
+edition: "1st"
+year: 2016
+# Preprocessed from EPUB-converted markdown — no `#` headers; chapter/section
+# heads encoded as back-links to part0005.xhtml (the contents page). The
+# preprocessor rewrites them as proper #/##/### markdown headers.
+# See src/ingestion/processed/goodfellow_preproc.py.
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/goodfellow_fixed.md
+chapters:
+  ch01: { title: "Introduction", line_start: 542, line_end: 797 }
+  ch02: { title: "Linear Algebra", line_start: 798, line_end: 1269 }
+  ch03: { title: "Probability and Information Theory", line_start: 1270, line_end: 1737 }
+  ch04: { title: "Numerical Computation", line_start: 1738, line_end: 2009 }
+  ch05: { title: "Machine Learning Basics", line_start: 2010, line_end: 2943 }
+  ch06: { title: "Deep Feedforward Networks", line_start: 2944, line_end: 3815 }
+  ch07: { title: "Regularization for Deep Learning", line_start: 3816, line_end: 4479 }
+  ch08: { title: "Optimization for Training Deep Models", line_start: 4480, line_end: 5311 }
+  ch09: { title: "Convolutional Networks", line_start: 5312, line_end: 5697 }
+  ch10: { title: "Sequence Modeling: Recurrent and Recursive Nets", line_start: 5698, line_end: 6237 }
+  ch11: { title: "Practical Methodology", line_start: 6238, line_end: 6481 }
+  ch12: { title: "Applications", line_start: 6482, line_end: 6941 }
+  ch13: { title: "Linear Factor Models", line_start: 6942, line_end: 7139 }
+  ch14: { title: "Autoencoders", line_start: 7140, line_end: 7447 }
+  ch15: { title: "Representation Learning", line_start: 7448, line_end: 7735 }
+  ch16: { title: "Structured Probabilistic Models for Deep Learning", line_start: 7736, line_end: 8109 }
+  ch17: { title: "Monte Carlo Methods", line_start: 8110, line_end: 8313 }
+  ch18: { title: "Confronting the Partition Function", line_start: 8314, line_end: 8779 }
+  ch19: { title: "Approximate Inference", line_start: 8780, line_end: 9111 }
+  ch20: { title: "Deep Generative Models", line_start: 9112, line_end: null }

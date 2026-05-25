@@ -1,0 +1,35 @@
+slug: prado
+name: Advances in Financial Machine Learning
+field: ml_dp
+theme: Financial Machine Learning
+authors:
+  - Marcos M. López de Prado
+edition: "1st"
+year: 2018
+# Preprocessed from EPUB-converted markdown — only fix is unwrapping
+# `*...*` emphasis around H4 numeric labels so the regex pass recognizes
+# their numeric prefix. See src/ingestion/processed/prado_preproc.py
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/prado_fixed.md
+chapters:
+  ch01: { title: "Financial Machine Learning as a Distinct Subject", line_start: 618, line_end: 952 }
+  ch02: { title: "Financial Data Structures", line_start: 953, line_end: 1308 }
+  ch03: { title: "Labeling", line_start: 1309, line_end: 1546 }
+  ch04: { title: "Sample Weights", line_start: 1547, line_end: 1768 }
+  ch05: { title: "Fractionally Differentiated Features", line_start: 1769, line_end: 2013 }
+  ch06: { title: "Ensemble Methods", line_start: 2014, line_end: 2172 }
+  ch07: { title: "Cross-Validation in Finance", line_start: 2173, line_end: 2316 }
+  ch08: { title: "Feature Importance", line_start: 2317, line_end: 2526 }
+  ch09: { title: "Hyper-Parameter Tuning with Cross-Validation", line_start: 2527, line_end: 2677 }
+  ch10: { title: "Bet Sizing", line_start: 2678, line_end: 2821 }
+  ch11: { title: "The Dangers of Backtesting", line_start: 2822, line_end: 2974 }
+  ch12: { title: "Backtesting through Cross-Validation", line_start: 2975, line_end: 3107 }
+  ch13: { title: "Backtesting on Synthetic Data", line_start: 3108, line_end: 3411 }
+  ch14: { title: "Backtest Statistics", line_start: 3412, line_end: 3736 }
+  ch15: { title: "Understanding Strategy Risk", line_start: 3737, line_end: 3876 }
+  ch16: { title: "Machine Learning Asset Allocation", line_start: 3877, line_end: 4180 }
+  ch17: { title: "Structural Breaks", line_start: 4181, line_end: 4453 }
+  ch18: { title: "Entropy Features", line_start: 4454, line_end: 4737 }
+  ch19: { title: "Microstructural Features", line_start: 4738, line_end: 5144 }
+  ch20: { title: "Multiprocessing and Vectorization", line_start: 5145, line_end: 5377 }
+  ch21: { title: "Brute Force and Quantum Computers", line_start: 5378, line_end: 5527 }
+  ch22: { title: "High-Performance Computational Intelligence and Forecasting Technologies", line_start: 5528, line_end: 5811 }

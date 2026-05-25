@@ -1,0 +1,167 @@
+/* statrag — Design Tokens
+   Token blocks only: themes, base reset, fonts, type scale, layout dims, density vars.
+   Component-specific selectors live in app.css.
+   ────────────────────────────────────────────────────────────────── */
+
+/* ──────────────────────────────────────────────────────────────────
+   Dark theme — "Scholar's Terminal" (neon + glass)
+   ────────────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --bg-primary:    #000000;
+  --bg-secondary:  rgba(12, 12, 14, 0.72);
+  --bg-tertiary:   rgba(20, 20, 22, 0.78);
+  --bg-elevated:   rgba(32, 32, 36, 0.86);
+
+  --border-subtle:  rgba(229, 72, 77, 0.22);
+  --border-default: rgba(229, 72, 77, 0.55);
+
+  --text-primary:   #F2F2F4;
+  --text-secondary: #A8A8B0;
+  --text-tertiary:  #6B6B73;
+  --text-inverse:   #050505;
+
+  --accent-primary:   #E5484D;
+  --accent-secondary: #FFA94D;
+  --accent-tertiary:  #FFD18A;
+  --accent-danger:    #FF7A8B;
+  --accent-neutral:   #D49AF0;
+
+  --code-surface: rgba(20, 10, 14, 0.62);
+  --code-accent:  #E5484D;
+  --syntax-amber: #FFD18A;
+
+  --glow-accent:  0 0 18px rgba(229, 72, 77, 0.42), 0 0 40px rgba(229, 72, 77, 0.14);
+  --glow-soft:    0 0 10px rgba(229, 72, 77, 0.28);
+  --glass-edge:   inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 140, 150, 0.06);
+
+  --shadow-elev:    0 16px 52px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-popover: 0 14px 42px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(229, 72, 77, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Light theme — "Financial Terminal" (cream + navy)
+   ────────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg-primary:    #FAF7F0;
+  --bg-secondary:  rgba(255, 254, 250, 0.46);
+  --bg-tertiary:   rgba(255, 254, 250, 0.60);
+  --bg-elevated:   rgba(255, 254, 250, 0.85);
+
+  --border-subtle:  rgba(30, 58, 138, 0.10);
+  --border-default: rgba(30, 58, 138, 0.22);
+
+  --text-primary:   #0F1F3D;
+  --text-secondary: #46607F;
+  --text-tertiary:  #8295AE;
+  --text-inverse:   #FAF7F0;
+
+  --accent-primary:   #1E3A8A;
+  --accent-secondary: #1F7A52;
+  --accent-tertiary:  #C28C18;
+  --accent-danger:    #B0312A;
+  --accent-neutral:   #6B4F8C;
+
+  --code-surface: rgba(30, 58, 138, 0.06);
+  --code-accent:  #1E3A8A;
+  --syntax-amber: #C28C18;
+
+  --glow-accent:  0 0 14px rgba(30, 58, 138, 0.20), 0 0 30px rgba(30, 58, 138, 0.08);
+  --glow-soft:    0 0 8px  rgba(30, 58, 138, 0.14);
+  --glass-edge:   inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 1px rgba(30, 58, 138, 0.04);
+
+  --shadow-elev:    0 10px 34px rgba(15, 31, 61, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --shadow-popover: 0 10px 30px rgba(15, 31, 61, 0.14), 0 0 0 1px rgba(30, 58, 138, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Global (theme-independent) tokens
+   ────────────────────────────────────────────────────────────────── */
+:root {
+  --font-serif: 'Crimson Pro', 'IBM Plex Serif', Georgia, serif;
+  --font-sans:  'Atkinson Hyperlegible', 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, 'Cascadia Code', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   22px;
+  --text-xl:   30px;
+  --text-2xl:  40px;
+
+  --topbar-h: 48px;
+  --sidebar-w: 260px;
+  --sidebar-w-collapsed: 52px;
+  --ctx-w: 320px;
+  --ctx-w-collapsed: 36px;
+
+  /* Derived accent vars — overridden by useTweaks at runtime */
+  --accent-primary-soft: rgba(229, 72, 77, 0.16);
+  --accent-primary-ring: rgba(229, 72, 77, 0.20);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Density variables
+   ────────────────────────────────────────────────────────────────── */
+:root[data-density="compact"] {
+  --row-pad-y: 6px;
+  --section-gap: 14px;
+  --thread-gap: 18px;
+  --conv-h: 30px;
+}
+:root[data-density="comfortable"] {
+  --row-pad-y: 10px;
+  --section-gap: 22px;
+  --thread-gap: 28px;
+  --conv-h: 36px;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Base reset
+   ────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+#root { height: 100%; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: default; }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  vertical-align: 1px;
+}
+
+::selection { background: var(--accent-primary-soft); color: var(--text-primary); }
+
+/* Scrollbars */
+.sidebar__scroll, .thread, .ctx-panel__scroll, .mode-overflow__panel, .mode-picker__grid {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+:root[data-theme="light"] .sidebar__scroll,
+:root[data-theme="light"] .thread,
+:root[data-theme="light"] .ctx-panel__scroll {
+  scrollbar-color: rgba(0,0,0,0.12) transparent;
+}
+.sidebar__scroll::-webkit-scrollbar,
+.thread::-webkit-scrollbar,
+.ctx-panel__scroll::-webkit-scrollbar { width: 8px; }
+.sidebar__scroll::-webkit-scrollbar-thumb,
+.thread::-webkit-scrollbar-thumb,
+.ctx-panel__scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

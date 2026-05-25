@@ -1,0 +1,32 @@
+slug: stock_watson
+name: Introduction to Econometrics
+field: introduction
+theme: Econometrics
+authors:
+  - James H. Stock
+  - Mark W. Watson
+edition: "4th"
+year: 2019
+# Preprocessed from EPUB-converted markdown (HTML-stripped headers).
+# See src/ingestion/processed/stock_watson_preproc.py
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/stock_watson_fixed.md
+chapters:
+  ch01: { title: "Economic Questions and Data", line_start: 17, line_end: 814 }
+  ch02: { title: "Review of Probability", line_start: 815, line_end: 4229 }
+  ch03: { title: "Review of Statistics", line_start: 4230, line_end: 6786 }
+  ch04: { title: "Linear Regression with One Regressor", line_start: 6787, line_end: 8859 }
+  ch05: { title: "Regression with a Single Regressor: Hypothesis Tests and Confidence Intervals", line_start: 8860, line_end: 10944 }
+  ch06: { title: "Linear Regression with Multiple Regressors", line_start: 10945, line_end: 13055 }
+  ch07: { title: "Hypothesis Tests and Confidence Intervals in Multiple Regression", line_start: 13056, line_end: 14931 }
+  ch08: { title: "Nonlinear Regression Functions", line_start: 14932, line_end: 18153 }
+  ch09: { title: "Assessing Studies Based on Multiple Regression", line_start: 18154, line_end: 20010 }
+  ch10: { title: "Regression with Panel Data", line_start: 20011, line_end: 21832 }
+  ch11: { title: "Regression with a Binary Dependent Variable", line_start: 21833, line_end: 23995 }
+  ch12: { title: "Instrumental Variables Regression", line_start: 23996, line_end: 26152 }
+  ch13: { title: "Experiments and Quasi-Experiments", line_start: 26153, line_end: 28144 }
+  ch14: { title: "Prediction with Many Regressors and Big Data", line_start: 28145, line_end: 30382 }
+  ch15: { title: "Introduction to Time Series Regression and Forecasting", line_start: 30383, line_end: 33744 }
+  ch16: { title: "Estimation of Dynamic Causal Effects", line_start: 33745, line_end: 35909 }
+  ch17: { title: "Additional Topics in Time Series Regression", line_start: 35910, line_end: 38033 }
+  ch18: { title: "The Theory of Linear Regression with One Regressor", line_start: 38034, line_end: 39706 }
+  ch19: { title: "The Theory of Multiple Regression", line_start: 39707, line_end: null }

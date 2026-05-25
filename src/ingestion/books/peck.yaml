@@ -1,0 +1,72 @@
+slug: peck
+name: Introduction to Statistics and Data Analysis
+field: introduction
+theme: Introductory Statistics
+authors:
+  - Roxy Peck
+  - Chris Olsen
+  - Jay L. Devore
+edition: "4th"
+year: 2010
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Introduction/2010_Peck_Olsen_Devore/vlm/2010_Peck_Olsen_Devore.md
+chapters:
+  ch01:
+    title: "The Role of Statistics and the Data Analysis Process"
+    line_start: 1545
+    line_end: 2529
+  ch02:
+    title: "Collecting Data Sensibly"
+    line_start: 2530
+    line_end: 4372
+  ch03:
+    title: "Graphical Methods for Describing Data"
+    line_start: 4373
+    line_end: 8026
+  ch04:
+    title: "Numerical Methods for Describing Data"
+    line_start: 8027
+    line_end: 10180
+  ch05:
+    title: "Summarizing Bivariate Data"
+    line_start: 10181
+    line_end: 15019
+  ch06:
+    title: "Probability"
+    line_start: 15020
+    line_end: 18371
+  ch07:
+    title: "Random Variables and Probability Distributions"
+    line_start: 18372
+    line_end: 24030
+  ch08:
+    title: "Sampling Variability and Sampling Distributions"
+    line_start: 24031
+    line_end: 25381
+  ch09:
+    title: "Estimation Using a Single Sample"
+    line_start: 25382
+    line_end: 27471
+  ch10:
+    title: "Hypothesis Testing Using a Single Sample"
+    line_start: 27472
+    line_end: 30000
+  ch11:
+    title: "Comparing Two Populations or Treatments"
+    line_start: 30001
+    line_end: 32300
+  ch12:
+    title: "The Analysis of Categorical Data and Goodness-of-Fit Tests"
+    line_start: 32301
+    line_end: 33669
+  ch13:
+    title: "Simple Linear Regression and Correlation: Inferential Methods"
+    line_start: 33670
+    line_end: 37147
+  ch14:
+    title: "Multiple Regression Analysis"
+    line_start: 37148
+    line_end: 38936
+  ch15:
+    title: "Analysis of Variance"
+    line_start: 38937
+    line_end: null

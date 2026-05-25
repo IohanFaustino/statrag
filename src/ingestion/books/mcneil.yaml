@@ -1,0 +1,29 @@
+slug: mcneil
+name: "Quantitative Risk Management: Concepts, Techniques and Tools"
+field: risk
+theme: Quantitative Risk Management
+authors:
+  - Alexander J. McNeil
+  - Rüdiger Frey
+  - Paul Embrechts
+edition: "Revised"
+year: 2015
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Risk/2015_McNeil_Frey_Embrechts/vlm/2015_McNeil_Frey_Embrechts.md
+chapters:
+  ch01: { title: "Risk in Perspective", line_start: 679, line_end: 1230 }
+  ch02: { title: "Basic Concepts in Risk Management", line_start: 1231, line_end: 2122 }
+  ch03: { title: "Empirical Properties of Financial Data", line_start: 2123, line_end: 2548 }
+  ch04: { title: "Financial Time Series", line_start: 2549, line_end: 4417 }
+  ch05: { title: "Extreme Value Theory", line_start: 4418, line_end: 5616 }
+  ch06: { title: "Multivariate Models", line_start: 5617, line_end: 7144 }
+  ch07: { title: "Copulas and Dependence", line_start: 7145, line_end: 9198 }
+  ch08: { title: "Aggregate Risk", line_start: 9199, line_end: 10818 }
+  ch09: { title: "Market Risk", line_start: 10819, line_end: 11948 }
+  ch10: { title: "Credit Risk", line_start: 11949, line_end: 13571 }
+  ch11: { title: "Portfolio Credit Risk Management", line_start: 13572, line_end: 14881 }
+  ch12: { title: "Portfolio Credit Derivatives", line_start: 14882, line_end: 15507 }
+  ch13: { title: "Operational Risk and Insurance Analytics", line_start: 15508, line_end: 16685 }
+  ch14: { title: "Multivariate Time Series", line_start: 16686, line_end: 17261 }
+  ch15: { title: "Advanced Topics in Multivariate Modelling", line_start: 17262, line_end: 17824 }
+  ch16: { title: "Advanced Topics in Extreme Value Theory", line_start: 17825, line_end: 18637 }
+  ch17: { title: "Dynamic Portfolio Credit Risk Models and Counterparty Risk", line_start: 18638, line_end: null }

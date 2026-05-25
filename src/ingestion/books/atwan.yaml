@@ -1,0 +1,26 @@
+slug: atwan
+name: "Time Series Analysis with Python Cookbook"
+field: econometrics
+theme: Time Series
+authors:
+  - Tarek A. Atwan
+edition: "1st"
+year: 2026
+# Preprocessed: every `#` demoted to `##`. See library/_processed/atwan_preproc.py.
+# Line numbers preserved (dedupes replaced with blank lines).
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/atwan_fixed.md
+chapters:
+  ch01: { title: "Reading Time Series Data from Files", line_start: 476, line_end: 1584 }
+  ch02: { title: "Reading Time Series Data from Databases", line_start: 1585, line_end: 3304 }
+  ch03: { title: "Persisting Time Series Data to Files", line_start: 3305, line_end: 4291 }
+  ch04: { title: "Persisting Time Series Data to Databases", line_start: 4292, line_end: 5614 }
+  ch05: { title: "Working with Date and Time in Python", line_start: 5615, line_end: 7408 }
+  ch06: { title: "Handling Missing Data", line_start: 7409, line_end: 9006 }
+  ch07: { title: "Outlier Detection Using Statistical Methods", line_start: 9007, line_end: 10807 }
+  ch08: { title: "Exploratory Data Analysis and Diagnosis", line_start: 10808, line_end: 12815 }
+  ch09: { title: "Building Univariate Time Series Models Using Statistical Methods", line_start: 12816, line_end: 16135 }
+  ch10: { title: "Additional Statistical Modeling Techniques for Time Series", line_start: 16136, line_end: 20138 }
+  ch11: { title: "Forecasting Using Supervised Machine Learning", line_start: 20139, line_end: 23251 }
+  ch12: { title: "Deep Learning for Time Series Forecasting", line_start: 23252, line_end: 27216 }
+  ch13: { title: "Outlier Detection Using Unsupervised Machine Learning", line_start: 27217, line_end: 29451 }
+  ch14: { title: "Advanced Techniques for Complex Time Series", line_start: 29452, line_end: 32386 }

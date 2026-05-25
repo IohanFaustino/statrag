@@ -1,0 +1,66 @@
+slug: islp
+name: An Introduction to Statistical Learning with Applications in Python
+field: introduction
+theme: Machine Learning
+authors:
+  - Gareth James
+  - Daniela Witten
+  - Trevor Hastie
+  - Robert Tibshirani
+  - Jonathan Taylor
+edition: "1st"
+year: 2023
+source_path: /home/iohan/Documents/Books/Process/Files/Output/ML_DP/ISLP_website/ISLP_website.md
+chapters:
+  ch01:
+    title: Introduction
+    line_start: 5
+    line_end: 649
+  ch02:
+    title: Statistical Learning
+    line_start: 650
+    line_end: 2558
+  ch03:
+    title: Linear Regression
+    line_start: 2559
+    line_end: 4622
+  ch04:
+    title: Classification
+    line_start: 4623
+    line_end: 6850
+  ch05:
+    title: Resampling Methods
+    line_start: 6851
+    line_end: 7862
+  ch06:
+    title: Linear Model Selection and Regularization
+    line_start: 7863
+    line_end: 9972
+  ch07:
+    title: Moving Beyond Linearity
+    line_start: 9973
+    line_end: 11628
+  ch08:
+    title: Tree-Based Methods
+    line_start: 11629
+    line_end: 12868
+  ch09:
+    title: Support Vector Machines
+    line_start: 12869
+    line_end: 14077
+  ch10:
+    title: Deep Learning
+    line_start: 14078
+    line_end: 17056
+  ch11:
+    title: Survival Analysis and Censored Data
+    line_start: 17059
+    line_end: 18253
+  ch12:
+    title: Unsupervised Learning
+    line_start: 18254
+    line_end: 20048
+  ch13:
+    title: Multiple Testing
+    line_start: 20049
+    line_end: null

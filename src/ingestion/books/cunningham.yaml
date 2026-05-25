@@ -1,0 +1,52 @@
+slug: cunningham
+name: "Causal Inference: The Mixtape"
+field: introduction
+theme: Causal Inference
+authors:
+  - Scott Cunningham
+edition: "1st"
+year: 2021
+# Preprocessed source: dedupe consecutive duplicate H1s (page bleeds) + promote
+# non-chapter H1s to H2. See library/_processed/README_cunningham.md.
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/cunningham_fixed.md
+chapters:
+  ch01:
+    title: "Introduction"
+    line_start: 216
+    line_end: 428
+  ch02:
+    title: "Probability and Regression Review"
+    line_start: 429
+    line_end: 2836
+  ch03:
+    title: "Directed Acyclic Graphs"
+    line_start: 2837
+    line_end: 3321
+  ch04:
+    title: "Potential Outcomes Causal Model"
+    line_start: 3322
+    line_end: 4527
+  ch05:
+    title: "Matching and Subclassification"
+    line_start: 4528
+    line_end: 6098
+  ch06:
+    title: "Regression Discontinuity"
+    line_start: 6099
+    line_end: 8084
+  ch07:
+    title: "Instrumental Variables"
+    line_start: 8085
+    line_end: 9422
+  ch08:
+    title: "Panel Data"
+    line_start: 9423
+    line_end: 9901
+  ch09:
+    title: "Difference-in-Differences"
+    line_start: 9902
+    line_end: 12225
+  ch10:
+    title: "Synthetic Control"
+    line_start: 12226
+    line_end: null

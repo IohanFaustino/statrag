@@ -1,0 +1,59 @@
+# 45 — Query planner (top orchestrator) + coverage check
+
+## Why
+
+"What is the bias-variance tradeoff?" used to retrieve on the **raw question
+only** and the draft gave the bias formula but not the variance formula. Two
+causes: retrieval coverage (the variance-formula chunk never entered the pool)
+and synthesis asymmetry. Option 2 fixes both with a top orchestrator that plans
+retrieval + a coverage check that verifies it.
+
+## Flow
+
+```
+Question
+  → Query planner (nano, extract_concepts_ex → QueryPlan)
+       concepts + suggested_authors + queries[] + facets[]
+  → raw-query wide pull ‖ multi-query (one hybrid_search per query) → RRF merge
+  → density select + author diversity + rerank → sources
+  → Coverage check: assess_coverage(facets, sources) → missing
+       missing → fill_missing_facets (re-query, cap 1) → re-rank
+  → Planner → draft (single, + "give each named component its formula")
+  → Answer
+```
+
+The **raw question is always retrieved** (anchor); multi-query only adds and
+RRF-fuses. The coverage check is the self-healer: the planner declares the
+`facets` the answer needs, and the system verifies they were actually retrieved.
+
+## Config
+
+| Knob | Where | Default | Meaning |
+|---|---|---|---|
+| `TUTOR_MULTI_QUERY` | env | `1` | `0` = raw-query retrieval only |
+| `TUTOR_COVERAGE_CHECK` | env | `1` | `0` = skip coverage + re-query |
+
+Both off ⇒ exactly the legacy single-query path.
+
+## Code
+
+- `agents/deep_tutor.py` — `QueryPlan`, `extract_concepts_ex` (now returns it),
+  `_rrf_merge`, `_multi_query_candidates`; coverage wiring in `run_deep_tutor`.
+- `agents/coverage.py` — `assess_coverage`, `fill_missing_facets`.
+- `prompts/deep_tutor.py` — `EXTRACT_CONCEPTS_BUDGET_PROMPT` (queries+facets),
+  `COVERAGE_PROMPT`, `formal_statement` symmetric-coverage nudge.
+- Frontend — `tutorPipeline.ts` (Query planner relabel + Coverage node),
+  `PipelineDiagram.tsx`.
+
+## Tests
+
+`src/services/chat/tests/test_query_planner_coverage.py` — RRF merge dedup/order,
+planner graceful fallback, coverage graceful + facet-scoped, re-query dedup.
+
+## Notes
+
+- Best-effort throughout (invariant #19): any LLM failure degrades to the
+  legacy path; coverage re-query capped at 1.
+- The per-author orchestrator-workers drafting mode is unchanged (optional).
+- Possible follow-up: spell the variance formula fully (the coverage check
+  surfaces the facet; a stronger `formal_statement` example would expand it).

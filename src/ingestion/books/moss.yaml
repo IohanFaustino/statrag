@@ -1,0 +1,22 @@
+slug: moss
+name: Mathematical Statistics for Applied Econometrics
+field: math
+theme: Mathematical Statistics
+authors:
+  - Charles B. Moss
+edition: "1st"
+year: 2015
+source_path: /home/iohan/Documents/Converters/Cloud based/Converters/Files/Output/Math/2015_Moss/vlm/2015_Moss.md
+chapters:
+  ch01: { title: "Defining Mathematical Statistics", line_start: 625, line_end: 1007 }
+  ch02: { title: "Introduction to Statistics, Probability, and Econometrics", line_start: 1008, line_end: 1441 }
+  ch03: { title: "Random Variables and Probability Distributions", line_start: 1442, line_end: 2986 }
+  ch04: { title: "Moments and Moment-Generating Functions", line_start: 2987, line_end: 3978 }
+  ch05: { title: "Binomial and Normal Random Variables", line_start: 3979, line_end: 4690 }
+  ch06: { title: "Large Sample Theory", line_start: 4691, line_end: 5476 }
+  ch07: { title: "Point Estimation", line_start: 5477, line_end: 6446 }
+  ch08: { title: "Interval Estimation", line_start: 6447, line_end: 6981 }
+  ch09: { title: "Testing Hypotheses", line_start: 6982, line_end: 7546 }
+  ch10: { title: "Elements of Matrix Analysis", line_start: 7547, line_end: 8431 }
+  ch11: { title: "Regression Applications in Econometrics", line_start: 8432, line_end: 9694 }
+  ch12: { title: "Survey of Nonlinear Econometric Applications", line_start: 9695, line_end: null }
