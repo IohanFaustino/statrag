@@ -81,6 +81,44 @@ python -m src.ingestion.pipeline --book <slug> --chapter chNN
 
 Open <http://localhost:5175>.
 
+## Ingesting your own books
+
+The system starts with **empty Qdrant collections**. To make the tutor mode
+useful you must ingest at least one OCR-cleaned Markdown textbook. The full
+operational guide lives in **[`docs/tasks/ingestion.md`](docs/tasks/ingestion.md)**
+— read that first. Summary of the user-facing path:
+
+1. **Locate chapter boundaries** in your `.md` source:
+   ```bash
+   grep -n "^# \|^## [0-9]\|^### [0-9]\+\.1\s" /path/to/book.md | head -40
+   ```
+2. **Write `src/ingestion/books/<slug>.yaml`** with `slug`, `name`, `field`
+   (collection prefix, e.g. `econometrics`), `theme`, `authors`, `edition`,
+   `year`, `source_path`, and a `chapters:` map of `line_start` / `line_end`.
+   Template + every required field is in
+   [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md#required-yaml-fields).
+3. **(Optional) Extract index + bibliography** into
+   `data/parsed/<slug>/book.json` for better retrieval payload filters.
+4. **Preview ingest** one section (~1 LLM call, no manifest write):
+   ```bash
+   .venv/bin/python -m src.ingestion.pipeline \
+     --book <slug> --chapter ch01 --limit-sections 1 --force
+   ```
+5. **Full ingest** all chapters once preview looks right:
+   ```bash
+   .venv/bin/python -m src.ingestion.pipeline --book <slug>
+   ```
+6. **Verify** invariants on the resulting Qdrant state — see
+   [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md) "Verify" section.
+
+### Easy path: Claude Code
+
+If you use Claude Code, the repo also defines a `rag-add-book` skill that
+runs steps 1–5 end-to-end with three confirmation gates (yaml → preview →
+full ingest). Drop the skill into your local `.claude/skills/` and invoke
+it; the skill itself follows the recipe in `docs/tasks/ingestion.md`, so
+that doc is the single source of truth either way.
+
 ## Ports
 
 | Profile | Frontend | Backend | Qdrant |
