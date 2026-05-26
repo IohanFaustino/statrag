@@ -20,59 +20,166 @@
 
 ## 🏛️ Project Architecture (high-level)
 
-The repo enforces a **Chinese-wall layering**: `core` imports nothing in-repo; `tasks` (ingestion) and `services` (retrieval, chat, eval) import only `core`; services never cross. Each box below is a folder you can add to without refactoring the rest.
+Full end-to-end view: **browser SPA ↔ FastAPI backend ↔ core infra ↔ Qdrant + SQLite**, plus the offline **ingestion task** that fills Qdrant. Backend enforces a **Chinese wall**: `core` imports nothing in-repo; `tasks` and `services` import only `core`; services never cross. Frontend talks to the backend through one REST client and one SSE client — no other coupling.
 
 ```mermaid
-flowchart TD
-    accTitle: statrag layered architecture
-    accDescr: Browser SPA → FastAPI services layer → core infra → Qdrant + SQLite, with a separate ingestion task pipeline writing into the same vector store.
+flowchart TB
+    accTitle: statrag full project architecture
+    accDescr: Browser SPA with state/components/views/modals talks via REST + SSE to a FastAPI backend whose chat service composes agents, retrievers, prompts, schemas, and an LLM router over 3 providers. Backend reads/writes Qdrant via core; chat persistence in SQLite. Separate ingestion task pipeline writes textbook + image collections into Qdrant. All packaged via Docker compose with dev and prod profiles.
 
-    subgraph CL["🌐 Client"]
-      SPA["React 18 + Vite + TS SPA<br/>web/"]
+    %% ─── FRONTEND ────────────────────────────────────────────────────────────
+    subgraph FE["🖥️  Frontend — web/  (React 18 · Vite 5 · TS strict)"]
+      direction TB
+      FE_APP["App.tsx<br/><sub>layout · routing · theme</sub>"]
+      subgraph FE_STATE["state/"]
+        FE_CHAT["useChat reducer"]
+        FE_PERS["persist · tweaks"]
+      end
+      subgraph FE_API["api/"]
+        FE_REST["client.ts<br/><sub>REST</sub>"]
+        FE_SSE["sse.ts<br/><sub>streamChat / status / stream</sub>"]
+      end
+      subgraph FE_COMP["components/"]
+        FE_SHELL["Topbar · Sidebar · ContextPanel<br/>InputBar · MessageThread"]
+        FE_PICK["ModelPicker · ModePicker<br/>SettingsPicker · NodeModelDropdown"]
+        FE_PIPE["PipelineDiagram<br/><sub>reads data/tutorPipeline.ts</sub>"]
+      end
+      subgraph FE_VIEWS["components/views/  (1 per schema)"]
+        FE_VIEW["TutorView · QuizView · DAGView<br/>ReportView · StudyPathView<br/>RoadmapView · NavigationView · AnnotateView"]
+      end
+      subgraph FE_MOD["components/modals/"]
+        FE_MODAL["AboutModelModal · BookModal<br/>SourceModal · FocusModal"]
+      end
+      FE_APP --> FE_STATE
+      FE_APP --> FE_COMP
+      FE_APP --> FE_MOD
+      FE_COMP --> FE_VIEWS
+      FE_STATE --> FE_API
     end
 
-    subgraph SVC["⚙️ Services (src/services/)"]
-      CHAT["chat/<br/>FastAPI + SSE orchestrator<br/>11 modes (Tutor working)"]
-      RET["retrieval/<br/>Hybrid RRF + chain"]
-      EVAL["eval/<br/>metrics harness"]
+    %% ─── BACKEND ─────────────────────────────────────────────────────────────
+    subgraph BE["🐍 Backend — src/services/chat/  (FastAPI · SSE · Python 3.12)"]
+      direction TB
+      API["api.py<br/><sub>/api/health · /api/figures · /api/chat<br/>/api/chat/{id}/stream · /api/chat/{id}/status<br/>/api/study_plans/*</sub>"]
+      subgraph BE_ROUTERS["sub-routers"]
+        R_BOOKS["books.py<br/><sub>/api/books</sub>"]
+        R_RET["retrieval.py<br/><sub>/api/search</sub>"]
+        R_LLM["llm/router.py<br/><sub>/api/models</sub>"]
+        R_STORE["store.py<br/><sub>/api/conversations · /api/preferences</sub>"]
+      end
+      ORCH["orchestrator.py<br/><sub>mode dispatch</sub>"]
+      RUNS["runs.py<br/><sub>detached resumable<br/>per-conv asyncio.Task</sub>"]
+      subgraph AGENTS["agents/"]
+        AG["deep_tutor · coverage · image_judge<br/>orchestrator_workers · graph<br/>prereqs · research · study_path"]
+      end
+      subgraph RETR["retrievers/ + retrieval.py"]
+        RX["density · diversity · image_density<br/>hybrid RRF (dense + BM25)"]
+      end
+      subgraph LLMP["llm/"]
+        LR["openai_client · deepseek_client<br/>groq_client · router"]
+      end
+      PROMPTS["prompts/<br/><sub>11 mode prompts<br/>XML-tagged (role/context/task)</sub>"]
+      SCHEMAS["schemas/<br/><sub>_core · output · output_repair</sub>"]
+      TOOLS["tools/<br/><sub>inspect_figure · retrieve_figures<br/>kg_neighbors · extract_terms</sub>"]
+      EXTRA["highlights · rerankers · query_expansion<br/>memory · kg · vision · cost · checkpointer"]
+
+      API --> BE_ROUTERS
+      API --> ORCH
+      ORCH --> RUNS
+      ORCH --> AGENTS
+      AGENTS --> RETR
+      AGENTS --> LLMP
+      AGENTS --> PROMPTS
+      AGENTS --> SCHEMAS
+      AGENTS --> TOOLS
+      AGENTS --> EXTRA
     end
 
+    %% ─── OTHER SERVICES ──────────────────────────────────────────────────────
+    subgraph SVC2["📦 Other services (src/services/)"]
+      RETSVC["retrieval/<br/><sub>chain · cli</sub>"]
+      EVAL["eval/<br/><sub>dataset · runner · metrics</sub>"]
+    end
+
+    %% ─── CORE ────────────────────────────────────────────────────────────────
     subgraph CORE["🧱 Core (src/core/)"]
-      CFG["config.py"]
-      QS["qdrant_store.py"]
+      CFG["config.py<br/><sub>.env settings</sub>"]
+      QS["qdrant_store.py<br/><sub>client factory</sub>"]
     end
 
-    subgraph TASK["📥 Tasks (src/ingestion/)"]
-      ING["5-stage ingest:<br/>regex → LLM enrich → chunk → embed → persist"]
+    %% ─── INGESTION TASK ─────────────────────────────────────────────────────
+    subgraph TASK["📥 Ingestion task (src/ingestion/)"]
+      ING["pipeline.py<br/>5 stages: regex_pass → llm_enrich →<br/>build_documents → embed → persist"]
+      ING_IMG["ingest_images_only.py"]
+      ING_YAML["books/&lt;slug&gt;.yaml<br/>+ data/parsed/&lt;slug&gt;/book.json"]
+      ING_YAML --> ING
+      ING_YAML --> ING_IMG
     end
 
-    subgraph DATA["🗄️ Storage"]
-      QD[("Qdrant 1.12<br/>field_textbooks +<br/>field_images")]
-      DB[("SQLite<br/>chat.db")]
+    %% ─── STORAGE + EXTERNAL ─────────────────────────────────────────────────
+    subgraph DATA["🗄️ Storage + external"]
+      QD[("Qdrant 1.12<br/>&lt;field&gt;_textbooks +<br/>&lt;field&gt;_images +<br/>concepts_kg")]
+      DB[("SQLite<br/>data/chat.db<br/>conversations · messages<br/>prefs · study_plans")]
+      FS[("Local FS<br/>whitelisted figure roots")]
+      EXT_LLM(["OpenAI · DeepSeek · Groq<br/>HTTPS"])
     end
 
-    SPA -- SSE + REST --> CHAT
-    CHAT --> RET
-    CHAT --> CORE
-    RET --> CORE
+    %% ─── OPS ─────────────────────────────────────────────────────────────────
+    subgraph OPS["🐳 Ops (ops/)"]
+      COMPOSE["docker-compose.yml<br/><sub>qdrant + qdrant-backup (default)<br/>statrag-chat + statrag-web (prod profile)</sub>"]
+      NGINX["nginx.conf<br/><sub>:5173 → /api → :8765</sub>"]
+      SCRIPTS["scripts/<br/><sub>render_state.py · qdrant_snapshot.sh</sub>"]
+    end
+
+    %% ─── WIRING ──────────────────────────────────────────────────────────────
+    FE_REST -- REST --> API
+    FE_SSE  -- SSE  --> API
+    RUNS -- SSE events --> FE_SSE
+    R_STORE --> DB
+    API -- /api/figures --> FS
+    LR -- HTTPS --> EXT_LLM
+    RETR --> CORE
+    RETSVC --> CORE
     EVAL --> CORE
-    CHAT --> DB
-    CORE --> QD
+    AGENTS --> CORE
     ING --> CORE
+    ING_IMG --> CORE
+    CORE --> QD
     ING --> QD
+    ING_IMG --> QD
 
-    classDef client fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#7c2d12
-    classDef svc    fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
-    classDef core   fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
-    classDef task   fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
-    classDef data   fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    COMPOSE -. runs .-> BE
+    COMPOSE -. runs .-> FE
+    COMPOSE -. runs .-> QD
+    NGINX -. proxies prod .-> FE
 
-    class SPA client
-    class CHAT,RET,EVAL svc
+    %% ─── STYLE ───────────────────────────────────────────────────────────────
+    classDef fe   fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#7c2d12
+    classDef be   fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef svc  fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#3730a3
+    classDef core fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    classDef task fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef data fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef ops  fill:#f3f4f6,stroke:#4b5563,stroke-width:2px,color:#1f2937
+
+    class FE_APP,FE_CHAT,FE_PERS,FE_REST,FE_SSE,FE_SHELL,FE_PICK,FE_PIPE,FE_VIEW,FE_MODAL fe
+    class API,R_BOOKS,R_RET,R_LLM,R_STORE,ORCH,RUNS,AG,RX,LR,PROMPTS,SCHEMAS,TOOLS,EXTRA be
+    class RETSVC,EVAL svc
     class CFG,QS core
-    class ING task
-    class QD,DB data
+    class ING,ING_IMG,ING_YAML task
+    class QD,DB,FS,EXT_LLM data
+    class COMPOSE,NGINX,SCRIPTS ops
 ```
+
+**Reality check** (what this diagram captures that the previous one missed):
+
+- **Frontend internals** — 5 shell components, 4 modals, 8 per-schema views, a PipelineDiagram, state layer (reducer + persist + tweaks), and the REST + SSE clients as separate transports.
+- **Backend sub-routers** — `api.py` is a thin shell; the real route surface is composed from `books.router`, `retrieval.router`, `llm/router.py`, and `store.router` (mounted under `/api`).
+- **Detached runs** — `runs.py` owns the per-conversation `asyncio.Task` and event buffer; SSE responses are subscribers, not generators.
+- **Agents are plural** — `deep_tutor` is one of 8 agent modules (`coverage`, `image_judge`, `orchestrator_workers`, `graph`, `prereqs`, `research`, `study_path`).
+- **3 LLM providers** — OpenAI, DeepSeek, Groq, all dispatched through `llm/router.py`.
+- **Two storage stores** — Qdrant for vectors *and* SQLite for chat persistence; `/api/figures` reads from whitelisted local FS roots.
+- **Ops layer** — docker-compose runs Qdrant + auto-backup by default; the chat + web containers live behind a `prod` profile so dev (`:8766`/`:5175`) and prod (`:8765`/`:5173`) coexist.
 
 ---
 
