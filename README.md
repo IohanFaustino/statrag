@@ -18,36 +18,60 @@
 
 > A **local-first, multi-mode study companion** that turns a personal library of statistics, econometrics, causal-inference, ML, and quant-finance textbooks into a tutor that *teaches* — every claim grounded, every citation clickable, every figure pertinence-judged.
 
+## 🏛️ Project Architecture (high-level)
+
+The repo enforces a **Chinese-wall layering**: `core` imports nothing in-repo; `tasks` (ingestion) and `services` (retrieval, chat, eval) import only `core`; services never cross. Each box below is a folder you can add to without refactoring the rest.
+
 ```mermaid
-flowchart LR
-    accTitle: Deep Tutor Pipeline
-    accDescr: Nine-stage retrieval-and-drafting pipeline producing a six-aspect textbook-grade answer.
+flowchart TD
+    accTitle: statrag layered architecture
+    accDescr: Browser SPA → FastAPI services layer → core infra → Qdrant + SQLite, with a separate ingestion task pipeline writing into the same vector store.
 
-    Q["❓ User<br/>Question"]
-    QP["🧠 Query<br/>Planner"]
-    HR["🔀 Hybrid RRF<br/>Dense + BM25"]
-    DS["📏 Density<br/>Select"]
-    DV["👥 Author<br/>Diversity"]
-    CC["✅ Coverage<br/>Check"]
-    IJ["🖼️ Image<br/>Judge"]
-    SP["📐 Synthesis<br/>Plan"]
-    DR["✍️ Draft<br/>6 Aspects"]
-    OUT["📖 Tutor<br/>Answer + Citations"]
+    subgraph CL["🌐 Client"]
+      SPA["React 18 + Vite + TS SPA<br/>web/"]
+    end
 
-    Q --> QP --> HR --> DS --> DV --> CC --> SP --> DR --> OUT
-    HR --> IJ --> DR
+    subgraph SVC["⚙️ Services (src/services/)"]
+      CHAT["chat/<br/>FastAPI + SSE orchestrator<br/>11 modes (Tutor working)"]
+      RET["retrieval/<br/>Hybrid RRF + chain"]
+      EVAL["eval/<br/>metrics harness"]
+    end
 
-    classDef inp  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#7c2d12
-    classDef ret  fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
-    classDef llm  fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
-    classDef img  fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
-    classDef done fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    subgraph CORE["🧱 Core (src/core/)"]
+      CFG["config.py"]
+      QS["qdrant_store.py"]
+    end
 
-    class Q inp
-    class HR,DS,DV ret
-    class QP,CC,SP,DR llm
-    class IJ img
-    class OUT done
+    subgraph TASK["📥 Tasks (src/ingestion/)"]
+      ING["5-stage ingest:<br/>regex → LLM enrich → chunk → embed → persist"]
+    end
+
+    subgraph DATA["🗄️ Storage"]
+      QD[("Qdrant 1.12<br/>field_textbooks +<br/>field_images")]
+      DB[("SQLite<br/>chat.db")]
+    end
+
+    SPA -- SSE + REST --> CHAT
+    CHAT --> RET
+    CHAT --> CORE
+    RET --> CORE
+    EVAL --> CORE
+    CHAT --> DB
+    CORE --> QD
+    ING --> CORE
+    ING --> QD
+
+    classDef client fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#7c2d12
+    classDef svc    fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef core   fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    classDef task   fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef data   fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+
+    class SPA client
+    class CHAT,RET,EVAL svc
+    class CFG,QS core
+    class ING task
+    class QD,DB data
 ```
 
 ---
@@ -72,6 +96,62 @@ flowchart LR
 | **Detached, resumable SSE runs** | Background `asyncio.Task` per conversation; close tab → generation keeps running → reopen → resume from last `seq` | Production-grade chat lifecycle |
 | **Prompt schema invariant** | Every prompt XML-tagged (`<role>` / `<context>` / `<task>` + addenda); enforced by audit test | Small models (Llama 4 Scout, gpt-oss) don't silently break |
 | **Chinese-wall architecture** | `core` imports nothing; `tasks` and `services` import only `core`; services never cross | New feature = new folder, not refactor |
+
+---
+
+## 🧠 Tutor Mode Pipeline (the one mode that works end-to-end)
+
+> This graph describes **Tutor mode only**, not the whole project. It mirrors `web/src/data/tutorPipeline.ts` (the canonical source surfaced in the in-app "About this pipeline" modal) and the stage sequence in `src/services/chat/agents/deep_tutor.py::run_deep_tutor`.
+
+```mermaid
+flowchart TD
+    accTitle: Tutor Mode Pipeline
+    accDescr: Vertical chain from user question through query planning, hybrid retrieval, density rerank with adjacent sections, author diversity, coverage check (with re-query loop), figure judge, planner, drafting workflow, draft, vision explain, and answer.
+
+    Q["❓ Question"]
+    EX["🧠 Query planner<br/><sub>concepts · queries · facets</sub>"]
+    RE["🔀 Hybrid retrieval ×N<br/><sub>dense + BM25 → RRF</sub>"]
+    RR["📏 Density select + rerank<br/>+ adjacent sections<br/><sub>cross-encoder gate</sub>"]
+    DV["👥 Author diversity<br/><sub>round-robin authors</sub>"]
+    CC["✅ Coverage check<br/><sub>facets vs sources<br/>re-query cap 1</sub>"]
+    IJ["🖼️ Figure judge (T1)<br/><sub>caption-level pertinence</sub>"]
+    PL["📐 Planner<br/><sub>thesis · author contrasts<br/>worker tasks</sub>"]
+    WF["🔧 Drafting workflow<br/><sub>single · orchestrator · organize</sub>"]
+    DR["✍️ Draft / synthesis<br/><sub>6-aspect structured output</sub>"]
+    VE["👁️ Vision explain<br/><sub>per placed figure</sub>"]
+    OUT["📖 Answer<br/><sub>streamed via SSE</sub>"]
+
+    Q --> EX --> RE --> RR --> DV --> CC
+    CC -.->|missing facet,<br/>cap 1| RE
+    CC --> IJ --> PL --> WF --> DR --> VE --> OUT
+
+    classDef io   fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#7c2d12
+    classDef llm  fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef data fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    classDef img  fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef done fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+
+    class Q io
+    class EX,PL,DR,VE llm
+    class RE,RR,DV,CC,WF data
+    class IJ img
+    class OUT done
+```
+
+**Node roles** (matches the in-app modal — each LLM node is model-overridable per stage):
+
+| Stage | Default model | Locked? |
+|---|---|:---:|
+| Query planner | `gpt-5.4-nano-2026-03-17` | swappable |
+| Hybrid retrieval | `text-embedding-3-large` + RRF | locked |
+| Density + rerank + adjacent | cross-encoder | locked |
+| Author diversity | (deterministic) | locked |
+| Coverage check | facet re-query | locked |
+| Figure judge (T1) | `gpt-5.4-nano-2026-03-17` | swappable |
+| Planner | `gpt-5.4-nano-2026-03-17` | swappable |
+| Drafting workflow | single / orchestrator / organize | swappable |
+| Draft / synthesis | follows picker (default nano; `deepseek-v4-pro` for organize) | swappable |
+| Vision explain | `gpt-4o-mini` | swappable |
 
 ---
 
