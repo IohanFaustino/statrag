@@ -1,150 +1,207 @@
-# statrag — RAG over Statistical Textbooks
+# 📚 statrag — RAG over Statistical Textbooks
 
-## Aim
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Qdrant](https://img.shields.io/badge/Qdrant-1.12-DC382D.svg?logo=qdrant&logoColor=white)](https://qdrant.tech/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-embeddings%20%2B%20chat-412991.svg?logo=openai&logoColor=white)](https://openai.com/)
+[![DeepSeek](https://img.shields.io/badge/DeepSeek-v4--pro-4D6BFE.svg)](https://www.deepseek.com/)
+[![Groq](https://img.shields.io/badge/Groq-Llama%204%20%2B%20gpt--oss-F55036.svg)](https://groq.com/)
+[![LangChain](https://img.shields.io/badge/LangChain-LangGraph-1C3C3C.svg?logo=langchain&logoColor=white)](https://www.langchain.com/)
+[![KaTeX](https://img.shields.io/badge/KaTeX-math%20render-329F75.svg)](https://katex.org/)
+[![Docker](https://img.shields.io/badge/Docker-compose-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
+[![SSE](https://img.shields.io/badge/SSE-streaming-FF6B6B.svg)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
+[![Tests](https://img.shields.io/badge/tests-488%20backend-4CAF50.svg)](src/services/chat/tests/)
+[![Status](https://img.shields.io/badge/status-WIP-orange.svg)](#-status)
 
-Build a **local-first, multi-mode study companion** over OCR-processed
-statistics, econometrics, causal-inference, ML, and quant-finance textbooks.
-The system answers user questions with grounded, citation-backed explanations
-by combining hybrid retrieval (dense + BM25 over per-field Qdrant collections)
-with a multi-stage tutor pipeline — query planning, density-based rerank,
-author diversity, coverage check, figure judging, and a vision-aware drafting
-workflow. Frontend renders the streamed answer with KaTeX math, figure
-embeds, and inline citations.
+> A **local-first, multi-mode study companion** that turns a personal library of statistics, econometrics, causal-inference, ML, and quant-finance textbooks into a tutor that *teaches* — every claim grounded, every citation clickable, every figure pertinence-judged.
+
+```mermaid
+flowchart LR
+    accTitle: Deep Tutor Pipeline
+    accDescr: Nine-stage retrieval-and-drafting pipeline producing a six-aspect textbook-grade answer.
+
+    Q["❓ User<br/>Question"]
+    QP["🧠 Query<br/>Planner"]
+    HR["🔀 Hybrid RRF<br/>Dense + BM25"]
+    DS["📏 Density<br/>Select"]
+    DV["👥 Author<br/>Diversity"]
+    CC["✅ Coverage<br/>Check"]
+    IJ["🖼️ Image<br/>Judge"]
+    SP["📐 Synthesis<br/>Plan"]
+    DR["✍️ Draft<br/>6 Aspects"]
+    OUT["📖 Tutor<br/>Answer + Citations"]
+
+    Q --> QP --> HR --> DS --> DV --> CC --> SP --> DR --> OUT
+    HR --> IJ --> DR
+
+    classDef inp  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#7c2d12
+    classDef ret  fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    classDef llm  fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef img  fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef done fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+
+    class Q inp
+    class HR,DS,DV ret
+    class QP,CC,SP,DR llm
+    class IJ img
+    class OUT done
+```
+
+---
+
+## ⚠️ Status
 
 > [!WARNING]
-> **Status: ongoing project — NOT complete.**
-> Most of the surface area is wired but only one chat mode (**Tutor**) is
-> functional end-to-end today. The other 10 modes exist as scaffolding and
-> route handlers but their pipelines are stubs, partial, or unreviewed.
-> Treat the rest as a roadmap, not a feature list.
+> **Ongoing project — NOT complete.** Most surface area wired but only **Tutor mode** is end-to-end working today. The other 10 modes exist as scaffolding + route handlers; their pipelines are stubs, partial, or unreviewed. Treat the rest as a roadmap.
 
-## Chat modes
+---
 
-The backend declares **11 modes** in `src/services/chat/schemas/_core.py`
-(`ModeId` literal). Working state:
+## 🎯 What Makes It Different
 
-| Mode | Slug | Status | What it is (intended) |
+| Capability | What statrag does | Why it matters |
+|---|---|---|
+| **Hybrid retrieval** | Dense (OpenAI 3072d) **+** BM25 sparse, fused server-side by Qdrant native RRF | One round-trip, no client-side rank drift |
+| **9-stage tutor pipeline** | Query planner → density rerank → author diversity → coverage check → figure judge → synthesis plan → structured draft | Textbook-grade answers, not chunk dumps |
+| **6-aspect schema** | `TL;DR · Definition · Formal Statement · Example & Intuition · Applications · Further Reading` | Forces depth; no skimping |
+| **Verbatim formal statements** | If source has a numbered theorem → blockquote it. If not → empty (heading hidden) | Zero invented math |
+| **Per-claim citations** | Every `[N]` marker has a matching citation; reconciler synthesizes missing ones in marker order | No orphan refs, no renumbering bugs |
+| **Image judge** | Two-tier (caption → vision) pertinence judge; up to 3 figures injected inline at the best-scoring aspect | Figures land *where they belong* |
+| **Detached, resumable SSE runs** | Background `asyncio.Task` per conversation; close tab → generation keeps running → reopen → resume from last `seq` | Production-grade chat lifecycle |
+| **Prompt schema invariant** | Every prompt XML-tagged (`<role>` / `<context>` / `<task>` + addenda); enforced by audit test | Small models (Llama 4 Scout, gpt-oss) don't silently break |
+| **Chinese-wall architecture** | `core` imports nothing; `tasks` and `services` import only `core`; services never cross | New feature = new folder, not refactor |
+
+---
+
+## 🧩 Chat Modes
+
+| Mode | Slug | Status | Intended capability |
 |---|---|:---:|---|
-| **Tutor** | `tutor` | ✅ working | Deep multi-stage tutor: concept extraction → query plan → hybrid retrieval → density + author diversity + rerank → coverage check → figure judge → drafted answer (single / orchestrator / organize workflows) → vision explain. **This is the only end-to-end working mode.** |
-| Compare | `compare` | 🚧 stub | Side-by-side comparison of two concepts / methods / authors. |
-| Figures | `figures` | 🚧 stub | Figure-first retrieval and explanation. |
-| Quiz | `quiz` | 🚧 stub | Question generation from a section / chapter. |
-| Navigate | `navigate` | 🚧 stub | Table-of-contents / structural browsing across books. |
-| Prereqs | `prereqs` | 🚧 stub | Surface prerequisite concepts for a topic. |
-| Annotate | `annotate` | 🚧 stub | Inline annotation of a passage or selection. |
-| Research | `research` | 🚧 stub | Open-ended research synthesis across collections. |
-| Math | `math` | 🚧 stub | Equation / derivation focused answers. |
-| Path | `path` | 🚧 stub | Learning-path suggestion. |
-| Roadmap | `roadmap` | 🚧 stub | Multi-step study roadmap with milestones. |
+| **Tutor** | `tutor` | ✅ working | Deep multi-stage tutor (the whole pipeline above) |
+| Compare | `compare` | 🚧 stub | Side-by-side concept / method / author comparison |
+| Figures | `figures` | 🚧 stub | Figure-first retrieval and explanation |
+| Quiz | `quiz` | 🚧 stub | Question generation per section / chapter |
+| Navigate | `navigate` | 🚧 stub | TOC / structural browsing across books |
+| Prereqs | `prereqs` | 🚧 stub | Prerequisite-concept DAG for a topic |
+| Annotate | `annotate` | 🚧 stub | Inline annotation of a passage |
+| Research | `research` | 🚧 stub | Open-ended research synthesis |
+| Math | `math` | 🚧 stub | Equation / derivation focused answers |
+| Path | `path` | 🚧 stub | Learning-path suggestion |
+| Roadmap | `roadmap` | 🚧 stub | Multi-step study roadmap with milestones |
 
-Use `mode: "tutor"` in any `/api/chat` request until the rest is hardened.
+Use `mode: "tutor"` in `/api/chat` until the rest is hardened.
 
-## Stack
+---
 
-- **Vector DB**: Qdrant 1.12.4 (Docker)
-- **Embeddings**: OpenAI `text-embedding-3-large` (3072d)
-- **LLM**: OpenAI / DeepSeek / Groq (chat-only)
-- **Sparse**: Qdrant native BM25 via `fastembed`
-- **Backend**: Python 3.12, FastAPI, sse-starlette, langchain / langgraph
-- **Frontend**: React 18 + Vite + TypeScript, KaTeX
+## 🏗️ Stack
 
-## Mount from zero
+| Layer | Tech |
+|---|---|
+| **Vector DB** | Qdrant 1.12.4 — per-field collections (`<field>_textbooks` + `<field>_images`) |
+| **Embeddings** | OpenAI `text-embedding-3-large` (3072d, dense + caption) |
+| **Sparse** | Qdrant native BM25 via `fastembed` |
+| **Chat LLMs** | OpenAI (`gpt-5.4-nano`, `gpt-5.4`), DeepSeek (`v4-pro`), Groq (`llama-4-scout`, `gpt-oss-120b/20b`) |
+| **Backend** | Python 3.12 · FastAPI · sse-starlette · LangChain / LangGraph · Pydantic v2 |
+| **Frontend** | React 18 · Vite 5 · TypeScript (strict) · KaTeX · hand-rolled markdown |
+| **Storage** | SQLite (conversations, prefs) · Qdrant snapshots (auto-backup) |
+| **Ops** | Docker Compose · multi-stage builds · dev + prod profiles |
 
-This repo ships **code only**. No data, no Qdrant collections, no `.env`.
-A receiver builds the full system locally:
+---
+
+## 🚀 Quick Start
 
 ```bash
-# 1. clone + Python venv
+# 1. clone + venv
 git clone https://github.com/IohanFaustino/statrag.git && cd statrag
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 
-# 2. provide secrets
+# 2. secrets
 cp .env.example .env
-# edit .env: fill OPENAI_API_KEY (required);
-#            DEEPSEEK_API_KEY / GROQ_API_KEY optional
+# fill OPENAI_API_KEY (required); DEEPSEEK_API_KEY / GROQ_API_KEY optional
 
-# 3. start Qdrant (empty)
+# 3. Qdrant (empty)
 docker compose -f ops/docker/docker-compose.yml up -d
 
-# 4. install frontend
+# 4. frontend deps
 cd web && npm install && cd ..
 
-# 5. ingest at least one book to populate Qdrant
-#    book yaml configs live under src/ingestion/books/
-#    raw OCR sources must be provided by the user (NOT shipped here)
+# 5. ingest at least one book (raw OCR sources NOT shipped)
 python -m src.ingestion.pipeline --book <slug> --chapter chNN
 
-# 6. run dev stack (backend :8766 + frontend :5175)
+# 6. dev stack — backend :8766 + frontend :5175
 ./scripts/dev.sh
 ```
 
-Open <http://localhost:5175>.
+Open **<http://localhost:5175>**.
 
-## Ingesting your own books
+---
 
-The system starts with **empty Qdrant collections**. To make the tutor mode
-useful you must ingest at least one OCR-cleaned Markdown textbook. The full
-operational guide lives in **[`docs/tasks/ingestion.md`](docs/tasks/ingestion.md)**
-— read that first. Summary of the user-facing path:
+## 📥 Ingest Your Own Books
 
-1. **Locate chapter boundaries** in your `.md` source:
-   ```bash
-   grep -n "^# \|^## [0-9]\|^### [0-9]\+\.1\s" /path/to/book.md | head -40
-   ```
-2. **Write `src/ingestion/books/<slug>.yaml`** with `slug`, `name`, `field`
-   (collection prefix, e.g. `econometrics`), `theme`, `authors`, `edition`,
-   `year`, `source_path`, and a `chapters:` map of `line_start` / `line_end`.
-   Template + every required field is in
-   [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md#required-yaml-fields).
-3. **(Optional) Extract index + bibliography** into
-   `data/parsed/<slug>/book.json` for better retrieval payload filters.
-4. **Preview ingest** one section (~1 LLM call, no manifest write):
-   ```bash
-   .venv/bin/python -m src.ingestion.pipeline \
-     --book <slug> --chapter ch01 --limit-sections 1 --force
-   ```
-5. **Full ingest** all chapters once preview looks right:
-   ```bash
-   .venv/bin/python -m src.ingestion.pipeline --book <slug>
-   ```
-6. **Verify** invariants on the resulting Qdrant state — see
-   [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md) "Verify" section.
+The repo ships **code only** — no data, no Qdrant points, no `.env`. Full operational guide: **[`docs/tasks/ingestion.md`](docs/tasks/ingestion.md)**. Summary:
 
-### Easy path: Claude Code
+```bash
+# locate chapter boundaries
+grep -n "^# \|^## [0-9]\|^### [0-9]\+\.1\s" /path/to/book.md | head -40
 
-If you use Claude Code, the repo also defines a `rag-add-book` skill that
-runs steps 1–5 end-to-end with three confirmation gates (yaml → preview →
-full ingest). Drop the skill into your local `.claude/skills/` and invoke
-it; the skill itself follows the recipe in `docs/tasks/ingestion.md`, so
-that doc is the single source of truth either way.
+# preview (1 LLM call, no manifest write)
+.venv/bin/python -m src.ingestion.pipeline \
+  --book <slug> --chapter ch01 --limit-sections 1 --force
 
-## Ports
+# full ingest
+.venv/bin/python -m src.ingestion.pipeline --book <slug>
+```
+
+A `rag-add-book` Claude Code skill automates steps 1–5 with three confirmation gates (yaml → preview → full).
+
+---
+
+## 🔌 Ports
 
 | Profile | Frontend | Backend | Qdrant |
-|---|---|---|---|
-| dev (`./scripts/dev.sh`) | 5175 | 8766 | 6333 |
+|---|:---:|:---:|:---:|
+| dev (`./scripts/dev.sh`) | **5175** | **8766** | 6333 |
 | prod (`docker compose --profile prod up`) | 5173 | 8765 | 6333 |
 
 Qdrant dashboard: <http://localhost:6333/dashboard>.
 
-## Security notes for self-hosting
+---
 
-- `.env` is git-ignored. Never commit it. `.env.example` lists required keys.
-- CORS is `allow_origins=["*"]` in `src/services/chat/api.py` for dev
-  convenience. **Restrict before exposing publicly.**
-- `/api/figures` whitelists local filesystem roots in `src/services/chat/api.py`.
-  Edit the `_FIGURE_ROOTS` list to match your machine — hardcoded paths are
-  author-specific.
+## 📊 Numbers (live)
 
-## Docs
+- **26** books indexed across **6** field collections
+- **8,083** image points (30× growth from first pass)
+- **488** backend tests + frontend test suite
+- **50+** per-feature deep-dive docs ([`docs/services/chat-features/`](docs/services/chat-features/))
+- **14** API routes + `GET /api/figures` (whitelisted file serving)
 
-- [`CLAUDE.md`](CLAUDE.md) — architecture + Chinese wall + commands
-- [`docs/system/architecture.md`](docs/system/architecture.md)
-- [`docs/system/invariants.md`](docs/system/invariants.md)
-- [`docs/services/chat.md`](docs/services/chat.md)
-- [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md)
+---
 
-## License
+## 🔒 Security Notes (Self-Hosting)
+
+- `.env` git-ignored. `.env.example` lists required keys.
+- CORS = `allow_origins=["*"]` in `src/services/chat/api.py` for dev. **Restrict before exposing.**
+- `/api/figures` whitelists local FS roots — edit `_FIGURE_ROOTS` for your machine.
+
+---
+
+## 📚 Docs
+
+| Doc | Purpose |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Architecture + Chinese wall + commands |
+| [`docs/system/architecture.md`](docs/system/architecture.md) | 5-stage ingestion + retrieval |
+| [`docs/system/invariants.md`](docs/system/invariants.md) | 28 invariants verified per commit |
+| [`docs/services/chat.md`](docs/services/chat.md) | SSE backbone + detached runs |
+| [`docs/services/frontend.md`](docs/services/frontend.md) | React SPA + TutorView contract |
+| [`docs/services/chat-features/`](docs/services/chat-features/) | Per-feature deep-dives (50+) |
+| [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md) | Add-a-book recipe |
+
+---
+
+## 📝 License
 
 Personal research project. No license granted by default — contact author.
