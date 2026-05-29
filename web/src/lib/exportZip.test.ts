@@ -56,3 +56,67 @@ describe("imageFilename", () => {
     expect(imageFilename(url)).toMatch(/^image_rsrcD3S-[a-z0-9]+\.jpg$/);
   });
 });
+
+import JSZip from "jszip";
+import { buildZipBlob } from "./exportZip";
+
+// Build a fake fetch that returns a tiny image for listed urls, 404 otherwise.
+function fakeFetch(ok: Record<string, string>): typeof fetch {
+  return (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url in ok) {
+      return {
+        ok: true,
+        headers: { get: (h: string) => (h.toLowerCase() === "content-type" ? ok[url] : null) },
+        arrayBuffer: async () => new TextEncoder().encode("IMGBYTES").buffer,
+      } as unknown as Response;
+    }
+    return { ok: false, status: 404, headers: { get: () => null }, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
+  }) as typeof fetch;
+}
+
+describe("buildZipBlob", () => {
+  it("bundles fetched images and rewrites their links to images/…", async () => {
+    const md = "![a](/img/x.png)\n\n![b](/api/figures?path=y.jpg)";
+    const fetchFn = fakeFetch({ "/img/x.png": "image/png", "/api/figures?path=y.jpg": "image/jpeg" });
+    const { blob, missing } = await buildZipBlob(md, { docName: "doc" }, fetchFn);
+    expect(missing).toEqual([]);
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const names = Object.keys(zip.files).sort();
+    expect(names).toContain("doc.md");
+    const imgs = names.filter((n) => n.startsWith("images/") && !n.endsWith("/"));
+    expect(imgs).toHaveLength(2);
+    const text = await zip.file("doc.md")!.async("string");
+    expect(text).toContain("](images/");
+    expect(text).not.toContain("](/img/x.png)");
+    expect(text).not.toContain("](/api/figures?path=y.jpg)");
+  });
+
+  it("fetches a repeated url once and rewrites both occurrences", async () => {
+    const md = "![a](/img/x.png)\n\n![again](/img/x.png)";
+    const { blob } = await buildZipBlob(md, { docName: "doc" }, fakeFetch({ "/img/x.png": "image/png" }));
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    expect(Object.keys(zip.files).filter((n) => n.startsWith("images/") && !n.endsWith("/"))).toHaveLength(1);
+    const text = await zip.file("doc.md")!.async("string");
+    expect(text.match(/\]\(images\//g)).toHaveLength(2);
+    expect(text).not.toContain("/img/x.png");
+  });
+
+  it("keeps the link and lists missing for a failed fetch", async () => {
+    const md = "![ok](/img/x.png)\n\n![bad](/img/missing.png)";
+    const { blob, missing } = await buildZipBlob(md, { docName: "doc" }, fakeFetch({ "/img/x.png": "image/png" }));
+    expect(missing).toEqual(["/img/missing.png"]);
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    expect(Object.keys(zip.files).filter((n) => n.startsWith("images/") && !n.endsWith("/"))).toHaveLength(1);
+    const text = await zip.file("doc.md")!.async("string");
+    expect(text).toContain("](/img/missing.png)");
+    expect(text).toContain("](images/");
+  });
+
+  it("zips just the md when there are no images", async () => {
+    const { blob, missing } = await buildZipBlob("no images here", { docName: "doc" }, fakeFetch({}));
+    expect(missing).toEqual([]);
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    expect(Object.keys(zip.files)).toEqual(["doc.md"]);
+  });
+});

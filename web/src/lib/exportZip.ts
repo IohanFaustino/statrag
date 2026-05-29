@@ -1,6 +1,7 @@
 // Bundles a Markdown string + its referenced images into a zip Blob.
 // extractImageUrls + imageFilename are pure; buildZipBlob (later task) does the
 // fetching/zipping. Same-origin images only in practice (/api, /img).
+import JSZip from "jszip";
 
 // Markdown image syntax: ![alt](url) or ![alt](url "title"). Capture the url.
 const IMAGE_MD_RE = /!\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/g;
@@ -75,4 +76,47 @@ export function imageFilename(url: string, contentType?: string): string {
   const base = (rawBase || "figure").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "figure";
   const ext = urlExt || (contentType && CT_EXT[contentType.split(";")[0].trim()]) || "img";
   return `${base}-${shortHash(url)}.${ext}`;
+}
+
+export interface ZipResult {
+  blob: Blob;
+  missing: string[];
+}
+
+// Escape a string for use as a literal in a RegExp.
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export async function buildZipBlob(
+  markdown: string,
+  opts: { docName: string },
+  fetchFn: typeof fetch = fetch,
+): Promise<ZipResult> {
+  const urls = extractImageUrls(markdown);
+  const zip = new JSZip();
+  const missing: string[] = [];
+  let md = markdown;
+
+  for (const url of urls) {
+    try {
+      const res = await fetchFn(url);
+      if (!res.ok) {
+        missing.push(url);
+        continue;
+      }
+      const data = await res.arrayBuffer();
+      const ct = res.headers.get("content-type") ?? undefined;
+      const name = imageFilename(url, ct);
+      zip.file(`images/${name}`, data);
+      // Rewrite every occurrence of this exact url to the relative path.
+      md = md.replace(new RegExp(escapeRegExp(url), "g"), `images/${name}`);
+    } catch {
+      missing.push(url);
+    }
+  }
+
+  zip.file(`${opts.docName}.md`, md);
+  const blob = await zip.generateAsync({ type: "blob" });
+  return { blob, missing };
 }
