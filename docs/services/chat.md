@@ -35,18 +35,24 @@ Click → confirm → the conversation row + all messages are removed from
 `data/chat.db` via `DELETE /api/conversations/{id}`. The deleted-active
 case clears the URL back to `/`.
 
-**Export to Markdown** — two granularities, both pure frontend (no backend
-call; the transcript already lives in the client store). The Topbar download
-icon (left of the theme toggle) exports the **active conversation** to
-`statrag-<slug>.md` — a header (`# title`, date) plus every completed turn
-(`## You` / `## <MODE> · <model>`). A small download icon at the end of each
-completed answer exports **that single answer** to `statrag-<slug>-a<NN>.md`.
-Serialization lives in `web/src/lib/exportMarkdown.ts` + `exportStructured.ts`:
-block prose renders with `$$math$$`, figures, and source chips; each of the 8
-structured schemas (TutorAnswer, Quiz, NavigationList, DAG, Report, StudyPlan,
-Roadmap, AnnotatedReading) gets a faithful per-schema layout (citations list,
-lettered quiz options, week tables, …), with a `json` fence fallback for any
-unknown schema. In-flight/errored turns are skipped from full exports.
+**Export to Zip (Markdown + images)** — two granularities, both pure frontend
+(no backend route; the transcript already lives in the client store). The
+Topbar download icon (left of the theme toggle) exports the **active
+conversation**; a small download icon at the end of each completed answer
+exports **that single answer**. Both download a **`.zip`** containing the
+Markdown plus every referenced figure image, fetched from same-origin
+`/api/figures…`, deduped (each image stored once even if cited twice), with the
+Markdown's image links rewritten to relative `images/<name>` paths so it renders
+offline in any viewer. Filenames: `statrag-<slug>.zip` /
+`statrag-<slug>-a<NN>.zip`; zip layout `<doc>.md` + `images/`.
+
+Serialization lives in `web/src/lib/exportMarkdown.ts` + `exportStructured.ts`
+(block prose → `$$math$$`, figures, source chips; faithful per-schema layout for
+all 8 structured schemas — TutorAnswer, Quiz, NavigationList, DAG, Report,
+StudyPlan, Roadmap, AnnotatedReading — with a `json` fence fallback). Bundling
+lives in `web/src/lib/exportZip.ts` (`extractImageUrls` + `buildZipBlob`, uses
+`jszip`). In-flight/errored turns are skipped from full exports; images that
+fail to fetch keep their original link and are simply not bundled.
 
 ### Option B — full Docker stack (prod profile)
 

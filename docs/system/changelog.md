@@ -2,6 +2,16 @@
 
 Append-only. Latest at top.
 
+## 2026-05-29 — Chat export upgraded to Zip (Markdown + images)
+
+Follow-up to the Markdown export. Both download buttons now emit a **`.zip`** (Markdown + bundled figure images) instead of a bare `.md`. Still frontend-only — no backend route, no SSE/schema change, Chinese wall untouched.
+
+**Architecture**: new `web/src/lib/exportZip.ts` — `extractImageUrls(md)` (pure; finds `![](…)` image URLs under `/api/`, `/img/`, `http(s)`, deduped, tolerates title attrs) + `imageFilename(url, ct)` (deterministic `<basename>-<hash>.<ext>`; reads the `?path=` query basename so figures get meaningful names) + `buildZipBlob(md, {docName}, fetchFn?)` (fetch each unique image as ArrayBuffer, add under `images/<name>`, rewrite **markdown-link-anchored** occurrences to relative paths — so a URL that is a prefix of another isn't corrupted — add `<docName>.md`, return `{blob, missing}`). Added `jszip` dep. `downloadMarkdown(filename, content)` generalized to `downloadBlob(filename, blob)`. App handlers are now async, always `.zip`, and wrapped in try/catch so a build failure can't become an unhandled rejection. Failed image fetches keep their link (logged, listed in `missing`, never fatal).
+
+**Tests**: 14 vitest cases in `exportZip.test.ts` (url extraction + dedup + title-attr; basename of slash-path; `buildZipBlob` bundle/rewrite, dedup-fetch-once, 404-keeps-link, no-images md-only, prefix-URL-no-corruption) using a mock `fetchFn` and `JSZip.loadAsync` content assertions. Suite 85 green; `tsc --noEmit` clean.
+
+**End-to-end verification** (browser, :5175, reopened the tutor "Define variance in one sentence." conversation, 8 sources, 2 figures): per-answer export → `statrag-define-variance-in-one-sentence-a01.zip` unzipped to `…-a01.md` + `images/image_rsrcD3R-….jpg` + `image_rsrcD3S-….jpg` (real JPEG bytes 3807/5392B), links rewritten to `images/…`, **zero `/api/` links left**. Topbar export → full-conversation zip with the same deduped images. Console clean.
+
 ## 2026-05-29 — Chat Markdown export (frontend-only)
 
 Added a `.md` export for chat content at two granularities. The Topbar download button (left of the theme toggle) exports the **active conversation**; a small download icon at the end of each completed answer exports **that single answer**. Pure frontend — no backend route, no SSE/schema change; the transcript already lives in the client store, so the Chinese wall is untouched (no `src/` change).
