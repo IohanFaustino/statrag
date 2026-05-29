@@ -598,9 +598,14 @@ export default function App() {
     if (messages.length === 0) return;
     const title = activeConvTitle.replace(/\s+/g, " ").trim();
     const slug = slugify(title);
-    const md = conversationToMarkdown(messages, { title });
-    const { blob } = await buildZipBlob(md, { docName: slug });
-    downloadBlob(`statrag-${slug}.zip`, blob);
+    try {
+      const md = conversationToMarkdown(messages, { title });
+      const { blob } = await buildZipBlob(md, { docName: slug });
+      downloadBlob(`statrag-${slug}.zip`, blob);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[export] conversation zip failed", err);
+    }
   }, [messages, activeConvTitle]);
 
   const handleExportMessage = useCallback(async (idx: number) => {
@@ -612,9 +617,14 @@ export default function App() {
     let n = 0;
     for (let i = 0; i <= idx; i++) if (messages[i].role === "assistant") n++;
     const nn = String(n).padStart(2, "0");
-    const md = assistantMessageToMarkdown(msg);
-    const { blob } = await buildZipBlob(md, { docName: `${slug}-a${nn}` });
-    downloadBlob(`statrag-${slug}-a${nn}.zip`, blob);
+    try {
+      const md = assistantMessageToMarkdown(msg);
+      const { blob } = await buildZipBlob(md, { docName: `${slug}-a${nn}` });
+      downloadBlob(`statrag-${slug}-a${nn}.zip`, blob);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[export] answer zip failed", err);
+    }
   }, [messages, activeConvTitle]);
 
   return (
