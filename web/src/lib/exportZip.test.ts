@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { extractImageUrls, imageFilename } from "./exportZip";
+import JSZip from "jszip";
+import { extractImageUrls, imageFilename, buildZipBlob } from "./exportZip";
 
 describe("extractImageUrls", () => {
   it("extracts /api, /img and http(s) image links", () => {
@@ -56,9 +57,6 @@ describe("imageFilename", () => {
     expect(imageFilename(url)).toMatch(/^image_rsrcD3S-[a-z0-9]+\.jpg$/);
   });
 });
-
-import JSZip from "jszip";
-import { buildZipBlob } from "./exportZip";
 
 // Build a fake fetch that returns a tiny image for listed urls, 404 otherwise.
 function fakeFetch(ok: Record<string, string>): typeof fetch {
@@ -118,5 +116,21 @@ describe("buildZipBlob", () => {
     expect(missing).toEqual([]);
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     expect(Object.keys(zip.files)).toEqual(["doc.md"]);
+  });
+
+  it("does not corrupt a url that is a prefix of another url", async () => {
+    const md = "![a](/img/x.png)\n\n![b](/img/x.png?v=2)";
+    const fetchFn = fakeFetch({ "/img/x.png": "image/png", "/img/x.png?v=2": "image/png" });
+    const { blob, missing } = await buildZipBlob(md, { docName: "doc" }, fetchFn);
+    expect(missing).toEqual([]);
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const imgs = Object.keys(zip.files).filter((n) => n.startsWith("images/") && !n.endsWith("/"));
+    expect(imgs).toHaveLength(2); // two distinct files (different hashes)
+    const text = await zip.file("doc.md")!.async("string");
+    // Neither original link survives, and the ?v=2 one is not mangled into a .png?v=2 path.
+    expect(text).not.toContain("](/img/x.png)");
+    expect(text).not.toContain("](/img/x.png?v=2)");
+    expect(text).not.toContain(".png?v=2");
+    expect(text.match(/\]\(images\//g)).toHaveLength(2);
   });
 });

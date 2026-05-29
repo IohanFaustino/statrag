@@ -1,6 +1,6 @@
 // Bundles a Markdown string + its referenced images into a zip Blob.
-// extractImageUrls + imageFilename are pure; buildZipBlob (later task) does the
-// fetching/zipping. Same-origin images only in practice (/api, /img).
+// extractImageUrls + imageFilename are pure; buildZipBlob does the
+// fetching/zipping (async; the only impure part). Same-origin images only in practice (/api, /img).
 import JSZip from "jszip";
 
 // Markdown image syntax: ![alt](url) or ![alt](url "title"). Capture the url.
@@ -109,9 +109,15 @@ export async function buildZipBlob(
       const ct = res.headers.get("content-type") ?? undefined;
       const name = imageFilename(url, ct);
       zip.file(`images/${name}`, data);
-      // Rewrite every occurrence of this exact url to the relative path.
-      md = md.replace(new RegExp(escapeRegExp(url), "g"), `images/${name}`);
-    } catch {
+      // Anchor to markdown link syntax so a url that is a prefix of another
+      // url (e.g. /img/x.png vs /img/x.png?v=2) is not corrupted.
+      md = md.replace(
+        new RegExp(`\\]\\(${escapeRegExp(url)}(\\s[^)]*)?\\)`, "g"),
+        `](images/${name}$1)`,
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[exportZip] image fetch failed", url, err);
       missing.push(url);
     }
   }
