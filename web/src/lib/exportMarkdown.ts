@@ -1,5 +1,5 @@
 // Pure markdown serializer for chat export. No React. The only DOM-touching
-// function is downloadMarkdown (covered by browser-verify, not unit tests).
+// function is downloadBlob (covered by browser-verify, not unit tests).
 import type {
   Message, UserMessage, AssistantMessage, AssistantBlock,
 } from "../types";
@@ -79,9 +79,8 @@ export function conversationToMarkdown(
   return [head, ...turns].join("\n\n---\n\n") + "\n";
 }
 
-export function downloadMarkdown(filename: string, content: string): void {
+export function downloadBlob(filename: string, blob: Blob): void {
   try {
-    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
