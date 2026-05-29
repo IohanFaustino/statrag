@@ -17,7 +17,8 @@ import AboutModelModal from "./components/modals/AboutModelModal";
 import type { StageKey } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
-import { conversationToMarkdown, assistantMessageToMarkdown, slugify, downloadMarkdown } from "./lib/exportMarkdown";
+import { conversationToMarkdown, assistantMessageToMarkdown, slugify, downloadBlob } from "./lib/exportMarkdown";
+import { buildZipBlob } from "./lib/exportZip";
 
 // Default per-stage model overrides for the deep-tutor pipeline. Persisted
 // under "statrag.stageModels"; user changes via the tutor (i) modal flow.
@@ -593,22 +594,27 @@ export default function App() {
 
   const bookSnapshots = books.map((b) => ({ id: b.id, short: b.short }));
 
-  const handleExportConversation = useCallback(() => {
+  const handleExportConversation = useCallback(async () => {
     if (messages.length === 0) return;
     const title = activeConvTitle.replace(/\s+/g, " ").trim();
+    const slug = slugify(title);
     const md = conversationToMarkdown(messages, { title });
-    downloadMarkdown(`statrag-${slugify(title)}.md`, md);
+    const { blob } = await buildZipBlob(md, { docName: slug });
+    downloadBlob(`statrag-${slug}.zip`, blob);
   }, [messages, activeConvTitle]);
 
-  const handleExportMessage = useCallback((idx: number) => {
+  const handleExportMessage = useCallback(async (idx: number) => {
     const msg = messages[idx];
     if (!msg || msg.role !== "assistant") return;
     const title = activeConvTitle.replace(/\s+/g, " ").trim();
+    const slug = slugify(title);
     // 1-based ordinal of this answer among assistant messages.
     let n = 0;
     for (let i = 0; i <= idx; i++) if (messages[i].role === "assistant") n++;
     const nn = String(n).padStart(2, "0");
-    downloadMarkdown(`statrag-${slugify(title)}-a${nn}.md`, assistantMessageToMarkdown(msg));
+    const md = assistantMessageToMarkdown(msg);
+    const { blob } = await buildZipBlob(md, { docName: `${slug}-a${nn}` });
+    downloadBlob(`statrag-${slug}-a${nn}.zip`, blob);
   }, [messages, activeConvTitle]);
 
   return (
