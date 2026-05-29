@@ -12,7 +12,7 @@ import AnnotateView from "./views/AnnotateView";
 import TutorView from "./views/TutorView";
 import {
   IconBook, IconCompare, IconImage, IconQuiz, IconSearch,
-  IconTree, IconPen, IconFlask, IconMath, IconCal, IconFilm,
+  IconTree, IconPen, IconFlask, IconMath, IconCal, IconFilm, IconDownload,
 } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
@@ -235,6 +235,7 @@ interface AssistantMessageViewProps {
   onSourceClick?: (chip: ChipData) => void;
   onFork?: (idx: number) => void;
   forkDisabled?: boolean;
+  onExport?: (idx: number) => void;
   streamingPhase?: "idle" | "thinking" | "writing";
   isLast?: boolean;
 }
@@ -250,6 +251,7 @@ function AssistantMessageView({
   onSourceClick,
   onFork,
   forkDisabled,
+  onExport,
   streamingPhase,
   isLast,
 }: AssistantMessageViewProps) {
@@ -394,6 +396,17 @@ function AssistantMessageView({
         )}
       </div>
 
+      {onExport && msg.status === "complete" && (
+        <button
+          className="msg__export"
+          type="button"
+          onClick={() => onExport(idx)}
+          title="Export this answer (.md)"
+          aria-label="Export this answer as Markdown"
+        >
+          <IconDownload width={14} height={14} />
+        </button>
+      )}
       {!forkDisabled && (
         <button
           className="msg__fork"
@@ -427,6 +440,7 @@ export interface MessageThreadProps {
   onSourceClick?: (chip: ChipData) => void;
   onFork?: (idx: number) => void;
   forkDisabled?: boolean;
+  onExportMessage?: (idx: number) => void;
   isStreaming?: boolean;
   streamingPhase?: "idle" | "thinking" | "writing";
   conversationLoaded?: boolean;
@@ -449,6 +463,7 @@ export default function MessageThread({
   onSourceClick,
   onFork,
   forkDisabled = false,
+  onExportMessage,
   isStreaming = false,
   streamingPhase = "idle",
   conversationLoaded = false,
@@ -501,6 +516,7 @@ export default function MessageThread({
               idx={i}
               onSourceClick={onSourceClick}
               onFork={onFork}
+              onExport={onExportMessage}
               forkDisabled={forkDisabled}
               streamingPhase={streamingPhase}
               isLast={i === thread.length - 1}
