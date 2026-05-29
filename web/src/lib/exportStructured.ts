@@ -10,8 +10,6 @@ function citeLine(c: Citation): string {
   return `${c.book} · ${c.chapter} · ${c.section}${page}`;
 }
 
-const LETTERS = "ABCDEFGHIJ";
-
 function tutor(d: TutorAnswer): string {
   const parts: string[] = [d.text.trim()];
   if (d.citations && d.citations.length) {
@@ -31,13 +29,13 @@ function tutor(d: TutorAnswer): string {
 }
 
 function quiz(d: Quiz): string {
+  const letter = (i: number) => String.fromCharCode(65 + i);
   const blocks = d.questions.map((q, i) => {
-    const opts = q.options.map((o, j) => `- ${LETTERS[j]}. ${o}`).join("\n");
-    const ans = LETTERS[q.answer_idx] ?? "?";
+    const opts = q.options.map((o, j) => `- ${letter(j)}. ${o}`).join("\n");
     return [
       `${i + 1}. ${q.stem}`,
       opts,
-      `**Answer:** ${ans}`,
+      `**Answer:** ${letter(q.answer_idx)}`,
       q.rubric ? `_${q.rubric}_` : "",
       `(${q.difficulty} · ${citeLine(q.source)})`,
     ].filter(Boolean).join("\n\n");
@@ -67,7 +65,7 @@ function dag(d: DAG): string {
 function report(d: Report): string {
   const claims = d.claims.map((c) => {
     const ev = c.evidence.map((e) => `  - ${citeLine(e)}`).join("\n");
-    return `- **${c.stance}** (${c.confidence}): ${c.claim}${ev ? "\n" + ev : ""}`;
+    return `- **${c.stance}** (${c.confidence.toFixed(2)}): ${c.claim}${ev ? "\n" + ev : ""}`;
   });
   const parts = [`### Claims\n\n${claims.join("\n")}`, `### Synthesis\n\n${d.synthesis}`];
   if (d.coverage_gaps.length) parts.push(`### Coverage gaps\n\n${d.coverage_gaps.map((g) => `- ${g}`).join("\n")}`);

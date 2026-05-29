@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { structuredToMarkdown } from "./exportStructured";
-import type { Quiz, StudyPlan, DAG, TutorAnswer } from "../types";
+import type { Quiz, StudyPlan, DAG, TutorAnswer, NavigationList } from "../types";
 
 describe("structuredToMarkdown — TutorAnswer", () => {
   it("renders prose then a numbered citations section", () => {
@@ -65,6 +65,18 @@ describe("structuredToMarkdown — DAG", () => {
     expect(md).toContain("Mean");
     expect(md).toContain("Variance");
     expect(md).toContain("a → b");
+  });
+});
+
+describe("structuredToMarkdown — NavigationList", () => {
+  it("renders a table with score to two decimals", () => {
+    const data: NavigationList = {
+      results: [{ book: "HANSEN", chapter: "Ch2", section: "§2.1", title: "Variance", score: 0.9, page: 12 }],
+    };
+    const md = structuredToMarkdown({ schema: "NavigationList", data });
+    expect(md).toContain("| Book | Chapter | Section | Title | Score |");
+    expect(md).toContain("0.90");
+    expect(md).toContain("Variance");
   });
 });
 
