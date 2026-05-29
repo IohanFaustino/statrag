@@ -1,6 +1,6 @@
 import React from "react";
 import type { Book } from "../types";
-import { IconMenu, IconLogo, IconSun, IconMoon, IconGear, IconBook } from "./Icons";
+import { IconMenu, IconLogo, IconSun, IconMoon, IconGear, IconBook, IconDownload } from "./Icons";
 
 interface UsageStats {
   durationMs: number;
@@ -21,6 +21,8 @@ interface TopbarProps {
   onOpenBooks(): void;
   onOpenSettings(): void;
   onToggleTheme(): void;
+  onExportConversation?(): void;
+  exportDisabled?: boolean;
 }
 
 function StatsPill({
@@ -124,6 +126,8 @@ export default function Topbar({
   onOpenBooks,
   onOpenSettings,
   onToggleTheme,
+  onExportConversation,
+  exportDisabled,
 }: TopbarProps) {
   return (
     <header className="topbar">
@@ -154,6 +158,18 @@ export default function Topbar({
       <div className="topbar__right">
         <BooksButton books={books} onClick={onOpenBooks} />
         <div className="topbar__divider" />
+        {onExportConversation && (
+          <button
+            className="icon-btn icon-btn--export"
+            onClick={onExportConversation}
+            disabled={exportDisabled}
+            aria-label="Export conversation as Markdown"
+            title="Export conversation (.md)"
+            type="button"
+          >
+            <IconDownload />
+          </button>
+        )}
         <button
           className={"icon-btn icon-btn--theme"}
           onClick={onToggleTheme}

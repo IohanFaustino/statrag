@@ -242,6 +242,16 @@ export function IconModel(p: IconProps) {
   );
 }
 
+export function IconDownload(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M8 2.5v8" />
+      <path d="M4.5 7 8 10.5 11.5 7" />
+      <path d="M3 13h10" />
+    </svg>
+  );
+}
+
 // Logo icon variant (open-book) — used in topbar BooksButton
 export function IconLogo(p: IconProps) {
   return (
