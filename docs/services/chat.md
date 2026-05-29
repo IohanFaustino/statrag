@@ -35,6 +35,19 @@ Click → confirm → the conversation row + all messages are removed from
 `data/chat.db` via `DELETE /api/conversations/{id}`. The deleted-active
 case clears the URL back to `/`.
 
+**Export to Markdown** — two granularities, both pure frontend (no backend
+call; the transcript already lives in the client store). The Topbar download
+icon (left of the theme toggle) exports the **active conversation** to
+`statrag-<slug>.md` — a header (`# title`, date) plus every completed turn
+(`## You` / `## <MODE> · <model>`). A small download icon at the end of each
+completed answer exports **that single answer** to `statrag-<slug>-a<NN>.md`.
+Serialization lives in `web/src/lib/exportMarkdown.ts` + `exportStructured.ts`:
+block prose renders with `$$math$$`, figures, and source chips; each of the 8
+structured schemas (TutorAnswer, Quiz, NavigationList, DAG, Report, StudyPlan,
+Roadmap, AnnotatedReading) gets a faithful per-schema layout (citations list,
+lettered quiz options, week tables, …), with a `json` fence fallback for any
+unknown schema. In-flight/errored turns are skipped from full exports.
+
 ### Option B — full Docker stack (prod profile)
 
 For production-style runs, container builds, or smoke testing the prod image:

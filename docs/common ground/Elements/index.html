@@ -246,6 +246,19 @@
     <p class="verdict v-ok"><b>Verified end-to-end:</b> orchestrator workflow + Llama 4 Scout on "Define variance with formula and MSE decomposition. Compare authors." → 6 math_blocks, all LaTeX symbols render (σ², 𝔼, Var(X), f̂, Bias, ε), MSE in dedicated math box, 20.2s / 827 tok. No literal <code>mathbbE</code> in the DOM. Backend 568 pytest + 1 new schema test pass. New invariant <b>#28</b>.</p>
   </section>
 
+  <section>
+    <h2>17 · Export chat to Markdown <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-29)</span></h2>
+    <p>Export chat content as <code>.md</code> at two granularities, <b>frontend-only</b> — the transcript already lives in the client store, so no backend route, no SSE/schema change, Chinese wall untouched (no <code>src/</code> change). The Topbar download icon (left of the theme toggle) exports the <b>active conversation</b> to <code>statrag-&lt;slug&gt;.md</code>; a small download icon at the end of each completed answer exports <b>that single answer</b> to <code>statrag-&lt;slug&gt;-a&lt;NN&gt;.md</code>.</p>
+    <table>
+      <tr><th>Layer</th><th>Action</th><th>Files</th></tr>
+      <tr><td><b>Serializer (pure)</b></td><td>Block prose → <code>$$math$$</code>, figures (image kept inside the blockquote), source chips; conversation header (<code># title</code> + date) + per-turn headings (<code>## You</code> / <code>## &lt;MODE&gt; · &lt;model&gt;</code>); in-flight/errored turns skipped from full exports; <code>downloadMarkdown</code> Blob helper (best-effort, mirrors <code>persist.ts</code>).</td><td><code>web/src/lib/exportMarkdown.ts</code></td></tr>
+      <tr><td><b>Structured schemas</b></td><td>Faithful per-schema markdown for all 8 structured outputs (TutorAnswer citations list, lettered Quiz options via <code>String.fromCharCode</code>, NavigationList/StudyPlan tables, DAG nodes+edges, Report claims, Roadmap scenes, AnnotatedReading) + a <code>json</code>-fence fallback for unknown schemas.</td><td><code>web/src/lib/exportStructured.ts</code></td></tr>
+      <tr><td><b>UI wiring</b></td><td><code>IconDownload</code>; Topbar button (<code>onExportConversation</code>/<code>exportDisabled</code>); per-answer icon (<code>onExportMessage</code>, only on complete messages); App handlers (title sanitized to one line, answer ordinal among assistant messages).</td><td><code>Icons.tsx</code>, <code>Topbar.tsx</code>, <code>MessageThread.tsx</code>, <code>App.tsx</code></td></tr>
+      <tr><td><b>Tests</b></td><td>18 vitest cases across the two lib test files (blocks, math, figure-in-blockquote, sources, TutorAnswer/Quiz/StudyPlan/DAG/NavigationList, unknown fallback, full-conversation ordering, skip-in-flight). <code>tsc --noEmit</code> clean; suite 71 green.</td><td><code>exportMarkdown.test.ts</code>, <code>exportStructured.test.ts</code></td></tr>
+    </table>
+    <p class="verdict v-ok"><b>Verified end-to-end:</b> browser on :5175, tutor "Define variance in one sentence." (Groq llama-4-scout, 8 sources). Per-answer export → <code>statrag-define-variance-in-one-sentence-a01.md</code> with faithful TutorAnswer prose sections + numbered citations (author · book · chapter · section · quote) + figures, <b>no JSON leakage</b>. Topbar export → <code>statrag-define-variance-in-one-sentence.md</code> with header + <code>## You</code> + <code>## TUTOR · &lt;model&gt;</code> turns in order. Console clean.</p>
+  </section>
+
   <section class="sub">
     Sources:
     <a href="https://www.anthropic.com/research/building-effective-agents">Anthropic — Building Effective Agents</a> ·

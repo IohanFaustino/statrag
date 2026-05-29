@@ -2,6 +2,16 @@
 
 Append-only. Latest at top.
 
+## 2026-05-29 — Chat Markdown export (frontend-only)
+
+Added a `.md` export for chat content at two granularities. The Topbar download button (left of the theme toggle) exports the **active conversation**; a small download icon at the end of each completed answer exports **that single answer**. Pure frontend — no backend route, no SSE/schema change; the transcript already lives in the client store, so the Chinese wall is untouched (no `src/` change).
+
+**Architecture**: one new pure module `web/src/lib/exportMarkdown.ts` (block prose → `$$math$$`, figures, source chips; conversation header + per-turn headings; `downloadMarkdown` Blob helper) + `web/src/lib/exportStructured.ts` (faithful markdown for all 8 structured schemas — TutorAnswer, Quiz, NavigationList, DAG, Report, StudyPlan, Roadmap, AnnotatedReading — with a `json`-fence fallback). Wiring: `IconDownload` + Topbar button (`onExportConversation`/`exportDisabled`), per-answer icon in `MessageThread` (`onExportMessage`), handlers in `App.tsx` (`statrag-<slug>.md` / `statrag-<slug>-a<NN>.md`, title sanitized to one line, answer ordinal among assistant messages). In-flight/errored turns skipped from full exports; quiz option letters use `String.fromCharCode` (unbounded).
+
+**Tests**: 18 vitest cases across `exportMarkdown.test.ts` + `exportStructured.test.ts` (blocks, math, figure-in-blockquote, sources, TutorAnswer/Quiz/StudyPlan/DAG/NavigationList, unknown-schema fallback, full-conversation ordering, skip-in-flight). `tsc --noEmit` clean; full suite 71 green.
+
+**End-to-end verification** (browser, :5175, tutor "Define variance in one sentence.", Groq llama-4-scout, 8 sources): per-answer export → `statrag-define-variance-in-one-sentence-a01.md` rendered the faithful TutorAnswer (prose sections + numbered citations with author·book·chapter·section·quote + figures, **no JSON leakage**); Topbar export → `statrag-define-variance-in-one-sentence.md` with the header + `## You` + `## TUTOR · <model>` turns in order. Console clean, no errors.
+
 ## 2026-05-25 — Prompt-schema invariant + LaTeX polish stage + orchestrator parity
 
 Feedback from an orchestrator-mode run: Llama draft was emitting `mathbbE` instead of 𝔼, and the formula box stayed empty for some answers. Two underlying problems surfaced.
