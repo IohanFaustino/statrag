@@ -17,6 +17,7 @@ import AboutModelModal from "./components/modals/AboutModelModal";
 import type { StageKey } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
+import { conversationToMarkdown, assistantMessageToMarkdown, slugify, downloadMarkdown } from "./lib/exportMarkdown";
 
 // Default per-stage model overrides for the deep-tutor pipeline. Persisted
 // under "statrag.stageModels"; user changes via the tutor (i) modal flow.
@@ -592,6 +593,24 @@ export default function App() {
 
   const bookSnapshots = books.map((b) => ({ id: b.id, short: b.short }));
 
+  const handleExportConversation = useCallback(() => {
+    if (messages.length === 0) return;
+    const title = activeConvTitle.replace(/\s+/g, " ").trim();
+    const md = conversationToMarkdown(messages, { title });
+    downloadMarkdown(`statrag-${slugify(title)}.md`, md);
+  }, [messages, activeConvTitle]);
+
+  const handleExportMessage = useCallback((idx: number) => {
+    const msg = messages[idx];
+    if (!msg || msg.role !== "assistant") return;
+    const title = activeConvTitle.replace(/\s+/g, " ").trim();
+    // 1-based ordinal of this answer among assistant messages.
+    let n = 0;
+    for (let i = 0; i <= idx; i++) if (messages[i].role === "assistant") n++;
+    const nn = String(n).padStart(2, "0");
+    downloadMarkdown(`statrag-${slugify(title)}-a${nn}.md`, assistantMessageToMarkdown(msg));
+  }, [messages, activeConvTitle]);
+
   return (
     <div className="app">
       <Topbar
@@ -611,6 +630,8 @@ export default function App() {
           const nextTheme = tweaks.theme === "dark" ? "light" : "dark";
           setTweak({ theme: nextTheme, accent: THEME_ACCENT_DEFAULTS[nextTheme] });
         }}
+        onExportConversation={handleExportConversation}
+        exportDisabled={messages.length === 0}
       />
 
       <div className="app__body">
@@ -647,6 +668,7 @@ export default function App() {
                 if (src) setOpenSource(src);
               }}
               onFork={handleFork}
+              onExportMessage={handleExportMessage}
               forkDisabled={tempChatOpen}
               isStreaming={isStreaming}
               streamingPhase={streamingPhase}
