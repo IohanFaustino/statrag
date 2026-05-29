@@ -2,8 +2,8 @@
 // extractImageUrls + imageFilename are pure; buildZipBlob (later task) does the
 // fetching/zipping. Same-origin images only in practice (/api, /img).
 
-// Markdown image syntax: ![alt](url). Capture the url.
-const IMAGE_MD_RE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
+// Markdown image syntax: ![alt](url) or ![alt](url "title"). Capture the url.
+const IMAGE_MD_RE = /!\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/g;
 
 function isBundleable(url: string): boolean {
   return (
@@ -52,7 +52,8 @@ export function imageFilename(url: string, contentType?: string): string {
   if (qIdx !== -1) {
     const qs = url.slice(qIdx + 1);
     const pathParam = new URLSearchParams(qs).get("path") ?? "";
-    filenameSource = pathParam || "";
+    const lastSegment = pathParam.split("/").filter(Boolean).pop() ?? "";
+    filenameSource = lastSegment;
   } else {
     filenameSource = "";
   }

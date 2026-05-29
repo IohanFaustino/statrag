@@ -24,6 +24,10 @@ describe("extractImageUrls", () => {
     const md = "[text](/api/foo) and ![d](data:image/png;base64,AAAA)";
     expect(extractImageUrls(md)).toEqual([]);
   });
+
+  it("extracts the url when an image has a title attribute", () => {
+    expect(extractImageUrls('![a](/img/x.png "a title")')).toEqual(["/img/x.png"]);
+  });
 });
 
 describe("imageFilename", () => {
@@ -45,5 +49,10 @@ describe("imageFilename", () => {
     const a = imageFilename("/a/fig.png");
     const b = imageFilename("/b/fig.png");
     expect(a).not.toBe(b);
+  });
+
+  it("takes only the basename of a slash-containing path param", () => {
+    const url = "/api/figures?path=%2Fhome%2Fiohan%2FRAG%2Fmedia%2Fimage_rsrcD3S.jpg";
+    expect(imageFilename(url)).toMatch(/^image_rsrcD3S-[a-z0-9]+\.jpg$/);
   });
 });
