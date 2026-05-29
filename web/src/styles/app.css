@@ -734,6 +734,50 @@
 }
 .msg__fork:hover::before { opacity: 1; }
 
+/* Hover export-answer button — stacks below the fork button in the gutter */
+.msg__export {
+  position: absolute;
+  top: 28px; right: -36px;
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: grid; place-items: center;
+  cursor: default;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 120ms ease, transform 120ms ease, border-color 120ms ease, color 120ms ease;
+  z-index: 5;
+}
+.msg--assistant:hover .msg__export { opacity: 1; transform: translateX(0); }
+.msg__export:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+}
+.msg__export::before {
+  content: "Export answer (.md)";
+  position: absolute;
+  top: 50%; right: calc(100% + 8px);
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+.msg__export:hover::before { opacity: 1; }
+
+/* Disabled icon buttons (e.g. Topbar export on an empty conversation) */
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ──────────────────────────────────────────────────────────────────
    Input Bar
    ────────────────────────────────────────────────────────────────── */
