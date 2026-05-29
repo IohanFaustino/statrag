@@ -30,7 +30,7 @@ function blockToMarkdown(block: AssistantBlock): string {
     case "figure": {
       const tag = `**${block.ref}** — ${block.caption} (${block.book} · ${block.chapter})`;
       const isUrl = block.chart && (block.chart.startsWith("/") || block.chart.startsWith("http"));
-      const img = isUrl ? `\n\n![${block.caption}](${block.chart})` : "";
+      const img = isUrl ? `\n> \n> ![${block.caption}](${block.chart})` : "";
       return `> ${tag}${img}`;
     }
     case "sources": {
@@ -69,7 +69,8 @@ export function conversationToMarkdown(
     if (m.role === "user") {
       turns.push(userMessageToMarkdown(m));
     } else {
-      if (m.status !== "complete") continue; // skip in-flight/errored turns
+      // In-flight/errored turns are dropped from full exports (single-answer path notes them instead).
+      if (m.status !== "complete") continue;
       const label = MODE_LABEL[m.mode] ?? m.mode.toUpperCase();
       const heading = `## ${label} · ${m.model || "?"} · ${m.time}`;
       turns.push(`${heading}\n\n${assistantMessageToMarkdown(m)}`);

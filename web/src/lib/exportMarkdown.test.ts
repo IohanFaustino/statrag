@@ -79,6 +79,8 @@ describe("assistantMessageToMarkdown — blocks", () => {
     expect(md).toContain("Fig 2.1");
     expect(md).toContain("A scatter plot");
     expect(md).toContain("/img/fig.png");
+    expect(md).toMatch(/^> \*\*Fig 2\.1/m);
+    expect(md).toContain("> ![A scatter plot](/img/fig.png)");
   });
 
   it("renders a sources block as a chip list", () => {
@@ -124,12 +126,18 @@ describe("conversationToMarkdown", () => {
     const tutorIdx = md.indexOf("## TUTOR");
     expect(youIdx).toBeGreaterThan(-1);
     expect(tutorIdx).toBeGreaterThan(youIdx);
+    expect(md.endsWith("\n")).toBe(true);
   });
 
   it("skips pending/streaming assistant turns", () => {
-    const a = baseAssistant({ status: "pending", blocks: [] });
-    const md = conversationToMarkdown([a], { title: "x" });
-    expect(md.toLowerCase()).not.toContain("incomplete");
-    expect(md).not.toContain("## TUTOR");
+    const pending = baseAssistant({ status: "pending", blocks: [] });
+    const mdPending = conversationToMarkdown([pending], { title: "x" });
+    expect(mdPending.toLowerCase()).not.toContain("incomplete");
+    expect(mdPending).not.toContain("## TUTOR");
+
+    const streaming = baseAssistant({ status: "streaming", blocks: [] });
+    const mdStreaming = conversationToMarkdown([streaming], { title: "x" });
+    expect(mdStreaming.toLowerCase()).not.toContain("incomplete");
+    expect(mdStreaming).not.toContain("## TUTOR");
   });
 });
