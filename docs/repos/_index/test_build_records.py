@@ -55,6 +55,22 @@ def test_extract_notebook_cells():
     assert "ignore" not in code and "ignore" not in md
 
 
+def test_build_chapter_entry_handles_bad_notebook(tmp_path):
+    folder = tmp_path / "Chapter01"
+    folder.mkdir()
+    # truncated/invalid notebook JSON
+    (folder / "big.ipynb").write_text('{"cells": [{"cell_type": "code", "source": ["import langch')
+    (folder / "ok.py").write_text("import os\n\ndef go():\n    pass\n")
+    entry = br.build_chapter_entry(
+        slug="demo", chapter="ch01", title="T",
+        repo="r", branch="main", folder=folder,
+    )
+    # bad notebook is skipped gracefully; the .py still parsed
+    assert "os" in entry["libraries"]
+    assert "go" in entry["entities"]["ok.py"]
+    assert any(f["path"] == "big.ipynb" for f in entry["files"])
+
+
 def test_build_chapter_entry_and_render(tmp_path):
     folder = tmp_path / "Chapter01"
     folder.mkdir()

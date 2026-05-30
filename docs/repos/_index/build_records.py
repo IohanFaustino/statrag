@@ -100,6 +100,14 @@ def _read(path: Path) -> str:
         return ""
 
 
+def _read_full(path: Path) -> str:
+    """Read a file without the FILE_CAP byte limit (used for .ipynb only)."""
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
 def build_chapter_entry(slug, chapter, title, repo, branch, folder: Path) -> dict:
     files, libraries, entities = [], set(), {}
     for p in sorted(folder.rglob("*")):
@@ -110,19 +118,24 @@ def build_chapter_entry(slug, chapter, title, repo, branch, folder: Path) -> dic
         rel = str(p.relative_to(folder))
         ext = p.suffix.lower()
         lang = LANG_BY_EXT.get(ext, "")
-        raw = _read(p)
         if ext == ".ipynb":
-            code, _md = extract_notebook(raw) if raw else ("", "")
+            raw = _read_full(p)
+            try:
+                code, _md = extract_notebook(raw) if raw else ("", "")
+            except Exception:
+                code = ""
             libraries |= parse_imports(code, "py")
             ents = parse_entities(code)
-        elif ext == ".py":
-            libraries |= parse_imports(raw, "py")
-            ents = parse_entities(raw)
-        elif ext in {".js", ".ts"}:
-            libraries |= parse_imports(raw, lang)
-            ents = []
         else:
-            ents = []
+            raw = _read(p)
+            if ext == ".py":
+                libraries |= parse_imports(raw, "py")
+                ents = parse_entities(raw)
+            elif ext in {".js", ".ts"}:
+                libraries |= parse_imports(raw, lang)
+                ents = []
+            else:
+                ents = []
         if ents:
             entities[rel] = ents
         files.append({"path": rel, "lang": lang or ext.lstrip(".")})
