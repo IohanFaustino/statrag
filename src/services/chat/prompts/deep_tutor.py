@@ -92,10 +92,18 @@ Return a JSON object with these keys:
   the concept (e.g. "real-world application or empirical case of the
   bias-variance tradeoff") — so the answer's Applications section can cite a
   concrete case, not a generic field label.
-- "queries": array of 2-4 self-contained retrieval queries (one per facet),
+  ALWAYS include one RELATED-FRAMINGS facet — the OTHER contexts or parent
+  theories the concept belongs to beyond the most obvious one (e.g. for
+  "bias-variance tradeoff": "other contexts where the bias-variance tradeoff
+  arises, such as regularization, model selection, and ensemble methods") —
+  so the answer surfaces cross-domain connections and avoids anchoring to a
+  single parent framing.
+- "queries": array of 2-5 self-contained retrieval queries (one per facet),
   each phrased to surface that facet from a textbook (e.g. "formula for the
   variance of an estimator"). Include a query targeting the application-case
-  facet (e.g. "worked empirical example applying the bias-variance tradeoff").
+  facet (e.g. "worked empirical example applying the bias-variance tradeoff")
+  AND a query targeting the related-framings facet (e.g. "bias-variance tradeoff
+  in regularization and model selection").
   Do NOT just repeat the question.
 </task>
 
@@ -111,9 +119,9 @@ Q: "State the bias of an unbiased estimator." ->
     "facets": ["definition of bias of an estimator", "unbiasedness condition"],
     "queries": ["definition and formula for the bias of an estimator", "what makes an estimator unbiased"]}}
 Q: "What is the bias-variance tradeoff?" ->
-  {{"concepts": ["bias-variance tradeoff"], "perspectives": 2,
-    "facets": ["bias definition + formula", "variance definition + formula", "mean squared error decomposition", "real-world application or empirical case of the bias-variance tradeoff"],
-    "queries": ["formula for the bias of an estimator", "formula for the variance of an estimator", "mean squared error decomposition into bias variance and irreducible error", "worked empirical example applying the bias-variance tradeoff"]}}
+  {{"concepts": ["bias-variance tradeoff"], "perspectives": 3,
+    "facets": ["bias definition + formula", "variance definition + formula", "mean squared error decomposition", "real-world application or empirical case of the bias-variance tradeoff", "other contexts where the bias-variance tradeoff arises (e.g. regularization, model selection, ensemble methods)"],
+    "queries": ["formula for the bias of an estimator", "formula for the variance of an estimator", "mean squared error decomposition into bias variance and irreducible error", "worked empirical example applying the bias-variance tradeoff", "bias-variance tradeoff in regularization and model selection"]}}
 </examples>
 
 <output>

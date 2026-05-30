@@ -2,6 +2,23 @@
 
 Append-only. Latest at top.
 
+## 2026-05-30 — Phase-2: quality reinvestment (draft-model upgrade, related-framings facet, topic diversity)
+
+Three targeted quality improvements that reinvest the budget freed by Phase-1.
+See `docs/superpowers/specs/2026-05-30-tutor-phase2-quality-reinvest-design.md` for full rationale and A/B data.
+
+**1 · Draft model → full (`gpt-5.4-2026-03-05`)** (`src/services/chat/agents/deep_tutor.py`)
+Added `_DRAFT_MODEL_DEFAULT = os.environ.get("TUTOR_DRAFT_MODEL","") or settings.openai_model_full`.
+`run_deep_tutor` now sets `default_model = req.model or _DRAFT_MODEL_DEFAULT` so the draft stage defaults to the full model when no picker model is explicitly selected. All other stages (planner/expansion, coverage, image_judge, synthesizer worker) still resolve to `settings.openai_model_nano` — only draft is affected. A/B: steady ~40s vs 18–134s spike on nano; stronger articulation + decomposition framing. Revert: `TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17`. New env row in doc 36.
+
+**2 · Related-framings facet** (`src/services/chat/prompts/deep_tutor.py`)
+Extended `EXTRACT_CONCEPTS_BUDGET_PROMPT` facets contract: planner now ALWAYS adds one **related-framings facet** (other contexts/parent theories the concept belongs to beyond the obvious one) and a matching retrieval query. Updated the bias-variance example to include `"other contexts where the bias-variance tradeoff arises (e.g. regularization, model selection, ensemble methods)"` + query `"bias-variance tradeoff in regularization and model selection"`. No new LLM call; extra query flows into existing multi-query RRF pull. Updated doc 45.
+
+**3 · Section-parent (chapter) diversity tiebreak** (`src/services/chat/agents/deep_tutor.py`)
+Added `_apply_section_parent_diversity(sources, ranked_all, eff_top_n)` called after the author floor in `_density_select`. When all surviving sources share the same `chapter` field (same parent framing), the best dropped source from a different chapter is reinserted (at most one slot). Author-diversity remains primary. Pure-local; degrades silently when chapter metadata is absent. Updated doc 42.
+
+**Tests**: 85 green (+10 new in `test_deep_tutor.py`: draft-model default × 2, related-framings prompt × 2, section-parent diversity × 3).
+
 ## 2026-05-30 — Phase-1 token cuts + cheap quality wins
 
 Five independent efficiency changes to the deep-tutor pipeline. No topology change, no model change. See `docs/superpowers/specs/2026-05-30-tutor-phase1-token-cuts-design.md` for full rationale.

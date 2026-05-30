@@ -779,6 +779,32 @@ def _lift_math_blocks_from_text(text: str, *, limit: int = 6) -> list[str]:
 # needed to connect concepts across sources. Plan/extract/judge/coverage calls
 # stay at 0.0 — they must be deterministic.
 _DRAFT_TEMPERATURE = float(os.environ.get("TUTOR_DEEP_TEMPERATURE", "0.4"))
+# Draft-model default — Phase 2: upgraded to the full OpenAI model for
+# steadier latency and stronger articulation. Revert via:
+#   TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17
+# The lazy evaluation (lambda) defers settings access until first use so
+# config is fully loaded before the fallback is read.
+_DRAFT_MODEL_DEFAULT: str = (
+    os.environ.get("TUTOR_DRAFT_MODEL", "") or settings.openai_model_full
+)
+
+
+def _resolve_draft_default(req_model: str | None) -> str:
+    """Base model for the draft stage.
+
+    The request's ``model`` field carries a non-null schema default
+    (``openai_model_nano``), so a bare request cannot be distinguished from an
+    explicit nano pick by truthiness alone. Phase 2 routes the draft to the
+    stronger ``_DRAFT_MODEL_DEFAULT`` (full OpenAI model) UNLESS the user
+    explicitly picked a *different* model in the picker. An explicit non-nano
+    ``req.model`` still wins (honors the About-model feature); the schema
+    default and an empty value both fall through to the full draft default.
+    To force nano draft, set ``TUTOR_DRAFT_MODEL`` or use
+    ``stageModels["draft"]``.
+    """
+    if req_model and req_model != settings.openai_model_nano:
+        return req_model
+    return _DRAFT_MODEL_DEFAULT
 _WIDE_POOL = int(os.environ.get("TUTOR_DEEP_POOL", "30"))
 _IMAGES_ENABLED = os.environ.get("TUTOR_DEEP_IMAGES", "1") == "1"
 # Vision-explain (#9): have a vision model read each placed figure and
@@ -1136,6 +1162,45 @@ async def _multi_query_candidates(
     return _rrf_merge(pools) if pools else []
 
 
+def _apply_section_parent_diversity(
+    sources: list[Source],
+    ranked_all: list[Source],
+    eff_top_n: int,
+) -> list[Source]:
+    """Secondary section-parent (chapter) diversity tiebreak.
+
+    When all surviving *sources* share the same chapter/parent framing,
+    reinsert the best dropped source (from *ranked_all[eff_top_n:]*) from a
+    DIFFERENT chapter so at least one distinct framing survives the trim.
+
+    - Author diversity is PRIMARY and was already applied before this call.
+    - At most ONE extra source is added (avoid bloating the pool).
+    - Degrades gracefully: if chapter metadata is absent on any source, the
+      function returns *sources* unchanged.
+    """
+    # Collect distinct chapter keys in current selection (empty-string means
+    # metadata absent — treat as unknown, skip diversity for that source).
+    chapters_in = [s.chapter for s in sources if s.chapter]
+    if not chapters_in:
+        return sources  # no chapter metadata → degrade silently
+
+    unique_chapters = set(chapters_in)
+    if len(unique_chapters) > 1:
+        return sources  # already diverse — nothing to do
+
+    # All sources share a single chapter framing. Look for the best dropped
+    # source from a different chapter in the ranked remainder.
+    dropped = ranked_all[eff_top_n:]
+    for s in dropped:
+        if s.chapter and s.chapter not in unique_chapters:
+            logger.debug(
+                "_density_select: section-parent tiebreak re-inserted chapter=%s", s.chapter
+            )
+            return sources + [s]
+
+    return sources  # no alternative framing in pool → degrade cleanly
+
+
 def _density_select(
     query: str,
     concepts: list[str],
@@ -1327,6 +1392,14 @@ def _density_select(
             if reinserts:
                 sources = sources + reinserts
                 logger.debug("_density_select: rerank floor re-inserted %d author(s)", len(reinserts))
+
+        # Secondary tiebreak: section-parent (chapter) diversity.
+        # When all surviving sources share the same chapter/parent framing,
+        # reinsert the best dropped source from a DIFFERENT chapter so at least
+        # one distinct framing survives the trim.  Author-diversity is primary
+        # (already applied above); this pass adds one slot only when needed and
+        # degrades gracefully if section metadata (chapter) is absent.
+        sources = _apply_section_parent_diversity(sources, ranked_all, eff_top_n)
 
     # Log diversity outcome for observability.
     if target_authors >= 2:
@@ -2107,10 +2180,12 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     pool = _WIDE_POOL
 
     # Per-stage model resolution (About-model feature). draft defaults to the
-    # picker model; expansion/critique/image_judge default to nano unless the
-    # request explicitly overrides them with a valid picker model.
+    # picker model; when no picker model is set, draft defaults to
+    # _DRAFT_MODEL_DEFAULT (full OpenAI model, Phase 2 upgrade; revertible
+    # via TUTOR_DRAFT_MODEL env). expansion/critique/image_judge always default
+    # to nano unless the request explicitly overrides them.
     sm = getattr(req, "stageModels", None)
-    default_model = req.model or settings.openai_model_nano
+    default_model = _resolve_draft_default(getattr(req, "model", None))
     m_expansion = _resolve_stage_model("expansion", default_model, sm)
     m_draft = _resolve_stage_model("draft", default_model, sm)
     m_critique = _resolve_stage_model("critique", default_model, sm)

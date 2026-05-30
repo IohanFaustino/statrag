@@ -79,6 +79,20 @@ UI: **Author diversity** node in the About-model pipeline diagram
 `src/services/chat/tests/test_diversity.py` — 23 cases (round-robin interleave,
 target<2 passthrough, saturation, year tiebreak, filter helper).
 
+## Section-parent (topic) diversity — secondary tiebreak (Phase 2, 2026-05-30)
+
+After the author floor, `_density_select` applies a secondary **chapter-diversity
+pass** via `_apply_section_parent_diversity`:
+
+- If all surviving sources share the same `chapter` field (same parent framing),
+  the best dropped source from a **different chapter** is reinserted (at most one
+  extra slot).
+- Author-diversity is **primary** (unchanged); chapter spread is the secondary
+  tiebreak to prevent MSE-chapter tunnel-vision when the corpus has alternative
+  framings (e.g. a regularization chapter that also covers bias-variance).
+- Degrades gracefully when `chapter` metadata is absent (returns sources unchanged).
+- No new LLM call; no new I/O.
+
 ## Known limitation / next step
 
 Plan B (stratified fill) currently draws only from the already-fetched wide

@@ -865,3 +865,148 @@ def test_coverage_gate_runs_complex():
     assert _needs(facets_formula)
     assert _needs(facets_formula_word)
     assert not _needs([])   # empty → fail-safe False (gate condition: bool(facets) is False)
+
+
+# ---------------------------------------------------------------------------
+# Phase-2 changes: draft-model upgrade, related-framings facet, topic diversity
+# ---------------------------------------------------------------------------
+
+
+def test_draft_stage_resolves_to_full_model_by_default():
+    """Draft stage default is the full OpenAI model (Phase 2); other stages stay nano."""
+    import src.services.chat.agents.deep_tutor as dt
+    from src.core.config import settings
+
+    # Exercise the REAL wiring: req.model carries the schema-default nano, which
+    # must NOT shadow the full draft default (regression guard for the bug where
+    # `req.model or _DRAFT_MODEL_DEFAULT` always picked nano).
+    base_default = dt._resolve_draft_default(settings.openai_model_nano)
+    assert base_default == settings.openai_model_full, (
+        f"schema-default nano must fall through to full; got {base_default!r}"
+    )
+    assert dt._resolve_draft_default(None) == settings.openai_model_full
+    # An explicit, different pick still wins (About-model feature).
+    assert dt._resolve_draft_default("gpt-4o") == "gpt-4o"
+
+    # Given that base, draft resolves to full; other stages stay nano.
+    draft_model = dt._resolve_stage_model("draft", base_default, None)
+    assert draft_model == settings.openai_model_full, (
+        f"Expected draft default={settings.openai_model_full}, got {draft_model!r}"
+    )
+    assert dt._resolve_stage_model("expansion", base_default, None) == settings.openai_model_nano
+    assert dt._resolve_stage_model("critique", base_default, None) == settings.openai_model_nano
+    assert dt._resolve_stage_model("image_judge", base_default, None) == settings.openai_model_nano
+
+
+def test_draft_model_env_override_revert_to_nano(monkeypatch):
+    """TUTOR_DRAFT_MODEL=nano reverts draft to nano (revert path)."""
+    import importlib
+    import src.services.chat.agents.deep_tutor as dt
+    from src.core.config import settings
+
+    monkeypatch.setenv("TUTOR_DRAFT_MODEL", settings.openai_model_nano)
+    try:
+        importlib.reload(dt)
+        assert dt._DRAFT_MODEL_DEFAULT == settings.openai_model_nano
+    finally:
+        monkeypatch.undo()
+        importlib.reload(dt)
+
+
+def test_planner_prompt_contains_related_framings_facet():
+    """EXTRACT_CONCEPTS_BUDGET_PROMPT includes the related-framings facet instruction."""
+    from src.services.chat.prompts.deep_tutor import EXTRACT_CONCEPTS_BUDGET_PROMPT
+
+    prompt = EXTRACT_CONCEPTS_BUDGET_PROMPT.lower()
+    assert "related-framings facet" in prompt, (
+        "Prompt must mention 'related-framings facet'"
+    )
+    assert "other contexts" in prompt, (
+        "Prompt must instruct the planner to include 'other contexts'"
+    )
+    # Example query for related-framings must be present
+    assert "regularization" in prompt, (
+        "Bias-variance example must reference regularization as an alternative framing"
+    )
+    assert "model selection" in prompt, (
+        "Bias-variance example must reference model selection as an alternative framing"
+    )
+
+
+def test_planner_prompt_example_includes_related_framings_query():
+    """The bias-variance example in EXTRACT_CONCEPTS_BUDGET_PROMPT has a related-framings query."""
+    from src.services.chat.prompts.deep_tutor import EXTRACT_CONCEPTS_BUDGET_PROMPT
+
+    # The example must include a query that targets the related-framings framing
+    assert "regularization and model selection" in EXTRACT_CONCEPTS_BUDGET_PROMPT.lower(), (
+        "Example must include a query for 'bias-variance tradeoff in regularization and model selection'"
+    )
+
+
+def _make_source_with_chapter(rank: int, book: str, chapter: str, section: str) -> "object":
+    """Helper: create a Source with explicit chapter for topic-diversity tests."""
+    from src.services.chat.schemas import Source
+    return Source(
+        rank=rank, book=book, chapter=chapter, section=section,
+        title=f"{book} {chapter} §{section}",
+        excerpt="text", score=1.0 / rank,
+        chunkId=f"{book}-{chapter}-{section}-{rank}",
+        chunk="bias variance tradeoff text",
+        book_name=book.upper(), authors="Author A", authors_short="Author A",
+        year=2020, page_from=rank * 10, page_to=rank * 10 + 5, page=rank * 10,
+    )
+
+
+def test_section_parent_diversity_spreads_chapters():
+    """_apply_section_parent_diversity reinserts a source from a different chapter."""
+    from src.services.chat.agents.deep_tutor import _apply_section_parent_diversity
+
+    # All 3 selected sources are from "ch02"
+    selected = [
+        _make_source_with_chapter(1, "bookA", "ch02", "2.1"),
+        _make_source_with_chapter(2, "bookA", "ch02", "2.2"),
+        _make_source_with_chapter(3, "bookB", "ch02", "2.1"),
+    ]
+    # Dropped pool has one source from "ch05" (different framing)
+    dropped_source = _make_source_with_chapter(4, "bookC", "ch05", "5.1")
+    # ranked_all = selected + dropped (eff_top_n = 3)
+    ranked_all = selected + [dropped_source]
+    eff_top_n = 3
+
+    result = _apply_section_parent_diversity(selected, ranked_all, eff_top_n)
+
+    # The ch05 source should be reinserted
+    chapters = [s.chapter for s in result]
+    assert "ch05" in chapters, f"Expected ch05 reinserted, got chapters={chapters}"
+    assert len(result) == len(selected) + 1
+
+
+def test_section_parent_diversity_no_op_when_already_diverse():
+    """No extra source added when sources already span multiple chapters."""
+    from src.services.chat.agents.deep_tutor import _apply_section_parent_diversity
+
+    selected = [
+        _make_source_with_chapter(1, "bookA", "ch02", "2.1"),
+        _make_source_with_chapter(2, "bookA", "ch05", "5.1"),  # different chapter
+    ]
+    ranked_all = selected  # nothing dropped
+    result = _apply_section_parent_diversity(selected, ranked_all, len(selected))
+    assert result == selected  # unchanged
+
+
+def test_section_parent_diversity_degrades_when_no_chapter_metadata():
+    """Degrades gracefully when chapter field is empty (no metadata)."""
+    from src.services.chat.agents.deep_tutor import _apply_section_parent_diversity
+    from src.services.chat.schemas import Source
+
+    def _no_chapter(rank):
+        return Source(
+            rank=rank, book="b", chapter="",  # empty chapter = no metadata
+            section="s", title="t", excerpt="x", score=0.5,
+            chunkId=f"c{rank}", chunk="text",
+        )
+
+    selected = [_no_chapter(1), _no_chapter(2)]
+    ranked_all = selected + [_no_chapter(3)]
+    result = _apply_section_parent_diversity(selected, ranked_all, 2)
+    assert result == selected  # unchanged — degraded cleanly

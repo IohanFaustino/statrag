@@ -50,6 +50,20 @@ Both off ⇒ exactly the legacy single-query path.
 `src/services/chat/tests/test_query_planner_coverage.py` — RRF merge dedup/order,
 planner graceful fallback, coverage graceful + facet-scoped, re-query dedup.
 
+## Related-framings facet (Phase 2, 2026-05-30)
+
+`EXTRACT_CONCEPTS_BUDGET_PROMPT` was extended to always include a
+**related-framings facet** — the other contexts or parent theories the concept
+belongs to beyond the most obvious framing. For "bias-variance tradeoff" this
+surfaces "other contexts where the bias-variance tradeoff arises (e.g.
+regularization, model selection, ensemble methods)" plus a matching retrieval
+query.
+
+- No new LLM call: enriches the existing single planner output.
+- The extra query flows into the existing multi-query RRF pull, so retrieval
+  coverage widens to alternative framings without extra latency overhead.
+- The bias-variance example in the prompt is updated to show both facets.
+
 ## Notes
 
 - Best-effort throughout (invariant #19): any LLM failure degrades to the

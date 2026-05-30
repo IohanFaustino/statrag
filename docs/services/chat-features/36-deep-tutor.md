@@ -137,6 +137,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 
 | Var | Default | Meaning |
 |---|---|---|
+| `TUTOR_DRAFT_MODEL` | `openai_model_full` (`gpt-5.4-2026-03-05`) | Default draft model. Phase 2 upgrade: full model for steadier latency and stronger articulation. Revert to nano: `TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17`. Only the draft stage is affected; all other stages stay on nano. |
 | `TUTOR_DEEP_MODE` | `1` | `0` = revert to legacy `create_agent` path |
 | `TUTOR_DEEP_CRITIQUE` | `0` | `1` = enable critique + refine loop |
 | `TUTOR_DEEP_MAX_REFINE` | `1` | Hard cap on refine iterations |
@@ -234,3 +235,29 @@ and `web/src/components/views/TutorView.{emphasis,blocks}.test.tsx`.
 **2026-05-20 update — vision explain default flipped**
 
 `build_vision_explanations()` now runs by default; `_VISION_EXPLAIN_PROMPT` rewritten for grounded figure descriptions. Backend restart needed to pick up the env default. See changelog 2026-05-20 §2.
+
+---
+
+## 2026-05-30 — Phase 2: quality reinvestment
+
+Three changes (see `docs/superpowers/specs/2026-05-30-tutor-phase2-quality-reinvest-design.md`):
+
+1. **Draft model upgrade** — draft stage default promoted to `gpt-5.4-2026-03-05`
+   (full OpenAI model) via new `TUTOR_DRAFT_MODEL` env (see table above).
+   A/B result: steady ~40s latency vs 18–134s on nano; stronger articulation
+   and definition decomposition. Revert: `TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17`.
+   All other stages (planner, coverage, image_judge, synthesizer worker) stay on nano.
+
+2. **Related-framings facet** — `EXTRACT_CONCEPTS_BUDGET_PROMPT` now instructs
+   the planner to ALWAYS include a related-framings facet (other contexts/parents
+   the concept belongs to beyond the obvious one). The bias-variance example now
+   includes "other contexts where the bias-variance tradeoff arises (e.g.
+   regularization, model selection, ensemble methods)" + a matching retrieval query.
+   No new LLM call — enriches the existing planner output; extra query flows into
+   the existing multi-query RRF pull. See doc 45.
+
+3. **Section-parent diversity tiebreak** — `_density_select` adds a secondary
+   chapter-diversity pass after the author floor: when all surviving sources
+   share the same chapter/parent framing, the best dropped source from a different
+   chapter is reinserted (at most one slot). Author diversity remains primary.
+   Degrades cleanly when chapter metadata is absent. See doc 42.
