@@ -40,3 +40,15 @@ Totals: 49 chapters, 1411 chunks.
   `data/parsed/neo4j_llm/book.json` (353 `index_terms`).
 - Skipped (partial samples, not full books): "30 Agents Every AI Engineer Must
   Build" (only 2 chapters) and "LLM Engineer's Handbook" (only ch1, 7, 8).
+- **Companion code → hindsight**: each book's GitHub companion repo is cloned to
+  `docs/repos/<slug>/` (langchain on branch `second_edition`). The builder
+  `docs/repos/_index/build_records.py` maps repo code folders to book chapters by
+  number and emits one structured, entity-rich record per chapter-with-code under
+  `docs/repos/_index/records/<slug>__chNN.md` (+ `_index/manifest.json`,
+  `docs/repos/INDEX.md`). 30 records (rothman 10, langchain 9, neo4j 8, agentic
+  3) are ingested into the **hindsight** agent-memory bank `claude-code`
+  (doc IDs `<slug>__chNN.md`; the `code:<slug>:chNN` key lives in each record's
+  H1). Standing index = hindsight page `book-code-index`. Recall verified
+  (entity extraction returns models/libraries/concepts per chapter). Spec +
+  plan: `docs/superpowers/{specs,plans}/2026-05-30-book-code-hindsight*.md`. See
+  [[hindsight-memory-server]].
