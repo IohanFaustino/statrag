@@ -1184,7 +1184,9 @@ def _apply_section_parent_diversity(
     """
     # Collect distinct chapter keys in current selection (empty-string means
     # metadata absent — treat as unknown, skip diversity for that source).
-    chapters_in = [s.chapter for s in sources if s.chapter]
+    # Use getattr so objects without a ``chapter`` attribute degrade silently
+    # rather than raising (e.g. lightweight test/pseudo-source stand-ins).
+    chapters_in = [c for s in sources if (c := getattr(s, "chapter", "") or "")]
     if not chapters_in:
         return sources  # no chapter metadata → degrade silently
 
@@ -1196,9 +1198,10 @@ def _apply_section_parent_diversity(
     # source from a different chapter in the ranked remainder.
     dropped = ranked_all[eff_top_n:]
     for s in dropped:
-        if s.chapter and s.chapter not in unique_chapters:
+        s_chapter = getattr(s, "chapter", "") or ""
+        if s_chapter and s_chapter not in unique_chapters:
             logger.debug(
-                "_density_select: section-parent tiebreak re-inserted chapter=%s", s.chapter
+                "_density_select: section-parent tiebreak re-inserted chapter=%s", s_chapter
             )
             return sources + [s]
 

@@ -2,6 +2,20 @@
 
 Append-only. Latest at top.
 
+## 2026-05-30 — Google Gemini provider (Phase 4 prep)
+
+Added a Google Gemini provider to the chat LLM layer following the Groq/DeepSeek OpenAI-compat pattern. No new dependencies — Gemini's compat endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`) accepts the `openai` SDK verbatim.
+
+**Artifacts changed:**
+- `src/core/config.py`: added `gemini_api_key` (alias `GEMINI_API_KEY`, default `""`) and `gemini_base_url` (alias `GEMINI_BASE_URL`, default `https://generativelanguage.googleapis.com/v1beta/openai/`).
+- `src/services/chat/llm/gemini_client.py` (new): `GeminiChat(BaseLLM)` — mirrors `GroqChat` exactly; raises `LLMError("GEMINI_API_KEY missing")` when the key is unset; supports `response_format` pass-through.
+- `src/services/chat/llm/router.py`: added `google` `ModelProvider` with `gemini-2.5-flash` and `gemini-2.5-pro`; added `GEMINI_MODEL_IDS` set; routed `model_id.startswith("gemini")` → `GeminiChat` in both `get_llm` and `aclient_for`; updated module docstring routing table.
+- `src/services/chat/schemas/_core.py`: added `"google"` to `ProviderId` Literal (required since `ModelProvider.id` is typed by it).
+- `src/services/chat/tests/test_router_gemini.py` (new): 10 tests — routing, key-missing error, `aclient_for` base_url, registry counts/ids, `GEMINI_MODEL_IDS` ↔ registry match.
+- `src/services/chat/tests/test_llm_router.py`: updated provider count assertion 3→4 and ids set.
+
+**Tests**: 593 passed (2 pre-existing failures in `test_adjacency_recall.py` unrelated to this change). See `docs/superpowers/specs/2026-05-30-gemini-provider-draft-ab-design.md` for A/B plan.
+
 ## 2026-05-30 — Phase-2: quality reinvestment (draft-model upgrade, related-framings facet, topic diversity)
 
 Three targeted quality improvements that reinvest the budget freed by Phase-1.

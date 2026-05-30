@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     deepseek_base_url: str = Field("https://api.deepseek.com/v1", alias="DEEPSEEK_BASE_URL")
     groq_api_key: str = Field("", alias="GROQ_API_KEY")
     groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    gemini_api_key: str = Field("", alias="GEMINI_API_KEY")
+    gemini_base_url: str = Field(
+        "https://generativelanguage.googleapis.com/v1beta/openai/",
+        alias="GEMINI_BASE_URL",
+    )
     groq_default_model: str = Field(
         "meta-llama/llama-4-scout-17b-16e-instruct", alias="GROQ_DEFAULT_MODEL"
     )

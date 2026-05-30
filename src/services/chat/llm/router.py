@@ -3,6 +3,8 @@
 Routing rule
 ------------
 - Model ID starts with ``"deepseek"``  →  :class:`DeepSeekChat`
+- Model ID is in ``GROQ_MODEL_IDS``    →  :class:`GroqChat`
+- Model ID starts with ``"gemini"``    →  :class:`GeminiChat`
 - Anything else (``"gpt-*"`` or unknown)  →  :class:`OpenAIChat`
 
 Public API
@@ -19,6 +21,7 @@ from fastapi import APIRouter
 from src.core.config import settings
 from src.services.chat.llm.base import BaseLLM, LLMError
 from src.services.chat.llm.deepseek_client import DeepSeekChat
+from src.services.chat.llm.gemini_client import GeminiChat
 from src.services.chat.llm.groq_client import GroqChat
 from src.services.chat.llm.openai_client import OpenAIChat
 from src.services.chat.schemas import Model, ModelProvider
@@ -140,6 +143,30 @@ _PROVIDERS: list[ModelProvider] = [
             ),
         ],
     ),
+    ModelProvider(
+        id="google",
+        name="Google",
+        short="GGL",
+        color="#4285F4",
+        models=[
+            Model(
+                id="gemini-2.5-flash",
+                name="Gemini 2.5 Flash",
+                tagline="Fast multimodal — draft candidate",
+                cost="$",
+                speed="fast",
+                ctx="1M",
+            ),
+            Model(
+                id="gemini-2.5-pro",
+                name="Gemini 2.5 Pro",
+                tagline="Flagship reasoning",
+                cost="$$$",
+                speed="med",
+                ctx="1M",
+            ),
+        ],
+    ),
 ]
 
 
@@ -150,6 +177,14 @@ GROQ_MODEL_IDS: set[str] = {
     "llama-3.3-70b-versatile",
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
+}
+
+# Gemini model IDs all share the reliable ``"gemini"`` prefix — a prefix check
+# is sufficient and simpler than an explicit set (no collision risk with other
+# providers).  Kept as a constant so tests can assert against it.
+GEMINI_MODEL_IDS: set[str] = {
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
 }
 
 
@@ -176,6 +211,8 @@ def get_llm(model_id: str) -> tuple[BaseLLM, str]:
         return DeepSeekChat(), model_id
     if model_id in GROQ_MODEL_IDS:
         return GroqChat(), model_id
+    if model_id.startswith("gemini"):
+        return GeminiChat(), model_id
     return OpenAIChat(), model_id
 
 
@@ -211,6 +248,13 @@ def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(
             api_key=settings.deepseek_api_key,
             base_url=settings.deepseek_base_url,
+        )
+    if model_id and model_id.startswith("gemini"):
+        if not settings.gemini_api_key:
+            raise LLMError("GEMINI_API_KEY missing")
+        return openai.AsyncOpenAI(
+            api_key=settings.gemini_api_key,
+            base_url=settings.gemini_base_url,
         )
     return openai.AsyncOpenAI(api_key=settings.openai_api_key)
 
