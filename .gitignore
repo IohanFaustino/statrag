@@ -51,3 +51,6 @@ logs/
 
 # --- claude local cache ---
 .claude/
+
+# scratch key file (never commit)
+/tmp
