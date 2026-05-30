@@ -1,0 +1,753 @@
+{
+  "books": {
+    "agentic_patterns": {
+      "name": "Agentic Architectural Patterns for Building Multi-Agent Systems",
+      "repo": "https://github.com/PacktPublishing/Agentic-Architectural-Patterns-for-Building-Multi-Agent-Systems",
+      "branch": "main",
+      "chapters": {
+        "ch01": {
+          "title": "GenAI in the Enterprise: Landscape, Maturity, and Agent Focus",
+          "status": "no-code"
+        },
+        "ch02": {
+          "title": "Agent-Ready LLMs: Selection, Deployment, and Adaptation",
+          "status": "no-code"
+        },
+        "ch03": {
+          "title": "The Spectrum of LLM Adaptation for Agents: RAG to Fine-tuning",
+          "status": "no-code"
+        },
+        "ch04": {
+          "title": "Agentic AI Architecture: Components and Interactions",
+          "status": "no-code"
+        },
+        "ch05": {
+          "title": "Multi-Agent Coordination Patterns",
+          "status": "no-code"
+        },
+        "ch06": {
+          "title": "Explainability and Compliance Agentic Patterns",
+          "status": "no-code"
+        },
+        "ch07": {
+          "title": "Robustness and Fault Tolerance Patterns",
+          "status": "no-code"
+        },
+        "ch08": {
+          "title": "Human-Agent Interaction Patterns",
+          "status": "no-code"
+        },
+        "ch09": {
+          "title": "Agent-Level Patterns",
+          "status": "no-code"
+        },
+        "ch10": {
+          "title": "System-Level Patterns for Production Readiness",
+          "status": "no-code"
+        },
+        "ch11": {
+          "title": "Advanced Adaptation: Building Agents That Learn",
+          "status": "no-code"
+        },
+        "ch12": {
+          "title": "A Practical Roadmap: Implementing Agentic Patterns by Maturity Level",
+          "status": "no-code"
+        },
+        "ch13": {
+          "title": "Use Case: A Single Agent for Loan Processing",
+          "status": "code",
+          "folder": "Chapter_13",
+          "n_files": 1,
+          "libraries": [
+            "getpass",
+            "google",
+            "os",
+            "random",
+            "ratelimit",
+            "tenacity",
+            "time",
+            "uuid"
+          ],
+          "record": "_index/records/agentic_patterns__ch13.md"
+        },
+        "ch14": {
+          "title": "Use Case: A Multi-Agent System for Loan Processing",
+          "status": "code",
+          "folder": "Chapter_14",
+          "n_files": 1,
+          "libraries": [
+            "getpass",
+            "google",
+            "json",
+            "os",
+            "random",
+            "ratelimit",
+            "tenacity",
+            "time",
+            "uuid"
+          ],
+          "record": "_index/records/agentic_patterns__ch14.md"
+        },
+        "ch15": {
+          "title": "Agent Frameworks - Use Case: A Multi-Agent System for Loan Processing with CrewAI and LangGraph",
+          "status": "code",
+          "folder": "Chapter_15",
+          "n_files": 1,
+          "libraries": [
+            "crewai",
+            "getpass",
+            "json",
+            "langchain_core",
+            "langchain_google_genai",
+            "langgraph",
+            "os",
+            "ratelimit",
+            "tenacity",
+            "time",
+            "typing"
+          ],
+          "record": "_index/records/agentic_patterns__ch15.md"
+        },
+        "ch16": {
+          "title": "Conclusion: Charting Your Agentic AI Journey",
+          "status": "no-code"
+        }
+      }
+    },
+    "langchain_genai": {
+      "name": "Generative AI with LangChain",
+      "repo": "https://github.com/benman1/generative_ai_with_langchain",
+      "branch": "second_edition",
+      "chapters": {
+        "ch01": {
+          "title": "The Rise of Generative AI: From Language Models to Agents",
+          "status": "code",
+          "folder": "chapter1",
+          "n_files": 2,
+          "libraries": [
+            "transformers"
+          ],
+          "record": "_index/records/langchain_genai__ch01.md"
+        },
+        "ch02": {
+          "title": "First Steps with LangChain",
+          "status": "code",
+          "folder": "chapter2",
+          "n_files": 6,
+          "libraries": [
+            "base64",
+            "config",
+            "langchain_anthropic",
+            "langchain_community",
+            "langchain_core",
+            "langchain_google_genai",
+            "langchain_huggingface",
+            "langchain_ollama",
+            "langchain_openai",
+            "os",
+            "sys"
+          ],
+          "record": "_index/records/langchain_genai__ch02.md"
+        },
+        "ch03": {
+          "title": "Building Workflows with LangGraph",
+          "status": "code",
+          "folder": "chapter3",
+          "n_files": 10,
+          "libraries": [
+            "IPython",
+            "base64",
+            "collections",
+            "enum",
+            "langchain",
+            "langchain_core",
+            "langchain_google_genai",
+            "langgraph",
+            "logging",
+            "operator",
+            "pydantic",
+            "typing",
+            "typing_extensions"
+          ],
+          "record": "_index/records/langchain_genai__ch03.md"
+        },
+        "ch04": {
+          "title": "Building Intelligent RAG Systems",
+          "status": "code",
+          "folder": "chapter4",
+          "n_files": 10,
+          "libraries": [
+            "chapter4",
+            "config",
+            "langchain",
+            "langchain_chroma",
+            "langchain_community",
+            "langchain_core",
+            "langchain_experimental",
+            "langchain_groq",
+            "langchain_openai",
+            "langchain_text_splitters",
+            "langgraph",
+            "logging",
+            "os",
+            "pathlib",
+            "streamlit",
+            "sys",
+            "tempfile",
+            "typing",
+            "typing_extensions"
+          ],
+          "record": "_index/records/langchain_genai__ch04.md"
+        },
+        "ch05": {
+          "title": "Building Intelligent Agents",
+          "status": "code",
+          "folder": "chapter5",
+          "n_files": 9,
+          "libraries": [
+            "IPython",
+            "config",
+            "datetime",
+            "langchain_community",
+            "langchain_core",
+            "langchain_experimental",
+            "langchain_google_genai",
+            "langchain_openai",
+            "langgraph",
+            "math",
+            "numexpr",
+            "operator",
+            "os",
+            "pydantic",
+            "sys",
+            "typing"
+          ],
+          "record": "_index/records/langchain_genai__ch05.md"
+        },
+        "ch06": {
+          "title": "Advanced Applications and Multi-Agent Systems",
+          "status": "code",
+          "folder": "chapter6",
+          "n_files": 6,
+          "libraries": [
+            "IPython",
+            "collections",
+            "datasets",
+            "langchain",
+            "langchain_community",
+            "langchain_core",
+            "langchain_google_genai",
+            "langgraph",
+            "operator",
+            "pydantic",
+            "typing"
+          ],
+          "record": "_index/records/langchain_genai__ch06.md"
+        },
+        "ch07": {
+          "title": "Software Development and Data Analysis Agents",
+          "status": "code",
+          "folder": "chapter7",
+          "n_files": 21,
+          "libraries": [
+            "chapter7",
+            "config",
+            "contextlib",
+            "data_science",
+            "dataclasses",
+            "datasets",
+            "evaluate",
+            "git",
+            "huggingface_hub",
+            "io",
+            "langchain",
+            "langchain_anthropic",
+            "langchain_chroma",
+            "langchain_community",
+            "langchain_core",
+            "langchain_experimental",
+            "langchain_google_genai",
+            "langchain_openai",
+            "langchain_text_splitters",
+            "langsmith",
+            "logging",
+            "math",
+            "nest_asyncio",
+            "os",
+            "pandas",
+            "pathlib",
+            "pip",
+            "pydantic",
+            "pygame",
+            "re",
+            "sklearn",
+            "streamlit",
+            "sys",
+            "transformers",
+            "typing",
+            "uuid"
+          ],
+          "record": "_index/records/langchain_genai__ch07.md"
+        },
+        "ch08": {
+          "title": "Evaluation and Testing",
+          "status": "code",
+          "folder": "chapter8",
+          "n_files": 4,
+          "libraries": [
+            "config",
+            "datasets",
+            "evaluate",
+            "langchain",
+            "langchain_community",
+            "langchain_core",
+            "langchain_mistralai",
+            "langchain_openai",
+            "langsmith",
+            "os",
+            "pydantic",
+            "sys"
+          ],
+          "record": "_index/records/langchain_genai__ch08.md"
+        },
+        "ch09": {
+          "title": "Production-Ready LLM Deployment and Observability",
+          "status": "code",
+          "folder": "chapter9",
+          "n_files": 12,
+          "libraries": [
+            "asyncio",
+            "bs4",
+            "config",
+            "fastapi",
+            "html",
+            "json",
+            "lanarky",
+            "langchain",
+            "langchain_anthropic",
+            "langchain_community",
+            "langchain_core",
+            "langchain_huggingface",
+            "langchain_openai",
+            "langchain_text_splitters",
+            "logging",
+            "numpy",
+            "os",
+            "pickle",
+            "promptwatch",
+            "pydantic",
+            "ray",
+            "re",
+            "requests",
+            "search_engine",
+            "starlette",
+            "subprocess",
+            "sys",
+            "time",
+            "traceback",
+            "typing",
+            "urllib",
+            "utils",
+            "uvicorn"
+          ],
+          "record": "_index/records/langchain_genai__ch09.md"
+        },
+        "ch10": {
+          "title": "The Future of Generative Models: Beyond Scaling",
+          "status": "no-code"
+        }
+      }
+    },
+    "neo4j_llm": {
+      "name": "Building Neo4j-Powered Applications with LLMs",
+      "repo": "https://github.com/PacktPublishing/Building-Neo4j-Powered-Applications-with-LLMs",
+      "branch": "main",
+      "chapters": {
+        "ch01": {
+          "title": "Introducing LLMs, RAGs, and Neo4j Knowledge Graphs",
+          "status": "no-code"
+        },
+        "ch02": {
+          "title": "Demystifying RAG",
+          "status": "code",
+          "folder": "ch2",
+          "n_files": 8,
+          "libraries": [
+            "datasets",
+            "gc",
+            "numpy",
+            "os",
+            "pandas",
+            "rank_bm25",
+            "sklearn",
+            "torch",
+            "transformers"
+          ],
+          "record": "_index/records/neo4j_llm__ch02.md"
+        },
+        "ch03": {
+          "title": "Building a Foundational Understanding of Knowledge Graph for Intelligent Applications",
+          "status": "code",
+          "folder": "ch3",
+          "n_files": 3,
+          "libraries": [
+            "neo4j",
+            "transformers"
+          ],
+          "record": "_index/records/neo4j_llm__ch03.md"
+        },
+        "ch04": {
+          "title": "Building Your Neo4j Graph with Movies Dataset",
+          "status": "code",
+          "folder": "ch4",
+          "n_files": 4,
+          "libraries": [
+            "ast",
+            "dotenv",
+            "neo4j",
+            "os",
+            "pandas",
+            "warnings"
+          ],
+          "record": "_index/records/neo4j_llm__ch04.md"
+        },
+        "ch05": {
+          "title": "Implementing Powerful Search Functionalities with Neo4j and Haystack",
+          "status": "code",
+          "folder": "ch5",
+          "n_files": 3,
+          "libraries": [
+            "concurrent",
+            "dotenv",
+            "gradio",
+            "haystack",
+            "neo4j",
+            "neo4j_haystack",
+            "numpy",
+            "openai",
+            "os",
+            "warnings"
+          ],
+          "record": "_index/records/neo4j_llm__ch05.md"
+        },
+        "ch06": {
+          "title": "Exploring Advanced Knowledge Graph Capabilities with Neo4j",
+          "status": "code",
+          "folder": "ch6",
+          "n_files": 2,
+          "libraries": [
+            "dotenv",
+            "haystack",
+            "neo4j",
+            "neo4j_haystack",
+            "openai",
+            "os"
+          ],
+          "record": "_index/records/neo4j_llm__ch06.md"
+        },
+        "ch07": {
+          "title": "Introducing the Neo4j Spring AI and LangChain4j Frameworks for Building Recommendation Systems",
+          "status": "code",
+          "folder": "ch7",
+          "n_files": 0,
+          "libraries": [],
+          "record": "_index/records/neo4j_llm__ch07.md"
+        },
+        "ch08": {
+          "title": "Constructing a Recommendation Graph with H&M Personalization Dataset",
+          "status": "no-code"
+        },
+        "ch09": {
+          "title": "Integrating LangChain4j and Spring AI with Neo4j",
+          "status": "code",
+          "folder": "ch9",
+          "n_files": 2,
+          "libraries": [],
+          "record": "_index/records/neo4j_llm__ch09.md"
+        },
+        "ch10": {
+          "title": "Creating an Intelligent Recommendation System",
+          "status": "no-code"
+        },
+        "ch11": {
+          "title": "Choosing the Right Cloud Platform for GenAI Applications",
+          "status": "no-code"
+        },
+        "ch12": {
+          "title": "Deploying Your Application on the Google Cloud",
+          "status": "code",
+          "folder": "ch12",
+          "n_files": 4,
+          "libraries": [
+            "dotenv",
+            "gradio",
+            "haystack",
+            "neo4j",
+            "neo4j_haystack",
+            "openai",
+            "os"
+          ],
+          "record": "_index/records/neo4j_llm__ch12.md"
+        },
+        "ch13": {
+          "title": "Epilogue",
+          "status": "no-code"
+        }
+      }
+    },
+    "rothman_rag": {
+      "name": "RAG-Driven Generative AI",
+      "repo": "https://github.com/Denis2054/RAG-Driven-Generative-AI",
+      "branch": "main",
+      "chapters": {
+        "ch01": {
+          "title": "Why Retrieval Augmented Generation?",
+          "status": "code",
+          "folder": "Chapter01",
+          "n_files": 2,
+          "libraries": [
+            "collections",
+            "google",
+            "json",
+            "nltk",
+            "numpy",
+            "openai",
+            "os",
+            "pandas",
+            "requests",
+            "sklearn",
+            "spacy",
+            "textwrap"
+          ],
+          "record": "_index/records/rothman_rag__ch01.md"
+        },
+        "ch02": {
+          "title": "RAG Embedding Vector Stores with Deep Lake and OpenAI",
+          "status": "code",
+          "folder": "Chapter02",
+          "n_files": 7,
+          "libraries": [
+            "IPython",
+            "bs4",
+            "deeplake",
+            "google",
+            "grequests",
+            "markdown",
+            "openai",
+            "os",
+            "re",
+            "requests",
+            "sentence_transformers",
+            "sklearn",
+            "subprocess",
+            "textwrap",
+            "time"
+          ],
+          "record": "_index/records/rothman_rag__ch02.md"
+        },
+        "ch03": {
+          "title": "Building Index-Based RAG with LlamaIndex, Deep Lake, and OpenAI",
+          "status": "code",
+          "folder": "Chapter03",
+          "n_files": 2,
+          "libraries": [
+            "IPython",
+            "bs4",
+            "deeplake",
+            "google",
+            "json",
+            "llama_index",
+            "markdown",
+            "numpy",
+            "openai",
+            "os",
+            "pandas",
+            "re",
+            "requests",
+            "sentence_transformers",
+            "sklearn",
+            "textwrap",
+            "time"
+          ],
+          "record": "_index/records/rothman_rag__ch03.md"
+        },
+        "ch04": {
+          "title": "Multimodal Modular RAG for Drone Technology",
+          "status": "code",
+          "folder": "Chapter04",
+          "n_files": 1,
+          "libraries": [
+            "IPython",
+            "PIL",
+            "base64",
+            "cv2",
+            "deeplake",
+            "google",
+            "io",
+            "itertools",
+            "json",
+            "llama_index",
+            "numpy",
+            "openai",
+            "os",
+            "pandas",
+            "sentence_transformers",
+            "sklearn",
+            "textwrap",
+            "time"
+          ],
+          "record": "_index/records/rothman_rag__ch04.md"
+        },
+        "ch05": {
+          "title": "Boosting RAG Performance with Expert Human Feedback",
+          "status": "code",
+          "folder": "Chapter05",
+          "n_files": 3,
+          "libraries": [
+            "IPython",
+            "base64",
+            "bs4",
+            "google",
+            "grequests",
+            "numpy",
+            "openai",
+            "os",
+            "re",
+            "requests",
+            "sklearn",
+            "subprocess",
+            "textwrap",
+            "time"
+          ],
+          "record": "_index/records/rothman_rag__ch05.md"
+        },
+        "ch06": {
+          "title": "Scaling RAG Bank Customer Data with Pinecone",
+          "status": "code",
+          "folder": "Chapter06",
+          "n_files": 3,
+          "libraries": [
+            "google",
+            "json",
+            "kaggle",
+            "matplotlib",
+            "openai",
+            "os",
+            "pandas",
+            "pinecone",
+            "seaborn",
+            "sklearn",
+            "sys",
+            "time",
+            "zipfile"
+          ],
+          "record": "_index/records/rothman_rag__ch06.md"
+        },
+        "ch07": {
+          "title": "Building Scalable Knowledge-Graph-Based RAG with Wikipedia API and LlamaIndex",
+          "status": "code",
+          "folder": "Chapter07",
+          "n_files": 9,
+          "libraries": [
+            "IPython",
+            "PIL",
+            "bs4",
+            "datetime",
+            "deeplake",
+            "google",
+            "io",
+            "json",
+            "llama_index",
+            "matplotlib",
+            "networkx",
+            "nltk",
+            "numpy",
+            "openai",
+            "os",
+            "pandas",
+            "pyvis",
+            "re",
+            "requests",
+            "sentence_transformers",
+            "sklearn",
+            "subprocess",
+            "sys",
+            "textwrap",
+            "time",
+            "wikipediaapi"
+          ],
+          "record": "_index/records/rothman_rag__ch07.md"
+        },
+        "ch08": {
+          "title": "Dynamic RAG with Chroma and Hugging Face Llama",
+          "status": "code",
+          "folder": "Chapter08",
+          "n_files": 1,
+          "libraries": [
+            "chromadb",
+            "datasets",
+            "google",
+            "numpy",
+            "os",
+            "pandas",
+            "spacy",
+            "textwrap",
+            "time",
+            "torch",
+            "transformers"
+          ],
+          "record": "_index/records/rothman_rag__ch08.md"
+        },
+        "ch09": {
+          "title": "Empowering AI Models: Fine-Tuning RAG Data and Human Feedback",
+          "status": "code",
+          "folder": "Chapter09",
+          "n_files": 1,
+          "libraries": [
+            "datasets",
+            "google",
+            "json",
+            "jsonlines",
+            "openai",
+            "os",
+            "pandas",
+            "textwrap"
+          ],
+          "record": "_index/records/rothman_rag__ch09.md"
+        },
+        "ch10": {
+          "title": "RAG for Video Stock Production with Pinecone and OpenAI",
+          "status": "code",
+          "folder": "Chapter10",
+          "n_files": 5,
+          "libraries": [
+            "IPython",
+            "PIL",
+            "base64",
+            "csv",
+            "cv2",
+            "google",
+            "io",
+            "matplotlib",
+            "numpy",
+            "openai",
+            "os",
+            "pandas",
+            "pinecone",
+            "requests",
+            "seaborn",
+            "sentence_transformers",
+            "shutil",
+            "sklearn",
+            "spacy",
+            "subprocess",
+            "sys",
+            "time",
+            "uuid"
+          ],
+          "record": "_index/records/rothman_rag__ch10.md"
+        }
+      }
+    }
+  }
+}
