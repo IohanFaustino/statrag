@@ -59,6 +59,13 @@ services:
       TUTOR_DEEP_VISION_EXPLAIN: "1"
     ports:
       - "8765:8765"
+    # Runtime SQLite state lives on the host, NOT baked into the image
+    # (.dockerignore excludes chat.db so a fresh image never ships a stale
+    # conversation snapshot). Bind-mount the host DBs so prod conversation
+    # history + tutor checkpoints persist across rebuilds/recreates.
+    volumes:
+      - ../../data/chat.db:/app/data/chat.db
+      - ../../data/checkpoints.db:/app/data/checkpoints.db
     depends_on:
       qdrant:
         condition: service_healthy
