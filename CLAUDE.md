@@ -6,7 +6,7 @@ Local-first Retrieval-Augmented Generation over OCR-processed textbooks. Hybrid 
 
 - **Vector DB**: Qdrant 1.12.4 in Docker, dashboard at `http://localhost:6333/dashboard`
 - **Embeddings**: `text-embedding-3-large` (OpenAI, 3072d)
-- **LLM (chat)**: `gpt-5.4-nano-2026-03-17` (default), `deepseek-v4-pro`, or Groq (`meta-llama/llama-4-scout-17b-16e-instruct`, `llama-3.3-70b-versatile`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`). Groq is chat-only — ingestion remains OpenAI/DeepSeek.
+- **LLM (chat)**: `gpt-5.4-nano-2026-03-17` (default), `deepseek-v4-pro`, or Groq (`meta-llama/llama-4-scout-17b-16e-instruct`, `llama-3.3-70b-versatile`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`). Groq is chat-only. **Ingestion enrichment** defaults to DeepSeek `deepseek-v4-flash` (non-thinking, cheap) via `--provider`; embeddings + image captioning stay OpenAI. See [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md#llm-provider-for-enrichment).
 - **Sparse**: Qdrant native `bm25` via `fastembed`
 - **Chunking**: 1 section = 1 chunk, split at 8000 tokens (tiktoken `cl100k_base`)
 - **Language**: Python 3.12 in `.venv`

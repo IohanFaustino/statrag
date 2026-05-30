@@ -118,6 +118,26 @@ done
 
 Invoke `rag-verify` skill — must report 0 failures across a 50+ point sample.
 
+## LLM provider for enrichment
+
+Default provider is **`deepseek`** (set in `src/core/config.py`, `default_provider`,
+RAG-only alias `RAG_DEFAULT_PROVIDER` — decoupled from the shared `.env`
+`DEFAULT_PROVIDER` that Book_analyzer reads). Override per run with
+`--provider openai`.
+
+Ingestion DeepSeek model = **`deepseek-v4-flash`** (config `ingest_deepseek_model`,
+alias `RAG_INGEST_DEEPSEEK_MODEL`). Cheapest active model ($0.14/$0.28 per 1M
+in/out), enough for JSON keyword+synopsis extraction. This is **separate** from
+`settings.deepseek_model` (= `deepseek-v4-pro`), which the chat long-context
+organizer uses and must stay a reasoning model.
+
+DeepSeek v4 ids default to **thinking mode** (spend output tokens on
+`reasoning_content`, can return empty `content`). `llm_client.get_llm("deepseek")`
+disables it via `extra_body={"thinking": {"type": "disabled"}}`.
+
+Embeddings (dense + image) and image captioning stay on **OpenAI** — DeepSeek has
+no embedding API and vision parity is unverified. OpenAI key still required.
+
 ## Cost expectation
 
 Per ~500-page book with `openai` provider:
@@ -126,7 +146,7 @@ Per ~500-page book with `openai` provider:
 - Image embeddings: ~$0.01
 - **Total: ~$1**
 
-DeepSeek for synopsis → ~$0.10 total.
+Default `deepseek` (v4-flash) for synopsis → ~$0.10 total (embeddings/images still OpenAI).
 
 ## Troubleshooting
 
@@ -137,6 +157,7 @@ DeepSeek for synopsis → ~$0.10 total.
 | `OUTPUT_PARSING_FAILURE` warnings | LaTeX backslashes in synopsis broke JSON | Section keeps other fields; only synopsis missing |
 | `n_oversize > 0` | Tokenizer mismatch or split bypass | Check `build_documents.py:_split_by_tokens` |
 | `page_from = None` | OCR source has no `<!-- page N -->` markers | Non-blocking; page filter won't work for that book |
+| Empty `synopsis` / `index_extended` on DeepSeek | v4 model in thinking mode returned empty `content` | Ensure `ingest_deepseek_model=deepseek-v4-flash` + `extra_body` thinking-disabled in `llm_client.py`. Never point ingestion at `deepseek-v4-pro`. |
 | `h1 = ""` | yaml missing `title` for that chapter | Add it |
 | Empty upsert → 400 Bad Request | Chapter produced 0 sections | Pipeline guards since 2026-05-16; if still hits, regex_pass mismatched OCR style |
 | Manifest skipping when re-ingest wanted | Hash matches a prior success | Use `--force` |

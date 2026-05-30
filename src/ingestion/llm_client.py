@@ -28,12 +28,17 @@ def get_llm(provider: Provider | None = None, *, temperature: float = 0.0) -> Ch
     if chosen == "deepseek":
         if not settings.deepseek_api_key:
             raise RuntimeError("DEEPSEEK_API_KEY missing in environment.")
-        logger.info("LLM provider=deepseek model=%s", settings.deepseek_model)
+        logger.info("LLM provider=deepseek model=%s", settings.ingest_deepseek_model)
+        # DeepSeek v4 model ids default to THINKING mode: they spend output
+        # tokens on `reasoning_content` and can return empty `content`, which
+        # breaks JsonOutputParser. Enrichment needs none of that, so disable
+        # thinking explicitly. Verified: flash + this flag returns clean JSON.
         return ChatOpenAI(
-            model=settings.deepseek_model,
+            model=settings.ingest_deepseek_model,
             api_key=settings.deepseek_api_key,
             base_url=settings.deepseek_base_url,
             temperature=temperature,
+            extra_body={"thinking": {"type": "disabled"}},
         )
     if chosen == "openai":
         logger.info("LLM provider=openai model=%s", settings.openai_model_nano)

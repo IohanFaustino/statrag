@@ -39,14 +39,23 @@ class Settings(BaseSettings):
     llm_model: str = Field("gpt-5.4-nano-2026-03-17", alias="LLM_MODEL")
     openai_model_nano: str = Field("gpt-5.4-nano-2026-03-17", alias="OPENAI_MODEL_NANO")
     openai_model_full: str = Field("gpt-5.4-2026-03-05", alias="OPENAI_MODEL_FULL")
+    # Chat-side DeepSeek model (e.g. the long-context organizer in deep_tutor):
+    # this stays the reasoning model (v4-pro) and keeps reading the shared env.
     deepseek_model: str = Field("deepseek-v4-pro", alias="DEEPSEEK_MODEL")
+    # INGESTION enrichment uses its own cheaper model, decoupled from both the
+    # shared .env and the chat organizer. v4-flash (non-thinking) is enough for
+    # JSON keyword+synopsis extraction; v4-pro would only burn output tokens on
+    # thinking and can return empty content. See docs/tasks/ingestion.md.
+    ingest_deepseek_model: str = Field("deepseek-v4-flash", alias="RAG_INGEST_DEEPSEEK_MODEL")
     deepseek_base_url: str = Field("https://api.deepseek.com/v1", alias="DEEPSEEK_BASE_URL")
     groq_api_key: str = Field("", alias="GROQ_API_KEY")
     groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_default_model: str = Field(
         "meta-llama/llama-4-scout-17b-16e-instruct", alias="GROQ_DEFAULT_MODEL"
     )
-    default_provider: str = Field("openai", alias="DEFAULT_PROVIDER")
+    # RAG-only provider default (decoupled from shared DEFAULT_PROVIDER, which
+    # Book_analyzer reads). New ingests use DeepSeek unless --provider overrides.
+    default_provider: str = Field("deepseek", alias="RAG_DEFAULT_PROVIDER")
     dense_weight: float = Field(0.6, alias="DENSE_WEIGHT")
     sparse_weight: float = Field(0.4, alias="SPARSE_WEIGHT")
     top_k: int = Field(5, alias="TOP_K")
