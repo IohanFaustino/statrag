@@ -1,0 +1,24 @@
+slug: langchain_genai
+name: "Generative AI with LangChain"
+field: genai
+theme: LLM App Development
+authors:
+  - Ben Auffarth
+  - Leonid Kuligin
+edition: "2nd"
+year: 2025
+# Preprocessed from a Packt kobo/EPUB-HTML export via
+# src/ingestion/processed/kobo_preproc.py. No page markers in source
+# (page_from null throughout — accepted for the genai field).
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/langchain_genai_fixed.md
+chapters:
+  ch01: { title: "The Rise of Generative AI: From Language Models to Agents", line_start: 340, line_end: 1020 }
+  ch02: { title: "First Steps with LangChain", line_start: 1021, line_end: 2739 }
+  ch03: { title: "Building Workflows with LangGraph", line_start: 2740, line_end: 4230 }
+  ch04: { title: "Building Intelligent RAG Systems", line_start: 4231, line_end: 7635 }
+  ch05: { title: "Building Intelligent Agents", line_start: 7636, line_end: 9412 }
+  ch06: { title: "Advanced Applications and Multi-Agent Systems", line_start: 9413, line_end: 10942 }
+  ch07: { title: "Software Development and Data Analysis Agents", line_start: 10943, line_end: 12384 }
+  ch08: { title: "Evaluation and Testing", line_start: 12385, line_end: 13769 }
+  ch09: { title: "Production-Ready LLM Deployment and Observability", line_start: 13770, line_end: 15673 }
+  ch10: { title: "The Future of Generative Models: Beyond Scaling", line_start: 15674, line_end: 16254 }

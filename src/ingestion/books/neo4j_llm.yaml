@@ -1,0 +1,29 @@
+slug: neo4j_llm
+name: "Building Neo4j-Powered Applications with LLMs"
+field: genai
+theme: Knowledge Graphs
+authors:
+  - Ravindranatha Anthapu
+  - Siddhant Agarwal
+edition: "1st"
+year: 2025
+# Preprocessed from a Packt kobo/EPUB-HTML markdown export via
+# src/ingestion/processed/kobo_preproc.py (pandoc + kobo_filter.lua):
+# unwraps koboSpan markup, emits <!-- page N --> from arabic pagebreak
+# labels (sparse: 22 total, first at p51 in ch03 -> ch01/ch02 have null
+# page_from), remaps semantic header classes to markdown levels.
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/neo4j_llm_fixed.md
+chapters:
+  ch01: { title: "Introducing LLMs, RAGs, and Neo4j Knowledge Graphs", line_start: 332, line_end: 488 }
+  ch02: { title: "Demystifying RAG", line_start: 489, line_end: 1244 }
+  ch03: { title: "Building a Foundational Understanding of Knowledge Graph for Intelligent Applications", line_start: 1245, line_end: 1996 }
+  ch04: { title: "Building Your Neo4j Graph with Movies Dataset", line_start: 2019, line_end: 2640 }
+  ch05: { title: "Implementing Powerful Search Functionalities with Neo4j and Haystack", line_start: 2641, line_end: 3283 }
+  ch06: { title: "Exploring Advanced Knowledge Graph Capabilities with Neo4j", line_start: 3284, line_end: 3751 }
+  ch07: { title: "Introducing the Neo4j Spring AI and LangChain4j Frameworks for Building Recommendation Systems", line_start: 3775, line_end: 3942 }
+  ch08: { title: "Constructing a Recommendation Graph with H&M Personalization Dataset", line_start: 3943, line_end: 4325 }
+  ch09: { title: "Integrating LangChain4j and Spring AI with Neo4j", line_start: 4326, line_end: 5621 }
+  ch10: { title: "Creating an Intelligent Recommendation System", line_start: 5622, line_end: 6307 }
+  ch11: { title: "Choosing the Right Cloud Platform for GenAI Applications", line_start: 6330, line_end: 6690 }
+  ch12: { title: "Deploying Your Application on the Google Cloud", line_start: 6691, line_end: 7103 }
+  ch13: { title: "Epilogue", line_start: 7104, line_end: 8120 }

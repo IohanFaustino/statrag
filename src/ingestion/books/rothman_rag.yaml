@@ -1,0 +1,23 @@
+slug: rothman_rag
+name: "RAG-Driven Generative AI"
+field: genai
+theme: RAG
+authors:
+  - Denis Rothman
+edition: "1st"
+year: 2024
+# Preprocessed from a Packt kobo/EPUB-HTML export via
+# src/ingestion/processed/kobo_preproc.py. No page markers in source
+# (page_from null throughout — accepted for the genai field).
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/rothman_rag_fixed.md
+chapters:
+  ch01: { title: "Why Retrieval Augmented Generation?", line_start: 251, line_end: 1301 }
+  ch02: { title: "RAG Embedding Vector Stores with Deep Lake and OpenAI", line_start: 1302, line_end: 2304 }
+  ch03: { title: "Building Index-Based RAG with LlamaIndex, Deep Lake, and OpenAI", line_start: 2305, line_end: 3299 }
+  ch04: { title: "Multimodal Modular RAG for Drone Technology", line_start: 3300, line_end: 4213 }
+  ch05: { title: "Boosting RAG Performance with Expert Human Feedback", line_start: 4214, line_end: 5046 }
+  ch06: { title: "Scaling RAG Bank Customer Data with Pinecone", line_start: 5047, line_end: 6482 }
+  ch07: { title: "Building Scalable Knowledge-Graph-Based RAG with Wikipedia API and LlamaIndex", line_start: 6483, line_end: 7400 }
+  ch08: { title: "Dynamic RAG with Chroma and Hugging Face Llama", line_start: 7401, line_end: 8298 }
+  ch09: { title: "Empowering AI Models: Fine-Tuning RAG Data and Human Feedback", line_start: 8299, line_end: 8934 }
+  ch10: { title: "RAG for Video Stock Production with Pinecone and OpenAI", line_start: 8935, line_end: 10154 }

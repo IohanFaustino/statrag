@@ -1,0 +1,32 @@
+slug: agentic_patterns
+name: "Agentic Architectural Patterns for Building Multi-Agent Systems"
+field: genai
+theme: Multi-Agent Systems
+authors:
+  - Ali Arsanjani
+  - Juan Pablo Bustos
+edition: "1st"
+year: 2026
+# Preprocessed from a Packt kobo/EPUB-HTML export via
+# src/ingestion/processed/kobo_preproc.py. No page markers in source
+# (page_from null throughout — accepted for the genai field). Chapter
+# ranges bounded at the Part dividers (Part 1 @4591, Part 2 @6418,
+# Part 3 @14578).
+source_path: /home/iohan/Documents/toolbox/AI_models/RAG/src/ingestion/processed/agentic_patterns_fixed.md
+chapters:
+  ch01: { title: "GenAI in the Enterprise: Landscape, Maturity, and Agent Focus", line_start: 4607, line_end: 5091 }
+  ch02: { title: "Agent-Ready LLMs: Selection, Deployment, and Adaptation", line_start: 5092, line_end: 5680 }
+  ch03: { title: "The Spectrum of LLM Adaptation for Agents: RAG to Fine-tuning", line_start: 5681, line_end: 6417 }
+  ch04: { title: "Agentic AI Architecture: Components and Interactions", line_start: 6441, line_end: 6961 }
+  ch05: { title: "Multi-Agent Coordination Patterns", line_start: 6962, line_end: 8595 }
+  ch06: { title: "Explainability and Compliance Agentic Patterns", line_start: 8596, line_end: 9147 }
+  ch07: { title: "Robustness and Fault Tolerance Patterns", line_start: 9148, line_end: 11280 }
+  ch08: { title: "Human-Agent Interaction Patterns", line_start: 11281, line_end: 12078 }
+  ch09: { title: "Agent-Level Patterns", line_start: 12079, line_end: 12850 }
+  ch10: { title: "System-Level Patterns for Production Readiness", line_start: 12851, line_end: 13641 }
+  ch11: { title: "Advanced Adaptation: Building Agents That Learn", line_start: 13642, line_end: 14577 }
+  ch12: { title: "A Practical Roadmap: Implementing Agentic Patterns by Maturity Level", line_start: 14596, line_end: 14968 }
+  ch13: { title: "Use Case: A Single Agent for Loan Processing", line_start: 14969, line_end: 15766 }
+  ch14: { title: "Use Case: A Multi-Agent System for Loan Processing", line_start: 15767, line_end: 16354 }
+  ch15: { title: "Agent Frameworks - Use Case: A Multi-Agent System for Loan Processing with CrewAI and LangGraph", line_start: 16355, line_end: 17484 }
+  ch16: { title: "Conclusion: Charting Your Agentic AI Journey", line_start: 17485, line_end: 23759 }
