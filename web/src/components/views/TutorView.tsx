@@ -581,35 +581,66 @@ export function renderInlineWithCites(
       i += figMatch[0].length;
       continue;
     }
-    if (ch === "[" && /^\[\d+\]/.test(text.slice(i))) {
-      const m = text.slice(i).match(/^\[(\d+)\]/)!;
-      const idx = parseInt(m[1], 10);
-      const cite = cites.get(idx);
-      out.push(
-        <a
-          key={key++}
-          href={`#cite-${idx}`}
-          className={
-            hoveredIdx === idx
-              ? "tutor-view__pill tutor-view__pill--hover"
-              : "tutor-view__pill"
+    // Citation marker: single [N], comma list [1, 2], or dash range [1]–[3].
+    // Regex matches e.g. [1], [1, 2], [1,2,3], [1–3], [1-3], [1, 2-4].
+    // Malformed markers ([1,], [], [1, x]) fall through to literal text.
+    if (ch === "[" && /^\[\s*\d+(\s*[,–\-]\s*\d+)*\s*\]/.test(text.slice(i))) {
+      const m = text.slice(i).match(/^\[\s*(\d+(?:\s*[,–\-]\s*\d+)*)\s*\]/)!;
+      // Parse all individual indices from the matched interior.
+      const interior = m[1];
+      // Split on commas and dashes/en-dashes; expand ranges.
+      const indices: number[] = [];
+      // Tokenise by commas first, then handle each segment.
+      const segments = interior.split(/\s*,\s*/);
+      for (const seg of segments) {
+        const rangeParts = seg.split(/\s*[–\-]\s*/);
+        if (rangeParts.length === 2) {
+          const from = parseInt(rangeParts[0], 10);
+          const to = parseInt(rangeParts[1], 10);
+          if (!isNaN(from) && !isNaN(to) && to >= from) {
+            for (let n = from; n <= to; n++) indices.push(n);
+          } else {
+            // Not a valid range — treat as two discrete numbers
+            if (!isNaN(from)) indices.push(from);
+            if (!isNaN(to)) indices.push(to);
           }
-          onMouseEnter={() => setHovered(idx)}
-          onMouseLeave={() => setHovered(null)}
-          onClick={(e) => {
-            // Robustly open + scroll the Sources panel even when the hash is
-            // already #cite-N (no hashchange fires) — the hyperlink alone was
-            // not connecting the marker to the sources field.
-            if (onCite) {
-              e.preventDefault();
-              onCite(idx);
+        } else {
+          const n = parseInt(rangeParts[0], 10);
+          if (!isNaN(n)) indices.push(n);
+        }
+      }
+      for (let pi = 0; pi < indices.length; pi++) {
+        const idx = indices[pi];
+        const cite = cites.get(idx);
+        if (pi > 0) {
+          out.push(<span key={key++}>{","}</span>);
+        }
+        out.push(
+          <a
+            key={key++}
+            href={`#cite-${idx}`}
+            className={
+              hoveredIdx === idx
+                ? "tutor-view__pill tutor-view__pill--hover"
+                : "tutor-view__pill"
             }
-          }}
-          title={cite ? formatApa(cite) : `Citation ${idx}`}
-        >
-          [{idx}]
-        </a>,
-      );
+            onMouseEnter={() => setHovered(idx)}
+            onMouseLeave={() => setHovered(null)}
+            onClick={(e) => {
+              // Robustly open + scroll the Sources panel even when the hash is
+              // already #cite-N (no hashchange fires) — the hyperlink alone was
+              // not connecting the marker to the sources field.
+              if (onCite) {
+                e.preventDefault();
+                onCite(idx);
+              }
+            }}
+            title={cite ? formatApa(cite) : `Citation ${idx}`}
+          >
+            [{idx}]
+          </a>,
+        );
+      }
       i += m[0].length;
       continue;
     }

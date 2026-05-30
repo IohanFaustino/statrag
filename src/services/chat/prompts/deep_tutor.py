@@ -167,7 +167,7 @@ self-truncate or rush to finish. Stop only when the topic is genuinely covered.
 
 Per-field requirements (target lengths are minimums; longer is fine):
 
-- ``tldr`` (60-110 words) — this renders under the heading
+- ``tldr`` (45-90 words) — this renders under the heading
   "Introduction". Two parts, in order:
   1. A direct, complete answer to the question (2-3 sentences). The
      reader should be able to stop here and understand the gist. No
@@ -193,21 +193,15 @@ Per-field requirements (target lengths are minimums; longer is fine):
     relevant error measure): state the decomposition and explain how each
     component affects the error term. This subsection is REQUIRED whenever
     the components combine into a single error quantity.
-  - FORMULAS HAVE A HOME HERE, AS CENTERED DISPLAY EQUATIONS. Give EACH
-    named component its defining expression whenever the sources support it
-    (e.g. the bias and the variance of an estimator), and state the central
-    relationship that ties them together. Write every such formula as
-    BLOCK / DISPLAY math on its own line — ``$$ … $$`` (which renders
-    centered in a boxed equation), NOT inline ``$…$``. For example a ``### Bias``
-    subsection contains a line like ``$$\\\\text{Bias}(\\\\hat\\\\theta) =
-    \\\\mathbb{E}[\\\\hat\\\\theta] - \\\\theta$$``, and ``### MSE`` contains
-    ``$$\\\\text{MSE} = \\\\text{bias}^2 + \\\\text{variance} + \\\\sigma^2$$``,
-    even if that central quantity (MSE / expected error) was not named in the
-    question but appears in the sources or the attached figure. Do NOT defer
-    the formulas to ``formal_statement`` — that field is reserved for a
-    VERBATIM numbered theorem and is empty when none exists, so if you skip
-    the formulas here they will be missing entirely. Define any quantity you
-    introduce (e.g. define MSE before decomposing it).
+  - FORMULAS HAVE A HOME HERE, AS CENTERED DISPLAY EQUATIONS. Each
+    component ``### `` subsection (e.g. ``### Bias``, ``### Variance``) MUST
+    contain its defining formula as ``$$ … $$`` (NOT inline ``$…$``).
+    The ``### MSE`` (or relevant central-quantity) subsection states the
+    decomposition even if that quantity was not named in the question.
+    Do NOT defer the formulas to ``formal_statement`` — that field is
+    reserved for a verbatim numbered theorem and is empty when none exists.
+    Define any quantity you introduce. See ``<math_format>`` for
+    display-equation syntax and JSON-escaping rules (``\\\\theta``).
   - CLOSE WITH THE GRAPHICAL HAND-OFF. If a figure is attached to this
     aspect, end with a sentence that introduces it and says what it will
     show — e.g. "The graphical example in [F1] helps guide the intuition:
@@ -265,7 +259,7 @@ Per-field requirements (target lengths are minimums; longer is fine):
     formal statement the cases demonstrate. If you cannot write that line
     honestly, pick better cases.
 
-- ``applications`` (260-360 words): REAL, SPECIFIC cases where the concept
+- ``applications`` (300-360 words): REAL, SPECIFIC cases where the concept
   is applied — drawn from the sources, NOT generic field labels.
   - Open with one framing sentence ("The sources apply this in concrete
     cases:").
@@ -309,11 +303,10 @@ Per-field requirements (target lengths are minimums; longer is fine):
   SUBSTANTIVE paragraph of 3-5 sentences (not a one-liner) that explains the
   problem it addresses, the mechanism, and where it fits. Prefer 2-4
   subsections per aspect. Do NOT use ``- `` bullet lists for the main structure.
-- Concretely:
-  - ``definition`` → one ``### `` per named component (e.g. ``### Bias``,
-    ``### Variance``) defining it WITH its formula, then a ``### `` for the
-    central quantity that ties them together (e.g. ``### MSE``) explaining
-    how the components combine and how each affects the error term.
+- Concretely (see ``definition`` / ``applications`` / ``example_intuition``
+  / ``further_reading`` rules above for the full per-field spec):
+  - ``definition`` → ``### `` per component + one for the central quantity
+    (e.g. ``### Bias``, ``### Variance``, ``### MSE``), as detailed above.
   - ``applications`` → one ``### `` per concrete cited case (name the case
     in the header, e.g. ``### Ridge vs. OLS on the prostate data``).
   - ``example_intuition`` → keep its three-move shape, but you may use a
@@ -373,25 +366,15 @@ Per-field requirements (target lengths are minimums; longer is fine):
 - Display math: ``$$y = X\\beta + \\varepsilon$$``
 - Greek letters and operators in LaTeX, never plain text.
 - CRITICAL JSON ESCAPING: every LaTeX backslash MUST appear as ``\\\\``
-  inside JSON string values. Write ``\\\\theta`` NOT ``\\theta``.
-  Write ``\\\\nabla`` NOT ``\\nabla``. A single backslash before
-  ``t``/``n``/``r``/``b``/``f`` is parsed as a control character by
-  ``json.loads`` and destroys the LaTeX command.
+  inside JSON string values. Write ``\\\\theta`` NOT ``\\theta``. A single
+  backslash before ``t``/``n``/``r``/``b``/``f`` is parsed as a control
+  character by ``json.loads`` and destroys the LaTeX command.
 - Always wrap math in ``$...$`` or ``$$...$$``; never emit a bare
   ``\\\\theta`` outside delimiters.
-- NO TRAILING PUNCTUATION INSIDE MATH DELIMITERS. The renderer prints
-  every character between ``$$ … $$`` (or ``$ … $``) verbatim inside the
-  formula box, so a stray ``.`` ``,`` ``;`` ``:`` becomes part of the
-  equation. End the equation BEFORE the delimiter closes; place any
-  sentence punctuation AFTER the closing ``$$``/``$``, or omit it for
-  display equations on their own line.
-  - WRONG (renders ``MSE(θ̂) = E[(θ̂ − θ)²].`` inside the box):
-    ``$$\\\\mathrm{MSE}(\\\\hat\\\\theta) = \\\\mathbb{E}[(\\\\hat\\\\theta - \\\\theta)^2].$$``
-  - RIGHT (clean equation, no dot in the box):
-    ``$$\\\\mathrm{MSE}(\\\\hat\\\\theta) = \\\\mathbb{E}[(\\\\hat\\\\theta - \\\\theta)^2]$$``
-  - This applies to every math span: bias, variance, decompositions,
-    inline expressions inside prose. If you need a period to end the
-    sentence, write it AFTER the closing delimiter, never before.
+- NO TRAILING PUNCTUATION INSIDE MATH DELIMITERS. Place sentence
+  punctuation AFTER the closing ``$$``/``$``, never inside. Example —
+  WRONG: ``$$\\\\text{MSE} = b^2 + v + \\\\sigma^2.$$`` /
+  RIGHT: ``$$\\\\text{MSE} = b^2 + v + \\\\sigma^2$$``
 </math_format>
 
 <figures>

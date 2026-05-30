@@ -2,6 +2,27 @@
 
 Append-only. Latest at top.
 
+## 2026-05-30 — Phase-1 token cuts + cheap quality wins
+
+Five independent efficiency changes to the deep-tutor pipeline. No topology change, no model change. See `docs/superpowers/specs/2026-05-30-tutor-phase1-token-cuts-design.md` for full rationale.
+
+**1 · Vision-explain lazy default** (`src/services/chat/agents/deep_tutor.py`)
+`TUTOR_DEEP_VISION_EXPLAIN` is now tri-state `{"1","lazy","0"}`, default `"lazy"`. `"1"` caps at the single top-ranked figure (was: up to 3). `"lazy"` and `"0"` return `{}` — figures render with caption+judge_reason (existing fallback, zero quality cost). Effect: −2–3 vision calls per typical turn.
+
+**2 · Prompt diet** (`src/services/chat/prompts/deep_tutor.py`)
+De-duplicated `DEEP_TUTOR_INSTRUCTIONS`: collapsed the `<structure>` restatement of the `### Bias/### Variance/### MSE` decomposition guidance (was repeated from the `definition` field spec) and condensed the FORMULAS inline-example block (now refers to `<math_format>` for display-equation + JSON-escaping syntax). All distinct behavioral rules preserved; `test_tutor_prompt_contract.py` unchanged and green. Token-budget regression guard added (`len < 18800` chars). Old length: 18167 chars; new length: 17029 chars (−1138 chars, ~−284 tokens).
+
+**3 · Coverage gate** (`src/services/chat/agents/deep_tutor.py`)
+Added a predicate before the `assess_coverage` call: `needs_coverage = len(facets) >= 4 or any("$" in f or "formula" in f.lower() for f in facets)`. Simple questions (< 4 facets, no formula/`$`) skip the extra nano call and log `"coverage: skipped (simple)"`. Fail-safe: empty facets → gate returns False (guard `bool(facets)` already skips). Effect: −1 nano call + bundle re-read on simple questions.
+
+**4 · Citation regex robustness** (`web/src/components/views/TutorView.tsx`)
+Replaced the single-number `^\[\d+\]` branch with a comma/dash-list+range matcher `^\[\s*\d+(\s*[,–-]\s*\d+)*\s*\]`. Expands `[1, 2]` → 2 pills, `[1–3]` → 3 pills, `[5]` → 1 pill. `[F1]` figure branch unchanged and still checked first. Malformed markers fall through to literal text. 9 new vitest tests in `TutorView.citations.test.tsx`.
+
+**5 · Floor tuning** (`src/services/chat/prompts/deep_tutor.py`)
+`tldr` 60–110 → 45–90 words (soften; was padding short answers); `applications` 260–360 → 300–360 words (raise; user-reported short answers). `example_intuition` 340–480 unchanged; other fields unchanged.
+
+**Tests**: pytest 78 green (+5 new: vision tri-state × 2, coverage gate × 2, token-budget guard × 1); vitest 94 green (+9 citation tests).
+
 ## 2026-05-29 — Chat export upgraded to Zip (Markdown + images)
 
 Follow-up to the Markdown export. Both download buttons now emit a **`.zip`** (Markdown + bundled figure images) instead of a bare `.md`. Still frontend-only — no backend route, no SSE/schema change, Chinese wall untouched.

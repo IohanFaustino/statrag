@@ -149,7 +149,9 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_NEIGHBOR_EXPAND` | `1` | `0` = same-section expansion only (skip adjacent sibling-section expansion) |
 | `TUTOR_DENSITY_ALPHA` | `0.6` | Concept-TF weight in section scoring (higher = term frequency matters more vs RRF) |
 | `TUTOR_MULTI_QUERY` | `1` | `0` = retrieve on the raw question only (skip the query planner's multi-query + RRF) |
-| `TUTOR_COVERAGE_CHECK` | `1` | `0` = skip the facet coverage check + re-query |
+| `TUTOR_DEEP_VISION_EXPLAIN` | `lazy` | Tri-state: `"lazy"` (default) = no inline vision call, figures render with caption+judge_reason; `"1"` = explain only the single top-ranked figure (1 vision call max); `"0"` = off. Changed from `"1"` default in Phase-1 (2026-05-30) to save 2–3 vision calls per turn. |
+| `TUTOR_DEEP_VISION_MODEL` | `gpt-4o-mini` | Vision model used when `TUTOR_DEEP_VISION_EXPLAIN=1` |
+| `TUTOR_COVERAGE_CHECK` | `1` | `0` = skip the facet coverage check + re-query entirely. When `1`, an additional gate applies: coverage runs only when `len(facets) >= 4` or any facet contains `$` or the word `formula` — simple questions skip the extra nano call (see Phase-1 coverage gate). |
 | `TUTOR_SYNTHESIS_PLAN` | `1` | `0` = skip the synthesis-plan step (legacy single-draft). Per-request: `stageModels.plan = "off"` or a model id |
 | `TUTOR_WORKFLOW` | `single` | Drafting workflow default; `orchestrator` = per-author workers + synthesizer; `organize` = long-context organizer (§11/48). Per-request: `tutorWorkflow` |
 | `TUTOR_WORKER_MODEL` | nano | Model for orchestrator worker calls (synthesizer uses the Draft-node model) |
@@ -215,11 +217,13 @@ Answer-shape refinements (changelog #57). Highlights for operators:
   `TutorAnswer.quality["example_relevance"]` ∈ [0,1] (lexical overlap of
   the example with definition+formal+intuition); < 0.15 logs a warning.
   The example body also ends with a "**Why this example fits:**" note.
-- **Vision-explain (figures)**: `TUTOR_DEEP_VISION_EXPLAIN=1` makes a
-  vision model (`TUTOR_DEEP_VISION_MODEL`, default `gpt-4o-mini`) read each
-  placed figure and explain what it shows in light of the concept. Default
-  **off** — one vision call per placed figure (cost + latency). When off,
-  figures fall back to caption + judge_reason text as before.
+- **Vision-explain (figures)**: `TUTOR_DEEP_VISION_EXPLAIN` is a tri-state.
+  `"lazy"` (default since Phase-1 2026-05-30) emits no inline vision call;
+  figures render with caption + judge_reason text. `"1"` makes a vision model
+  (`TUTOR_DEEP_VISION_MODEL`, default `gpt-4o-mini`) read only the **single
+  top-ranked figure** (capped from the original up-to-3). `"0"` = off.
+  The placement code already falls back gracefully when no explanation is
+  present, so lazy mode has zero quality cost.
 
 Contracts locked by `src/services/chat/tests/test_tutor_prompt_contract.py`
 and `web/src/components/views/TutorView.{emphasis,blocks}.test.tsx`.

@@ -321,3 +321,18 @@ def test_convert_uses_relevance_override():
     aspects["example_intuition"] = "an example using the concept"
     ans = _convert_to_tutor_answer(None, aspects, [], example_relevance_override=0.91)
     assert ans.quality["example_relevance"] == 0.91
+
+
+# --- Phase-1 token-budget regression guard ---------------------------------
+# Ceiling: ~10% above the trimmed length after the 2026-05-30 prompt-diet pass
+# (17029 chars). Trips if future edits re-bloat the instructions.
+_PROMPT_BUDGET_CEILING = 18_800
+
+
+def test_deep_tutor_instructions_within_token_budget():
+    """DEEP_TUTOR_INSTRUCTIONS must not grow beyond the post-diet ceiling."""
+    n = len(DEEP_TUTOR_INSTRUCTIONS)
+    assert n < _PROMPT_BUDGET_CEILING, (
+        f"DEEP_TUTOR_INSTRUCTIONS is {n} chars, exceeds budget {_PROMPT_BUDGET_CEILING}. "
+        "Remove duplicate rules before adding new ones."
+    )

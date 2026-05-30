@@ -782,10 +782,17 @@ _DRAFT_TEMPERATURE = float(os.environ.get("TUTOR_DEEP_TEMPERATURE", "0.4"))
 _WIDE_POOL = int(os.environ.get("TUTOR_DEEP_POOL", "30"))
 _IMAGES_ENABLED = os.environ.get("TUTOR_DEEP_IMAGES", "1") == "1"
 # Vision-explain (#9): have a vision model read each placed figure and
-# explain it in light of the concept just taught. ON by default — adds
-# one vision call per placed figure (cost + latency). Disable via
-# TUTOR_DEEP_VISION_EXPLAIN=0.
-_VISION_EXPLAIN = os.environ.get("TUTOR_DEEP_VISION_EXPLAIN", "1") == "1"
+# explain it in light of the concept just taught.
+# Tri-state via TUTOR_DEEP_VISION_EXPLAIN:
+#   "1"    -> explain only the single top-ranked figure.
+#   "lazy" -> no inline vision call; figure renders with caption+judge_reason.
+#   "0"    -> off (same as lazy for callers).
+# DEFAULT "lazy" — saves 2-3 vision calls per turn with zero quality loss
+# (placement code already falls back to caption+judge_reason).
+_VISION_EXPLAIN_MODE: str = os.environ.get("TUTOR_DEEP_VISION_EXPLAIN", "lazy").lower()
+# Legacy boolean shim retained so existing call sites that read _VISION_EXPLAIN
+# still behave: True only when mode is explicitly "1".
+_VISION_EXPLAIN: bool = _VISION_EXPLAIN_MODE == "1"
 
 # ── Per-stage model overrides (About-model feature) ───────────────────────
 # Only these LLM-text stages may be re-routed to a picker chat model. Other
@@ -1857,11 +1864,17 @@ async def build_vision_explanations(
     aspects: dict[str, str], figures: list | None, model: str | None = None
 ) -> dict[str, str]:
     """Map figure ``url`` -> vision-generated explanation grounded in the
-    definition + formal statement + intuition. One vision call per figure,
-    in parallel. Skip (return empty dict) if ``TUTOR_DEEP_VISION_EXPLAIN=0``
-    or *figures* is empty/None."""
-    if not _VISION_EXPLAIN or not figures:
+    definition + formal statement + intuition.
+
+    Tri-state ``TUTOR_DEEP_VISION_EXPLAIN``:
+    - ``"1"``    → explain only the single top-ranked figure (``figures[:1]``).
+    - ``"lazy"`` → return ``{}``; placement code falls back to caption+judge_reason.
+    - ``"0"``    → return ``{}``.
+    """
+    if _VISION_EXPLAIN_MODE not in ("1",) or not figures:
         return {}
+    # Cap to the single top-ranked figure when mode == "1".
+    figures_to_explain = figures[:1]
     concept = "\n\n".join(
         (aspects.get(k) or "") for k in ("definition", "formal_statement")
     ).strip()
@@ -1869,7 +1882,7 @@ async def build_vision_explanations(
         return {}
     urls: list[str] = []
     tasks = []
-    for f in figures:
+    for f in figures_to_explain:
         url = getattr(f, "url", "") or ""
         if url:
             urls.append(url)
@@ -2148,7 +2161,17 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     # 2b. Coverage check (CRAG-lite): grade the selected sources against the
     # planner's facets; re-query any missing facet (cap 1) and re-rank. This is
     # what ensures e.g. BOTH the bias and the variance formula were retrieved.
-    if COVERAGE_ON and facets and sources:
+    # Coverage gate: skip for simple questions (< 4 facets, no formula facet).
+    # Fail-safe: if facets is empty, run coverage (conservative path — thin
+    # sources may still benefit from the re-query, and the existing guard
+    # `facets and sources` already handles the empty case by skipping).
+    _needs_coverage: bool = bool(facets) and (
+        len(facets) >= 4
+        or any("$" in f or "formula" in f.lower() for f in facets)
+    )
+    if not _needs_coverage and COVERAGE_ON and facets:
+        logger.info("coverage: skipped (simple)")
+    if COVERAGE_ON and facets and sources and _needs_coverage:
         try:
             t_cov = time.monotonic()
             missing = await assess_coverage(query, facets, sources, model=m_expansion)
