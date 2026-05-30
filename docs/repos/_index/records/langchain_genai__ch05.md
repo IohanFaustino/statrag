@@ -8,27 +8,27 @@ repo: https://github.com/benman1/generative_ai_with_langchain (branch second_edi
 folder: chapter5
 
 ## Summary
-<!-- AUTHOR:summary — 2-4 sentences on what this chapter's code does -->
+Chapter 5 builds LLM agents from scratch, covering tool-calling mechanics, the ReAct pattern, and structured output. Notebooks progress from raw OpenAI function-calling JSON to LangChain's `@tool` decorator, LangGraph `ToolNode` with automatic tool dispatch, a hand-rolled ReAct loop with mocked tools, structured output via Pydantic + `with_structured_output`, and a full Plan-and-Solve agent that decomposes tasks into a typed Plan before executing each step. The chapter demonstrates both `create_react_agent` and bespoke LangGraph state machines for agent control flow.
 
 ## Libraries & frameworks
 IPython, config, datetime, langchain_community, langchain_core, langchain_experimental, langchain_google_genai, langchain_openai, langgraph, math, numexpr, operator, os, pydantic, sys, typing
 
 ## Models & APIs
-<!-- AUTHOR:models — models/APIs used, e.g. gpt-4o, text-embedding-3-large -->
+`gemini-2.5-flash` (ChatGoogleGenerativeAI — primary model across most notebooks), `gpt-4` (ChatOpenAI in react_example as alternative), DuckDuckGoSearchRun (built-in search tool)
 
 ## Concepts / patterns
-<!-- AUTHOR:concepts — patterns demonstrated, tie to book theme -->
+Tool-calling / function-calling (raw JSON and LangChain `@tool` decorator), `BaseTool`, `ToolNode` with `tools_condition` in LangGraph, `create_react_agent` prebuilt executor, hand-built ReAct loop (reason-act-observe), structured output with Pydantic (`with_structured_output`), Plan-and-Solve agent pattern (two-stage: plan generation then step execution), numexpr calculator tool.
 
 ## Files
-- README.md — <!-- AUTHOR:purpose --> (md)
-- built-in_tools.ipynb — <!-- AUTHOR:purpose --> (py)
-- custom_tools.ipynb — <!-- AUTHOR:purpose --> (py)
-- plan_and_solve.ipynb — <!-- AUTHOR:purpose --> (py)
-- react_example.ipynb — <!-- AUTHOR:purpose --> (py)
-- structured_output.ipynb — <!-- AUTHOR:purpose --> (py)
-- tool_node.ipynb — <!-- AUTHOR:purpose --> (py)
-- tools_langchain.ipynb — <!-- AUTHOR:purpose --> (py)
-- tools_with_llm_example.ipynb — <!-- AUTHOR:purpose --> (py)
+- README.md — Chapter overview with per-notebook Colab/Kaggle links (md)
+- built-in_tools.ipynb — Uses DuckDuckGoSearchRun with Gemini-2.5-flash via raw tool invocation and create_react_agent (py)
+- custom_tools.ipynb — Defines a numexpr-based calculator with @tool decorator, wraps it in create_react_agent (py)
+- plan_and_solve.ipynb — Implements a Plan-and-Solve agent: Pydantic Plan structured output then step-by-step LangGraph execution (py)
+- react_example.ipynb — Hand-rolls a ReAct agent loop with mocked Google search and calculator tools, using gpt-4 (py)
+- structured_output.ipynb — Demonstrates Pydantic structured output (with_structured_output) and JSON mode for step-by-step planning (py)
+- tool_node.ipynb — Builds a LangGraph graph with ToolNode and tools_condition for automatic search/calculator dispatch (py)
+- tools_langchain.ipynb — Overview of LangChain tool abstractions and BaseTool interface (py)
+- tools_with_llm_example.ipynb — Shows raw OpenAI-style function-calling JSON integrated with LangChain (py)
 
 ## Code entities
 - custom_tools.ipynb: calculator, calculator, CalculatorArgs, calculator, calculator, calculator
@@ -38,4 +38,37 @@ IPython, config, datetime, langchain_community, langchain_core, langchain_experi
 - tool_node.ipynb: calculator, invoke_llm, get_date, time_difference
 
 ## Key snippets
-<!-- AUTHOR:snippets — paste a few short representative blocks -->
+```python
+# @tool decorator with numexpr calculator (custom_tools.ipynb)
+from langchain_core.tools import tool
+import numexpr as ne, math
+
+@tool
+def calculator(expression: str) -> str:
+    """Calculates a single mathematical expression, incl. complex numbers."""
+    math_constants = {"pi": math.pi, "i": 1j, "e": math.exp}
+    return str(ne.evaluate(expression.strip(), local_dict=math_constants))
+
+from langgraph.prebuilt import create_react_agent
+agent = create_react_agent(llm, [calculator])
+```
+
+```python
+# LangGraph ToolNode with tools_condition (tool_node.ipynb)
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.graph import MessagesState, StateGraph, START, END
+
+builder = StateGraph(MessagesState)
+builder.add_node("invoke_llm", invoke_llm)
+builder.add_node("tools", ToolNode([search, calculator]))
+builder.add_edge(START, "invoke_llm")
+builder.add_conditional_edges("invoke_llm", tools_condition)
+```
+
+```python
+# Structured output via Pydantic (structured_output.ipynb)
+class Plan(BaseModel):
+    steps: list[Step]
+
+result = (prompt | llm.with_structured_output(Plan)).invoke({"task": "..."})
+```
