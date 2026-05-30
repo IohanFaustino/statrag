@@ -53,3 +53,26 @@ def test_extract_notebook_cells():
     assert "import langchain" in code
     assert "# Title" in md
     assert "ignore" not in code and "ignore" not in md
+
+
+def test_build_chapter_entry_and_render(tmp_path):
+    folder = tmp_path / "Chapter01"
+    folder.mkdir()
+    (folder / "graph.py").write_text(
+        "from neo4j import GraphDatabase\n\ndef build_graph():\n    pass\n"
+    )
+    (folder / "README.md").write_text("# Ch1\nBuilds a graph.\n")
+
+    entry = br.build_chapter_entry(
+        slug="demo", chapter="ch01", title="Graphs",
+        repo="http://example/repo", branch="main", folder=folder,
+    )
+    assert entry["chapter"] == "ch01"
+    assert "neo4j" in entry["libraries"]
+    assert "build_graph" in entry["entities"]["graph.py"]
+    assert any(f["path"] == "graph.py" for f in entry["files"])
+
+    md = br.render_record(book="Demo Book", slug="demo", entry=entry)
+    assert "code:demo:ch01" in md
+    assert "AUTHOR:summary" in md
+    assert "neo4j" in md
