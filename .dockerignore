@@ -4,7 +4,16 @@
 !.env.example
 
 # --- generated data ---
-data/
+# Keep the light registry the chat image needs (data/parsed, data/bm25,
+# data/checkpoints.db, data/chroma). Exclude heavy vector storage (mounted
+# into the qdrant container, not baked) and runtime SQLite conversation DBs.
+data/qdrant/
+data/qdrant_snapshots/
+data/qdrant_snapshots_local/
+data/qdrant_backups/
+data/chat.db
+data/chat.db-shm
+data/chat.db-wal
 
 # --- vcs ---
 .git/
