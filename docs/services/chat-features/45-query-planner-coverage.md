@@ -64,6 +64,22 @@ query.
   coverage widens to alternative framings without extra latency overhead.
 - The bias-variance example in the prompt is updated to show both facets.
 
+## Adaptive routing and the related-framings query (Phase 3, 2026-05-30)
+
+`run_deep_tutor` reads `perspectives` from the planner's `QueryPlan` to
+compute a complexity tier (`simple` ⇔ `perspectives <= 1`). For `simple` tier
+and `TUTOR_ADAPTIVE_ROUTING=1` (default):
+
+- The **related-framings query** (last entry in `queries`, per prompt structure)
+  is dropped from the multi-query fan-out. A narrow/factual question has no
+  meaningful alternative framings to surface.
+- The **synthesis-plan** stage is skipped (see doc 36).
+
+The planner still emits the related-framings query in its output; Phase-2
+prompt behavior is unchanged. Only the retrieval fan-out selection changes.
+See doc 36 Phase 3 section and the spec at
+`docs/superpowers/specs/2026-05-30-tutor-phase3-adaptive-routing-design.md`.
+
 ## Notes
 
 - Best-effort throughout (invariant #19): any LLM failure degrades to the

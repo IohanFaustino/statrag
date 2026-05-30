@@ -395,6 +395,7 @@ export default function PipelineDiagram({
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__node-sublabel" title={n.desc}>skipped when simple (perspectives ≤ 1)</span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
               <NodeModelDropdown

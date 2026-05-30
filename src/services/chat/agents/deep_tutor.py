@@ -1139,6 +1139,10 @@ def _rrf_merge(pools: list[list[Source]], *, k: int = 60) -> list[Source]:
 
 # Multi-query retrieval (top-orchestrator query planner). ON by default.
 _MULTI_QUERY = os.environ.get("TUTOR_MULTI_QUERY", "1") == "1"
+# Adaptive routing (Phase 3): when ON, simple questions (perspectives <= 1)
+# skip the synthesis-plan stage and the related-framings extra retrieval query.
+# Set to "0" to always use standard/Phase-2 behavior (rollback).
+_ADAPTIVE_ROUTING = os.environ.get("TUTOR_ADAPTIVE_ROUTING", "1") == "1"
 # Concept-TF weight in section scoring (alpha in _section_score); higher =
 # term frequency matters more vs the RRF score.
 _DENSITY_ALPHA = float(os.environ.get("TUTOR_DENSITY_ALPHA", "0.6"))
@@ -2213,16 +2217,55 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         else (div_cap if div_mode == "fixed" else 0)
     )
 
+    # Phase 3 — complexity tier.
+    # Reuses the planner's `perspectives` field (already emitted; no new LLM
+    # call).  perspectives=1 → narrow/factual → "simple"; ≥2 → "standard".
+    # If perspectives is missing or unparseable the field defaults to 1 in
+    # extract_concepts_ex — but extract_concepts_ex itself uses min(2, …) as
+    # its fallback, so a returned QueryPlan always has suggested_authors ≥ 1.
+    # We read raw perspectives from the returned budget field:
+    #   QueryPlan.suggested_authors IS the parsed perspectives value (clamped
+    #   to max_authors).  For the simple/standard decision we compare against 1.
+    # Fail-safe: if we cannot determine breadth, default to standard (never
+    # strips stages on doubt).
+    try:
+        _perspectives_raw: int = int(plan_qp.suggested_authors)
+    except (TypeError, ValueError):
+        _perspectives_raw = 2  # fail toward quality → standard
+    _complexity_tier: str = (
+        "simple"
+        if (_ADAPTIVE_ROUTING and _perspectives_raw <= 1)
+        else "standard"
+    )
+    if _complexity_tier == "simple":
+        logger.info("adaptive_routing: tier=simple (perspectives=%d) — plan+framing skipped",
+                    _perspectives_raw)
+
     # 1b. Multi-query retrieval: fan out the planner's queries (parallel) and
     # RRF-merge with the raw-query anchor pool.
-    if _MULTI_QUERY and plan_qp.queries:
-        extra = await _multi_query_candidates(plan_qp.queries, book_slugs, pool)
+    # Phase 3 — for simple tier, drop the related-framings query (always last
+    # per EXTRACT_CONCEPTS_BUDGET_PROMPT, which appends it last: "AND a query
+    # targeting the related-framings facet").  Core facet queries are kept.
+    # Rationale: a narrow/factual question has no meaningful alternative
+    # framings to surface; the extra retrieval adds latency with no quality
+    # gain.  If the list has ≤1 entry the trim is a no-op (single query stays).
+    _retrieval_queries = list(plan_qp.queries)
+    if _complexity_tier == "simple" and len(_retrieval_queries) > 1:
+        _retrieval_queries = _retrieval_queries[:-1]  # drop related-framings (last)
+        logger.info("adaptive_routing: dropped related-framings query; using %d queries",
+                    len(_retrieval_queries))
+    if _MULTI_QUERY and _retrieval_queries:
+        extra = await _multi_query_candidates(_retrieval_queries, book_slugs, pool)
         if extra:
             candidates = _rrf_merge([candidates, extra])
     timings["parallel_extract_retrieve_ms"] = int((time.monotonic() - t_par) * 1000)
-    logger.info("deep_tutor concepts=%s facets=%d queries=%d candidates=%d diversity=%s(target=%d) in %dms",
-                concepts, len(facets), len(plan_qp.queries), len(candidates), div_mode, effective_diversity,
-                timings["parallel_extract_retrieve_ms"])
+    logger.info(
+        "deep_tutor concepts=%s facets=%d queries=%d (tier=%s) candidates=%d "
+        "diversity=%s(target=%d) in %dms",
+        concepts, len(facets), len(_retrieval_queries), _complexity_tier,
+        len(candidates), div_mode, effective_diversity,
+        timings["parallel_extract_retrieve_ms"],
+    )
 
     # 2. Density-score + expand + rerank --------------------------------------
     t_dens = time.monotonic()
@@ -2264,7 +2307,11 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     # 2a. Synthesis plan (workflow A): build a thesis + evidence ledger +
     # author contrasts the draft will follow. Kicked off here so it overlaps
     # the image-judge branch below; awaited just before the draft.
+    # Phase 3 — skipped for simple tier (a narrow/factual question needs no
+    # thesis + contrast scaffolding; skipping saves ~5-15s).
     plan_on, m_plan = _resolve_plan_model(sm)
+    if _complexity_tier == "simple":
+        plan_on = False  # override: skip plan stage for simple questions
     plan_task: asyncio.Task | None = None
     if plan_on and sources:
         plan_task = asyncio.create_task(build_synthesis_plan(query, sources, model=m_plan))

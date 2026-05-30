@@ -1010,3 +1010,178 @@ def test_section_parent_diversity_degrades_when_no_chapter_metadata():
     ranked_all = selected + [_no_chapter(3)]
     result = _apply_section_parent_diversity(selected, ranked_all, 2)
     assert result == selected  # unchanged — degraded cleanly
+
+
+# ---------------------------------------------------------------------------
+# Phase-3 changes: adaptive routing (complexity tier)
+# ---------------------------------------------------------------------------
+
+
+def _make_routing_pipeline(
+    *,
+    perspectives: int | None,
+    multi_queries: list[str] | None = None,
+    routing_on: bool = True,
+):
+    """Return a context manager that stubs the full pipeline and exposes a
+    ``calls`` dict with the plan / retrieval calls that were made."""
+    from src.services.chat.agents import deep_tutor as dt
+    from src.services.chat.schemas import RetrievalMetadata
+
+    calls: dict = {"plan": 0, "retrieval_queries": [], "multi_query": 0}
+
+    # Build a QueryPlan with the requested perspectives value.
+    if perspectives is None:
+        # Simulate a parse failure by making extract_concepts_ex return the
+        # heuristic fallback (suggested_authors=2, queries=[]).
+        qp = dt.QueryPlan(["variance"], 2, [], [])
+    else:
+        qs = multi_queries if multi_queries is not None else [
+            "formula for variance",
+            "variance of estimator definition",
+            "variance in regularization and model selection",  # related-framings last
+        ]
+        qp = dt.QueryPlan(["variance"], perspectives, qs, ["variance definition"])
+
+    deep = _make_deep_answer()
+    sources = [
+        _src(1, "islp", "2.1", "Variance is sensitivity to data."),
+        _src(2, "esl", "3.1", "Variance in regularization context."),
+    ]
+
+    async def fake_extract_ex(q, *, model=None, max_authors=4):
+        return qp
+
+    async def fake_wide(q, slugs, pool):
+        return list(sources), RetrievalMetadata(
+            rewrittenQuery=q, embedding="x", retrievalMs=1, collections=["c1"],
+            filter="f", topK=len(sources), scoreThreshold=0.0, mode="mock-wide",
+        )
+
+    async def fake_multi_query(qs_arg, slugs, pool):
+        calls["multi_query"] += 1
+        calls["retrieval_queries"].extend(qs_arg)
+        return []  # empty extra pool — RRF merge is a no-op
+
+    def fake_density(q, concepts, candidates, *, book_slugs=None, **kw):
+        return list(sources), ["c1"]
+
+    async def fake_plan(q, srcs, *, model=None):
+        calls["plan"] += 1
+        return None
+
+    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None):
+        from src.services.chat.prompts.deep_tutor import ASPECT_HEADINGS
+        aspects = {k: getattr(deep, k) for k in ASPECT_HEADINGS}
+        if on_aspect_delta:
+            for k, v in aspects.items():
+                on_aspect_delta(k, v)
+        return deep, aspects
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def _ctx():
+        patches = [
+            patch.object(dt, "extract_concepts_ex", fake_extract_ex),
+            patch.object(dt, "_wide_candidates", fake_wide),
+            patch.object(dt, "_multi_query_candidates", fake_multi_query),
+            patch.object(dt, "_density_select", fake_density),
+            patch.object(dt, "build_synthesis_plan", fake_plan),
+            patch.object(dt, "_stream_draft", fake_draft),
+            patch.object(dt, "_IMAGES_ENABLED", False),
+            patch.object(dt, "_ADAPTIVE_ROUTING", routing_on),
+            patch.object(dt, "_MULTI_QUERY", True),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            yield calls
+        finally:
+            for p in patches:
+                p.stop()
+
+    return _ctx()
+
+
+def test_adaptive_routing_simple_skips_plan_and_framing_query(sample_sources):
+    """perspectives=1 → tier=simple → plan skipped AND related-framings query dropped."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    req = ChatRequest(message="Define variance.", mode="tutor",
+                      model="gpt-5.4-nano-2026-03-17")
+
+    with _make_routing_pipeline(perspectives=1) as calls:
+        asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    # Plan must not have run.
+    assert calls["plan"] == 0, f"plan should be skipped for simple tier; got {calls['plan']}"
+    # The related-framings query (last of 3) must NOT appear in the queries sent.
+    assert "variance in regularization and model selection" not in calls["retrieval_queries"], (
+        "Related-framings query must be dropped for simple tier; "
+        f"got queries={calls['retrieval_queries']}"
+    )
+    # The core queries (first two) must still be used.
+    assert "formula for variance" in calls["retrieval_queries"], (
+        f"Core queries must be retained; got {calls['retrieval_queries']}"
+    )
+
+
+def test_adaptive_routing_standard_runs_plan_and_all_queries(sample_sources):
+    """perspectives>=2 → tier=standard → Phase-2 behavior intact (plan runs + all queries)."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    req = ChatRequest(message="What is the bias-variance tradeoff?", mode="tutor",
+                      model="gpt-5.4-nano-2026-03-17")
+
+    with _make_routing_pipeline(perspectives=3) as calls:
+        asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    # Plan must run.
+    assert calls["plan"] == 1, f"plan should run for standard tier; got {calls['plan']}"
+    # All three queries, including related-framings, must be used.
+    assert "variance in regularization and model selection" in calls["retrieval_queries"], (
+        f"Related-framings query must be retained for standard tier; "
+        f"got queries={calls['retrieval_queries']}"
+    )
+
+
+def test_adaptive_routing_missing_perspectives_defaults_standard(sample_sources):
+    """Missing perspectives (parse failure path) → standard tier (fail toward quality)."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    # perspectives=None triggers the fallback QueryPlan with suggested_authors=2
+    req = ChatRequest(message="Explain variance.", mode="tutor",
+                      model="gpt-5.4-nano-2026-03-17")
+
+    with _make_routing_pipeline(perspectives=None) as calls:
+        asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    # With suggested_authors=2, tier is standard → plan runs.
+    assert calls["plan"] == 1, (
+        f"Missing perspectives must default to standard (plan runs); got {calls['plan']}"
+    )
+
+
+def test_adaptive_routing_flag_off_always_standard(sample_sources):
+    """TUTOR_ADAPTIVE_ROUTING=0 → always standard regardless of perspectives."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    req = ChatRequest(message="Define variance.", mode="tutor",
+                      model="gpt-5.4-nano-2026-03-17")
+
+    # routing_on=False disables the flag; even with perspectives=1, plan must run.
+    with _make_routing_pipeline(perspectives=1, routing_on=False) as calls:
+        asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    assert calls["plan"] == 1, (
+        f"TUTOR_ADAPTIVE_ROUTING=0 must force standard tier (plan runs); got {calls['plan']}"
+    )
+    # Related-framings query must also be retained.
+    assert "variance in regularization and model selection" in calls["retrieval_queries"], (
+        f"All queries must be retained when routing is off; got {calls['retrieval_queries']}"
+    )

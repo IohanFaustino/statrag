@@ -99,6 +99,24 @@ describe("PipelineDiagram", () => {
     expect(html).toContain('data-node="plan"');
   });
 
+  it("plan node annotates that it is skipped when planner rates question simple (Phase 3)", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="single"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    // Sublabel annotation must be present on the plan node
+    expect(html).toContain("skipped when simple");
+    expect(html).toContain("perspectives");
+  });
+
   it("expansion node is labelled 'Query planner' and 'Concept extraction' is gone", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram

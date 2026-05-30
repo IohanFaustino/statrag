@@ -36,7 +36,7 @@ graph TD
   DV --> CC["coverage check (nano): facets vs sources<br/>re-query missing (cap 1) → re-rank<br/>(TUTOR_COVERAGE_CHECK)"]
   CC --> M{sources empty?}
   M -->|yes| FAIL["## No corpus coverage"]
-  M -->|no| PLAN["synthesis plan (parallel w/ figure judge)<br/>thesis + per-aspect outline + evidence ledger<br/>+ author contrasts (TUTOR_SYNTHESIS_PLAN / stageModels.plan)<br/>'off' = skip → legacy single-draft"]
+  M -->|no| PLAN["synthesis plan (parallel w/ figure judge)<br/>thesis + per-aspect outline + evidence ledger<br/>+ author contrasts (TUTOR_SYNTHESIS_PLAN / stageModels.plan)<br/>'off' = skip → legacy single-draft<br/>also skipped when planner rates question simple (perspectives ≤ 1)"]
   PLAN --> WF{tutorWorkflow?}
   WF -->|single default| DR["draft (single call, streamed)<br/>response_format = DeepTutorAnswer<br/>follows the plan: thesis + ledger + contrasts"]
   WF -->|orchestrator| WK["per-author workers ‖ (one AuthorBrief each)"]
@@ -153,6 +153,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_DEEP_VISION_EXPLAIN` | `lazy` | Tri-state: `"lazy"` (default) = no inline vision call, figures render with caption+judge_reason; `"1"` = explain only the single top-ranked figure (1 vision call max); `"0"` = off. Changed from `"1"` default in Phase-1 (2026-05-30) to save 2–3 vision calls per turn. |
 | `TUTOR_DEEP_VISION_MODEL` | `gpt-4o-mini` | Vision model used when `TUTOR_DEEP_VISION_EXPLAIN=1` |
 | `TUTOR_COVERAGE_CHECK` | `1` | `0` = skip the facet coverage check + re-query entirely. When `1`, an additional gate applies: coverage runs only when `len(facets) >= 4` or any facet contains `$` or the word `formula` — simple questions skip the extra nano call (see Phase-1 coverage gate). |
+| `TUTOR_ADAPTIVE_ROUTING` | `1` | Phase 3: `1` = route by complexity tier — simple questions (planner `perspectives ≤ 1`) skip the synthesis-plan stage and the related-framings retrieval query; `0` = always standard (Phase-2 behavior, rollback). Full draft model in both tiers. |
 | `TUTOR_SYNTHESIS_PLAN` | `1` | `0` = skip the synthesis-plan step (legacy single-draft). Per-request: `stageModels.plan = "off"` or a model id |
 | `TUTOR_WORKFLOW` | `single` | Drafting workflow default; `orchestrator` = per-author workers + synthesizer; `organize` = long-context organizer (§11/48). Per-request: `tutorWorkflow` |
 | `TUTOR_WORKER_MODEL` | nano | Model for orchestrator worker calls (synthesizer uses the Draft-node model) |
@@ -261,3 +262,28 @@ Three changes (see `docs/superpowers/specs/2026-05-30-tutor-phase2-quality-reinv
    share the same chapter/parent framing, the best dropped source from a different
    chapter is reinserted (at most one slot). Author diversity remains primary.
    Degrades cleanly when chapter metadata is absent. See doc 42.
+
+---
+
+## 2026-05-30 — Phase 3: adaptive routing (light-touch)
+
+One change (see `docs/superpowers/specs/2026-05-30-tutor-phase3-adaptive-routing-design.md`):
+
+**Complexity-tier routing** — The planner's existing `perspectives` field (1 =
+narrow/factual, ≥2 = standard/broad) is reused (no new LLM call) to compute a
+complexity tier after the planner result is available. When `TUTOR_ADAPTIVE_ROUTING=1`
+(default) and `perspectives <= 1`:
+
+- **Synthesis-plan skipped** — the plan stage is not run for simple questions
+  (a narrow/factual answer needs no thesis + contrast scaffolding). Same effect
+  as `stageModels.plan = "off"` for this request. Saves ~5–15 s.
+- **Related-framings query dropped** — the related-framings retrieval query
+  (always the last entry in the planner's `queries` list, per prompt structure)
+  is not fanned out. Core facet queries are retained. Saves ~3–8 s on
+  `parallel_extract_retrieve_ms`.
+
+Full draft model is used in both tiers (no quality regression). Fail-safe: if
+`perspectives` is missing or unparseable, defaults to standard (never strips
+stages on doubt). Rollback: `TUTOR_ADAPTIVE_ROUTING=0` restores Phase-2 behavior.
+
+Expected latency: simple-Q ~73 s → ~55 s; standard-Q unchanged (~85 s).
