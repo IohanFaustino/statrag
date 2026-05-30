@@ -4,8 +4,9 @@
 !.env.example
 
 # --- generated data (rebuild from zero) ---
-data/
-!data/.gitkeep
+# anchored to repo root so it does NOT match source dirs like web/src/data/
+/data/
+!/data/.gitkeep
 
 # --- python ---
 .venv/
