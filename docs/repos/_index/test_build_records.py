@@ -27,6 +27,10 @@ def test_parse_imports_python():
     assert br.parse_imports(src, "py") == {"os", "langchain", "neo4j"}
 
 
+def test_parse_imports_python_multi():
+    assert br.parse_imports("import os, sys\nimport json\n", "py") == {"os", "sys", "json"}
+
+
 def test_parse_imports_js():
     src = "import { foo } from 'langchain';\nconst x = require('neo4j-driver');\n"
     assert br.parse_imports(src, "js") == {"langchain", "neo4j-driver"}

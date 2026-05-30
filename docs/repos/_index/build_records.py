@@ -36,7 +36,7 @@ def is_code_file(name: str) -> bool:
     return Path(base).suffix.lower() in CODE_EXTS
 
 
-_PY_IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))", re.M)
+_PY_IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.,\t ]+))", re.M)
 _JS_IMPORT = re.compile(r"""(?:from|require\()\s*['"]([^'"]+)['"]""")
 
 
@@ -47,9 +47,15 @@ def parse_imports(src: str, lang: str) -> set[str]:
             libs.add(mod.split("/")[0] if not mod.startswith(".") else mod)
         return {m for m in libs if not m.startswith(".")}
     for frm, imp in _PY_IMPORT.findall(src):
-        mod = (frm or imp).split(",")[0].strip()
-        if mod:
-            libs.add(mod.split(".")[0])
+        if frm:
+            # "from X import a, b" — only the module X matters
+            libs.add(frm.split(".")[0])
+        else:
+            # "import os, sys" — each comma-separated name is a module
+            for part in imp.split(","):
+                mod = part.strip()
+                if mod:
+                    libs.add(mod.split(".")[0])
     return libs
 
 
