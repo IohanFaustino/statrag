@@ -55,6 +55,8 @@ def parse_imports(src: str, lang: str) -> set[str]:
             for part in imp.split(","):
                 mod = part.strip()
                 if mod:
+                    # strip trailing " as <alias>" if present
+                    mod = mod.split(" as ")[0].strip()
                     libs.add(mod.split(".")[0])
     return libs
 

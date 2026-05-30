@@ -31,6 +31,11 @@ def test_parse_imports_python_multi():
     assert br.parse_imports("import os, sys\nimport json\n", "py") == {"os", "sys", "json"}
 
 
+def test_parse_imports_python_alias():
+    src = "import numpy as np\nimport pandas as pd, os\nfrom sklearn.metrics import f1_score as f1\n"
+    assert br.parse_imports(src, "py") == {"numpy", "pandas", "os", "sklearn"}
+
+
 def test_parse_imports_js():
     src = "import { foo } from 'langchain';\nconst x = require('neo4j-driver');\n"
     assert br.parse_imports(src, "js") == {"langchain", "neo4j-driver"}
