@@ -35,6 +35,8 @@ const DEFAULT_STAGE_MODELS: Record<string, string> = {
 const STATRAG_MODES: ModeMeta[] = [
   { id: "tutor", label: "Tutor", glyph: "T" },
   { id: "qa", label: "Q&A", glyph: "?" },
+  { id: "facilitate", label: "Facilitate", glyph: "F" },
+  { id: "resume", label: "Resume", glyph: "R" },
 ];
 
 // ─── Fallback providers (used when /api/models fails) ────────────────────────
