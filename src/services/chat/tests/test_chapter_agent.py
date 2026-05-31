@@ -247,3 +247,12 @@ async def test_run_chapter_unknown_chapter_is_honest(monkeypatch):
     assert so["data"]["blocks"] == []
     assert so["data"]["citations"] == []
     assert events[-1]["type"] == "done"
+
+
+def test_chapter_modes_registered():
+    from src.services.chat.modes import ModeRegistry, register_all_modes
+    register_all_modes()
+    for mid in ("facilitate", "resume"):
+        spec = ModeRegistry.get(mid)
+        assert spec.arch == "multi"
+        assert spec.output_schema.__name__ == "ChapterDigest"
