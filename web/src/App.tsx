@@ -32,17 +32,7 @@ const DEFAULT_STAGE_MODELS: Record<string, string> = {
 // ─── Static mode list (from STATRAG_MODES in data.js) ────────────────────────
 
 const STATRAG_MODES: ModeMeta[] = [
-  { id: "tutor",    label: "Tutor",    glyph: "T" },
-  { id: "compare",  label: "Compare",  glyph: "C" },
-  { id: "figures",  label: "Figures",  glyph: "F" },
-  { id: "quiz",     label: "Quiz",     glyph: "Q" },
-  { id: "navigate", label: "Navigate", glyph: "N" },
-  { id: "prereqs",  label: "Prereqs",  glyph: "P" },
-  { id: "annotate", label: "Annotate", glyph: "A" },
-  { id: "research", label: "Research", glyph: "R" },
-  { id: "math",     label: "Math",     glyph: "∑" },
-  { id: "path",     label: "Path",     glyph: "✦" },
-  { id: "roadmap",  label: "Roadmap",  glyph: "▶" },
+  { id: "tutor", label: "Tutor", glyph: "T" },
 ];
 
 // ─── Fallback providers (used when /api/models fails) ────────────────────────
