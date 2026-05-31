@@ -1,6 +1,8 @@
 """Q&A node + prompt tests."""
 from __future__ import annotations
 
+import pytest  # I2: moved to top
+
 
 def test_prompts_present_and_nonempty():
     from src.services.chat.prompts.qa import (
@@ -22,9 +24,6 @@ def test_generate_prompt_forbids_explaining_known():
     from src.services.chat.prompts.qa import QA_GENERATE_PROMPT
     low = QA_GENERATE_PROMPT.lower()
     assert "assumed_known" in low or "already know" in low
-
-
-import pytest
 
 
 @pytest.mark.asyncio
@@ -167,3 +166,18 @@ async def test_verify_fail_open_keeps_draft(monkeypatch):
     assert out.text == "original draft"
     assert out.grounding["ok"] is False
     assert out.grounding["confidence"] <= 0.5
+
+
+# m5: generate_scoped succeeds when _chat returns fenced JSON
+@pytest.mark.asyncio
+async def test_generate_scoped_handles_fenced_json(monkeypatch):
+    from src.services.chat.agents import qa
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return '```json\n{"text":"x","citations":[],"math_blocks":[]}\n```'
+
+    monkeypatch.setattr(qa, "_chat", fake_chat)
+    scope = qa.QAScope(target_gap="test fenced")
+    ans = await qa.generate_scoped(scope, [_src(1)])
+    assert ans.text == "x"
+    assert ans.citations == []

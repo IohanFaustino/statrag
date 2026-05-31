@@ -15,6 +15,7 @@ import time
 from typing import AsyncIterator
 
 from src.core.config import settings
+from src.services.chat._fences import strip_fences
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.prompts.qa import (
     QA_GENERATE_PROMPT,
@@ -30,24 +31,18 @@ _QA_TOP_K = int(os.environ.get("QA_TOP_K", "4"))
 _QA_SCOPE = os.environ.get("QA_SCOPE", "1") == "1"
 _QA_VERIFY = os.environ.get("QA_VERIFY", "1") == "1"
 
+# m1: module constant for chunk preview truncation
+_CHUNK_PREVIEW_CHARS = 1500
+
 
 def _model_for(stage: str, req: ChatRequest | None) -> str:
     """Resolve the model for a Q&A stage: stageModels override > env > nano."""
-    sm = getattr(req, "stageModels", None) if req else None
+    # I1: direct attribute access — ChatRequest always has stageModels
+    sm = req.stageModels if req else None
     if sm and isinstance(sm.get(stage), str) and sm[stage].strip():
         return sm[stage].strip()
     env = os.environ.get(f"QA_{stage.upper()}_MODEL", "").strip()
     return env or settings.openai_model_nano
-
-
-def _strip_fences(raw: str) -> str:
-    """Remove ```json fences if the model wrapped its JSON."""
-    s = (raw or "").strip()
-    if s.startswith("```"):
-        s = s.split("\n", 1)[-1] if "\n" in s else s[3:]
-        if s.endswith("```"):
-            s = s[:-3]
-    return s.strip()
 
 
 async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
@@ -81,7 +76,7 @@ async def extract_scope(query: str, *, model: str | None = None) -> QAScope:
             model=chosen,
             max_tokens=200,
         )
-        data = json.loads(_strip_fences(raw))
+        data = json.loads(strip_fences(raw))
         return QAScope(
             target_gap=str(data.get("target_gap") or query).strip(),
             assumed_known=[str(x).strip() for x in (data.get("assumed_known") or []) if str(x).strip()],
@@ -115,10 +110,11 @@ def retrieve_for_gap(
 def _sources_block(sources: list[Source]) -> str:
     """Render numbered sources for the generate/verify prompts."""
     lines = []
-    for s in sources:
-        body = (s.chunk or s.excerpt or "")[:1500]
+    # m2: contiguous 1-based citation labels via enumerate(sources, 1)
+    for i, s in enumerate(sources, 1):
+        body = (s.chunk or s.excerpt or "")[:_CHUNK_PREVIEW_CHARS]
         lines.append(
-            f"[{s.rank}] {s.book_name or s.book} · {s.chapter} {s.section} — "
+            f"[{i}] {s.book_name or s.book} · {s.chapter} {s.section} — "
             f"{s.title}\n{body}"
         )
     return "\n\n".join(lines)
@@ -167,11 +163,11 @@ async def generate_scoped(
 
     async def _one() -> dict:
         raw = await _chat(messages, model=chosen, max_tokens=900)
-        return json.loads(_strip_fences(raw))
+        return json.loads(strip_fences(raw))
 
     try:
         data = await _one()
-    except Exception:  # noqa: BLE001 — one repair retry
+    except (json.JSONDecodeError, ValueError):  # C2: narrow to parse failures only
         logger.warning("qa.generate_scoped first parse failed; repair retry")
         data = await _one()
 
@@ -205,7 +201,7 @@ async def verify_grounding(
             model=chosen,
             max_tokens=700,
         )
-        data = json.loads(_strip_fences(raw))
+        data = json.loads(strip_fences(raw))
         verified_text = str(data.get("text") or answer.text).strip()
         grounding = {
             "ok": bool(data.get("ok", False)),
@@ -224,7 +220,8 @@ async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
     """Execute the punctual Q&A pipeline and yield v1 SSE event dicts."""
     t0 = time.time()
     query = req.message or ""
-    bf = getattr(req, "bookFilter", None)
+    # I1: direct attribute access — ChatRequest always has bookFilter
+    bf = req.bookFilter
     book_slugs = list(bf) if isinstance(bf, list) and bf else None
 
     yield {
@@ -257,17 +254,44 @@ async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
         )
         yield {"type": "structured_output", "schema": "QAAnswer", "data": answer.model_dump()}
         yield {"type": "sources_full", "sources": []}
+        # I3: emit retrieval_meta and usage on corpus-miss path too
+        yield {
+            "type": "retrieval_meta",
+            "meta": {
+                "rewrittenQuery": scope.target_gap[:300],
+                "embedding": settings.embedding_model,
+                "retrievalMs": int((time.time() - t0) * 1000),
+                "collections": retr_meta.get("collections", []) if isinstance(retr_meta, dict) else [],
+                "filter": "qa",
+                "topK": _QA_TOP_K,
+                "scoreThreshold": 0.0,
+                "mode": "qa (scope→retrieve→generate→verify)",
+            },
+        }
+        yield {
+            "type": "usage",
+            "durationMs": int((time.time() - t0) * 1000),
+            "promptChars": len(query),
+            "completionChars": len(answer.text),
+            "estTokens": (len(query) + len(answer.text)) // 4,
+        }
         yield {"type": "done"}
         return
 
-    # 3. scoped generate
-    answer = await generate_scoped(scope, sources, model=_model_for("generate", req))
+    # C2: guard generate + verify calls so SSE stream always terminates cleanly
+    try:
+        # 3. scoped generate
+        answer = await generate_scoped(scope, sources, model=_model_for("generate", req))
 
-    # 4. verify / finalise (advisory)
-    if _QA_VERIFY:
-        answer = await verify_grounding(answer, sources, model=_model_for("verify", req))
-    elif not answer.grounding:
-        answer = answer.model_copy(update={"grounding": {"ok": True, "unsupported": [], "confidence": 0.7}})
+        # 4. verify / finalise (advisory)
+        if _QA_VERIFY:
+            answer = await verify_grounding(answer, sources, model=_model_for("verify", req))
+        elif not answer.grounding:
+            answer = answer.model_copy(update={"grounding": {"ok": True, "unsupported": [], "confidence": 0.7}})
+    except Exception as exc:  # noqa: BLE001
+        yield {"type": "error", "code": type(exc).__name__, "message": str(exc)}
+        yield {"type": "done"}
+        return
 
     yield {"type": "structured_output", "schema": "QAAnswer", "data": answer.model_dump()}
     yield {
@@ -277,7 +301,7 @@ async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
                 "rank": s.rank, "book": s.book, "book_name": s.book_name or s.book,
                 "authors_short": s.authors_short, "year": s.year,
                 "chapter": s.chapter, "section": s.section, "title": s.title,
-                "excerpt": s.excerpt, "chunk": (s.chunk or "")[:1500],
+                "excerpt": s.excerpt, "chunk": (s.chunk or "")[:_CHUNK_PREVIEW_CHARS],
                 "score": round(float(s.score), 4), "chunkId": s.chunkId,
             }
             for s in sources
