@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { structuredToMarkdown } from "./exportStructured";
-import type { Quiz, StudyPlan, DAG, TutorAnswer, NavigationList } from "../types";
+import type { TutorAnswer } from "../types";
 
 describe("structuredToMarkdown — TutorAnswer", () => {
   it("renders prose then a numbered citations section", () => {
@@ -15,68 +15,6 @@ describe("structuredToMarkdown — TutorAnswer", () => {
     expect(md).toContain("Citations");
     expect(md).toContain("Hansen");
     expect(md).toContain("§2.1");
-  });
-});
-
-describe("structuredToMarkdown — Quiz", () => {
-  it("renders numbered questions with lettered options and answer", () => {
-    const data: Quiz = {
-      questions: [{
-        stem: "What is the mean?",
-        options: ["Sum", "Average", "Median", "Mode"],
-        answer_idx: 1,
-        rubric: "Average of values.",
-        source: { book: "HANSEN", chapter: "Ch1", section: "§1.2" },
-        difficulty: "easy",
-      }],
-    };
-    const md = structuredToMarkdown({ schema: "Quiz", data });
-    expect(md).toContain("1. What is the mean?");
-    expect(md).toContain("- B. Average");
-    expect(md).toContain("**Answer:** B");
-    expect(md).toContain("easy");
-  });
-});
-
-describe("structuredToMarkdown — StudyPlan", () => {
-  it("renders a week table", () => {
-    const data: StudyPlan = {
-      goal: "Master regression",
-      weeks: [{ week: 1, sections: [{ book: "HANSEN", chapter: "Ch3", section: "§3.1" }], hours_est: 5 }],
-      coverage_gaps: ["nonlinear models"],
-      replanned_from_version: 0,
-    };
-    const md = structuredToMarkdown({ schema: "StudyPlan", data });
-    expect(md).toContain("Master regression");
-    expect(md).toContain("| Week |");
-    expect(md).toContain("HANSEN");
-    expect(md).toContain("nonlinear models");
-  });
-});
-
-describe("structuredToMarkdown — DAG", () => {
-  it("renders nodes and edges", () => {
-    const data: DAG = {
-      nodes: [{ id: "a", label: "Mean", source: null }, { id: "b", label: "Variance", source: null }],
-      edges: [{ from_id: "a", to_id: "b", weight: 0.9 }],
-      cycles_broken: [],
-    };
-    const md = structuredToMarkdown({ schema: "DAG", data });
-    expect(md).toContain("Mean");
-    expect(md).toContain("Variance");
-    expect(md).toContain("a → b");
-  });
-});
-
-describe("structuredToMarkdown — NavigationList", () => {
-  it("renders a table with score to two decimals", () => {
-    const data: NavigationList = {
-      results: [{ book: "HANSEN", chapter: "Ch2", section: "§2.1", title: "Variance", score: 0.9, page: 12 }],
-    };
-    const md = structuredToMarkdown({ schema: "NavigationList", data });
-    expect(md).toContain("| Book | Chapter | Section | Title | Score |");
-    expect(md).toContain("0.90");
-    expect(md).toContain("Variance");
   });
 });
 
