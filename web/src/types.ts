@@ -1,6 +1,6 @@
 // Mirrors src/services/chat/schemas.py — keep in sync.
 
-export type ModeId = "tutor" | "qa";
+export type ModeId = "tutor" | "qa" | "facilitate" | "resume";
 
 export type ProviderId = "openai" | "deepseek" | "groq";
 
@@ -158,9 +158,43 @@ export interface QAAnswer {
   grounding: { ok: boolean; unsupported: string[]; confidence: number };
 }
 
+export interface ResolvedSubtopic {
+  asked: string;
+  matched_h2: string;
+  section_id: string;
+  score: number;
+}
+
+export interface ChapterScope {
+  book_slug: string;
+  chapter_id: string;
+  requested_subtopics: string[];
+  resolution: ResolvedSubtopic[];
+}
+
+export interface ChapterBlock {
+  h2_path: string;
+  section_id: string;
+  body: string;
+  page_from: number;
+  page_to: number;
+}
+
+export interface ChapterDigest {
+  mode: "facilitate" | "resume";
+  scope: ChapterScope;
+  intro: string;
+  blocks: ChapterBlock[];
+  outro: string;
+  citations: TutorCitation[];
+  math_blocks: string[];
+  grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
+}
+
 export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
   | { type: "structured_output"; schema: "QAAnswer"; data: QAAnswer }
+  | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
   | { type: "structured_output"; schema: string; data: unknown };
 
 // Every chat event carries a monotonic `seq` (§13) when it comes from a
