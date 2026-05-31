@@ -12,6 +12,12 @@
 
 **Branch:** `feat/remove-nontutor-modes` (already created off main).
 
+**Task 0 findings (resolved by controller — apply these):**
+- `deep_tutor.py` imports only `coverage`, `image_judge`, `orchestrator_workers` → **`graph.py`/`nodes.py`/`state.py` are safe to DELETE** (used only by removed prereqs/research/study_path).
+- **KEEP `ConceptNode` and `ConceptEdge` in `output.py`** — `src/services/chat/kg.py` (a kept module, imported by `tools/__init__.py` + `tools/kg_neighbors.py`) imports them. Do NOT delete these two classes. `DAG` (which references them) is still deleted.
+- `src/services/eval/runner.py` does NOT import chat schemas (HTTP-only, Chinese wall) → its "Report" matches are unrelated; deleting the `Report` schema is safe.
+- Study-plan store helpers (`upsert_study_plan`/`get_study_plan`/`delete_study_plan`) are called only from the `path` branches in `router.py`/`orchestrator.py` and the `api.py` endpoints — all removed in Tasks 2-4 → remove the 3 helper functions in Task 4 Step 2; keep the `study_plans` table DDL (harmless dormant schema).
+
 **Note on TDD:** This is a removal task — most "tests" are verification gates (grep sweeps, import smoke, build, existing test suite). Each task ends with a concrete verification command + expected output, then a commit. The guiding invariant for every task: **tutor must keep working** — `python -c "import src.services.chat.api"` must stay clean and the tutor browser flow unbroken.
 
 ---
@@ -216,9 +222,9 @@ Leave the `mode: ModeId = "tutor"` fields and `ProviderId` unchanged.
 
 - [ ] **Step 2: Delete dead output classes**
 
-In `src/services/chat/schemas/output.py`, delete these classes (only those confirmed unused in Task 0 Step 3): `CompareAnswer`, `BookSection`, `FiguresAnswer`, `Question`, `Quiz`, `NavResult`, `NavigationList`, `ConceptNode`, `ConceptEdge`, `DAG`, `Annotation`, `AnnotatedReading`, `StanceClaim`, `Report`, `MathAnswer`, `StudyWeek`, `StudyPlan`, `Scene`, `Roadmap`.
+In `src/services/chat/schemas/output.py`, delete these classes: `CompareAnswer`, `BookSection`, `FiguresAnswer`, `Question`, `Quiz`, `NavResult`, `NavigationList`, `DAG`, `Annotation`, `AnnotatedReading`, `StanceClaim`, `Report`, `MathAnswer`, `StudyWeek`, `StudyPlan`, `Scene`, `Roadmap`.
 
-Keep: `Citation`, `FigureRef`, `TutorCitation`, `TutorAnswer`, `DeepTutorAnswer`, `AuthorContrast`, `WorkerTask`, `OrchestratorPlan`, `AuthorBrief`, `SynthesisPlan`.
+**KEEP** (per Task 0 findings): `Citation`, `FigureRef`, `TutorCitation`, `TutorAnswer`, `DeepTutorAnswer`, `AuthorContrast`, `WorkerTask`, `OrchestratorPlan`, `AuthorBrief`, `SynthesisPlan`, **and `ConceptNode` + `ConceptEdge`** (kg.py depends on them — do not delete).
 
 - [ ] **Step 3: Fix __init__ re-exports**
 
