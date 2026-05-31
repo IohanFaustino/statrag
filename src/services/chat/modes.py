@@ -186,6 +186,44 @@ def register_all_modes() -> None:
         )
     )
 
+    # ------------------------------------------------------------------
+    # facilitate + resume — chapter modes; shared multi-node runner
+    # ------------------------------------------------------------------
+    from src.services.chat.prompts.chapter import (  # noqa: PLC0415
+        CHAPTER_MAP_FACILITATE_PROMPT,
+        CHAPTER_MAP_RESUME_PROMPT,
+    )
+    from src.services.chat.schemas.output import ChapterDigest  # noqa: PLC0415
+
+    ModeRegistry.register(
+        ModeSpec(
+            id="facilitate",
+            icon="graduation-cap",
+            arch="multi",
+            system_prompt=CHAPTER_MAP_FACILITATE_PROMPT,
+            output_schema=ChapterDigest,
+            tools=[],
+            retrieval_flags=RetrievalFlags(rerank=False),
+            model="nano",
+            post_validators=(),
+            memory="off",
+        )
+    )
+    ModeRegistry.register(
+        ModeSpec(
+            id="resume",
+            icon="file-text",
+            arch="multi",
+            system_prompt=CHAPTER_MAP_RESUME_PROMPT,
+            output_schema=ChapterDigest,
+            tools=[],
+            retrieval_flags=RetrievalFlags(rerank=False),
+            model="nano",
+            post_validators=(),
+            memory="off",
+        )
+    )
+
 
 # Auto-register on import (idempotent)
 register_all_modes()

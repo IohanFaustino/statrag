@@ -13,6 +13,8 @@ type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 const MODE_ICON_MAP: Record<string, IconComponent> = {
   tutor: IconBook,
   qa: IconBook, // TODO(icon): swap to a target/zap glyph when added to Icons.tsx
+  facilitate: IconBook,
+  resume: IconBook,
 };
 
 interface ModePickerProps {

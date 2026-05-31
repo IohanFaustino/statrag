@@ -39,6 +39,10 @@ from src.services.chat.schemas.output import (  # noqa: F401
     SynthesisPlan,
     QAScope,
     QAAnswer,
+    ChapterScope,
+    ChapterBlock,
+    ChapterDigest,
+    ResolvedSubtopic,
 )
 
 __all__ = [
@@ -70,4 +74,8 @@ __all__ = [
     "SynthesisPlan",
     "QAScope",
     "QAAnswer",
+    "ChapterScope",
+    "ChapterBlock",
+    "ChapterDigest",
+    "ResolvedSubtopic",
 ]

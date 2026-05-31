@@ -179,10 +179,16 @@ Should print `wall ok`.
 |---|---|---|
 | `tutor` | Deep multi-aspect learning — synthesis plan, orchestrator-workers, author-diversity, coverage check, figure judge | [36-deep-tutor.md](./chat-features/36-deep-tutor.md) |
 | `qa` | Punctual Q&A — 4-node scope→retrieve→generate→verify pipeline, lean `QAAnswer` schema, gpt-5.4-nano default | [51-qa-mode.md](./chat-features/51-qa-mode.md) |
+| `facilitate` | Structural chapter traversal — teach sections in chapter reading order, building prior context across sections | [52-chapter-modes.md](./chat-features/52-chapter-modes.md) |
+| `resume` | Structural chapter traversal — compress sections in chapter reading order into dense summaries | [52-chapter-modes.md](./chat-features/52-chapter-modes.md) |
 
 ### Q&A mode
 
 The `qa` mode answers a single specific doubt punctually instead of teaching a topic globally. It runs a lean 4-node pipeline (scope-extract → hybrid retrieve → scoped generate → grounding verify), emits a `QAAnswer` with an inline scope line and a grounding-confidence badge, and defaults all LLM nodes to `gpt-5.4-nano`. On a corpus miss (0 retrieved sources) it emits an honest no-coverage message with empty citations rather than fabricating an answer. See [`chat-features/51-qa-mode.md`](./chat-features/51-qa-mode.md) for the full pipeline spec, env flags, and synced-artifacts checklist.
+
+### Chapter modes (facilitate / resume)
+
+The `facilitate` and `resume` modes traverse a chapter's sections in **structural reading order** (`page_from`, then `section_id`) rather than by search relevance. `facilitate` teaches each selected section in sequence, threading prior-context forward so each block can reference what was covered before. `resume` compresses the same span into dense per-section summaries. Both modes are scoped to named subtopics within a single book+chapter; an empty subtopic list spans the whole chapter. Blocks in the emitted `ChapterDigest` are in fetched-section order and are **never re-sorted downstream** — this is an enforced invariant. See [`chat-features/52-chapter-modes.md`](./chat-features/52-chapter-modes.md) for the full pipeline spec (parse-scope → fetch-chapter → resolve-subtopics → map → stitch → ground), env flags, and synced-artifacts checklist.
 
 ## Status (2026-05-19)
 

@@ -2,6 +2,10 @@
 
 Append-only. Latest at top.
 
+## 2026-05-31 — Added chapter modes (facilitate / resume)
+
+Added `facilitate` and `resume` as two structural chat modes. Both traverse a chapter's sections in **chapter reading order** (`page_from`, then `section_id`) rather than by search relevance. Pipeline: parse-scope (extract book + chapter + subtopic names; fail-open to whole chapter) → fetch-chapter (Qdrant scroll, sorted structurally — no embeddings) → resolve-subtopics (substring then nano fuzzy match; empty = whole chapter) → map (per-section LLM call in order, threads `prior_context` forward) → stitch (connective intro/outro, never reorders) → ground (advisory grounding verdict). `facilitate` teaches each section in sequence; `resume` compresses it into a dense summary. Emits a `ChapterDigest` with an ordered `blocks[]` list. **Order-preservation is an enforced invariant** (invariant 30): blocks in `ChapterDigest` equal the fetched-section order and are never re-sorted downstream. All LLM nodes default to `gpt-5.4-nano-2026-03-17`; map dominates cost (one call per section); per-node override via `stageModels` / `CHAPTER_*_MODEL`. See [`docs/services/chat-features/52-chapter-modes.md`](../services/chat-features/52-chapter-modes.md).
+
 ## 2026-05-31 — Added punctual Q&A mode
 
 Added `qa` as a second chat mode alongside tutor. Scope-extract → hybrid-retrieve → scoped-generate → grounding-verify pipeline; lean `QAAnswer` schema (no sections/figures/aspects); gpt-5.4-nano default on all LLM nodes; corpus-miss path emits honest no-coverage message with empty citations (never fabricates). ModeId, schemas, prompts, mode registry, router dispatch, cost table (gemini + qwen prices), frontend types, QAAnswerCard renderer, QAPipeline diagram, mode chip all implemented in lockstep. See [`docs/services/chat-features/51-qa-mode.md`](../services/chat-features/51-qa-mode.md).
