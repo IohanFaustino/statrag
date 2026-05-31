@@ -244,3 +244,60 @@ async def map_sections(
         prior_context = (prior_context + " " + body)[-240:]
 
     return blocks, all_citations
+
+
+def _sources_block(sources: list[Source]) -> str:
+    lines = []
+    for i, s in enumerate(sources, 1):
+        body = (s.chunk or s.excerpt or "")[:_CHUNK_PREVIEW_CHARS]
+        lines.append(f"[{i}] {s.book_name or s.book} · {s.chapter} {s.section} — {s.title}\n{body}")
+    return "\n\n".join(lines)
+
+
+async def stitch(blocks: list[ChapterBlock], *, model: str | None = None) -> tuple[str, str]:
+    """Generate a short intro/outro. Fail-open: empty strings on error."""
+    if not blocks:
+        return "", ""
+    headings = [b.h2_path for b in blocks]
+    try:
+        raw = await _chat(
+            [
+                {"role": "system", "content": CHAPTER_STITCH_PROMPT},
+                {"role": "user", "content": json.dumps({"headings": headings})},
+            ],
+            model=model or settings.openai_model_nano,
+            max_tokens=200,
+        )
+        data = json.loads(strip_fences(raw))
+        return str(data.get("intro", "")).strip(), str(data.get("outro", "")).strip()
+    except Exception:  # noqa: BLE001
+        logger.exception("chapter.stitch failed; empty intro/outro")
+        return "", ""
+
+
+async def ground(
+    blocks: list[ChapterBlock],
+    sources: list[Source],
+    *,
+    model: str | None = None,
+) -> dict:
+    """Audit the digest against sources. Advisory; fail-open marks low confidence."""
+    body = "\n\n".join(b.body for b in blocks)
+    try:
+        raw = await _chat(
+            [
+                {"role": "system", "content": CHAPTER_GROUND_PROMPT},
+                {"role": "user", "content": f"digest:\n{body}\n\nsources:\n{_sources_block(sources)}"},
+            ],
+            model=model or settings.openai_model_nano,
+            max_tokens=500,
+        )
+        data = json.loads(strip_fences(raw))
+        return {
+            "ok": bool(data.get("ok", False)),
+            "unsupported": [str(x) for x in (data.get("unsupported") or [])],
+            "confidence": float(data.get("confidence", 0.5)),
+        }
+    except Exception:  # noqa: BLE001
+        logger.exception("chapter.ground failed; low confidence")
+        return {"ok": False, "unsupported": [], "confidence": 0.5}

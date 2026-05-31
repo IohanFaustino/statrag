@@ -168,3 +168,31 @@ async def test_map_sections_fail_open_uses_excerpt(monkeypatch):
     sections[0].excerpt = "synopsis fallback"
     blocks, _cites = await ch.map_sections(sections, mode="facilitate")
     assert blocks[0].body == "synopsis fallback"
+
+
+@pytest.mark.asyncio
+async def test_stitch_returns_intro_outro(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import ChapterBlock
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return '{"intro":"Covers A then B.","outro":"Together they explain X."}'
+
+    monkeypatch.setattr(ch, "_chat", fake_chat)
+    blocks = [ChapterBlock(h2_path="2.1 | A", section_id="2.1", body="a")]
+    intro, outro = await ch.stitch(blocks)
+    assert intro == "Covers A then B."
+    assert outro == "Together they explain X."
+
+
+@pytest.mark.asyncio
+async def test_ground_fail_open(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import ChapterBlock
+
+    async def boom(*a, **k):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(ch, "_chat", boom)
+    g = await ch.ground([ChapterBlock(h2_path="h", section_id="1", body="x")], [_src("1", "h")])
+    assert g["ok"] is False and 0.0 <= g["confidence"] <= 1.0
