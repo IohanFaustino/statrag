@@ -252,6 +252,66 @@ class QAAnswer(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Mode 3/4 — chapter (facilitate + resume)
+# ---------------------------------------------------------------------------
+
+
+class ResolvedSubtopic(BaseModel):
+    """One requested subtopic mapped to a real chapter heading.
+
+    ``matched_h2`` is "" when the request could not be resolved (dropped).
+    ``score`` is the match confidence (1.0 for the whole-chapter default).
+    """
+
+    asked: str
+    matched_h2: str = ""
+    section_id: str = ""
+    score: float = 0.0
+
+
+class ChapterScope(BaseModel):
+    """Resolved scope for a chapter-mode run.
+
+    ``requested_subtopics`` empty means "whole chapter, in order".
+    ``resolution`` echoes the closest-match mapping for UI transparency.
+    """
+
+    book_slug: str
+    chapter_id: str
+    requested_subtopics: list[str] = Field(default_factory=list)
+    resolution: list[ResolvedSubtopic] = Field(default_factory=list)
+
+
+class ChapterBlock(BaseModel):
+    """One subtopic's rendered block. List position in ``ChapterDigest.blocks``
+    IS the chapter order — never re-sorted by the frontend."""
+
+    h2_path: str
+    section_id: str
+    body: str
+    page_from: int = -1
+    page_to: int = -1
+
+
+class ChapterDigest(BaseModel):
+    """Ordered chapter digest shared by ``facilitate`` and ``resume``.
+
+    ``mode`` tells the renderer which header/styling to use. ``blocks`` are in
+    chapter order. Reuses :class:`TutorCitation` so existing citation cards
+    render unchanged. ``grounding`` carries the verify-node verdict.
+    """
+
+    mode: Literal["facilitate", "resume"]
+    scope: ChapterScope
+    intro: str = ""
+    blocks: list[ChapterBlock] = Field(default_factory=list)
+    outro: str = ""
+    citations: list[TutorCitation] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
 # Concept graph primitives (kept — kg.py depends on these)
 # ---------------------------------------------------------------------------
 
