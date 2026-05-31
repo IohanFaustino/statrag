@@ -43,3 +43,13 @@ def test_fetch_chapter_sections_sorted_by_page(monkeypatch):
     out = retrieval.fetch_chapter_sections("islp", "ch02")
     assert [s.section for s in out] == ["A", "B", "C"]
     assert [s.chapter for s in out] == ["ch02", "ch02", "ch02"]
+
+
+def test_model_for_prefers_stage_models():
+    from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import ChatRequest
+    req = ChatRequest(message="x", mode="resume", stageModels={"map": "gpt-4o-mini"})
+    assert ch._model_for("map", req) == "gpt-4o-mini"
+    # falls back to nano when unset
+    req2 = ChatRequest(message="x", mode="resume")
+    assert ch._model_for("map", req2) == ch.settings.openai_model_nano
