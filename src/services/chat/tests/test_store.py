@@ -45,13 +45,13 @@ def test_create_conversation_returns_digest() -> None:
 
 def test_get_conversation_roundtrip() -> None:
     created = store_module.create_conversation(
-        title="Regression", mode="math", model_id="gpt-4o", book_filter=["islp"]
+        title="Regression", mode="tutor", model_id="gpt-4o", book_filter=["islp"]
     )
     fetched = store_module.get_conversation(created.id)
     assert fetched is not None
     assert fetched.id == created.id
     assert fetched.title == "Regression"
-    assert fetched.mode == "math"
+    assert fetched.mode == "tutor"
     assert fetched.bookFilter == ["islp"]
 
 
