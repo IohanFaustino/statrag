@@ -58,3 +58,21 @@ async def test_extract_scope_fail_open(monkeypatch):
     # fail-open: whole query becomes the gap, nothing assumed known
     assert scope.target_gap == "explain gradient descent"
     assert scope.assumed_known == []
+
+
+def test_retrieve_for_gap_uses_target_gap(monkeypatch):
+    from src.services.chat.agents import qa
+
+    captured = {}
+
+    def fake_hybrid(query, *, book_slugs=None, top_k=5, rerank=True, adjacent_sections=False):
+        captured["query"] = query
+        captured["top_k"] = top_k
+        return ([], {"mode": "test"})
+
+    monkeypatch.setattr(qa, "hybrid_search", fake_hybrid)
+    scope = qa.QAScope(target_gap="why bias and variance trade off")
+    sources, meta = qa.retrieve_for_gap(scope, book_slugs=None, k=4)
+    assert captured["query"] == "why bias and variance trade off"
+    assert captured["top_k"] == 4
+    assert sources == []
