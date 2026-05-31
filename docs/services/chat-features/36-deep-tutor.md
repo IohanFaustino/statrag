@@ -137,7 +137,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 
 | Var | Default | Meaning |
 |---|---|---|
-| `TUTOR_DRAFT_MODEL` | `openai_model_full` (`gpt-5.4-2026-03-05`) | Default draft model. Phase 2 upgrade: full model for steadier latency and stronger articulation. Revert to nano: `TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17`. Only the draft stage is affected; all other stages stay on nano. |
+| `TUTOR_DRAFT_MODEL` | `qwen-plus` via `.env` (code fallback: `openai_model_full` = `gpt-5.4-2026-03-05`) | Default draft model. **2026-05-31 draft battle → `qwen-plus`** (Alibaba): cheapest survivor holding consistency (1.22× BV-token swing) + clean `$$…$$` LaTeX + decomposition, ~7.7× cheaper than gpt-5.4 (~$0.0055 vs ~$0.042/answer). Set in `.env`; code fallback stays gpt-5.4-full so a clone without `QWEN_API_KEY`/`.env` still works. Fallback/picker: `deepseek-v4-pro` (deepest, ~1.8× cost). Revert: `TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17`. Only the draft stage is affected; all other stages stay on nano. See `docs/superpowers/plans/2026-05-30-draft-model-battle.md` §7. |
 | `TUTOR_DEEP_MODE` | `1` | `0` = revert to legacy `create_agent` path |
 | `TUTOR_DEEP_CRITIQUE` | `0` | `1` = enable critique + refine loop |
 | `TUTOR_DEEP_MAX_REFINE` | `1` | Hard cap on refine iterations |

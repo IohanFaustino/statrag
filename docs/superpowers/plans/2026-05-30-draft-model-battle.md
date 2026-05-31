@@ -230,3 +230,40 @@ curl -sN -m200 -X POST http://localhost:8766/api/chat -H 'Content-Type: applicat
   holds consistency + LaTeX + depth), or gpt-5.4 retained with rationale.
 - Docs + changelog updated; browser :5175 check on the chosen model; `tmp`
   deleted; memory updated with the battle verdict.
+
+---
+
+## 7 · RESULTS (2026-05-31)
+
+Tasks 1 + 2 implemented + committed (`55f7494` Qwen provider, `711bce2`
+DeepSeek thinking-disable). Battle run **in-process** (`scripts/draft_battle.py`)
+instead of over `/api/chat` — the sandbox kills any bound server (exit 144). The
+harness retrieves real sources once per query (rerank on), then calls the draft
+stage directly per candidate; measures wall-clock draft latency, output tokens
+(tiktoken), aspect-fill, and dumps the `definition` aspect for LaTeX/
+decomposition eyeball.
+
+| Model | draft_ms (med) | BV tok min–max ×3 | swing | LaTeX | depth | $/answer | verdict |
+|---|---|---|---|---|---|---|---|
+| gpt-5.4-2026-03-05 | 44150 | 1872–2117 | 1.13× | clean | 5–6/6 | ~0.0421 | baseline |
+| **qwen-plus** | 52776 | 1841–2248 | **1.22×** | clean `$$…$$` | 4–5/6 | **~0.0055** | **WINNER** |
+| qwen-max | 59075 | 1235–1765 | 1.43× | mangled `\\[1]`,`\n` | 5/6 | ~0.021 | reject (LaTeX, 158s spike, length-limit fails) |
+| gemini-2.5-flash | 27175 | 233–2180 | **9.36×** | — | 5/6 | ~0.007 | reject (depth collapse, 2/3 runs near-empty) |
+| deepseek-v4-pro | 63820 | 2229–2514 | 1.13× | clean `$$…$$` | 5–6/6 | ~0.0098 | strong #2 / fallback |
+| groq gpt-oss-120b | — | — | — | — | — | ~0.001 | reject (all drafts unparseable) |
+| groq llama-3.3-70b | — | — | — | — | — | ~0.002 | reject (all drafts unparseable) |
+
+**Decision (cost-benefit per stage):** `TUTOR_DRAFT_MODEL=qwen-plus`. Three
+models hold consistency (<1.5× swing) + clean LaTeX + decomposition (gpt-5.4,
+qwen-plus, deepseek-v4-pro); qwen-plus is the cheapest — ~7.7× under the gpt-5.4
+incumbent — with the cleanest display math of the three. Set in `.env`.
+
+**deepseek-v4-pro rescued:** Task-2 thinking-disable flipped it from the prior
+empty/broken-LaTeX rejection to clean `$$…$$` + 6/6 + 1.13× consistency. Kept as
+the fallback/picker option (deepest, but ~1.8× qwen-plus cost + slowest).
+
+**Caveats:** dollar figures are the plan's planning estimates (verify live).
+Latencies are in-process wall-clock (no SSE first-token benefit), so absolute ms
+run high vs production; the *relative* ranking holds. groq failures were
+unparseable-JSON drafts, not key errors. Browser :5175 visual check still
+pending — the sandbox can't host the dev server; run it in a real terminal.

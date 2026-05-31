@@ -2,6 +2,21 @@
 
 Append-only. Latest at top.
 
+## 2026-05-31 — Draft-model battle verdict → `qwen-plus` (battle Task 3+4)
+
+Ran the multi-provider draft battle in-process (`scripts/draft_battle.py`) — the sandbox kills any bound uvicorn (exit 144), so instead of POSTing to `/api/chat` the harness retrieves real sources once per query (rerank on) then calls the draft stage directly per candidate, measuring wall-clock latency, output tokens, aspect-fill, and the `definition` aspect for LaTeX/decomposition eyeball. Bias-variance query run 3× per candidate to expose depth variance.
+
+| Model | BV tok ×3 | swing | LaTeX | depth | $/answer | verdict |
+|---|---|---|---|---|---|---|
+| gpt-5.4-2026-03-05 | 1872–2117 | 1.13× | clean | 5–6/6 | ~0.0421 | baseline |
+| **qwen-plus** | 1841–2248 | 1.22× | clean `$$…$$` | 4–5/6 | **~0.0055** | **WINNER** |
+| qwen-max | 1235–1765 | 1.43× | mangled | 5/6 | ~0.021 | reject (LaTeX, 158s spike, length fails) |
+| gemini-2.5-flash | 233–2180 | 9.36× | — | 5/6 | ~0.007 | reject (depth collapse) |
+| deepseek-v4-pro | 2229–2514 | 1.13× | clean `$$…$$` | 5–6/6 | ~0.0098 | strong #2 / fallback |
+| groq gpt-oss-120b / llama-3.3-70b | — | — | — | — | ~0.001–0.002 | reject (unparseable drafts) |
+
+**Decision (cost-benefit per stage):** `TUTOR_DRAFT_MODEL=qwen-plus` (set in `.env`). Cheapest of the three survivors holding consistency (<1.5× swing) + clean LaTeX + decomposition; ~7.7× cheaper than the gpt-5.4 incumbent. Code default in `deep_tutor.py` stays `openai_model_full` as a safe fallback (a clone without `QWEN_API_KEY`/`.env` still works). `deepseek-v4-pro` kept as fallback/picker — Task-2 thinking-disable rescued it (clean LaTeX + 6/6 vs prior empty/broken rejection). Doc 36 env table updated. Browser :5175 visual check still pending (sandbox can't host the dev server).
+
 ## 2026-05-31 — Alibaba Qwen provider (draft-model battle prep)
 
 Added an Alibaba Qwen provider to the chat LLM layer, cloning the Gemini OpenAI-compat pattern. No new dependencies — DashScope's compat endpoint (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`) accepts the `openai` SDK verbatim. Unlocks `qwen-plus`/`qwen-max`/`qwen-turbo` as selectable draft-stage models for the multi-provider draft battle.
