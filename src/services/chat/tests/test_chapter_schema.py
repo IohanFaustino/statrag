@@ -46,3 +46,10 @@ def test_chapter_digest_rejects_bad_mode():
             scope=ChapterScope(book_slug="islp", chapter_id="ch02"),
             blocks=[],
         )
+
+
+def test_chat_request_accepts_chapter_modes():
+    from src.services.chat.schemas import ChatRequest
+    for m in ("facilitate", "resume"):
+        req = ChatRequest(message="ch2 bias-variance", mode=m)
+        assert req.mode == m
