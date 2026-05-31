@@ -261,6 +261,56 @@ def _expand_adjacent(sources: list[Source], collections: list[str]) -> list[Sour
     return out
 
 
+def fetch_chapter_sections(
+    book_slug: str,
+    chapter_id: str,
+    *,
+    max_sections: int = 200,
+) -> list[Source]:
+    """Scroll every chunk of one chapter and return them in chapter order.
+
+    Order is structural: sort by ``(page_from, section_id)`` so the reading
+    sequence (and the author's build-of-ideas) is preserved. No embeddings,
+    no relevance scoring — this is a metadata fetch, not a search.
+
+    Args:
+        book_slug: Book slug (e.g. ``"islp"``).
+        chapter_id: Chapter id (e.g. ``"ch02"``).
+        max_sections: Hard cap on chunks scrolled.
+
+    Returns:
+        Ordered ``Source`` list (may be empty when the chapter is unknown).
+    """
+    collection_map = collections_for_books([book_slug])
+    flt = Filter(
+        must=[
+            FieldCondition(key="book_slug", match=MatchAny(any=[book_slug])),
+            FieldCondition(key="chapter_id", match=MatchAny(any=[chapter_id])),
+        ]
+    )
+    raw: list[Any] = []
+    for collection in collection_map:
+        try:
+            points, _ = client().scroll(
+                collection_name=collection,
+                scroll_filter=flt,
+                limit=max_sections,
+                with_payload=True,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("chapter scroll failed for %r", collection)
+            continue
+        raw.extend(points)
+
+    def _order_key(p: Any) -> tuple[int, str]:
+        payload = p.payload or {}
+        pf = _safe_int(payload.get("page_from"))
+        return (pf if pf is not None else 10**9, str(payload.get("section_id", "")))
+
+    raw.sort(key=_order_key)
+    return [_point_to_source(p, rank=i + 1) for i, p in enumerate(raw[:max_sections])]
+
+
 def hybrid_search(
     query: str,
     *,
