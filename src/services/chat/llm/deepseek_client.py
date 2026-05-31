@@ -6,6 +6,7 @@ reuses the ``openai`` SDK pointed at the DeepSeek base URL.
 from __future__ import annotations
 
 import logging
+import os
 from typing import AsyncIterator
 
 import openai
@@ -14,6 +15,26 @@ from src.core.config import settings
 from src.services.chat.llm.base import BaseLLM, ChatMessage, LLMError
 
 logger = logging.getLogger(__name__)
+
+
+def _thinking_extra_body(model: str) -> dict | None:
+    """Return an ``extra_body`` payload that disables DeepSeek thinking, or None.
+
+    DeepSeek v4 ids (``deepseek-v4-pro``, ``deepseek-chat``) default to THINKING
+    mode: they burn the output budget on hidden reasoning and return empty
+    ``content`` on the structured draft path (see memory
+    ``deepseek-model-unreachable``). Disabling thinking makes them usable as a
+    fast draft model. ``deepseek-reasoner`` is a genuine chain-of-thought model
+    where thinking is the point, so it is exempt.
+
+    Gated by ``DEEPSEEK_DISABLE_THINKING`` (default ``"1"``); set to ``"0"`` to
+    leave thinking untouched for every model.
+    """
+    if os.environ.get("DEEPSEEK_DISABLE_THINKING", "1") != "1":
+        return None
+    if model == "deepseek-reasoner":
+        return None
+    return {"thinking": {"type": "disabled"}}
 
 
 class DeepSeekChat(BaseLLM):
@@ -59,8 +80,14 @@ class DeepSeekChat(BaseLLM):
         }
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
+        extra_body = _thinking_extra_body(model)
+        if extra_body is not None:
+            kwargs["extra_body"] = extra_body
 
-        logger.debug("DeepSeekChat.stream model=%s msgs=%d", model, len(messages))
+        logger.debug(
+            "DeepSeekChat.stream model=%s msgs=%d thinking_disabled=%s",
+            model, len(messages), extra_body is not None,
+        )
         try:
             async with await self._client.chat.completions.create(**kwargs) as response:
                 async for chunk in response:

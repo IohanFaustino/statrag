@@ -167,6 +167,9 @@ No real API calls in any test.
 OPENAI_API_KEY=sk-...     # required
 DEEPSEEK_API_KEY=...      # optional (lazy check at provider switch)
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_DISABLE_THINKING=1  # default 1: send extra_body thinking=disabled for
+                             # all deepseek ids except deepseek-reasoner (v4 ids
+                             # default to thinking → empty content). Set 0 to keep.
 GROQ_API_KEY=gsk-...      # optional
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GEMINI_API_KEY=AIza...    # optional (lazy check at provider switch)

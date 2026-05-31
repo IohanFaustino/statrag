@@ -16,6 +16,17 @@ Added an Alibaba Qwen provider to the chat LLM layer, cloning the Gemini OpenAI-
 
 **Tests**: full chat suite green (3 skips = `GROQ_API_KEY` not set). See `docs/superpowers/plans/2026-05-30-draft-model-battle.md` (Task 1).
 
+## 2026-05-31 — DeepSeek thinking-disable on the chat/draft path (battle Task 2)
+
+The earlier `deepseek-v4-pro` draft rejection (empty content, broken LaTeX, ~9× latency) was a config artifact: the chat `DeepSeekChat.stream` path never disabled thinking, unlike the ingestion client. v4 ids default to THINKING mode → output budget spent on hidden reasoning → empty `content`.
+
+**Artifacts changed:**
+- `src/services/chat/llm/deepseek_client.py`: added `_thinking_extra_body(model)` helper — returns `{"thinking": {"type": "disabled"}}` for every deepseek id except `deepseek-reasoner` (a genuine CoT model), gated by `DEEPSEEK_DISABLE_THINKING` (default `"1"`). `stream` now passes it as `extra_body` when applicable.
+- `src/services/chat/tests/test_deepseek_thinking.py` (new): v4-pro/chat disabled, reasoner exempt, env-flag-off respected.
+- `docs/services/chat-features/06-llm-router.md`: documented `DEEPSEEK_DISABLE_THINKING`.
+
+**Live smoke**: `deepseek-v4-pro` with thinking off returns clean `content` (`"OK"`) — was empty before. Unlocks a fair `deepseek-v4-pro` entry in the draft battle at ~$0.0098/answer.
+
 ## 2026-05-30 — Google Gemini provider (Phase 4 prep)
 
 Added a Google Gemini provider to the chat LLM layer following the Groq/DeepSeek OpenAI-compat pattern. No new dependencies — Gemini's compat endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`) accepts the `openai` SDK verbatim.
