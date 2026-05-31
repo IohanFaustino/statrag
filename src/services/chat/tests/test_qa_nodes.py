@@ -131,3 +131,39 @@ async def test_generate_scoped_repairs_bad_json(monkeypatch):
     ans = await qa.generate_scoped(scope, [_src(1)])
     assert ans.text == "ok"
     assert calls["n"] == 2  # one repair retry
+
+
+@pytest.mark.asyncio
+async def test_verify_flags_unsupported_and_softens(monkeypatch):
+    from src.services.chat.agents import qa
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return (
+            '{"ok":false,"unsupported":["claim about quantum tunnelling"],'
+            '"confidence":0.4,"text":"The tradeoff arises because lowering one raises the other [1]."}'
+        )
+
+    monkeypatch.setattr(qa, "_chat", fake_chat)
+    scope = qa.QAScope(target_gap="x")
+    draft = qa.QAAnswer(text="… quantum tunnelling …", scope=scope)
+    out = await qa.verify_grounding(draft, [_src(1)])
+    assert out.grounding["ok"] is False
+    assert out.grounding["confidence"] == 0.4
+    assert "quantum tunnelling" in out.grounding["unsupported"][0]
+    assert "lowering one raises the other" in out.text  # text replaced by verified text
+
+
+@pytest.mark.asyncio
+async def test_verify_fail_open_keeps_draft(monkeypatch):
+    from src.services.chat.agents import qa
+
+    async def boom(messages, *, model, max_tokens, temperature=0.0):
+        raise RuntimeError("verify provider down")
+
+    monkeypatch.setattr(qa, "_chat", boom)
+    scope = qa.QAScope(target_gap="x")
+    draft = qa.QAAnswer(text="original draft", scope=scope)
+    out = await qa.verify_grounding(draft, [_src(1)])
+    assert out.text == "original draft"
+    assert out.grounding["ok"] is False
+    assert out.grounding["confidence"] <= 0.5
