@@ -1,7 +1,7 @@
 """Mode registry for the chat service.
 
-Defines ``ModeSpec``, ``RetrievalFlags``, and ``ModeRegistry``.  All 11 modes
-are registered at import time via ``register_all_modes()`` (idempotent).
+Defines ``ModeSpec``, ``RetrievalFlags``, and ``ModeRegistry``.  The tutor mode
+is registered at import time via ``register_all_modes()`` (idempotent).
 
 Chinese-wall: imports only ``src.core.*`` and sibling ``src.services.chat.*``
 modules. Never imports from ``src.ingestion`` or other services.
@@ -15,17 +15,7 @@ from pydantic import BaseModel
 
 from src.services.chat.schemas import ModeId
 from src.services.chat.schemas.output import (
-    AnnotatedReading,
-    CompareAnswer,
-    DAG,
-    FiguresAnswer,
-    MathAnswer,
-    NavigationList,
-    Report,
-    Roadmap,
-    StudyPlan,
     TutorAnswer,
-    Quiz,
 )
 
 
@@ -147,7 +137,7 @@ class ModeRegistry:
 
 
 def register_all_modes() -> None:
-    """Register all 11 mode specs.  Idempotent: no-op if already registered.
+    """Register the tutor mode spec.  Idempotent: no-op if already registered.
 
     Importing this module calls this function automatically, so callers only
     need to import ``modes`` to ensure the registry is populated.
@@ -155,22 +145,10 @@ def register_all_modes() -> None:
     if ModeRegistry._registry:
         return
 
-    from src.services.chat.prompts import (  # noqa: PLC0415
-        annotate as annotate_p,
-        compare as compare_p,
-        figures as figures_p,
-        math as math_p,
-        navigate as navigate_p,
-        path as path_p,
-        prereqs as prereqs_p,
-        quiz as quiz_p,
-        research as research_p,
-        roadmap as roadmap_p,
-        tutor as tutor_p,
-    )
+    from src.services.chat.prompts import tutor as tutor_p  # noqa: PLC0415
 
     # ------------------------------------------------------------------
-    # 1. tutor — keep existing single-agent behaviour; rerank gated (M4)
+    # tutor — keep existing single-agent behaviour; rerank gated (M4)
     # ------------------------------------------------------------------
     ModeRegistry.register(
         ModeSpec(
@@ -184,191 +162,6 @@ def register_all_modes() -> None:
             model="nano",
             post_validators=("citation",),
             memory="auto",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 2. compare — per-book sections + synthesis
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="compare",
-            icon="columns",
-            arch="single",
-            system_prompt=compare_p.INSTRUCTIONS,
-            output_schema=CompareAnswer,
-            tools=["retrieve_per_book"],
-            retrieval_flags=RetrievalFlags(multi_query=2, rerank=True),
-            model="pro",
-            post_validators=("citation",),
-            memory="sliding",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 3. figures — figure-centred answer with vision gate
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="figures",
-            icon="image",
-            arch="single",
-            system_prompt=figures_p.INSTRUCTIONS,
-            output_schema=FiguresAnswer,
-            tools=["retrieve", "retrieve_figures", "inspect_figure"],
-            retrieval_flags=RetrievalFlags(adjacent_sections=True, rerank=True),
-            model="pro_vision",
-            post_validators=("citation", "vision_gate"),
-            memory="sliding",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 4. quiz — multiple-choice questions from retrieved sections
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="quiz",
-            icon="check-square",
-            arch="single",
-            system_prompt=quiz_p.INSTRUCTIONS,
-            output_schema=Quiz,
-            tools=["retrieve"],
-            retrieval_flags=RetrievalFlags(adjacent_sections=True, rerank=True),
-            model="nano",
-            post_validators=("citation", "self_check"),
-            memory="off",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 5. navigate — pure location list, no prose
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="navigate",
-            icon="map-pin",
-            arch="single",
-            system_prompt=navigate_p.INSTRUCTIONS,
-            output_schema=NavigationList,
-            tools=["retrieve"],
-            retrieval_flags=RetrievalFlags(hyde=True, rerank=True),
-            model="nano",
-            post_validators=("citation",),
-            memory="off",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 6. prereqs — concept DAG (multi-agent)
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="prereqs",
-            icon="git-branch",
-            arch="multi",
-            system_prompt=prereqs_p.INSTRUCTIONS,
-            output_schema=DAG,
-            tools=[],
-            retrieval_flags=RetrievalFlags(decompose=True, rerank=True),
-            model="pro",
-            max_graph_iters=12,
-            post_validators=("citation", "cycle_check"),
-            memory="off",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 7. annotate — term annotation with definitions
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="annotate",
-            icon="tag",
-            arch="single",
-            system_prompt=annotate_p.INSTRUCTIONS,
-            output_schema=AnnotatedReading,
-            tools=["extract_terms", "retrieve"],
-            retrieval_flags=RetrievalFlags(multi_query=2, rerank=True),
-            model="nano",
-            post_validators=("citation",),
-            memory="off",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 8. research — claim extraction + stance classification (multi-agent)
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="research",
-            icon="search",
-            arch="multi",
-            system_prompt=research_p.INSTRUCTIONS,
-            output_schema=Report,
-            tools=[],
-            retrieval_flags=RetrievalFlags(decompose=True, rerank=True),
-            model="pro",
-            max_graph_iters=12,
-            post_validators=("citation", "stance_consistency"),
-            memory="off",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 9. math — LaTeX-heavy answer with vision gate
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="math",
-            icon="function",
-            arch="single",
-            system_prompt=math_p.INSTRUCTIONS,
-            output_schema=MathAnswer,
-            tools=["retrieve", "retrieve_figures", "inspect_figure"],
-            retrieval_flags=RetrievalFlags(adjacent_sections=True, rerank=True),
-            model="pro_vision",
-            post_validators=("citation", "latex_check", "vision_gate"),
-            memory="sliding",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 10. path — multi-week study plan (multi-agent, persisted)
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="path",
-            icon="route",
-            arch="multi",
-            system_prompt=path_p.INSTRUCTIONS,
-            output_schema=StudyPlan,
-            tools=[],
-            retrieval_flags=RetrievalFlags(decompose=True, rerank=True),
-            model="pro",
-            max_graph_iters=15,
-            post_validators=("citation", "coverage_check"),
-            memory="persist",
-        )
-    )
-
-    # ------------------------------------------------------------------
-    # 11. roadmap — video production brief
-    # ------------------------------------------------------------------
-    ModeRegistry.register(
-        ModeSpec(
-            id="roadmap",
-            icon="film",
-            arch="single",
-            system_prompt=roadmap_p.INSTRUCTIONS,
-            output_schema=Roadmap,
-            tools=["retrieve"],
-            retrieval_flags=RetrievalFlags(
-                multi_query=3, decompose=True, rerank=True
-            ),
-            model="pro",
-            post_validators=("citation", "yaml_schema"),
-            memory="off",
         )
     )
 
