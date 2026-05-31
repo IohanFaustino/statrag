@@ -202,17 +202,20 @@ async def map_sections(
     *,
     mode: str,
     model: str | None = None,
-) -> tuple[list[ChapterBlock], list[TutorCitation]]:
+) -> tuple[list[ChapterBlock], list[TutorCitation], list[str]]:
     """Generate one block per section, IN ORDER, threading a running summary.
 
     ``mode`` picks the prompt: "facilitate" -> teach, otherwise compress.
     Fail-open per section: on error the section excerpt becomes the body so the
     digest never has a hole.
+
+    Returns a 3-tuple: (blocks, citations, math_blocks).
     """
     sys_prompt = CHAPTER_MAP_FACILITATE_PROMPT if mode == "facilitate" else CHAPTER_MAP_RESUME_PROMPT
     chosen = model or settings.openai_model_nano
     blocks: list[ChapterBlock] = []
     all_citations: list[TutorCitation] = []
+    all_math: list[str] = []
     prior_context = ""
 
     for i, s in enumerate(sections, 1):
@@ -231,9 +234,10 @@ async def map_sections(
             data = json.loads(strip_fences(raw))
             body = str(data.get("body", "")).strip() or (s.excerpt or "")
             cites = _coerce_citations(data.get("citations"))
+            math = [str(m) for m in (data.get("math_blocks") or []) if str(m).strip()]
         except Exception:  # noqa: BLE001
             logger.exception("chapter.map_sections failed at %s; using excerpt", s.chunkId)
-            body, cites = (s.excerpt or ""), []
+            body, cites, math = (s.excerpt or ""), [], []
 
         blocks.append(ChapterBlock(
             h2_path=s.title, section_id=s.chunkId, body=body,
@@ -241,9 +245,10 @@ async def map_sections(
             page_to=s.page_to if s.page_to is not None else -1,
         ))
         all_citations.extend(cites)
+        all_math.extend(math)
         prior_context = (prior_context + " " + body)[-240:]
 
-    return blocks, all_citations
+    return blocks, all_citations, all_math
 
 
 def _sources_block(sources: list[Source]) -> str:
@@ -361,7 +366,7 @@ async def run_chapter(req: ChatRequest) -> AsyncIterator[dict]:
         # 4. map per-section, in order
         for s in selected:
             yield {"type": "stage", "stage": "map", "label": f"Map · {s.section}"}
-        blocks, citations = await map_sections(selected, mode=mode, model=_model_for("map", req))
+        blocks, citations, math_blocks = await map_sections(selected, mode=mode, model=_model_for("map", req))
 
         # 5. stitch
         intro, outro = "", ""
@@ -381,7 +386,7 @@ async def run_chapter(req: ChatRequest) -> AsyncIterator[dict]:
 
     digest = ChapterDigest(
         mode=mode, scope=scope, intro=intro, blocks=blocks, outro=outro,
-        citations=citations, grounding=grounding,
+        citations=citations, math_blocks=math_blocks, grounding=grounding,
     )
 
     yield {"type": "structured_output", "schema": "ChapterDigest", "data": digest.model_dump()}
