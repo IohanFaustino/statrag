@@ -196,3 +196,54 @@ async def test_ground_fail_open(monkeypatch):
     monkeypatch.setattr(ch, "_chat", boom)
     g = await ch.ground([ChapterBlock(h2_path="h", section_id="1", body="x")], [_src("1", "h")])
     assert g["ok"] is False and 0.0 <= g["confidence"] <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_run_chapter_emits_ordered_digest(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import ChatRequest
+
+    sections = [_src("2.1", "2.1 | A"), _src("2.2", "2.2 | B")]
+    monkeypatch.setattr(ch, "fetch_chapter_sections", lambda b, c, **k: sections)
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        sys = messages[0]["content"]
+        if "extract the chapter scope" in sys:
+            return '{"book_slug":"islp","chapter_id":"ch02","requested_subtopics":[]}'
+        if "TEACH" in sys or "COMPRESS" in sys:
+            return '{"body":"b","citations":[],"math_blocks":[]}'
+        if "intro" in sys:
+            return '{"intro":"i","outro":"o"}'
+        return '{"ok":true,"unsupported":[],"confidence":0.9}'
+
+    monkeypatch.setattr(ch, "_chat", fake_chat)
+
+    req = ChatRequest(message="resume ch2", mode="resume", bookFilter=["islp"])
+    events = [e async for e in ch.run_chapter(req)]
+    kinds = [e["type"] for e in events]
+    assert kinds[0] == "meta" and kinds[-1] == "done"
+
+    so = next(e for e in events if e["type"] == "structured_output")
+    assert so["schema"] == "ChapterDigest"
+    data = so["data"]
+    assert data["mode"] == "resume"
+    assert [b["section_id"] for b in data["blocks"]] == ["2.1", "2.2"]
+
+
+@pytest.mark.asyncio
+async def test_run_chapter_unknown_chapter_is_honest(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import ChatRequest
+
+    monkeypatch.setattr(ch, "fetch_chapter_sections", lambda b, c, **k: [])
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return '{"book_slug":"islp","chapter_id":"ch99","requested_subtopics":[]}'
+
+    monkeypatch.setattr(ch, "_chat", fake_chat)
+    req = ChatRequest(message="resume ch99", mode="resume", bookFilter=["islp"])
+    events = [e async for e in ch.run_chapter(req)]
+    so = next(e for e in events if e["type"] == "structured_output")
+    assert so["data"]["blocks"] == []
+    assert so["data"]["citations"] == []
+    assert events[-1]["type"] == "done"

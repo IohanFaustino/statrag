@@ -301,3 +301,103 @@ async def ground(
     except Exception:  # noqa: BLE001
         logger.exception("chapter.ground failed; low confidence")
         return {"ok": False, "unsupported": [], "confidence": 0.5}
+
+
+async def run_chapter(req: ChatRequest) -> AsyncIterator[dict]:
+    """Execute the chapter pipeline and yield v1 SSE event dicts."""
+    t0 = time.time()
+    mode = req.mode if req.mode in ("facilitate", "resume") else "resume"
+    message = req.message or ""
+    bf = req.bookFilter
+    book_slugs = list(bf) if isinstance(bf, list) and bf else None
+
+    yield {
+        "type": "meta", "mode": mode, "books": book_slugs or [],
+        "sourceCount": 0, "latencyMs": int((time.time() - t0) * 1000), "model": req.model,
+    }
+
+    # 1. parse scope
+    yield {"type": "stage", "stage": "parse", "label": "Parse scope"}
+    scope = await parse_scope(message, book_slugs=book_slugs, model=_model_for("parse", req))
+
+    # 2. fetch chapter (structural, ordered)
+    yield {"type": "stage", "stage": "fetch", "label": "Fetch chapter"}
+    sections = (
+        fetch_chapter_sections(scope.book_slug, scope.chapter_id, max_sections=_CHAPTER_MAX_SECTIONS)
+        if scope.book_slug and scope.chapter_id else []
+    )
+
+    if not sections:
+        digest = ChapterDigest(
+            mode=mode, scope=scope, blocks=[],
+            intro=("Chapter not found in the selected books. Pick a book and name a "
+                   "chapter (e.g. 'ch02')."),
+            grounding={"ok": True, "unsupported": [], "confidence": 1.0},
+        )
+        yield {"type": "structured_output", "schema": "ChapterDigest", "data": digest.model_dump()}
+        yield {"type": "sources_full", "sources": []}
+        yield {"type": "usage", "durationMs": int((time.time() - t0) * 1000),
+               "promptChars": len(message), "completionChars": len(digest.intro),
+               "estTokens": (len(message) + len(digest.intro)) // 4}
+        yield {"type": "done"}
+        return
+
+    # 3. resolve subtopics -> selected ordered sections
+    yield {"type": "stage", "stage": "resolve", "label": "Resolve subtopics"}
+    if scope.requested_subtopics and _CHAPTER_RESOLVE:
+        selected, resolution = await resolve_subtopics(
+            scope.requested_subtopics, sections, model=_model_for("resolve", req))
+    else:
+        selected, resolution = list(sections), []
+    scope = scope.model_copy(update={"resolution": resolution})
+    if not selected:  # all requested names dropped -> fall back to whole chapter
+        selected = list(sections)
+
+    try:
+        # 4. map per-section, in order
+        for s in selected:
+            yield {"type": "stage", "stage": "map", "label": f"Map · {s.section}"}
+        blocks, citations = await map_sections(selected, mode=mode, model=_model_for("map", req))
+
+        # 5. stitch
+        intro, outro = "", ""
+        if _CHAPTER_STITCH:
+            yield {"type": "stage", "stage": "stitch", "label": "Stitch"}
+            intro, outro = await stitch(blocks, model=_model_for("stitch", req))
+
+        # 6. ground (advisory)
+        grounding = {"ok": True, "unsupported": [], "confidence": 0.7}
+        if _CHAPTER_GROUND:
+            yield {"type": "stage", "stage": "ground", "label": "Ground"}
+            grounding = await ground(blocks, selected, model=_model_for("ground", req))
+    except Exception as exc:  # noqa: BLE001
+        yield {"type": "error", "code": type(exc).__name__, "message": str(exc)}
+        yield {"type": "done"}
+        return
+
+    digest = ChapterDigest(
+        mode=mode, scope=scope, intro=intro, blocks=blocks, outro=outro,
+        citations=citations, grounding=grounding,
+    )
+
+    yield {"type": "structured_output", "schema": "ChapterDigest", "data": digest.model_dump()}
+    yield {
+        "type": "sources_full",
+        "sources": [
+            {
+                "rank": s.rank, "book": s.book, "book_name": s.book_name or s.book,
+                "authors_short": s.authors_short, "year": s.year,
+                "chapter": s.chapter, "section": s.section, "title": s.title,
+                "excerpt": s.excerpt, "chunk": (s.chunk or "")[:_CHUNK_PREVIEW_CHARS],
+                "score": round(float(s.score), 4), "chunkId": s.chunkId,
+            }
+            for s in selected
+        ],
+    }
+    yield {
+        "type": "usage", "durationMs": int((time.time() - t0) * 1000),
+        "promptChars": len(message),
+        "completionChars": sum(len(b.body) for b in blocks),
+        "estTokens": (len(message) + sum(len(b.body) for b in blocks)) // 4,
+    }
+    yield {"type": "done"}
