@@ -1,5 +1,7 @@
-import type { ChapterDigest } from "../types";
+import React, { useMemo, useState } from "react";
+import type { ChapterDigest, TutorCitation } from "../types";
 import { MathBlock } from "./Math";
+import { renderInlineWithCites } from "./views/TutorView";
 
 interface Props {
   digest: ChapterDigest;
@@ -9,6 +11,16 @@ export default function ChapterDigestCard({ digest }: Props) {
   const fuzzy = digest.scope.resolution.filter((r) => r.matched_h2 && r.score < 0.95);
   const conf = digest.grounding?.confidence ?? 0;
   const grounded = digest.grounding?.ok === true && conf >= 0.7;
+
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  // Build citation lookup shared across all blocks (citations are aggregated
+  // across all sections in the digest).
+  const citationsByIndex = useMemo(() => {
+    const m = new Map<number, TutorCitation>();
+    for (const c of digest.citations ?? []) m.set(c.index, c);
+    return m;
+  }, [digest.citations]);
 
   return (
     <div className={`chapter-card chapter-card--${digest.mode}`}>
@@ -37,8 +49,8 @@ export default function ChapterDigestCard({ digest }: Props) {
       {digest.intro && <p className="chapter-card__intro">{digest.intro}</p>}
 
       <div className="chapter-card__blocks">
-        {digest.blocks.map((b) => (
-          <section key={b.section_id} className="chapter-block">
+        {digest.blocks.map((b, i) => (
+          <section key={`${b.section_id}-${i}`} className="chapter-block">
             <h3 className="chapter-block__h">{b.h2_path}</h3>
             {b.page_from > 0 && (
               <span className="chapter-block__pages">
@@ -46,7 +58,9 @@ export default function ChapterDigestCard({ digest }: Props) {
                 {b.page_to > b.page_from ? `–${b.page_to}` : ""}
               </span>
             )}
-            <div className="chapter-block__body">{b.body}</div>
+            <div className="chapter-block__body">
+              {renderInlineWithCites(b.body, citationsByIndex, hoveredIdx, setHoveredIdx)}
+            </div>
           </section>
         ))}
       </div>
