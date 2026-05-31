@@ -252,6 +252,12 @@ async def stream_chat(
             yield event
         return
 
+    if req.mode == "qa":
+        from src.services.chat.agents.qa import run_qa  # noqa: PLC0415
+        async for event in run_qa(req):
+            yield event
+        return
+
     # Unknown mode — fall through.
     async for event in _v1_passthrough(req, history):
         yield event

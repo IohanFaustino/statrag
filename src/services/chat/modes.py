@@ -165,6 +165,27 @@ def register_all_modes() -> None:
         )
     )
 
+    # ------------------------------------------------------------------
+    # qa — punctual Q&A; multi-node graph (scope→retrieve→generate→verify)
+    # ------------------------------------------------------------------
+    from src.services.chat.prompts.qa import QA_GENERATE_PROMPT  # noqa: PLC0415
+    from src.services.chat.schemas.output import QAAnswer  # noqa: PLC0415
+
+    ModeRegistry.register(
+        ModeSpec(
+            id="qa",
+            icon="target",
+            arch="multi",
+            system_prompt=QA_GENERATE_PROMPT,
+            output_schema=QAAnswer,
+            tools=[],
+            retrieval_flags=RetrievalFlags(rerank=True, rerank_top_n=4),
+            model="nano",
+            post_validators=(),
+            memory="off",
+        )
+    )
+
 
 # Auto-register on import (idempotent)
 register_all_modes()
