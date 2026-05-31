@@ -34,4 +34,11 @@ describe("QAAnswerCard", () => {
     );
     expect(html.toLowerCase()).toContain("partial");
   });
+
+  it("does not show 'assuming you know' when assumed_known is empty", () => {
+    const html = renderToStaticMarkup(
+      <QAAnswerCard answer={{ ...base, scope: { ...base.scope, assumed_known: [] } }} />
+    );
+    expect(html).not.toContain("assuming you know");
+  });
 });

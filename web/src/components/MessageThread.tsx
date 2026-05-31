@@ -12,10 +12,12 @@ type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 const MODE_ICONS: Record<string, IconComponent> = {
   tutor: IconBook,
+  qa: IconBook,
 };
 
 const MODE_LABELS: Record<string, string> = {
   tutor: "Tutor",
+  qa: "Q&A",
 };
 
 // ─── Inline renderer ──────────────────────────────────────────────────────────

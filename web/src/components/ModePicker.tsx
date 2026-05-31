@@ -21,9 +21,11 @@ interface ModePickerProps {
   onChange(id: string): void;
   // Opens the About-model modal (info icon lives on the Tutor card).
   onAbout?(): void;
+  // Opens the Q&A info modal (info icon lives on the Q&A card).
+  onAboutQA?(): void;
 }
 
-export default function ModePicker({ activeMode, modes, onChange, onAbout }: ModePickerProps) {
+export default function ModePicker({ activeMode, modes, onChange, onAbout, onAboutQA }: ModePickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +113,31 @@ export default function ModePicker({ activeMode, modes, onChange, onAbout }: Mod
                       onClick={(e) => {
                         e.stopPropagation();
                         onAbout();
+                        setOpen(false);
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="8" cy="8" r="6.5" />
+                        <path d="M8 7.2v4" strokeLinecap="round" />
+                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              }
+              // The Q&A card carries an info (i) button → opens Q&A mode modal.
+              if (m.id === "qa" && onAboutQA) {
+                return (
+                  <div key={m.id} className="mode-picker__cell">
+                    {item}
+                    <button
+                      type="button"
+                      className="mode-picker__about"
+                      aria-label="About the Q&A pipeline"
+                      title="About the Q&A pipeline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAboutQA();
                         setOpen(false);
                       }}
                     >
