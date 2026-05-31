@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import mimetypes
 from pathlib import Path
-from typing import AsyncIterator, Union
+from typing import AsyncIterator
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
@@ -267,136 +267,6 @@ async def chat_resume(conv_id: str, after: int = 0) -> EventSourceResponse:
 async def chat_status(conv_id: str) -> dict:
     """Resume handshake: ``{exists, active, done, seq}`` for the run (§13)."""
     return runs.status(conv_id)
-
-
-# ---------------------------------------------------------------------------
-# Study plan endpoints (Mode 10)
-# ---------------------------------------------------------------------------
-
-
-class _ReplanBody(BaseModel):
-    """Request body for the replan endpoint."""
-
-    message: str
-    bookFilter: Union[list[str], str] = "ALL"
-
-
-@app.get("/api/study_plans/{conv_id}")
-def api_get_study_plan(conv_id: str) -> dict:
-    """Return the persisted study plan for a conversation.
-
-    Args:
-        conv_id: Conversation identifier.
-
-    Returns:
-        The study plan record (``state_json``, ``version``, ``updated_at``).
-
-    Raises:
-        HTTPException: 404 if no plan exists for this conversation.
-    """
-    record = store.get_study_plan(conv_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="Study plan not found")
-    return record
-
-
-@app.post("/api/study_plans/{conv_id}/replan")
-async def api_replan_study_plan(conv_id: str, body: _ReplanBody) -> dict:
-    """Trigger a re-plan for an existing study plan conversation.
-
-    Fetches the current plan version, re-runs the study path graph with the
-    new message and book filter, persists the result, and returns the new
-    :class:`~src.services.chat.schemas.output.StudyPlan` dict.
-
-    Args:
-        conv_id: Conversation identifier.
-        body: Re-plan request with a new learning goal message and optional
-            book filter.
-
-    Returns:
-        The new :class:`~src.services.chat.schemas.output.StudyPlan` as a dict.
-    """
-    from src.services.chat.agents.study_path import run_study_path  # noqa: PLC0415
-
-    prev_version = 0
-    prev = store.get_study_plan(conv_id)
-    if prev is not None:
-        prev_version = prev["version"]
-
-    book_filter = body.bookFilter
-    if book_filter == "ALL" or book_filter == []:
-        book_slugs: list[str] | None = None
-    else:
-        book_slugs = list(book_filter)  # type: ignore[arg-type]
-
-    plan = await run_study_path(
-        body.message,
-        book_slugs,
-        replanned_from_version=prev_version,
-    )
-    new_version = prev_version + 1
-    store.upsert_study_plan(conv_id, plan.model_dump(), version=new_version)
-    return plan.model_dump()
-
-
-@app.delete("/api/study_plans/{conv_id}/section/{ref}")
-async def api_delete_section(conv_id: str, ref: str) -> dict:
-    """Remove a section by Citation composite key (book__chapter__section) and re-plan.
-
-    The ``ref`` path parameter is expected to be formatted as
-    ``<book>__<chapter>__<section>`` (double-underscore separator).  The
-    matching :class:`~src.services.chat.schemas.output.Citation` is removed from
-    every week in the stored plan, then a re-plan is triggered with the
-    original goal and book scope.
-
-    Args:
-        conv_id: Conversation identifier.
-        ref: Citation composite key (``book__chapter__section``).
-
-    Returns:
-        The new :class:`~src.services.chat.schemas.output.StudyPlan` as a dict.
-
-    Raises:
-        HTTPException: 404 if no plan exists for this conversation.
-    """
-    from src.services.chat.agents.study_path import run_study_path  # noqa: PLC0415
-
-    record = store.get_study_plan(conv_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="Study plan not found")
-
-    prev_version = record["version"]
-    plan_data: dict = record["state_json"]
-
-    # Parse composite key
-    parts = ref.split("__", 2)
-    ref_book = parts[0] if len(parts) > 0 else ""
-    ref_chapter = parts[1] if len(parts) > 1 else ""
-    ref_section = parts[2] if len(parts) > 2 else ""
-
-    # Remove matching citations from every week
-    for week in plan_data.get("weeks", []):
-        week["sections"] = [
-            s
-            for s in week.get("sections", [])
-            if not (
-                s.get("book") == ref_book
-                and s.get("chapter") == ref_chapter
-                and s.get("section") == ref_section
-            )
-        ]
-
-    goal: str = plan_data.get("goal", "")
-    book_slugs: list[str] | None = None  # re-plan with same open scope
-
-    plan = await run_study_path(
-        goal,
-        book_slugs,
-        replanned_from_version=prev_version,
-    )
-    new_version = prev_version + 1
-    store.upsert_study_plan(conv_id, plan.model_dump(), version=new_version)
-    return plan.model_dump()
 
 
 # ---------------------------------------------------------------------------
