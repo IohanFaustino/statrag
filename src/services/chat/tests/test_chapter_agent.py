@@ -10,7 +10,7 @@ class _FakePoint:
     def __init__(self, pid, payload):
         self.id = pid
         self.payload = payload
-        self.score = 0.0
+        # deliberately no .score — mimics real Qdrant Record from scroll()
 
 
 def _payload(section_id, h2, page):

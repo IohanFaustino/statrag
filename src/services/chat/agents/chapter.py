@@ -322,10 +322,14 @@ async def run_chapter(req: ChatRequest) -> AsyncIterator[dict]:
 
     # 2. fetch chapter (structural, ordered)
     yield {"type": "stage", "stage": "fetch", "label": "Fetch chapter"}
-    sections = (
-        fetch_chapter_sections(scope.book_slug, scope.chapter_id, max_sections=_CHAPTER_MAX_SECTIONS)
-        if scope.book_slug and scope.chapter_id else []
-    )
+    try:
+        sections = (
+            fetch_chapter_sections(scope.book_slug, scope.chapter_id, max_sections=_CHAPTER_MAX_SECTIONS)
+            if scope.book_slug and scope.chapter_id else []
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("chapter.run_chapter: fetch failed; treating as chapter-not-found")
+        sections = []
 
     if not sections:
         digest = ChapterDigest(

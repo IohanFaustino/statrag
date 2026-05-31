@@ -308,7 +308,13 @@ def fetch_chapter_sections(
         return (pf if pf is not None else 10**9, str(payload.get("section_id", "")))
 
     raw.sort(key=_order_key)
-    return [_point_to_source(p, rank=i + 1) for i, p in enumerate(raw[:max_sections])]
+    out: list[Source] = []
+    for i, p in enumerate(raw[:max_sections]):
+        # scroll() returns Record objects with no `.score`; _point_to_source
+        # reads point.score, so seed a neutral score (mirrors _expand_adjacent).
+        p.score = 0.0  # noqa: F841 — mutate in place to feed _point_to_source
+        out.append(_point_to_source(p, rank=i + 1))
+    return out
 
 
 def hybrid_search(
