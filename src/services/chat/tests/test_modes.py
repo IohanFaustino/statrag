@@ -71,12 +71,13 @@ def _make_metadata():
 # ---------------------------------------------------------------------------
 
 
-def test_registry_has_1() -> None:
-    """ModeRegistry must contain exactly 1 entry (tutor) after registration."""
+def test_registry_has_2() -> None:
+    """ModeRegistry must contain exactly 2 entries (tutor, qa) after registration."""
     from src.services.chat.modes import ModeRegistry, register_all_modes
 
     register_all_modes()
-    assert len(ModeRegistry.all()) == 1
+    ids = {m.id for m in ModeRegistry.all()}
+    assert ids == {"tutor", "qa"}
 
 
 def test_tutor_mode_registered() -> None:
@@ -111,7 +112,7 @@ def test_register_all_modes_is_idempotent() -> None:
 
     register_all_modes()
     count_after_double_call = len(ModeRegistry.all())
-    assert count_after_double_call == 1
+    assert count_after_double_call == 2
 
 
 # ---------------------------------------------------------------------------
