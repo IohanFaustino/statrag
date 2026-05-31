@@ -173,3 +173,74 @@ async def resolve_subtopics(
 
     selected = [s for s in sections if s.chunkId in matched_ids]
     return selected, resolution
+
+
+def _coerce_citations(raw: list) -> list[TutorCitation]:
+    """Build TutorCitation list defensively from model JSON."""
+    out: list[TutorCitation] = []
+    for c in raw or []:
+        if not isinstance(c, dict):
+            continue
+        try:
+            out.append(TutorCitation(
+                index=int(c.get("index", len(out) + 1)),
+                chunkId=str(c.get("chunkId", "")),
+                authors_short=str(c.get("authors_short", "")),
+                year=c.get("year") if isinstance(c.get("year"), int) else None,
+                book_name=str(c.get("book_name", "")),
+                chapter=str(c.get("chapter", "")),
+                section=str(c.get("section", "")),
+                quote=str(c.get("quote", "")),
+            ))
+        except Exception:  # noqa: BLE001
+            continue
+    return out
+
+
+async def map_sections(
+    sections: list[Source],
+    *,
+    mode: str,
+    model: str | None = None,
+) -> tuple[list[ChapterBlock], list[TutorCitation]]:
+    """Generate one block per section, IN ORDER, threading a running summary.
+
+    ``mode`` picks the prompt: "facilitate" -> teach, otherwise compress.
+    Fail-open per section: on error the section excerpt becomes the body so the
+    digest never has a hole.
+    """
+    sys_prompt = CHAPTER_MAP_FACILITATE_PROMPT if mode == "facilitate" else CHAPTER_MAP_RESUME_PROMPT
+    chosen = model or settings.openai_model_nano
+    blocks: list[ChapterBlock] = []
+    all_citations: list[TutorCitation] = []
+    prior_context = ""
+
+    for i, s in enumerate(sections, 1):
+        body_text = (s.chunk or s.excerpt or "")[:_CHUNK_PREVIEW_CHARS]
+        user = (
+            f"heading: {s.title}\n"
+            f"prior_context: {prior_context}\n\n"
+            f"section text:\n[{i}] {body_text}"
+        )
+        try:
+            raw = await _chat(
+                [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user}],
+                model=chosen,
+                max_tokens=900,
+            )
+            data = json.loads(strip_fences(raw))
+            body = str(data.get("body", "")).strip() or (s.excerpt or "")
+            cites = _coerce_citations(data.get("citations"))
+        except Exception:  # noqa: BLE001
+            logger.exception("chapter.map_sections failed at %s; using excerpt", s.chunkId)
+            body, cites = (s.excerpt or ""), []
+
+        blocks.append(ChapterBlock(
+            h2_path=s.title, section_id=s.chunkId, body=body,
+            page_from=s.page_from if s.page_from is not None else -1,
+            page_to=s.page_to if s.page_to is not None else -1,
+        ))
+        all_citations.extend(cites)
+        prior_context = (prior_context + " " + body)[-240:]
+
+    return blocks, all_citations

@@ -132,3 +132,39 @@ async def test_resolve_fuzzy_falls_back_to_llm(monkeypatch):
     assert [s.chunkId for s in selected] == ["2.1"]
     assert resolution[0].asked == "the tradeoff"
     assert resolution[0].score == pytest.approx(0.78)
+
+
+@pytest.mark.asyncio
+async def test_map_sections_preserves_order_and_uses_mode_prompt(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+
+    seen_prompts = []
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        seen_prompts.append(messages[0]["content"])
+        return '{"body":"explained","citations":[],"math_blocks":[]}'
+
+    monkeypatch.setattr(ch, "_chat", fake_chat)
+    sections = [_src("2.1", "2.1 | A"), _src("2.2", "2.2 | B")]
+
+    blocks_fac, _cites = await ch.map_sections(sections, mode="facilitate")
+    assert [b.section_id for b in blocks_fac] == ["2.1", "2.2"]  # order preserved
+    assert all("TEACH" in p for p in seen_prompts)
+
+    seen_prompts.clear()
+    blocks_res, _cites2 = await ch.map_sections(sections, mode="resume")
+    assert all("COMPRESS" in p for p in seen_prompts)
+
+
+@pytest.mark.asyncio
+async def test_map_sections_fail_open_uses_excerpt(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+
+    async def boom(*a, **k):
+        raise RuntimeError("node down")
+
+    monkeypatch.setattr(ch, "_chat", boom)
+    sections = [_src("2.1", "2.1 | A")]
+    sections[0].excerpt = "synopsis fallback"
+    blocks, _cites = await ch.map_sections(sections, mode="facilitate")
+    assert blocks[0].body == "synopsis fallback"
