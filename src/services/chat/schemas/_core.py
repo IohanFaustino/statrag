@@ -8,10 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-ModeId = Literal[
-    "tutor", "compare", "figures", "quiz", "navigate",
-    "prereqs", "annotate", "research", "math", "path", "roadmap",
-]
+ModeId = Literal["tutor"]
 ProviderId = Literal["openai", "deepseek", "groq", "google", "alibaba"]
 
 
