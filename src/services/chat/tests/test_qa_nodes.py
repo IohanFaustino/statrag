@@ -64,9 +64,10 @@ def test_retrieve_for_gap_uses_target_gap(monkeypatch):
 
     captured = {}
 
-    def fake_hybrid(query, *, book_slugs=None, top_k=5, rerank=True, adjacent_sections=False):
+    def fake_hybrid(query, *, book_slugs=None, top_k=5, rerank=True, rerank_top_n=None, adjacent_sections=False):
         captured["query"] = query
         captured["top_k"] = top_k
+        captured["rerank_top_n"] = rerank_top_n
         return ([], {"mode": "test"})
 
     monkeypatch.setattr(qa, "hybrid_search", fake_hybrid)
@@ -74,6 +75,8 @@ def test_retrieve_for_gap_uses_target_gap(monkeypatch):
     sources, meta = qa.retrieve_for_gap(scope, book_slugs=None, k=4)
     assert captured["query"] == "why bias and variance trade off"
     assert captured["top_k"] == 4
+    # rerank_top_n must equal k so QA_TOP_K actually limits the reranked output
+    assert captured["rerank_top_n"] == 4
     assert sources == []
 
 

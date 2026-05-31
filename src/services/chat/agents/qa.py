@@ -96,12 +96,17 @@ def retrieve_for_gap(
     k: int = _QA_TOP_K,
 ) -> tuple[list[Source], dict]:
     """Hybrid-retrieve using the narrowed ``target_gap`` (sharper than the raw
-    query). Narrow ``k`` for precision; reranking on."""
+    query). Narrow ``k`` for precision; reranking on.
+
+    When rerank=True the final count is governed by ``rerank_top_n`` (not
+    ``top_k``).  We pass both so the reranker actually limits output to ``k``.
+    """
     sources, meta = hybrid_search(
         scope.target_gap,
         book_slugs=book_slugs,
         top_k=max(1, int(k)),
         rerank=True,
+        rerank_top_n=max(1, int(k)),
         adjacent_sections=False,
     )
     return sources, meta

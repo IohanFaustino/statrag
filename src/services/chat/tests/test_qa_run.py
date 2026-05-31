@@ -110,3 +110,47 @@ async def test_run_qa_generate_error_yields_error_then_done(monkeypatch):
     err = next(e for e in events if e["type"] == "error")
     assert err["code"] == "RuntimeError"
     assert "timed out" in err["message"]
+
+
+# §10 conciseness KPI: a QA answer must be punctual (< 600 chars) not tutor-lengthy.
+@pytest.mark.asyncio
+async def test_run_qa_answer_is_concise(monkeypatch):
+    """Spec §10: QA mode returns a punctual answer, not a long tutor exposition.
+
+    A terse generate_scoped mock simulates normal QA output; we assert the
+    structured_output text stays under the 600-char ceiling that distinguishes
+    a punctual answer from a tutor-style essay.
+    """
+    from src.services.chat.agents import qa
+
+    async def fake_scope(query, *, model=None):
+        return qa.QAScope(target_gap="what is a p-value")
+
+    def fake_retrieve(scope, *, book_slugs, k=4):
+        return [_src(1)], {"mode": "qa-test"}
+
+    async def fake_gen(scope, sources, *, model=None):
+        # Terse 1-2 sentence QA answer — representative of well-behaved QA output.
+        text = (
+            "A p-value is the probability of obtaining results at least as extreme as "
+            "the observed data, assuming the null hypothesis is true [1]."
+        )
+        return qa.QAAnswer(text=text, scope=scope, citations=[], math_blocks=[])
+
+    async def fake_verify(answer, sources, *, model=None):
+        return answer.model_copy(update={"grounding": {"ok": True, "unsupported": [], "confidence": 0.95}})
+
+    monkeypatch.setattr(qa, "extract_scope", fake_scope)
+    monkeypatch.setattr(qa, "retrieve_for_gap", fake_retrieve)
+    monkeypatch.setattr(qa, "generate_scoped", fake_gen)
+    monkeypatch.setattr(qa, "verify_grounding", fake_verify)
+
+    req = ChatRequest(message="What is a p-value?", mode="qa")
+    events = await _collect(qa.run_qa(req))
+
+    so = next(e for e in events if e["type"] == "structured_output")
+    answer_text = so["data"]["text"]
+    assert len(answer_text) < 600, (
+        f"QA answer too long ({len(answer_text)} chars ≥ 600); "
+        "QA mode must be punctual, not tutor-lengthy (spec §10)"
+    )
