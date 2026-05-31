@@ -13,7 +13,6 @@ Chinese-wall: imports only from ``src.core.*`` and sibling
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import time
@@ -37,8 +36,6 @@ from src.services.chat.rewriter import arewrite_query
 from src.services.chat.schemas import ChatRequest, Figure, RetrievalMetadata, Source
 from src.services.chat.schemas.output import TutorAnswer
 from src.services.chat.schemas.output_repair import build_repair_prompt
-from src.services.chat.tools.inspect_figure import inspect_figure
-from src.services.chat.vision import VisionGateConfig, vision_gate
 
 # ---------------------------------------------------------------------------
 # Token-stream processor (< 60 lines)
@@ -231,84 +228,6 @@ async def stream_chat(
             book_slugs = list(book_filter)
 
         # ------------------------------------------------------------------
-        # 2b. Multi-agent dispatch (arch == "multi")
-        # ------------------------------------------------------------------
-        if spec.arch == "multi" and req.mode == "prereqs":
-            from src.services.chat.agents.prereqs import run_prereqs  # noqa: PLC0415
-            yield {
-                "type": "meta",
-                "mode": req.mode,
-                "books": list(book_slugs) if book_slugs else [],
-                "sourceCount": 0,
-                "latencyMs": int((time.time() - t0) * 1000),
-                "model": req.model,
-            }
-            dag = await run_prereqs(req.message, book_slugs)
-            yield {
-                "type": "structured_output",
-                "schema": "DAG",
-                "data": dag.model_dump(),
-            }
-            yield {"type": "done"}
-            return
-
-        if spec.arch == "multi" and req.mode == "research":
-            from src.services.chat.agents.research import run_research  # noqa: PLC0415
-
-            yield {
-                "type": "meta",
-                "mode": req.mode,
-                "books": list(book_slugs) if book_slugs else [],
-                "sourceCount": 0,
-                "latencyMs": int((time.time() - t0) * 1000),
-                "model": req.model,
-            }
-            rep = await run_research(req.message, book_slugs)
-            yield {
-                "type": "structured_output",
-                "schema": "Report",
-                "data": rep.model_dump(),
-            }
-            yield {"type": "done"}
-            return
-
-        if spec.arch == "multi" and req.mode == "path":
-            from src.services.chat.agents.study_path import run_study_path  # noqa: PLC0415
-            from src.services.chat.store import get_study_plan, upsert_study_plan  # noqa: PLC0415
-
-            yield {
-                "type": "meta",
-                "mode": req.mode,
-                "books": list(book_slugs) if book_slugs else [],
-                "sourceCount": 0,
-                "latencyMs": int((time.time() - t0) * 1000),
-                "model": req.model,
-            }
-            prev_version = 0
-            if req.conversationId:
-                prev = get_study_plan(req.conversationId)
-                if prev:
-                    prev_version = prev["version"]
-            plan = await run_study_path(
-                req.message,
-                book_slugs,
-                replanned_from_version=prev_version,
-            )
-            if req.conversationId:
-                upsert_study_plan(
-                    req.conversationId,
-                    plan.model_dump(),
-                    version=prev_version + 1,
-                )
-            yield {
-                "type": "structured_output",
-                "schema": "StudyPlan",
-                "data": plan.model_dump(),
-            }
-            yield {"type": "done"}
-            return
-
-        # ------------------------------------------------------------------
         # 3. Query expansion + retrieval
         # ------------------------------------------------------------------
         flags = spec.retrieval_flags
@@ -348,53 +267,14 @@ async def stream_chat(
                 pass  # highlights failure must not abort the pipeline
 
         # ------------------------------------------------------------------
-        # 5. Retrieve figures (+ vision gate for figures/math modes)
+        # 5. Retrieve figures
         # ------------------------------------------------------------------
         figures: list[Figure] = []
-        _vision_figure_events: list[dict] = []   # figure SSE events to emit before LLM
-        _vision_notes: list[str] = []            # text annotations from gpt-4o vision
-
-        _is_vision_mode = spec.model == "pro_vision" and req.mode in ("figures", "math")
 
         try:
-            if _is_vision_mode:
-                from src.services.chat.retrieval import (  # noqa: PLC0415
-                    search_figures_with_scores,
-                )
-
-                pairs = await asyncio.to_thread(
-                    search_figures_with_scores, rewritten, book_slugs, 5
-                )
-                figures = [p[0] for p in pairs]
-                scores = [p[1] for p in pairs]
-                decisions = vision_gate(figures, scores)
-                for d in decisions:
-                    if d.action == "skip":
-                        continue
-                    _vision_figure_events.append(
-                        {
-                            "type": "figure",
-                            "ref": d.figure.ref,
-                            "book": d.figure.book,
-                            "chapter": d.figure.chapter,
-                            "caption": d.figure.caption,
-                            "chart": d.figure.chart,
-                        }
-                    )
-                    if d.action == "call_vision":
-                        note = await inspect_figure(d.figure, query=req.message)
-                        if note:
-                            _vision_notes.append(f"[vision: {d.figure.ref}] {note}")
-            else:
-                figures = search_figures(rewritten, book_slugs, k=2)
+            figures = search_figures(rewritten, book_slugs, k=2)
         except Exception:  # noqa: BLE001
             pass  # figure search failure is non-fatal
-
-        # ------------------------------------------------------------------
-        # 5b. Emit per-figure events (vision modes only, before meta)
-        # ------------------------------------------------------------------
-        for fig_ev in _vision_figure_events:
-            yield fig_ev
 
         # ------------------------------------------------------------------
         # 6. Emit meta
@@ -430,14 +310,6 @@ async def stream_chat(
                         f"{src.chunk}\n---"
                     )
                 system_text = system_text + "\n".join(blocks)
-
-        # Inject vision interpretations from gpt-4o into the system message
-        # so the main LLM can reference them when building its answer.
-        if _vision_notes:
-            vision_block = "\n\nFIGURE INTERPRETATIONS (from vision model):\n" + "\n".join(
-                _vision_notes
-            )
-            system_text = system_text + vision_block
 
         messages: list[ChatMessage] = [ChatMessage(role="system", content=system_text)]
 
