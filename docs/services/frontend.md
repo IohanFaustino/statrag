@@ -64,13 +64,7 @@ web/
     │   ├── modals/                    confirm + book picker dialogs
     │   └── views/                     one component per structured_output schema
     │       ├── TutorView.tsx          T19 — TutorAnswer renderer
-    │       ├── QuizView.tsx
-    │       ├── DAGView.tsx
-    │       ├── ReportView.tsx
-    │       ├── StudyPathView.tsx
-    │       ├── RoadmapView.tsx
-    │       ├── NavigationView.tsx
-    │       └── AnnotateView.tsx
+    │       └── (non-tutor view files removed 2026-05-31)
     └── styles/                        CSS modules / globals
 ```
 
@@ -228,17 +222,8 @@ Schema → view mapping (lines ~329–360):
 | `schema` | View |
 |---|---|
 | `TutorAnswer` | `TutorView` |
-| `Quiz` | `QuizView` |
-| `DAG` | `DAGView` |
-| `Report` | `ReportView` |
-| `StudyPlan` | `StudyPathView` |
-| `Roadmap` | `RoadmapView` |
-| `NavigationList` | `NavigationView` |
-| `AnnotatedReading` | `AnnotateView` |
 
-For the multi-agent modes (`prereqs`, `research`, `path`) the backend skips the
-token stream entirely; `MessageThread` displays a "thinking…" indicator until
-`structured_output` arrives.
+(Non-tutor schema→view mappings removed 2026-05-31.)
 
 ---
 
@@ -300,7 +285,7 @@ see §6.
 interface ChatRequestBody {
   conversationId?: string | null;
   message: string;
-  mode: string;                       // "tutor" | "prereqs" | "research" | "path" | …
+  mode: string;                       // "tutor"
   model: string;                      // backend-recognised id
   bookFilter: string[] | "ALL";       // book slugs or sentinel
   temperature?: number | null;        // T20 settings
@@ -318,12 +303,6 @@ Standard (single-agent) flow:
 
 ```
 meta → token* → structured_output → sources_full → figures_full? → retrieval_meta → done
-```
-
-Multi-agent modes (`prereqs`, `research`, `path`) skip token streaming:
-
-```
-meta → structured_output → done
 ```
 
 On failure (any phase):
@@ -411,7 +390,7 @@ Starts FastAPI (`uvicorn`) and `npm run dev` together.
 
 | Item | Notes |
 |---|---|
-| Settings drawer never re-renders for `prereqs` / `path` | `SettingsPicker` is mounted unconditionally, but the multi-agent modes ignore `temperature` / `top_k` / `rerank` server-side. The chip still shows "T:0.7" which is misleading. Either hide the picker in those modes or annotate the chip. |
+| `SettingsPicker` chip always visible | `SettingsPicker` is mounted unconditionally. The chip shows "T:0.7" even when temperature is irrelevant — consider hiding or annotating it contextually. |
 | `SettingsDrawer.tsx` is dead code | Replaced by `SettingsPicker`. Safe to delete after one more release. |
 | Markdown parser in `TutorView` is hand-rolled | Adequate for the constrained TutorAnswer format, but does not handle nested lists, tables, or fenced code. A future schema needing those should adopt `react-markdown` + remark-math. |
 | No global error boundary | A render exception in any view crashes the whole tree. Wrap each `views/*` in a small error boundary. |

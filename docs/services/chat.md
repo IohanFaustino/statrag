@@ -48,8 +48,7 @@ offline in any viewer. Filenames: `statrag-<slug>.zip` /
 
 Serialization lives in `web/src/lib/exportMarkdown.ts` + `exportStructured.ts`
 (block prose → `$$math$$`, figures, source chips; faithful per-schema layout for
-all 8 structured schemas — TutorAnswer, Quiz, NavigationList, DAG, Report,
-StudyPlan, Roadmap, AnnotatedReading — with a `json` fence fallback). Bundling
+`TutorAnswer` — with a `json` fence fallback for any future schema). Bundling
 lives in `web/src/lib/exportZip.ts` (`extractImageUrls` + `buildZipBlob`, uses
 `jszip`). In-flight/errored turns are skipped from full exports; images that
 fail to fetch keep their original link and are simply not bundled.
@@ -210,7 +209,7 @@ Backend pipes data; UI compiled. **Next milestone = verify and harden the in-bro
 After those, Part 2 v1 ready. Beyond:
 
 - LLM-cited highlight ranges (replace heuristic)
-- Mode output views for Compare/Quiz/Roadmap/Prereqs/Annotate/Research/Math/Path
+- Mode output views for additional modes (when re-introduced)
 - Job progress modal for indexing new books
 - Real cover imagery + figure thumbnails (Manim/matplotlib renders)
 - Auth + multi-tenant

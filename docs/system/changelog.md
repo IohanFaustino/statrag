@@ -2,6 +2,10 @@
 
 Append-only. Latest at top.
 
+## 2026-05-31 — Removed the 10 non-tutor chat modes
+
+Removed the 10 non-tutor chat modes (compare/figures/quiz/navigate/prereqs/annotate/research/math/path/roadmap) across backend, frontend, and docs. Tutor (deep-tutor pipeline) and the mode-selection scaffold retained; ModeId collapsed to Literal['tutor']. Spec: docs/superpowers/specs/2026-05-31-remove-nontutor-modes-design.md.
+
 ## 2026-05-31 — Draft-model battle verdict → `qwen-plus` (battle Task 3+4)
 
 Ran the multi-provider draft battle in-process (`scripts/draft_battle.py`) — the sandbox kills any bound uvicorn (exit 144), so instead of POSTing to `/api/chat` the harness retrieves real sources once per query (rerank on) then calls the draft stage directly per candidate, measuring wall-clock latency, output tokens, aspect-fill, and the `definition` aspect for LaTeX/decomposition eyeball. Bias-variance query run 3× per candidate to expose depth variance.
