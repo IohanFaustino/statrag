@@ -256,3 +256,28 @@ def test_chapter_modes_registered():
         spec = ModeRegistry.get(mid)
         assert spec.arch == "multi"
         assert spec.output_schema.__name__ == "ChapterDigest"
+
+
+@pytest.mark.asyncio
+async def test_router_dispatches_chapter_modes(monkeypatch):
+    import src.services.chat.router as router
+    from src.services.chat.schemas import ChatRequest
+
+    monkeypatch.setattr(router.settings, "use_v2_modes", ["tutor", "qa", "facilitate", "resume"])
+
+    called = []
+
+    async def fake_run_chapter(req):
+        called.append(req.mode)
+        yield {"type": "meta", "mode": req.mode, "_routed_via": "chapter_agent"}
+        yield {"type": "done"}
+
+    import src.services.chat.agents.chapter as chmod
+    monkeypatch.setattr(chmod, "run_chapter", fake_run_chapter)
+
+    req = ChatRequest(message="resume ch2", mode="resume", bookFilter=["islp"])
+    events = [e async for e in router.stream_chat(req)]
+    # Verify chapter agent was actually invoked (not v1 passthrough)
+    assert called == ["resume"], "run_chapter must be called for mode=resume"
+    assert any(e.get("_routed_via") == "chapter_agent" for e in events)
+    assert events[-1]["type"] == "done"

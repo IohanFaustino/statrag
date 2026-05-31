@@ -258,6 +258,12 @@ async def stream_chat(
             yield event
         return
 
+    if req.mode in ("facilitate", "resume"):
+        from src.services.chat.agents.chapter import run_chapter  # noqa: PLC0415
+        async for event in run_chapter(req):
+            yield event
+        return
+
     # Unknown mode — fall through.
     async for event in _v1_passthrough(req, history):
         yield event
