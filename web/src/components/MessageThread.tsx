@@ -1,50 +1,20 @@
 import React from "react";
-import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, Quiz, DAG, NavigationList, Report, StudyPlan, Roadmap, AnnotatedReading, TutorAnswer } from "../types";
+import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer } from "../types";
 import { MathBlock, MathInline } from "./Math";
 import { normalizeMathDelimiters } from "./views/TutorView";
-import QuizView from "./views/QuizView";
-import DAGView from "./views/DAGView";
-import NavigationView from "./views/NavigationView";
-import ReportView from "./views/ReportView";
-import StudyPathView from "./views/StudyPathView";
-import RoadmapView from "./views/RoadmapView";
-import AnnotateView from "./views/AnnotateView";
 import TutorView from "./views/TutorView";
-import {
-  IconBook, IconCompare, IconImage, IconQuiz, IconSearch,
-  IconTree, IconPen, IconFlask, IconMath, IconCal, IconFilm, IconDownload,
-} from "./Icons";
+import { IconBook, IconDownload } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
 
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 const MODE_ICONS: Record<string, IconComponent> = {
-  tutor:    IconBook,
-  compare:  IconCompare,
-  figures:  IconImage,
-  quiz:     IconQuiz,
-  navigate: IconSearch,
-  prereqs:  IconTree,
-  annotate: IconPen,
-  research: IconFlask,
-  math:     IconMath,
-  path:     IconCal,
-  roadmap:  IconFilm,
+  tutor: IconBook,
 };
 
 const MODE_LABELS: Record<string, string> = {
-  tutor:    "Tutor",
-  compare:  "Compare",
-  figures:  "Figures",
-  quiz:     "Quiz",
-  navigate: "Navigate",
-  prereqs:  "Prereqs",
-  annotate: "Annotate",
-  research: "Research",
-  math:     "Math",
-  path:     "Path",
-  roadmap:  "Roadmap",
+  tutor: "Tutor",
 };
 
 // ─── Inline renderer ──────────────────────────────────────────────────────────
@@ -240,10 +210,7 @@ interface AssistantMessageViewProps {
   isLast?: boolean;
 }
 
-const STRUCTURED_MODES = new Set([
-  "tutor", "compare", "figures", "quiz", "navigate",
-  "prereqs", "annotate", "research", "path", "roadmap",
-]);
+const STRUCTURED_MODES = new Set(["tutor"]);
 
 function AssistantMessageView({
   msg,
@@ -365,30 +332,6 @@ function AssistantMessageView({
 
         {msg.structuredOutput && (
           <div className="msg__structured">
-            {msg.structuredOutput.schema === "Quiz" && (
-              <QuizView data={msg.structuredOutput.data as Quiz} />
-            )}
-            {msg.structuredOutput.schema === "DAG" && (
-              <DAGView data={msg.structuredOutput.data as DAG} />
-            )}
-            {msg.structuredOutput.schema === "NavigationList" && (
-              <NavigationView
-                data={msg.structuredOutput.data as NavigationList}
-                onSourceClick={onSourceClick}
-              />
-            )}
-            {msg.structuredOutput.schema === "Report" && (
-              <ReportView data={msg.structuredOutput.data as Report} />
-            )}
-            {msg.structuredOutput.schema === "StudyPlan" && (
-              <StudyPathView data={msg.structuredOutput.data as StudyPlan} />
-            )}
-            {msg.structuredOutput.schema === "Roadmap" && (
-              <RoadmapView data={msg.structuredOutput.data as Roadmap} />
-            )}
-            {msg.structuredOutput.schema === "AnnotatedReading" && (
-              <AnnotateView data={msg.structuredOutput.data as AnnotatedReading} />
-            )}
             {msg.structuredOutput.schema === "TutorAnswer" && (
               <TutorView data={msg.structuredOutput.data as TutorAnswer} />
             )}

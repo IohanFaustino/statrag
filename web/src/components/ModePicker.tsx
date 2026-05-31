@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
-import {
-  IconBook, IconCompare, IconImage, IconQuiz, IconSearch,
-  IconTree, IconPen, IconFlask, IconMath, IconCal, IconFilm,
-  IconChevron,
-} from "./Icons";
+import { IconBook, IconChevron } from "./Icons";
 import type { ModeId } from "../types";
 
 export interface ModeMeta {
@@ -15,17 +11,7 @@ export interface ModeMeta {
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 const MODE_ICON_MAP: Record<string, IconComponent> = {
-  tutor:    IconBook,
-  compare:  IconCompare,
-  figures:  IconImage,
-  quiz:     IconQuiz,
-  navigate: IconSearch,
-  prereqs:  IconTree,
-  annotate: IconPen,
-  research: IconFlask,
-  math:     IconMath,
-  path:     IconCal,
-  roadmap:  IconFilm,
+  tutor: IconBook,
 };
 
 interface ModePickerProps {

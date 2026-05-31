@@ -25,97 +25,10 @@ export function IconBook(p: IconProps) {
   );
 }
 
-export function IconCompare(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <path d="M4 2.5v11M12 2.5v11" />
-      <path d="M4 5.5h2M12 5.5h-2M4 10.5h2M12 10.5h-2" />
-    </svg>
-  );
-}
-
-export function IconImage(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
-      <circle cx="6" cy="6.5" r="1" />
-      <path d="m3 12 3-3 2.5 2.5L11 8l2 2" />
-    </svg>
-  );
-}
-
-export function IconQuiz(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <circle cx="8" cy="8" r="5.5" />
-      <path d="M6.5 6.5a1.5 1.5 0 1 1 2.4 1.2c-.6.4-.9.7-.9 1.3" />
-      <circle cx="8" cy="11.2" r=".5" fill="currentColor" />
-    </svg>
-  );
-}
-
-export function IconSearch(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <circle cx="7" cy="7" r="4" />
-      <path d="m10 10 3.5 3.5" />
-    </svg>
-  );
-}
-
-export function IconTree(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <circle cx="8" cy="3" r="1.4" />
-      <circle cx="3.5" cy="9" r="1.4" />
-      <circle cx="8" cy="9" r="1.4" />
-      <circle cx="12.5" cy="9" r="1.4" />
-      <circle cx="8" cy="13.5" r="1.2" />
-      <path d="M8 4.4v3.2M8 4.4 3.7 7.8M8 4.4l4.3 3.4M8 10.4v1.9" />
-    </svg>
-  );
-}
-
-export function IconPen(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <path d="m3 13 1-3 7-7 2 2-7 7-3 1Z" />
-      <path d="m10 4 2 2" />
-    </svg>
-  );
-}
-
-export function IconFlask(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <path d="M6 2.5h4M6.5 2.5v4L3.5 12a1.5 1.5 0 0 0 1.3 2.2h6.4A1.5 1.5 0 0 0 12.5 12L9.5 6.5v-4" />
-      <path d="M4.7 10h6.6" />
-    </svg>
-  );
-}
-
 export function IconMath(p: IconProps) {
   return (
     <svg {...base} {...p}>
       <path d="M11.5 3h-7l3.5 5-3.5 5h7" />
-    </svg>
-  );
-}
-
-export function IconCal(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
-      <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
-    </svg>
-  );
-}
-
-export function IconFilm(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <rect x="2.5" y="3" width="11" height="10" rx="1" />
-      <path d="M2.5 6.5h11M2.5 9.5h11M5 3v10M11 3v10" />
     </svg>
   );
 }

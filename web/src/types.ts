@@ -1,8 +1,6 @@
 // Mirrors src/services/chat/schemas.py — keep in sync.
 
-export type ModeId =
-  | "tutor" | "compare" | "figures" | "quiz" | "navigate"
-  | "prereqs" | "annotate" | "research" | "math" | "path" | "roadmap";
+export type ModeId = "tutor";
 
 export type ProviderId = "openai" | "deepseek" | "groq";
 
@@ -124,35 +122,6 @@ export interface FigureRef {
   caption: string;
 }
 
-export interface Question {
-  stem: string;
-  options: string[];
-  answer_idx: number;
-  rubric: string;
-  source: Citation;
-  difficulty: "easy" | "medium" | "hard";
-}
-export interface Quiz { questions: Question[] }
-
-export interface NavResult { book: string; chapter: string; section: string; title: string; score: number; page: number | null }
-export interface NavigationList { results: NavResult[] }
-
-export interface ConceptNode { id: string; label: string; source: Citation | null }
-export interface ConceptEdge { from_id: string; to_id: string; weight: number }
-export interface DAG { nodes: ConceptNode[]; edges: ConceptEdge[]; cycles_broken: string[] }
-
-export interface Annotation { term: string; definition: string; source: Citation | null; position: [number, number] }
-export interface AnnotatedReading { annotations: Annotation[] }
-
-export interface StanceClaim { claim: string; stance: "SUPPORTS" | "CONTRADICTS" | "BACKGROUND"; evidence: Citation[]; confidence: number }
-export interface Report { claims: StanceClaim[]; synthesis: string; coverage_gaps: string[] }
-
-export interface StudyWeek { week: number; sections: Citation[]; hours_est: number }
-export interface StudyPlan { goal: string; weeks: StudyWeek[]; coverage_gaps: string[]; replanned_from_version: number }
-
-export interface Scene { id: number; title: string; concept: string; source: Citation; suggested_visual: string; duration_hint: string; figure: string | null }
-export interface Roadmap { topic: string; scenes: Scene[]; duration_total_min: number }
-
 // T13-E + T19: tutor v2 ships a typed TutorAnswer with per-claim citation spans.
 export interface TutorCitation {
   index: number;
@@ -176,13 +145,6 @@ export interface TutorAnswer {
 
 export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
-  | { type: "structured_output"; schema: "Quiz"; data: Quiz }
-  | { type: "structured_output"; schema: "NavigationList"; data: NavigationList }
-  | { type: "structured_output"; schema: "DAG"; data: DAG }
-  | { type: "structured_output"; schema: "AnnotatedReading"; data: AnnotatedReading }
-  | { type: "structured_output"; schema: "Report"; data: Report }
-  | { type: "structured_output"; schema: "StudyPlan"; data: StudyPlan }
-  | { type: "structured_output"; schema: "Roadmap"; data: Roadmap }
   | { type: "structured_output"; schema: string; data: unknown };
 
 // Every chat event carries a monotonic `seq` (§13) when it comes from a
