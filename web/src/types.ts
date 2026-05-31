@@ -1,6 +1,6 @@
 // Mirrors src/services/chat/schemas.py — keep in sync.
 
-export type ModeId = "tutor";
+export type ModeId = "tutor" | "qa";
 
 export type ProviderId = "openai" | "deepseek" | "groq";
 
@@ -143,8 +143,24 @@ export interface TutorAnswer {
   figures?: FigureRef[];
 }
 
+// qa mode (mirror schemas/output.py QAScope / QAAnswer)
+export interface QAScope {
+  target_gap: string;
+  assumed_known: string[];
+  answer_form: "explanation" | "definition" | "comparison" | "derivation" | "yes_no" | "list";
+}
+
+export interface QAAnswer {
+  text: string;
+  scope: QAScope;
+  citations: TutorCitation[];
+  math_blocks: string[];
+  grounding: { ok: boolean; unsupported: string[]; confidence: number };
+}
+
 export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
+  | { type: "structured_output"; schema: "QAAnswer"; data: QAAnswer }
   | { type: "structured_output"; schema: string; data: unknown };
 
 // Every chat event carries a monotonic `seq` (§13) when it comes from a
