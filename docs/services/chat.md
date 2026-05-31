@@ -173,6 +173,17 @@ grep -rE "from src\.(ingestion|services\.(retrieval|eval))" src/services/chat/ &
 
 Should print `wall ok`.
 
+## Chat modes
+
+| Mode id | Description | Feature doc |
+|---|---|---|
+| `tutor` | Deep multi-aspect learning — synthesis plan, orchestrator-workers, author-diversity, coverage check, figure judge | [36-deep-tutor.md](./chat-features/36-deep-tutor.md) |
+| `qa` | Punctual Q&A — 4-node scope→retrieve→generate→verify pipeline, lean `QAAnswer` schema, gpt-5.4-nano default | [51-qa-mode.md](./chat-features/51-qa-mode.md) |
+
+### Q&A mode
+
+The `qa` mode answers a single specific doubt punctually instead of teaching a topic globally. It runs a lean 4-node pipeline (scope-extract → hybrid retrieve → scoped generate → grounding verify), emits a `QAAnswer` with an inline scope line and a grounding-confidence badge, and defaults all LLM nodes to `gpt-5.4-nano`. On a corpus miss (0 retrieved sources) it emits an honest no-coverage message with empty citations rather than fabricating an answer. See [`chat-features/51-qa-mode.md`](./chat-features/51-qa-mode.md) for the full pipeline spec, env flags, and synced-artifacts checklist.
+
 ## Status (2026-05-19)
 
 - Backend: 14 routes + `GET /api/figures` (whitelisted figure serving), 488 tests pass, SSE verified end-to-end via curl across 6 fields.

@@ -2,6 +2,10 @@
 
 Append-only. Latest at top.
 
+## 2026-05-31 — Added punctual Q&A mode
+
+Added `qa` as a second chat mode alongside tutor. Scope-extract → hybrid-retrieve → scoped-generate → grounding-verify pipeline; lean `QAAnswer` schema (no sections/figures/aspects); gpt-5.4-nano default on all LLM nodes; corpus-miss path emits honest no-coverage message with empty citations (never fabricates). ModeId, schemas, prompts, mode registry, router dispatch, cost table (gemini + qwen prices), frontend types, QAAnswerCard renderer, QAPipeline diagram, mode chip all implemented in lockstep. See [`docs/services/chat-features/51-qa-mode.md`](../services/chat-features/51-qa-mode.md).
+
 ## 2026-05-31 — Removed the 10 non-tutor chat modes
 
 Removed the 10 non-tutor chat modes (compare/figures/quiz/navigate/prereqs/annotate/research/math/path/roadmap) across backend, frontend, and docs. Tutor (deep-tutor pipeline) and the mode-selection scaffold retained; ModeId collapsed to Literal['tutor']. Spec: docs/superpowers/specs/2026-05-31-remove-nontutor-modes-design.md.

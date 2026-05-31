@@ -79,7 +79,7 @@ Wall is encoded in each `__init__.py`. Add new services as `src/services/<name>/
 | **Ingestion ops** | [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md) |
 | **Retrieval ops** | [`docs/services/retrieval.md`](docs/services/retrieval.md) |
 | **Chat service ops** | [`docs/services/chat.md`](docs/services/chat.md) |
-| **Chat feature deep-dive** | [`docs/services/chat-features/`](docs/services/chat-features/README.md) — 39+ per-feature docs w/ graphs; recent: 36 deep-tutor, 39 image-judge, 42 author-diversity, 43 synthesis-plan, 44 orchestrator-workers, 45 query-planner-coverage, 46 adjacency-recall, 47 answer-coherence, 48 long-context-organizer, 49 subsections-and-citation-links, 50 groq-provider-and-prompt-schema |
+| **Chat feature deep-dive** | [`docs/services/chat-features/`](docs/services/chat-features/README.md) — 39+ per-feature docs w/ graphs; recent: 36 deep-tutor, 39 image-judge, 42 author-diversity, 43 synthesis-plan, 44 orchestrator-workers, 45 query-planner-coverage, 46 adjacency-recall, 47 answer-coherence, 48 long-context-organizer, 49 subsections-and-citation-links, 50 groq-provider-and-prompt-schema, 51 qa-mode |
 | **Image eval** | [`docs/eval/image_label_instructions.md`](docs/eval/image_label_instructions.md) — labeling guide + KPIs; live runner via `pytest -m quality_images` |
 | **Chat next step** | [`docs/services/chat.md#next-step--make-chat-work-in-browser`](docs/services/chat.md) — verify and harden in-browser flow |
 | **Architecture** | [`docs/system/architecture.md`](docs/system/architecture.md) |
