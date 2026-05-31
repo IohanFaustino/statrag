@@ -249,7 +249,7 @@ async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
     # 2b. corpus miss → honest answer, no fabricated citation
     if not sources:
         answer = QAAnswer(
-            text=("That isn't covered in the selected books. Try widening the "
+            text=("That topic is not covered in the selected books. Try widening the "
                   "book filter or rephrasing."),
             scope=scope,
             citations=[],
