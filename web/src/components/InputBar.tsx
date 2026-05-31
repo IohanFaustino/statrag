@@ -8,6 +8,7 @@ interface InputBarProps {
   modes: ModeMeta[];
   onModeChange(id: string): void;
   onModeAbout?(): void;
+  onModeAboutQA?(): void;
   onSend(text: string): void;
   disabled?: boolean;
 }
@@ -17,6 +18,7 @@ export default function InputBar({
   modes,
   onModeChange,
   onModeAbout,
+  onModeAboutQA,
   onSend,
   disabled = false,
 }: InputBarProps) {
@@ -91,6 +93,7 @@ export default function InputBar({
             modes={modes}
             onChange={onModeChange}
             onAbout={onModeAbout}
+            onAboutQA={onModeAboutQA}
           />
         </div>
       </div>

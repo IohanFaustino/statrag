@@ -1,8 +1,9 @@
 import React from "react";
-import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer } from "../types";
+import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer } from "../types";
 import { MathBlock, MathInline } from "./Math";
 import { normalizeMathDelimiters } from "./views/TutorView";
 import TutorView from "./views/TutorView";
+import QAAnswerCard from "./QAAnswerCard";
 import { IconBook, IconDownload } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
@@ -11,10 +12,12 @@ type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 const MODE_ICONS: Record<string, IconComponent> = {
   tutor: IconBook,
+  qa: IconBook,
 };
 
 const MODE_LABELS: Record<string, string> = {
   tutor: "Tutor",
+  qa: "Q&A",
 };
 
 // ─── Inline renderer ──────────────────────────────────────────────────────────
@@ -210,7 +213,7 @@ interface AssistantMessageViewProps {
   isLast?: boolean;
 }
 
-const STRUCTURED_MODES = new Set(["tutor"]);
+const STRUCTURED_MODES = new Set(["tutor", "qa"]);
 
 function AssistantMessageView({
   msg,
@@ -334,6 +337,9 @@ function AssistantMessageView({
           <div className="msg__structured">
             {msg.structuredOutput.schema === "TutorAnswer" && (
               <TutorView data={msg.structuredOutput.data as TutorAnswer} />
+            )}
+            {msg.structuredOutput.schema === "QAAnswer" && (
+              <QAAnswerCard answer={msg.structuredOutput.data as QAAnswer} />
             )}
           </div>
         )}

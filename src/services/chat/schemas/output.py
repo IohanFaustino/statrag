@@ -214,6 +214,44 @@ class SynthesisPlan(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Mode 2 — qa (punctual Q&A)
+# ---------------------------------------------------------------------------
+
+
+class QAScope(BaseModel):
+    """Parsed scope of a punctual question.
+
+    ``target_gap`` is the precise thing to answer; ``assumed_known`` lists what
+    the user already understands (so generation must NOT re-explain it);
+    ``answer_form`` hints the shape of the reply.
+    """
+
+    target_gap: str
+    assumed_known: list[str] = Field(default_factory=list)
+    answer_form: Literal[
+        "explanation", "definition", "comparison",
+        "derivation", "yes_no", "list",
+    ] = "explanation"
+
+
+class QAAnswer(BaseModel):
+    """Lean, punctual Q&A answer.
+
+    Deliberately smaller than :class:`TutorAnswer`: no sections, figures, or
+    aspects. ``text`` is terse markdown with inline ``[n]`` citation markers
+    that line up with ``citations``. ``scope`` is echoed for UI transparency;
+    ``grounding`` carries the verify-node verdict
+    (``{ok: bool, unsupported: list[str], confidence: float}``).
+    """
+
+    text: str
+    scope: QAScope
+    citations: list[TutorCitation] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
 # Concept graph primitives (kept — kg.py depends on these)
 # ---------------------------------------------------------------------------
 

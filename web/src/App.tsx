@@ -14,6 +14,7 @@ import TempChat from "./components/TempChat";
 import BookModal from "./components/modals/BookModal";
 import SourceModal from "./components/modals/SourceModal";
 import AboutModelModal from "./components/modals/AboutModelModal";
+import QAModeModal from "./components/modals/QAModeModal";
 import type { StageKey } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
@@ -33,6 +34,7 @@ const DEFAULT_STAGE_MODELS: Record<string, string> = {
 
 const STATRAG_MODES: ModeMeta[] = [
   { id: "tutor", label: "Tutor", glyph: "T" },
+  { id: "qa", label: "Q&A", glyph: "?" },
 ];
 
 // ─── Fallback providers (used when /api/models fails) ────────────────────────
@@ -170,6 +172,8 @@ export default function App() {
 
   // About-model modal (ephemeral) + per-stage model overrides (persisted).
   const [aboutModelId, setAboutModelId] = useState<string | null>(null);
+  // Q&A mode info modal (ephemeral).
+  const [qaModalOpen, setQaModalOpen] = useState(false);
   const [stageModels, setStageModels] = usePersistentState<Record<string, string>>(
     "statrag.stageModels",
     DEFAULT_STAGE_MODELS,
@@ -684,6 +688,7 @@ export default function App() {
               modes={STATRAG_MODES}
               onModeChange={(id) => setActiveMode(id)}
               onModeAbout={() => setAboutModelId(activeModel)}
+              onModeAboutQA={() => setQaModalOpen(true)}
               onSend={handleSend}
               disabled={isStreaming}
             />
@@ -741,6 +746,11 @@ export default function App() {
           setTutorWorkflow(cfg.tutorWorkflow);
         }}
         onClose={() => setAboutModelId(null)}
+      />
+
+      <QAModeModal
+        open={qaModalOpen}
+        onClose={() => setQaModalOpen(false)}
       />
 
       {/* T21: settings moved into InputBar toolbar via SettingsPicker. */}

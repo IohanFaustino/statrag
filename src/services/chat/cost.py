@@ -27,6 +27,13 @@ PRICE_PER_1M: dict[str, dict[str, float]] = {
     "llama-3.3-70b-versatile":                   {"in": 0.59, "out": 0.79},
     "openai/gpt-oss-120b":                       {"in": 0.15, "out": 0.75},
     "openai/gpt-oss-20b":                        {"in": 0.10, "out": 0.50},
+    # Google (public list prices; revisit when they drift)
+    "gemini-2.5-flash":          {"in": 0.15, "out": 0.60},
+    "gemini-2.5-pro":            {"in": 1.25, "out": 10.00},
+    # Alibaba Qwen (intl endpoint list prices)
+    "qwen-plus":                 {"in": 0.40, "out": 1.20},
+    "qwen-max":                  {"in": 1.60, "out": 6.40},
+    "qwen-turbo":                {"in": 0.05, "out": 0.20},
     # Vision (treat input image tiles as ~700 tokens each at gpt-4o rate)
     "gpt-4o-vision":             {"in": 2.50, "out": 10.00, "per_image": 0.001},
     # Embeddings
