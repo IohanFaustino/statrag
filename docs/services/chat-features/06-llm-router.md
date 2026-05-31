@@ -1,4 +1,4 @@
-# 06 — LLM router (OpenAI + DeepSeek + Groq + Google Gemini async streaming)
+# 06 — LLM router (OpenAI + DeepSeek + Groq + Google Gemini + Alibaba Qwen async streaming)
 
 ## Purpose
 
@@ -15,10 +15,13 @@ graph TD
   Groq -->|yes| GQ["GroqChat<br/>openai.AsyncOpenAI(base_url=groq_base_url)"]
   Groq -->|no| Gemini{starts w/ 'gemini'?}
   Gemini -->|yes| GL["GeminiChat<br/>openai.AsyncOpenAI(base_url=gemini_base_url)"]
-  Gemini -->|no| OAI["OpenAIChat<br/>openai.AsyncOpenAI(api_key=openai_api_key)"]
+  Gemini -->|no| Qwen{starts w/ 'qwen'?}
+  Qwen -->|yes| QW["QwenChat<br/>openai.AsyncOpenAI(base_url=qwen_base_url)"]
+  Qwen -->|no| OAI["OpenAIChat<br/>openai.AsyncOpenAI(api_key=openai_api_key)"]
   DS --> Stream["llm.stream(messages, model=model_id)<br/>yields delta content strings"]
   GQ --> Stream
   GL --> Stream
+  QW --> Stream
   OAI --> Stream
   Stream --> Orch[orchestrator consumes async iterator]
 ```
@@ -70,6 +73,8 @@ class OpenAIChat(BaseLLM):
 
 `src/services/chat/llm/gemini_client.py` — mirrors `GroqChat`; uses Gemini's OpenAI-compat endpoint. Eager `LLMError` if `GEMINI_API_KEY` missing. Routes via `"gemini"` prefix (reliable, no collisions).
 
+`src/services/chat/llm/qwen_client.py` — mirrors `GeminiChat`; uses Alibaba DashScope's OpenAI-compat endpoint (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`). Eager `LLMError` if `QWEN_API_KEY` missing. Routes via `"qwen"` prefix (reliable, no collisions).
+
 `src/services/chat/llm/router.py`:
 
 ```python
@@ -80,6 +85,8 @@ def get_llm(model_id: str) -> tuple[BaseLLM, str]:
         return GroqChat(), model_id
     if model_id.startswith("gemini"):
         return GeminiChat(), model_id
+    if model_id.startswith("qwen"):
+        return QwenChat(), model_id
     return OpenAIChat(), model_id
 
 def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
@@ -89,9 +96,11 @@ def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(api_key=settings.deepseek_api_key, base_url=settings.deepseek_base_url)
     if model_id and model_id.startswith("gemini"):
         return openai.AsyncOpenAI(api_key=settings.gemini_api_key, base_url=settings.gemini_base_url)
+    if model_id and model_id.startswith("qwen"):
+        return openai.AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
     return openai.AsyncOpenAI(api_key=settings.openai_api_key)
 
-def list_providers() -> list[ModelProvider]: ...  # 4 providers now
+def list_providers() -> list[ModelProvider]: ...  # 5 providers now
 ```
 
 ## Model registry (hardcoded)
@@ -111,18 +120,21 @@ def list_providers() -> list[ModelProvider]: ...  # 4 providers now
 | Groq | openai/gpt-oss-20b | Open-weight small | $ | fast | 128k |
 | Google | gemini-2.5-flash | Fast multimodal — draft candidate | $ | fast | 1M |
 | Google | gemini-2.5-pro | Flagship reasoning | $$$ | med | 1M |
+| Alibaba | qwen-plus | Cheap 1M-ctx — prime draft candidate | $ | fast | 1M |
+| Alibaba | qwen-max | Flagship reasoning | $$$ | med | 32k |
+| Alibaba | qwen-turbo | Fastest + cheapest | $ | fast | 1M |
 
 UI shows these in `ModelPicker`. Adding a model = edit `router.py` only.
 
 ## Tests
 
-`test_llm_router.py` — routing + registry tests (updated to 4 providers):
+`test_llm_router.py` — routing + registry tests (updated to 5 providers):
 - get_llm("gpt-4o") → OpenAIChat
 - get_llm("deepseek-chat") → DeepSeekChat
 - get_llm("meta-llama/…") → GroqChat (via GROQ_MODEL_IDS set)
 - get_llm("openai/gpt-oss-120b") → GroqChat (same set, not prefix — avoids collision)
 - get_llm("unknown-model") → OpenAIChat (default route)
-- list_providers returns 4 providers; GROQ_MODEL_IDS matches registry exactly
+- list_providers returns 5 providers; GROQ_MODEL_IDS matches registry exactly
 
 `test_router_gemini.py` — 10 tests (Gemini-specific):
 - get_llm("gemini-2.5-flash") → GeminiChat
@@ -133,6 +145,15 @@ UI shows these in `ModelPicker`. Adding a model = edit `router.py` only.
 - aclient_for with empty key → LLMError
 - list_providers includes "google" provider with 2 models
 - GEMINI_MODEL_IDS matches registry
+
+`test_router_qwen.py` — Qwen-specific (parallels the Gemini suite):
+- get_llm("qwen-plus"/"qwen-max"/"qwen-turbo") → QwenChat (parametrized)
+- QwenChat with empty key → LLMError("QWEN_API_KEY missing")
+- QwenChat wires correct base_url + key
+- aclient_for("qwen-plus") → AsyncOpenAI at qwen_base_url
+- aclient_for with empty key → LLMError
+- list_providers includes "alibaba" provider with 3 models
+- QWEN_MODEL_IDS matches registry
 
 No real API calls in any test.
 
@@ -150,4 +171,6 @@ GROQ_API_KEY=gsk-...      # optional
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GEMINI_API_KEY=AIza...    # optional (lazy check at provider switch)
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+QWEN_API_KEY=sk-...       # optional (DashScope key; lazy check at provider switch)
+QWEN_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 ```

@@ -2,6 +2,20 @@
 
 Append-only. Latest at top.
 
+## 2026-05-31 — Alibaba Qwen provider (draft-model battle prep)
+
+Added an Alibaba Qwen provider to the chat LLM layer, cloning the Gemini OpenAI-compat pattern. No new dependencies — DashScope's compat endpoint (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`) accepts the `openai` SDK verbatim. Unlocks `qwen-plus`/`qwen-max`/`qwen-turbo` as selectable draft-stage models for the multi-provider draft battle.
+
+**Artifacts changed:**
+- `src/core/config.py`: added `qwen_api_key` (alias `QWEN_API_KEY`, default `""`) and `qwen_base_url` (alias `QWEN_BASE_URL`, default `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`).
+- `src/services/chat/llm/qwen_client.py` (new): `QwenChat(BaseLLM)` — mirrors `GeminiChat`; raises `LLMError("QWEN_API_KEY missing")` when the key is unset; supports `response_format` pass-through (`strict=False`).
+- `src/services/chat/llm/router.py`: added `alibaba` `ModelProvider` with `qwen-plus`/`qwen-max`/`qwen-turbo`; added `QWEN_MODEL_IDS` set; routed `model_id.startswith("qwen")` → `QwenChat` in both `get_llm` and `aclient_for`; updated module docstring routing table.
+- `src/services/chat/schemas/_core.py`: added `"alibaba"` to `ProviderId` Literal (required since `ModelProvider.id` is typed by it).
+- `src/services/chat/tests/test_router_qwen.py` (new): routing (parametrized over the 3 ids), key-missing error, `aclient_for` base_url, registry counts/ids, `QWEN_MODEL_IDS` ↔ registry match.
+- `src/services/chat/tests/test_llm_router.py`: updated provider count assertion 4→5 and ids set.
+
+**Tests**: full chat suite green (3 skips = `GROQ_API_KEY` not set). See `docs/superpowers/plans/2026-05-30-draft-model-battle.md` (Task 1).
+
 ## 2026-05-30 — Google Gemini provider (Phase 4 prep)
 
 Added a Google Gemini provider to the chat LLM layer following the Groq/DeepSeek OpenAI-compat pattern. No new dependencies — Gemini's compat endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`) accepts the `openai` SDK verbatim.

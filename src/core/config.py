@@ -55,6 +55,11 @@ class Settings(BaseSettings):
         "https://generativelanguage.googleapis.com/v1beta/openai/",
         alias="GEMINI_BASE_URL",
     )
+    qwen_api_key: str = Field("", alias="QWEN_API_KEY")
+    qwen_base_url: str = Field(
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        alias="QWEN_BASE_URL",
+    )
     groq_default_model: str = Field(
         "meta-llama/llama-4-scout-17b-16e-instruct", alias="GROQ_DEFAULT_MODEL"
     )

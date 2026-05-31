@@ -12,7 +12,7 @@ ModeId = Literal[
     "tutor", "compare", "figures", "quiz", "navigate",
     "prereqs", "annotate", "research", "math", "path", "roadmap",
 ]
-ProviderId = Literal["openai", "deepseek", "groq", "google"]
+ProviderId = Literal["openai", "deepseek", "groq", "google", "alibaba"]
 
 
 class Book(BaseModel):

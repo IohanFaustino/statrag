@@ -91,16 +91,16 @@ def test_get_llm_unknown_falls_back_to_openai() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_list_providers_returns_four_providers() -> None:
-    """list_providers should return exactly 4 providers."""
+def test_list_providers_returns_five_providers() -> None:
+    """list_providers should return exactly 5 providers."""
     providers = list_providers()
-    assert len(providers) == 4
+    assert len(providers) == 5
 
 
 def test_list_providers_ids() -> None:
-    """Provider IDs must be 'openai', 'deepseek', 'groq', and 'google'."""
+    """Provider IDs must be 'openai', 'deepseek', 'groq', 'google', 'alibaba'."""
     ids = {p.id for p in list_providers()}
-    assert ids == {"openai", "deepseek", "groq", "google"}
+    assert ids == {"openai", "deepseek", "groq", "google", "alibaba"}
 
 
 def test_list_providers_non_empty_models() -> None:
