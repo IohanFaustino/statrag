@@ -79,7 +79,7 @@ class QAAnswer(BaseModel):
     grounding: dict = Field(default_factory=dict)  # {ok: bool, unsupported: [str], confidence: float}
 ```
 
-Deliberately leaner than `TutorAnswer`: no `sections`, `figures`, or `aspects`. Reuses `TutorCitation` so existing frontend citation cards render unchanged.
+Deliberately leaner than `TutorAnswer`: no `sections`, `figures`, or `aspects`. Reuses `TutorCitation`; `QAAnswerCard` renders inline `[n]` markers as citation pills and `math_blocks` as display math via the same `renderInlineWithCites` helper and `MathBlock` component used by `TutorView`.
 
 TypeScript mirrors in `web/src/types.ts` (`QAScope`, `QAAnswer` interfaces, `ModeId = "tutor" | "qa"`).
 
