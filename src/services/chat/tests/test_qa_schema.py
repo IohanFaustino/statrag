@@ -37,3 +37,18 @@ def test_qaanswer_carries_citations_and_grounding():
     )
     assert a.citations[0].index == 1
     assert a.grounding["ok"] is True
+
+
+def test_modeid_includes_qa():
+    from src.services.chat.schemas import ChatRequest
+    req = ChatRequest(message="hi", mode="qa")
+    assert req.mode == "qa"
+
+
+def test_cost_table_has_qwen_and_gemini():
+    from src.services.chat.cost import PRICE_PER_1M
+    assert "qwen-plus" in PRICE_PER_1M
+    assert "gemini-2.5-flash" in PRICE_PER_1M
+    # generate-node estimate for nano stays cheap
+    from src.services.chat.cost import usd_est
+    assert usd_est("gpt-5.4-nano-2026-03-17", input_tokens=1800, output_tokens=250) < 0.001
