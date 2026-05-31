@@ -76,3 +76,58 @@ def test_retrieve_for_gap_uses_target_gap(monkeypatch):
     assert captured["query"] == "why bias and variance trade off"
     assert captured["top_k"] == 4
     assert sources == []
+
+
+def _src(rank, **kw):
+    from src.services.chat.schemas import Source
+    base = dict(
+        rank=rank, book="islp", chapter="ch02", section="2.2",
+        title="Assessing Model Accuracy", excerpt="…", score=0.9,
+        chunkId=f"c{rank}", chunk="Bias and variance trade off because …",
+    )
+    base.update(kw)
+    return Source(**base)
+
+
+@pytest.mark.asyncio
+async def test_generate_scoped_builds_answer_and_passes_known(monkeypatch):
+    from src.services.chat.agents import qa
+
+    seen = {}
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        seen["user"] = messages[-1]["content"]
+        return (
+            '{"text":"The tradeoff arises because lowering one raises the other [1].",'
+            '"citations":[{"index":1,"chunkId":"c1","book_name":"ISLP","quote":"…"}],'
+            '"math_blocks":[]}'
+        )
+
+    monkeypatch.setattr(qa, "_chat", fake_chat)
+    scope = qa.QAScope(
+        target_gap="why bias and variance trade off",
+        assumed_known=["what bias is", "what variance is"],
+    )
+    ans = await qa.generate_scoped(scope, [_src(1)])
+    assert ans.text.startswith("The tradeoff")
+    assert ans.citations[0].index == 1
+    # the assumed_known must be injected into the generate prompt context
+    assert "what bias is" in seen["user"]
+
+
+@pytest.mark.asyncio
+async def test_generate_scoped_repairs_bad_json(monkeypatch):
+    from src.services.chat.agents import qa
+    calls = {"n": 0}
+
+    async def flaky(messages, *, model, max_tokens, temperature=0.0):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "garbled not json"
+        return '{"text":"ok","citations":[],"math_blocks":[]}'
+
+    monkeypatch.setattr(qa, "_chat", flaky)
+    scope = qa.QAScope(target_gap="x")
+    ans = await qa.generate_scoped(scope, [_src(1)])
+    assert ans.text == "ok"
+    assert calls["n"] == 2  # one repair retry
