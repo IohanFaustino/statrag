@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { IconAttach, IconMath, IconSend } from "./Icons";
+import { IconSend } from "./Icons";
 import ModePicker from "./ModePicker";
 import type { ModeMeta } from "./ModePicker";
 
@@ -86,15 +86,6 @@ export default function InputBar({
         </div>
 
         <div className="input-bar__toolbar">
-          <button className="tool-btn" type="button" aria-label="Attach file">
-            <IconAttach width={14} height={14} />
-            <span>Attach</span>
-          </button>
-          <button className="tool-btn" type="button" aria-label="Math helper">
-            <IconMath width={14} height={14} />
-            <span>Math</span>
-          </button>
-          <div className="tool-divider" aria-hidden="true" />
           <ModePicker
             activeMode={activeMode}
             modes={modes}
