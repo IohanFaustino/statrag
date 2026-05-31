@@ -53,3 +53,35 @@ def test_model_for_prefers_stage_models():
     # falls back to nano when unset
     req2 = ChatRequest(message="x", mode="resume")
     assert ch._model_for("map", req2) == ch.settings.openai_model_nano
+
+
+import pytest
+
+
+@pytest.mark.asyncio
+async def test_parse_scope_extracts_chapter_and_subtopics(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return ('{"book_slug":"islp","chapter_id":"ch02",'
+                '"requested_subtopics":["the tradeoff"]}')
+
+    monkeypatch.setattr(ch, "_chat", fake_chat)
+    scope = await ch.parse_scope("explain the tradeoff in ch2", book_slugs=["islp"])
+    assert scope.book_slug == "islp"
+    assert scope.chapter_id == "ch02"
+    assert scope.requested_subtopics == ["the tradeoff"]
+
+
+@pytest.mark.asyncio
+async def test_parse_scope_fail_open(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+
+    async def boom(messages, *, model, max_tokens, temperature=0.0):
+        raise RuntimeError("llm down")
+
+    monkeypatch.setattr(ch, "_chat", boom)
+    scope = await ch.parse_scope("ch2 please", book_slugs=["islp"])
+    # fail-open: single selected book used, no chapter, whole-chapter intent
+    assert scope.book_slug == "islp"
+    assert scope.requested_subtopics == []
