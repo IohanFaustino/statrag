@@ -85,3 +85,50 @@ async def test_parse_scope_fail_open(monkeypatch):
     # fail-open: single selected book used, no chapter, whole-chapter intent
     assert scope.book_slug == "islp"
     assert scope.requested_subtopics == []
+
+
+def _src(section_id, h2):
+    from src.services.chat.schemas import Source
+    return Source(rank=1, book="islp", chapter="ch02", section=h2.split("|")[-1].strip(),
+                  title=h2, excerpt="", score=0.0, chunkId=section_id, chunk="body",
+                  page_from=1, page_to=1)
+
+
+@pytest.mark.asyncio
+async def test_resolve_empty_request_returns_whole_chapter(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+    sections = [_src("2.1", "2.1 | A"), _src("2.2", "2.2 | B")]
+    selected, resolution = await ch.resolve_subtopics([], sections)
+    assert [s.chunkId for s in selected] == ["2.1", "2.2"]
+    assert resolution == []  # whole-chapter: no per-name mapping
+
+
+@pytest.mark.asyncio
+async def test_resolve_substring_match_no_llm(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+
+    async def boom(*a, **k):
+        raise AssertionError("LLM must not be called for a substring hit")
+
+    monkeypatch.setattr(ch, "_chat", boom)
+    sections = [_src("2.1", "2.1 | Bias-Variance Trade-Off"), _src("2.2", "2.2 | Other")]
+    selected, resolution = await ch.resolve_subtopics(["bias-variance"], sections)
+    assert [s.chunkId for s in selected] == ["2.1"]
+    assert resolution[0].matched_h2.endswith("Trade-Off")
+    assert resolution[0].score >= 0.9
+
+
+@pytest.mark.asyncio
+async def test_resolve_fuzzy_falls_back_to_llm(monkeypatch):
+    from src.services.chat.agents import chapter as ch
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return ('{"matches":[{"asked":"the tradeoff","section_id":"2.1",'
+                '"matched_h2":"2.1 | Bias-Variance Trade-Off","score":0.78}]}')
+
+    monkeypatch.setattr(ch, "_chat", fake_chat)
+    sections = [_src("2.1", "2.1 | Bias-Variance Trade-Off"), _src("2.2", "2.2 | Other")]
+    selected, resolution = await ch.resolve_subtopics(["the tradeoff"], sections)
+    assert [s.chunkId for s in selected] == ["2.1"]
+    assert resolution[0].asked == "the tradeoff"
+    assert resolution[0].score == pytest.approx(0.78)

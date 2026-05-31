@@ -104,3 +104,72 @@ async def parse_scope(
     except Exception:  # noqa: BLE001
         logger.exception("chapter.parse_scope failed; using fail-open scope")
         return fallback
+
+
+def _section_index(sections: list[Source]) -> dict[str, Source]:
+    """Map section_id (chunkId) -> Source for selection by id."""
+    return {s.chunkId: s for s in sections}
+
+
+async def resolve_subtopics(
+    requested: list[str],
+    sections: list[Source],
+    *,
+    model: str | None = None,
+) -> tuple[list[Source], list[ResolvedSubtopic]]:
+    """Map requested subtopic phrases to fetched sections (closest-match).
+
+    Empty ``requested`` -> the whole chapter in fetched order, no resolution
+    entries. Otherwise: case-insensitive substring match first; any phrase
+    that still has no hit is resolved by one nano call. Selection preserves the
+    fetched order; duplicates are de-duplicated.
+    """
+    if not requested:
+        return list(sections), []
+
+    by_id = _section_index(sections)
+    resolution: list[ResolvedSubtopic] = []
+    matched_ids: set[str] = set()
+    unmatched: list[str] = []
+
+    for phrase in requested:
+        low = phrase.lower().strip()
+        hit = next((s for s in sections if low in s.title.lower()), None)
+        if hit is not None:
+            resolution.append(ResolvedSubtopic(
+                asked=phrase, matched_h2=hit.title, section_id=hit.chunkId, score=0.95))
+            matched_ids.add(hit.chunkId)
+        else:
+            unmatched.append(phrase)
+
+    if unmatched and _CHAPTER_RESOLVE:
+        headings = [{"section_id": s.chunkId, "h2_path": s.title} for s in sections]
+        try:
+            raw = await _chat(
+                [
+                    {"role": "system", "content": CHAPTER_RESOLVE_PROMPT},
+                    {"role": "user", "content": json.dumps({"requested": unmatched, "headings": headings})},
+                ],
+                model=model or settings.openai_model_nano,
+                max_tokens=400,
+            )
+            data = json.loads(strip_fences(raw))
+            for m in data.get("matches", []):
+                sid = str(m.get("section_id") or "")
+                if sid and sid in by_id:
+                    resolution.append(ResolvedSubtopic(
+                        asked=str(m.get("asked", "")),
+                        matched_h2=str(m.get("matched_h2") or by_id[sid].title),
+                        section_id=sid,
+                        score=float(m.get("score", 0.5)),
+                    ))
+                    matched_ids.add(sid)
+                else:
+                    resolution.append(ResolvedSubtopic(asked=str(m.get("asked", ""))))
+        except Exception:  # noqa: BLE001
+            logger.exception("chapter.resolve_subtopics LLM step failed")
+            for phrase in unmatched:
+                resolution.append(ResolvedSubtopic(asked=phrase))
+
+    selected = [s for s in sections if s.chunkId in matched_ids]
+    return selected, resolution
