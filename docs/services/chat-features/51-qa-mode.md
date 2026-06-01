@@ -143,10 +143,12 @@ Both paths emit the same event types ending in `done` — the frontend never nee
 | Component | Path | Role |
 |---|---|---|
 | `QAAnswerCard` | `web/src/components/QAAnswerCard.tsx` | Renders terse answer body + scope line ("Answering: *target_gap* · assuming you know: *assumed_known*") + grounding badge (✓ grounded / ⚠ partial) |
-| `QAPipeline` | `web/src/components/QAPipeline.tsx` | Read-only 4-node diagram for the Q&A (i) modal |
+| `QAPipelineDiagram` | `web/src/components/QAPipelineDiagram.tsx` | Editable 4-node diagram for the Q&A (i) modal (replaces removed `QAPipeline.tsx`) |
 | `qaPipeline` data | `web/src/data/qaPipeline.ts` | Static node/edge definitions (`QA_PIPELINE`) |
 | `MessageThread` | `web/src/components/MessageThread.tsx` | Render branch on `schema === "QAAnswer"` → `<QAAnswerCard>` |
 | `ModePicker` | `web/src/components/ModePicker.tsx` | Q&A chip beside the tutor chip |
+
+The mode's `(i)` modal is now **editable**: each LLM stage exposes a per-stage model/provider dropdown (writes `ChatRequest.stageModels[<stage>]`), mirroring the tutor's About-model modal. The data stage (retrieval / chapter fetch) shows a fixed label. Stage keys are disjoint across modes, so overrides share the single persisted `statrag.stageModels` dict.
 
 ---
 

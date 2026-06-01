@@ -2,6 +2,15 @@
 
 Append-only. Latest at top.
 
+## 2026-06-01 — Editable mode modals (qa / facilitate / resume)
+
+Q&A, Facilitate, and Resume modes now have an editable `(i)` modal with a
+per-stage model/provider switch (new `QAPipelineDiagram` + `ChapterPipelineDiagram`
+components; `QAModeModal` remade; new `ChapterFacilitateModal` + `ChapterResumeModal`).
+Overrides write the shared `stageModels` dict (disjoint stage keys; backend
+`_model_for` already supported per-stage overrides). Added Gemini (`google`) and
+Alibaba (`alibaba`) provider icons + `ProviderId` members. Frontend-only.
+
 ## 2026-05-31 — Added chapter modes (facilitate / resume)
 
 Added `facilitate` and `resume` as two structural chat modes. Both traverse a chapter's sections in **chapter reading order** (`page_from`, then `section_id`) rather than by search relevance. Pipeline: parse-scope (extract book + chapter + subtopic names; fail-open to whole chapter) → fetch-chapter (Qdrant scroll, sorted structurally — no embeddings) → resolve-subtopics (substring then nano fuzzy match; empty = whole chapter) → map (per-section LLM call in order, threads `prior_context` forward) → stitch (connective intro/outro, never reorders) → ground (advisory grounding verdict). `facilitate` teaches each section in sequence; `resume` compresses it into a dense summary. Emits a `ChapterDigest` with an ordered `blocks[]` list. **Order-preservation is an enforced invariant** (invariant 30): blocks in `ChapterDigest` equal the fetched-section order and are never re-sorted downstream. All LLM nodes default to `gpt-5.4-nano-2026-03-17`; map dominates cost (one call per section); per-node override via `stageModels` / `CHAPTER_*_MODEL`. See [`docs/services/chat-features/52-chapter-modes.md`](../services/chat-features/52-chapter-modes.md).
