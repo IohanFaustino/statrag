@@ -152,8 +152,6 @@ def maybe_clarify(res: BookResolution, catalog: list[CatalogBook]) -> dict | Non
         reason = "book_ambiguous" if len(cand_slugs) >= 2 else "book_unknown"
     elif res.book_confidence < _BOOK_CONFIRM_CUTOFF:
         reason = "book_ambiguous"
-    elif len([s for s in cand_slugs if s != res.book_slug]) >= 1 and len(cand_slugs) >= 2:
-        reason = "book_ambiguous"
     elif res.chapter_id and res.book_slug in by and res.chapter_id not in by[res.book_slug].chapters:
         reason = "chapter_missing"
     if not reason:
@@ -163,7 +161,8 @@ def maybe_clarify(res: BookResolution, catalog: list[CatalogBook]) -> dict | Non
         "book_ambiguous": "I'm not sure which book you mean. Did you mean one of these?",
         "chapter_missing": "That book doesn't have that chapter. Pick a chapter:",
     }[reason]
-    cands = _candidate_records(cand_slugs or [c.slug for c in catalog], catalog)
+    fallback_slugs = cand_slugs or [c.slug for c in catalog]
+    cands = _candidate_records(fallback_slugs, catalog)[:6]
     return {
         "type": "clarify", "reason": reason, "message": msg,
         "candidates": cands, "chapter_guess": res.chapter_id,

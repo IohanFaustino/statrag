@@ -73,6 +73,25 @@ async def test_resolve_book_expands_sections(monkeypatch):
     assert r.requested_subtopics == ["7.2", "7.3", "7.4"]
 
 
+from src.services.chat.agents._scope import maybe_clarify
+
+
+def test_maybe_clarify_no_fire_on_confident_multi_candidate():
+    from src.services.chat.schemas import BookResolution
+    res = BookResolution(book_slug="islp", book_confidence=0.9,
+                         book_candidates=["islp", "islpr"], chapter_id="")
+    assert maybe_clarify(res, _CAT) is None  # confident → proceed despite 2 candidates
+
+
+def test_maybe_clarify_caps_candidates():
+    from src.services.chat.schemas import BookResolution, CatalogBook
+    big = [CatalogBook(slug=f"b{i}", name=f"Book {i}", authors_short="X",
+                       field="f", chapters=["ch01"]) for i in range(20)]
+    res = BookResolution(book_slug="", book_confidence=0.0, book_candidates=[])
+    clar = maybe_clarify(res, big)
+    assert clar is not None and len(clar["candidates"]) <= 6
+
+
 @pytest.mark.asyncio
 async def test_resolve_book_single_selection_failopen(monkeypatch):
     async def boom(*a, **k):

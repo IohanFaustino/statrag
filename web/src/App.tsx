@@ -382,16 +382,17 @@ export default function App() {
     );
   }, []);
 
-  // Handle clarify card pick: select only the chosen book and re-send scoped message
+  // Handle clarify card pick: select only the chosen book and re-send the
+  // original user question (not a mode-id stub) so QA and other modes preserve
+  // the actual question text. chapter/_sections are accepted but unused here —
+  // book selection alone drives scoping on the re-send (confidence 1.0).
   const handleClarifyPick = useCallback(
-    (slug: string, chapter: string, sections: string[]) => {
+    (slug: string, _chapter: string, _sections: string[]) => {
       setBooks((prev) => prev.map((b) => ({ ...b, selected: b.id === slug })));
-      const chapText = chapter ? ` ${chapter}` : "";
-      const secText = sections.length ? ` sections ${sections.join(", ")}` : "";
-      const text = `${activeMode}${chapText}${secText}`.trim();
-      handleSend(text);
+      const lastUser = [...messages].reverse().find((m) => m.role === "user");
+      if (lastUser?.text) handleSend(lastUser.text);
     },
-    [setBooks, activeMode, handleSend],
+    [setBooks, messages, handleSend],
   );
 
   // Fork to temp chat
