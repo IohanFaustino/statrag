@@ -7,18 +7,12 @@
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
-<body>
+<body data-base="">
 <header>
   <h1>statrag — <span class="accent">Ingestion</span></h1>
   <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
 </header>
-<nav class="top">
-  <a href="index.html">Overview</a>
-  <a href="ingestion.html" class="active">Ingestion</a>
-  <a href="retrieval.html">Retrieval</a>
-  <a href="chat.html">Chat &amp; deep-tutor</a>
-  <a href="report.html">Verification</a>
-</nav>
+<aside id="side" class="side"></aside>
 <main>
   <!-- PAGE BODY -->
 
@@ -209,5 +203,6 @@
     }
   })();
 </script>
+<script src="sidebar.js"></script>
 </body>
 </html>

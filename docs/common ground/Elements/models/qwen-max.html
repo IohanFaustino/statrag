@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Qwen Max</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Qwen Max</span> <span class="pill" style="border-color:#615CED;color:#615CED">Alibaba</span></h1>
+  <div class="sub">Flagship reasoning</div>
+</header>
+<main>
+  <section>
+    <h2>Identity &amp; routing</h2>
+    <table>
+      <tr><th>Model id</th><td><code>qwen-max</code></td></tr>
+      <tr><th>Provider</th><td>Alibaba</td></tr>
+      <tr><th>Client</th><td><code>QwenChat</code></td></tr>
+      <tr><th>Routing rule</th><td>id startswith "qwen"</td></tr>
+      <tr><th>Context window</th><td>32k</td></tr>
+      <tr><th>Speed</th><td>med</td></tr>
+      <tr><th>Cost tier</th><td>$$$</td></tr>
+    </table>
+    <p class="caption">Registry: <code>src/services/chat/llm/router.py</code> · routing: <code>get_llm()</code> router.py:253-261.</p>
+  </section>
+  <section>
+    <h2>Pricing <span class="pill">USD / 1M tokens</span></h2>
+    <table>
+      <tr><th>Input</th><th>Output</th></tr>
+      <tr><td>$1.60</td><td>$6.40</td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/cost.py</code> PRICE_PER_1M (conservative estimates).</p>
+  </section>
+  <section>
+    <h2>Tutor draft path</h2>
+    <div class="card"><p style="margin:0"><b>Native JSON (OpenAI-compatible response_format).</b></p></div>
+  </section>
+  <section>
+    <h2>Role in the pipeline</h2>
+    <div class="card"><p style="margin:0">Flagship reasoning. Lost the draft battle: 32k cap + ~97s latency on the bias-variance draft. 32k context (smallest of the Qwen tier).</p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

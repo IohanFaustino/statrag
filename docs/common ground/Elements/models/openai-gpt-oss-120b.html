@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — GPT-OSS 120B</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">GPT-OSS 120B</span> <span class="pill" style="border-color:#F55036;color:#F55036">Groq</span></h1>
+  <div class="sub">Open-weight flagship</div>
+</header>
+<main>
+  <section>
+    <h2>Identity &amp; routing</h2>
+    <table>
+      <tr><th>Model id</th><td><code>openai/gpt-oss-120b</code></td></tr>
+      <tr><th>Provider</th><td>Groq</td></tr>
+      <tr><th>Client</th><td><code>GroqChat</code></td></tr>
+      <tr><th>Routing rule</th><td>id ∈ GROQ_MODEL_IDS (membership avoids the openai/ prefix collision)</td></tr>
+      <tr><th>Context window</th><td>128k</td></tr>
+      <tr><th>Speed</th><td>fast</td></tr>
+      <tr><th>Cost tier</th><td>$$</td></tr>
+    </table>
+    <p class="caption">Registry: <code>src/services/chat/llm/router.py</code> · routing: <code>get_llm()</code> router.py:253-261.</p>
+  </section>
+  <section>
+    <h2>Pricing <span class="pill">USD / 1M tokens</span></h2>
+    <table>
+      <tr><th>Input</th><th>Output</th></tr>
+      <tr><td>$0.15</td><td>$0.75</td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/cost.py</code> PRICE_PER_1M (conservative estimates).</p>
+  </section>
+  <section>
+    <h2>Tutor draft path</h2>
+    <div class="card"><p style="margin:0"><b>Native JSON (OpenAI-compatible response_format).</b></p></div>
+  </section>
+  <section>
+    <h2>Role in the pipeline</h2>
+    <div class="card"><p style="margin:0">Open-weight flagship hosted on Groq. The openai/ prefix collides with OpenAI ids — routed by explicit membership, not prefix. Chat-only.</p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

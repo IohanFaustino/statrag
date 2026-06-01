@@ -7,23 +7,17 @@
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
-<body>
+<body data-base="">
 <header>
   <h1>statrag — <span class="accent">Verification</span></h1>
   <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
 </header>
-<nav class="top">
-  <a href="index.html">Overview</a>
-  <a href="ingestion.html">Ingestion</a>
-  <a href="retrieval.html">Retrieval</a>
-  <a href="chat.html">Chat &amp; deep-tutor</a>
-  <a href="report.html" class="active">Verification</a>
-</nav>
+<aside id="side" class="side"></aside>
 <main>
 <section>
   <h2>Headline</h2>
-  <div class="verdict v-ok"><b>Rebuilt 2026-06-01 from code inspection.</b> The prior single-page index.html (§1–§17, a dated change-log) was replaced by four current-state pages (Overview / Ingestion / Retrieval / Chat &amp; deep-tutor) + this audit. Every claim below was traced to a source file; drift rows mark where the old docs or modal card were wrong.</div>
-  <p>Matrix: <b>64</b> claims — <span class="yes">62 verified</span>, <span class="warn">4 drift</span>, <span class="no">1 removed</span>.</p>
+  <div class="verdict v-ok"><b>Rebuilt 2026-06-01 from code inspection.</b> The prior single-page index.html (§1–§17, a dated change-log) was replaced by four current-state pages (Overview / Ingestion / Retrieval / Chat &amp; deep-tutor), a 16-model section (one page per model), and this audit. Every claim below was traced to a source file; drift rows mark where the old docs or modal card were wrong.</div>
+  <p>Matrix: <b>69</b> claims — <span class="yes">65 verified</span>, <span class="warn">4 drift</span>, <span class="no">0 removed</span>.</p>
 </section>
 <section>
   <h2>Verification matrix</h2>
@@ -98,6 +92,11 @@
     <tr><td>Chat</td><td>tutorPipeline.ts node list matches backend stages (input, expansion, retrieval, rerank, diversity, coverage, image_judge, plan, drafting, draft, vision_explain, output — 12 nodes)</td><td><code>web/src/data/tutorPipeline.ts:29-155</code></td><td class="yes">verified (with above drift noted)</td></tr>
     <tr><td>Chat</td><td>Coverage check is skipped for simple questions (perspectives &lt;= 1 AND fewer than 4 facets AND no formula facet) — adaptive routing gate</td><td><code>src/services/chat/agents/deep_tutor.py:2289-2294</code></td><td class="yes">verified</td></tr>
     <tr><td>Chat</td><td>Synthesis plan also skipped for simple-tier questions (TUTOR_ADAPTIVE_ROUTING=1, perspectives &lt;= 1)</td><td><code>src/services/chat/agents/deep_tutor.py:2316-2317</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>16 models across 5 providers (OpenAI 4 · DeepSeek 3 · Groq 4 · Google 2 · Alibaba 3)</td><td><code>src/services/chat/llm/router.py:35-204</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>Per-model USD/1M prices (in/out) shown on each model page</td><td><code>src/services/chat/cost.py:15-37</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>Routing: deepseek→prefix, groq→GROQ_MODEL_IDS membership, gemini/qwen→prefix, else→OpenAI</td><td><code>src/services/chat/llm/router.py:253-261</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>Draft default = qwen-plus via TUTOR_DRAFT_MODEL (.env); code fallback = openai full</td><td><code>deep_tutor.py:787</code>, <code>changelog.md:26-39</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>web modelMeta.ts lists only 7 models (missing all Groq/Google/Alibaba) — frontend "About model" modal is stale vs the 16-model registry</td><td><code>web/src/data/modelMeta.ts:31-130</code></td><td class="warn">drift</td></tr>
     <!-- ROWS APPENDED PER TASK -->
   </table>
   <p class="caption">Verdict legend: <span class="yes">verified</span> = matches code · <span class="warn">drift</span> = prior doc was wrong, corrected here · <span class="no">removed</span> = prior doc claimed something no longer in code.</p>
@@ -116,5 +115,6 @@
     }
   })();
 </script>
+<script src="sidebar.js"></script>
 </body>
 </html>
