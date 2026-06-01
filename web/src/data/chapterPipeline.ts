@@ -3,7 +3,7 @@
 // Both modes share this diagram; only node-label copy verbosity differs.
 
 export interface ChapterNode {
-  id: "parse" | "fetch" | "resolve" | "map" | "stitch" | "ground" | "clarify";
+  id: "parse" | "fetch" | "resolve" | "map" | "stitch" | "ground" | "clarify" | "retrieve" | "teach" | "verify";
   label: string;
   desc: string;
   kind: "llm" | "data";
@@ -74,5 +74,69 @@ export const CHAPTER_PIPELINE: { nodes: ChapterNode[]; edges: ChapterEdge[] } = 
     { from: "resolve", to: "map" },
     { from: "map", to: "stitch" },
     { from: "stitch", to: "ground" },
+  ],
+};
+
+/** Separate pipeline for the facilitate modal — concept map + plain-language
+ *  teach with same-author sub-retrieval. Resume keeps CHAPTER_PIPELINE. */
+export const FACILITATE_PIPELINE: { nodes: ChapterNode[]; edges: ChapterEdge[] } = {
+  nodes: [
+    {
+      id: "parse",
+      label: "Parse + resolve scope",
+      desc: "Matches your request to a known book (fuzzy title/author), normalises the chapter, and expands section ranges.",
+      kind: "llm",
+      defaultModel: "gpt-5.4-nano-2026-03-17",
+    },
+    {
+      id: "fetch",
+      label: "Fetch chapter",
+      desc: "Pulls the chapter's sections from Qdrant in reading order (by page). No search — structural fetch.",
+      kind: "data",
+      defaultModel: "qdrant scroll (book + chapter filter)",
+    },
+    {
+      id: "map",
+      label: "Concept map",
+      desc: "For each section: extract the top key points and the key concepts/theorems/formulas, flagging which are defined here vs only referenced.",
+      kind: "llm",
+      defaultModel: "gpt-5.4-nano-2026-03-17",
+    },
+    {
+      id: "retrieve",
+      label: "Concept sub-retrieval",
+      desc: "For each referenced concept, fetch a short explanation — preferring the same author and the nearest prior section (formal statements), falling back to other authors only if needed.",
+      kind: "data",
+      defaultModel: "hybrid search + rerank (same-author first)",
+    },
+    {
+      id: "teach",
+      label: "Simplify + key points",
+      desc: "Rewrite each section in plain language as short paragraphs and bullet key points (not an expansion); insert clickable [[concept]] anchors.",
+      kind: "llm",
+      defaultModel: "qwen-plus",
+    },
+    {
+      id: "verify",
+      label: "Verify grounding",
+      desc: "Audits the rewritten body against the sources and sets the grounding badge. Advisory — never blocks the output.",
+      kind: "llm",
+      defaultModel: "gpt-5.4-nano-2026-03-17",
+    },
+    {
+      id: "clarify",
+      label: "Clarify (if ambiguous)",
+      desc: "If the book is unknown/ambiguous or the chapter doesn't exist, the run stops and asks you to pick. A confident match skips this.",
+      kind: "data",
+      defaultModel: "—",
+    },
+  ],
+  edges: [
+    { from: "parse", to: "fetch" },
+    { from: "parse", to: "clarify" },
+    { from: "fetch", to: "map" },
+    { from: "map", to: "retrieve" },
+    { from: "retrieve", to: "teach" },
+    { from: "teach", to: "verify" },
   ],
 };

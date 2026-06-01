@@ -13,8 +13,8 @@ interface ChapterFacilitateModalProps {
   onClose(): void;
 }
 
-// Chapter pipeline stages whose models are user-overridable.
-const CHAPTER_STAGES = ["parse", "resolve", "map", "stitch", "ground"] as const;
+// Facilitate pipeline stages whose models are user-overridable (LLM nodes only).
+const CHAPTER_STAGES = ["parse", "map", "teach", "verify"] as const;
 
 export default function ChapterFacilitateModal({
   open,
@@ -37,10 +37,9 @@ export default function ChapterFacilitateModal({
     setDraft((prev) => ({
       ...prev,
       parse: recommendedModel,
-      resolve: recommendedModel,
       map: recommendedModel,
-      stitch: recommendedModel,
-      ground: recommendedModel,
+      teach: recommendedModel,
+      verify: recommendedModel,
     }));
 
   const dirty = CHAPTER_STAGES.some((s) => draft[s] !== stageModels[s]);

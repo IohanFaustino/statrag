@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CHAPTER_PIPELINE } from "./chapterPipeline";
+import { CHAPTER_PIPELINE, FACILITATE_PIPELINE } from "./chapterPipeline";
 
 describe("CHAPTER_PIPELINE", () => {
   it("has the main pipeline nodes in order ending at ground", () => {
@@ -33,4 +33,15 @@ describe("CHAPTER_PIPELINE", () => {
     expect(clarify).toBeTruthy();
     expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "parse", to: "clarify" });
   });
+});
+
+it("facilitate pipeline has map, retrieve, teach, verify nodes", () => {
+  const ids = FACILITATE_PIPELINE.nodes.map((n) => n.id);
+  expect(ids).toEqual(expect.arrayContaining(["parse", "fetch", "map", "retrieve", "teach", "verify"]));
+});
+
+it("facilitate retrieve node is a data node about same-author sub-retrieval", () => {
+  const r = FACILITATE_PIPELINE.nodes.find((n) => n.id === "retrieve")!;
+  expect(r.kind).toBe("data");
+  expect(r.desc.toLowerCase()).toContain("author");
 });
