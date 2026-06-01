@@ -172,7 +172,10 @@ export default function ModelPicker({ activeModel, providers, onChange }: ModelP
                           }}
                         >
                           <div className="mp-item__l">
-                            <div className="mp-item__name">{m.name}</div>
+                            <div className="mp-item__name">
+                              {m.name}
+                              {m.recommended && <span className="mp-row__rec" title="System-recommended">★</span>}
+                            </div>
                             <div className="mp-item__tag">{m.tagline}</div>
                           </div>
                           <div className="mp-item__r">

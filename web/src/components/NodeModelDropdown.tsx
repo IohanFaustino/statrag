@@ -234,6 +234,7 @@ export default function NodeModelDropdown({ value, providers, onChange, leadingO
                     onClick={() => { onChange(m.id); setOpen(false); }}
                   >
                     <span className="node-dd__row-name">{m.name}</span>
+                    {m.recommended && <span className="node-dd__rec" title="System-recommended">★</span>}
                     {active && (
                       <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="m3 8 4 4 6-8" />
