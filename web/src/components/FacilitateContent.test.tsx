@@ -181,3 +181,40 @@ describe("FacilitateContent — math rendering", () => {
     expect(screen.queryByText(/\\\(y\\\)/)).toBeNull();
   });
 });
+
+// ─── Blockquote rendering with concept anchors ──────────────────────────────
+
+describe("FacilitateContent — blockquote with concept anchors", () => {
+  it("renders a <blockquote> containing a clickable concept anchor and math, not raw [[cN]]", () => {
+    const c1 = makeConcept("c1", "limit of a sequence");
+    const onPick = vi.fn();
+    const { container } = render(
+      <FacilitateContent
+        text={"> **Def.** [[c1]] is the limit $a$ here."}
+        concepts={[c1]}
+        onPick={onPick}
+      />,
+    );
+
+    // Must emit a <blockquote> element
+    const bq = container.querySelector("blockquote");
+    expect(bq).not.toBeNull();
+
+    // Raw literal [[c1]] must NOT appear anywhere in the blockquote text
+    expect(bq!.textContent).not.toContain("[[c1]]");
+
+    // A button with the concept term as accessible name must be present
+    const btn = screen.getByRole("button", { name: "limit of a sequence" });
+    expect(btn).toBeInTheDocument();
+    // The button must be inside the blockquote
+    expect(bq!.contains(btn)).toBe(true);
+
+    // Clicking the button calls onPick with the correct anchor
+    fireEvent.click(btn);
+    expect(onPick).toHaveBeenCalledWith(c1);
+
+    // The $a$ math inside the blockquote must be rendered by KaTeX (no raw "$a$")
+    expect(bq!.textContent).not.toContain("$a$");
+    expect(bq!.querySelector(".katex")).not.toBeNull();
+  });
+});
