@@ -117,7 +117,9 @@ OUTPUT FORMAT — return ONLY a JSON object:
   "concepts": array of {"term","kind","status"}; kind in
       "concept"|"theorem"|"formula"; status "explained" (defined in THIS section)
       or "referenced" (named but assumed/not defined here). Mark a formula as a
-      concept ONLY when it has derivation steps behind it. At most 5 concepts.
+      concept ONLY when it has real derivation steps worth its own modal — NOT
+      the section's central definition formula (it already appears in the
+      definition) and NOT a bare inline expression. At most 5 concepts.
 RULES: English only — never copy garbled or non-English/OCR characters. For any
 math use $...$ (inline) or $$...$$ (display); never \\( \\) or \\[ \\]. Do not invent terms.
   Merge near-duplicate concepts into ONE (do not list a concept and its mere notation, or a term and its restatement, separately).
@@ -160,7 +162,12 @@ CONCEPT ANCHORS (important — this is how the reader opens concept explanations
   - Every concept id you are given MUST appear exactly once as its [[cN]] marker in the
     PROSE (not in the definition blockquote), at the concept's first mention.
   - Write the marker [[cN]] IN PLACE OF the term word (the app renders it as the clickable
-    term). Do NOT also write the term word next to the marker.
+    term). Do NOT also write the term word — or, for a formula concept, its formula —
+    next to the marker.
+  - FORMULA concepts: the [[cN]] marker is the formula's ONLY appearance — the pill shows
+    the formula and opens its steps. NEVER also write that same formula as inline $…$ math.
+    A formula must never appear twice (once as math and once as a pill), and a formula and
+    its anchor must never sit adjacent.
 OUTPUT FORMAT (markdown body only):
   - Prose paragraphs separated by blank lines. Use a "- " bullet list ONLY for a genuine
     enumeration of sibling items; NEVER bullet single ideas, transitions, or one concept.
