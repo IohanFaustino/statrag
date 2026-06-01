@@ -382,6 +382,18 @@ export default function App() {
     );
   }, []);
 
+  // Handle clarify card pick: select only the chosen book and re-send scoped message
+  const handleClarifyPick = useCallback(
+    (slug: string, chapter: string, sections: string[]) => {
+      setBooks((prev) => prev.map((b) => ({ ...b, selected: b.id === slug })));
+      const chapText = chapter ? ` ${chapter}` : "";
+      const secText = sections.length ? ` sections ${sections.join(", ")}` : "";
+      const text = `${activeMode}${chapText}${secText}`.trim();
+      handleSend(text);
+    },
+    [setBooks, activeMode, handleSend],
+  );
+
   // Fork to temp chat
   const handleFork = useCallback((idx: number) => {
     setTempSeed(idx);
@@ -674,6 +686,7 @@ export default function App() {
               thread={messages}
               conversationLoaded={!!conversationId}
               bubble={tweaks.userStyle === "bubble"}
+              onClarifyPick={handleClarifyPick}
               onSourceClick={(chip) => {
                 // Chip section is "chapter §section" concatenated (per orchestrator);
                 // Source has chapter + section separate. Match by trying both.
