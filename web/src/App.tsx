@@ -20,6 +20,7 @@ import ChapterResumeModal from "./components/modals/ChapterResumeModal";
 import type { StageKey } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
+import { RECOMMENDED_MODEL_ID, recommendedModelId } from "./data/recommended";
 import { conversationToMarkdown, assistantMessageToMarkdown, slugify, downloadBlob } from "./lib/exportMarkdown";
 import { buildZipBlob } from "./lib/exportZip";
 
@@ -172,7 +173,7 @@ export default function App() {
   // Active mode / model — persisted across sessions so tutor configuration
   // survives a backend restart or a browser reload.
   const [activeMode, setActiveMode] = usePersistentState<string>("statrag.activeMode", "tutor");
-  const [activeModel, setActiveModel] = usePersistentState<string>("statrag.activeModel", "gpt-4o");
+  const [activeModel, setActiveModel] = usePersistentState<string>("statrag.activeModel", RECOMMENDED_MODEL_ID);
 
   // About-model modal (ephemeral) + per-stage model overrides (persisted).
   const [aboutModelId, setAboutModelId] = useState<string | null>(null);
@@ -196,6 +197,9 @@ export default function App() {
     "statrag.tutorWorkflow",
     "single",
   );
+
+  // Derive recommended model id from the live registry (used by modals in Task 4).
+  const recommendedModel = recommendedModelId(providers);
 
   // Derive bookFilter from selected books
   const selectedBooks = books.filter((b) => b.selected && b.indexed !== false);
@@ -330,7 +334,8 @@ export default function App() {
           // Set default model to first model of first provider if current is unknown
           const allIds = data.flatMap((p) => p.models.map((m) => m.id));
           if (!allIds.includes(activeModel) && allIds.length > 0) {
-            setActiveModel(allIds[0]);
+            const rec = recommendedModelId(data);
+            setActiveModel(allIds.includes(rec) ? rec : allIds[0]);
           }
         }
       })

@@ -65,6 +65,7 @@ export interface RetrievalMetadata {
 export interface Model {
   id: string; name: string; tagline: string;
   cost: string; speed: string; ctx: string;
+  recommended?: boolean;
 }
 
 export interface ModelProvider {
