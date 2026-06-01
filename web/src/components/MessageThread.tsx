@@ -1,10 +1,11 @@
 import React from "react";
-import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, ChapterDigest, ClarifyData } from "../types";
+import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, ChapterDigest, ClarifyData, FacilitateDigest } from "../types";
 import { MathBlock, MathInline } from "./Math";
 import { normalizeMathDelimiters } from "./views/TutorView";
 import TutorView from "./views/TutorView";
 import QAAnswerCard from "./QAAnswerCard";
 import ChapterDigestCard from "./ChapterDigestCard";
+import FacilitateDigestCard from "./FacilitateDigestCard";
 import ClarifyCard from "./ClarifyCard";
 import { IconBook, IconDownload } from "./Icons";
 
@@ -347,6 +348,9 @@ function AssistantMessageView({
             )}
             {msg.structuredOutput.schema === "ChapterDigest" && (
               <ChapterDigestCard digest={msg.structuredOutput.data as ChapterDigest} />
+            )}
+            {msg.structuredOutput.schema === "FacilitateDigest" && (
+              <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
             )}
             {msg.structuredOutput.schema === "Clarify" && (
               <ClarifyCard
