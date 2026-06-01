@@ -8,20 +8,35 @@ interface QAPipelineDiagramProps {
   onStageModelChange(stage: string, modelId: string): void;
 }
 
-const QA_NODES: FlowNode[] = QA_PIPELINE.nodes.map((n) => ({
-  id: n.id, label: n.label, desc: n.desc, kind: n.kind, defaultModel: n.defaultModel,
-}));
+// Exclude the terminal clarify branch from the linear chain.
+const QA_NODES: FlowNode[] = QA_PIPELINE.nodes
+  .filter((n) => n.id !== "clarify")
+  .map((n) => ({
+    id: n.id, label: n.label, desc: n.desc, kind: n.kind, defaultModel: n.defaultModel,
+  }));
 
-/** Editable Q&A pipeline graph for the mode's (i) modal. */
+const CLARIFY_NODE = QA_PIPELINE.nodes.find((n) => n.id === "clarify");
+
+/** Editable Q&A pipeline graph for the mode's (i) modal.
+ *  The `clarify` node is a terminal side-branch (scope → clarify on ambiguity)
+ *  and is rendered as a footnote rather than in the linear chain. */
 export default function QAPipelineDiagram({ providers, stageModels, onStageModelChange }: QAPipelineDiagramProps) {
   return (
-    <FlowDiagram
-      nodes={QA_NODES}
-      inputLabel="Question"
-      outputLabel="Answer"
-      providers={providers}
-      stageModels={stageModels}
-      onStageModelChange={onStageModelChange}
-    />
+    <div>
+      <FlowDiagram
+        nodes={QA_NODES}
+        inputLabel="Question"
+        outputLabel="Answer"
+        providers={providers}
+        stageModels={stageModels}
+        onStageModelChange={onStageModelChange}
+      />
+      {CLARIFY_NODE && (
+        <div className="flow__branch-note" data-node="clarify">
+          <span className="flow__branch-label">⤷ {CLARIFY_NODE.label}:</span>{" "}
+          <span className="flow__branch-desc">{CLARIFY_NODE.desc}</span>
+        </div>
+      )}
+    </div>
   );
 }

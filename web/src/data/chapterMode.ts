@@ -8,7 +8,7 @@ export const FACILITATE_MODE = {
   features: [
     { label: "Structural fetch", detail: "Pulls the chapter's sections from Qdrant by book+chapter filter, ordered by page — not by relevance." },
     { label: "Reading-order preserved", detail: "Sections are never reordered; the digest follows the chapter's own sequence." },
-    { label: "Subtopic resolve", detail: "Maps the subtopics you named to the chapter's real headings (closest-match + confirm); empty = whole chapter." },
+    { label: "Subtopic resolve", detail: "Matches your book/chapter/sections even when named loosely; asks you to confirm only if it's ambiguous." },
     { label: "Teach each section", detail: "Per-section didactic pass with a running context so ideas connect across sections." },
     { label: "Grounded + stitched", detail: "Adds a short intro/outro and audits the digest against the sources." },
     { label: "Configurable pipeline", detail: "Swap the model used at each LLM stage in the diagram below." },
@@ -23,7 +23,7 @@ export const RESUME_MODE = {
   features: [
     { label: "Structural fetch", detail: "Pulls the chapter's sections from Qdrant by book+chapter filter, ordered by page — not by relevance." },
     { label: "Reading-order preserved", detail: "Sections are never reordered; the recap follows the chapter's own sequence." },
-    { label: "Subtopic resolve", detail: "Maps the subtopics you named to the chapter's real headings (closest-match + confirm); empty = whole chapter." },
+    { label: "Subtopic resolve", detail: "Matches your book/chapter/sections even when named loosely; asks you to confirm only if it's ambiguous." },
     { label: "Compress each section", detail: "Per-section compact pass keeping the key result of each part." },
     { label: "Grounded + stitched", detail: "Adds a short intro/outro and audits the recap against the sources." },
     { label: "Configurable pipeline", detail: "Swap the model used at each LLM stage in the diagram below." },
