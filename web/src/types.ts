@@ -2,7 +2,7 @@
 
 export type ModeId = "tutor" | "qa" | "facilitate" | "resume";
 
-export type ProviderId = "openai" | "deepseek" | "groq";
+export type ProviderId = "openai" | "deepseek" | "groq" | "google" | "alibaba";
 
 export interface Book {
   id: string;
