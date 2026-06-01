@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 
 from src.core.config import settings
@@ -122,3 +123,49 @@ async def resolve_book(
     except Exception:  # noqa: BLE001
         logger.exception("_scope.resolve_book failed; fail-open")
         return fallback
+
+
+# ---------------------------------------------------------------------------
+# Confirm gate
+# ---------------------------------------------------------------------------
+
+_BOOK_CONFIRM_CUTOFF = float(os.environ.get("BOOK_CONFIRM_CUTOFF", "0.6"))
+
+
+def _candidate_records(slugs: list[str], catalog: list[CatalogBook]) -> list[dict]:
+    by = {c.slug: c for c in catalog}
+    out = []
+    for s in slugs:
+        c = by.get(s)
+        if c:
+            out.append({"slug": c.slug, "name": c.name,
+                        "authors_short": c.authors_short, "chapters": c.chapters})
+    return out
+
+
+def maybe_clarify(res: BookResolution, catalog: list[CatalogBook]) -> dict | None:
+    """Return a clarify event dict, or None to proceed. Ambiguity/miss only."""
+    by = {c.slug: c for c in catalog}
+    reason = ""
+    cand_slugs = res.book_candidates or ([res.book_slug] if res.book_slug else [])
+    if not res.book_slug:
+        reason = "book_ambiguous" if len(cand_slugs) >= 2 else "book_unknown"
+    elif res.book_confidence < _BOOK_CONFIRM_CUTOFF:
+        reason = "book_ambiguous"
+    elif len([s for s in cand_slugs if s != res.book_slug]) >= 1 and len(cand_slugs) >= 2:
+        reason = "book_ambiguous"
+    elif res.chapter_id and res.book_slug in by and res.chapter_id not in by[res.book_slug].chapters:
+        reason = "chapter_missing"
+    if not reason:
+        return None
+    msg = {
+        "book_unknown": "I couldn't match that to a book I have. Pick one of these:",
+        "book_ambiguous": "I'm not sure which book you mean. Did you mean one of these?",
+        "chapter_missing": "That book doesn't have that chapter. Pick a chapter:",
+    }[reason]
+    cands = _candidate_records(cand_slugs or [c.slug for c in catalog], catalog)
+    return {
+        "type": "clarify", "reason": reason, "message": msg,
+        "candidates": cands, "chapter_guess": res.chapter_id,
+        "sections_guess": res.requested_subtopics,
+    }
