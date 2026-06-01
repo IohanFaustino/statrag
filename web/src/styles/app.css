@@ -2561,6 +2561,14 @@ select:focus-visible {
 /* allow the node's custom dropdown toggle to render without clipping */
 .pipe2__node { overflow: visible; }
 
+/* ─── Flow diagram (linear pipeline for qa / chapter mode modals) ─────── */
+.flow { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 320px; margin: 16px auto 0; }
+.flow__node { width: 100%; }
+.flow__seg { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.flow__arrow { display: flex; justify-content: center; line-height: 0; margin: 1px 0; }
+.pipe2__node-desc { font-size: 0.74rem; color: var(--text-tertiary, #9aa1aa); line-height: 1.45; }
+.pipe2__badge--data { color: var(--text-tertiary, #9aa1aa); border-color: var(--text-tertiary, #9aa1aa); }
+
 /* ─── Node model dropdown (replicates chatbox model picker) ───────────── */
 .node-dd__toggle {
   display: flex; align-items: center; gap: 5px; width: 100%;
