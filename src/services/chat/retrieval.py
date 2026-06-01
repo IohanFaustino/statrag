@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
 
@@ -756,6 +757,98 @@ def search_figures_with_scores(
 
     pairs.sort(key=lambda t: t[1], reverse=True)
     return pairs[:k]
+
+
+# ---------------------------------------------------------------------------
+# fetch_concept_support — adaptive same-author-first concept retrieval
+# ---------------------------------------------------------------------------
+
+_FORMAL_CUES = ("definition", "theorem", "assumption", "lemma", "proposition", "corollary")
+
+
+@dataclass
+class ConceptSupport:
+    chunk_id: str
+    section: str
+    book_slug: str
+    book_name: str
+    authors_short: str
+    page_from: int
+    page_to: int
+    text: str
+    same_author: bool
+    fallback: bool
+
+
+def _section_order_in_book(book_slug: str) -> dict[str, int]:
+    """Map section_id -> ordinal within a book (page_from then id). Cheap scroll."""
+    order: dict[str, int] = {}
+    try:
+        for collection in collections_for_books([book_slug]):
+            pts, _ = client().scroll(
+                collection_name=collection,
+                scroll_filter=Filter(must=[FieldCondition(key="book_slug", match=MatchAny(any=[book_slug]))]),
+                limit=2000, with_payload=True,
+            )
+            ranked = sorted(
+                pts, key=lambda p: (_safe_int((p.payload or {}).get("page_from")) or 10**9, str(p.id)))
+            for i, p in enumerate(ranked):
+                order[str(p.id)] = i
+    except Exception:  # noqa: BLE001
+        logger.exception("_section_order_in_book failed for %r", book_slug)
+    return order
+
+
+def _formal_boost(text: str) -> float:
+    low = (text or "").lower()
+    return 0.15 if any(cue in low for cue in _FORMAL_CUES) else 0.0
+
+
+def _best_support(candidates, *, order, before_section_id, min_score, formal_pref):
+    cur = order.get(before_section_id, 10**9)
+    scored = []
+    for s in candidates:
+        sc = float(s.score or 0.0)
+        if formal_pref:
+            sc += _formal_boost(s.chunk or s.excerpt or "")
+        prior = order.get(s.chunkId, 10**9) < cur
+        scored.append((prior, sc, s))
+    # prior-section candidates first, then by boosted score desc
+    scored.sort(key=lambda t: (not t[0], -t[1]))
+    for _prior, sc, s in scored:
+        if sc >= min_score:
+            return s
+    return None
+
+
+def fetch_concept_support(
+    term: str,
+    *,
+    book_slug: str,
+    before_section_id: str,
+    min_score: float = 0.30,
+    formal_pref: bool = True,
+) -> "ConceptSupport | None":
+    """Adaptive same-author(prior-section-preferred) -> other-author support."""
+    order = _section_order_in_book(book_slug)
+    same, _ = hybrid_search(term, book_slugs=[book_slug], rerank=True, rerank_top_n=8)
+    hit = _best_support(same, order=order, before_section_id=before_section_id,
+                        min_score=min_score, formal_pref=formal_pref)
+    same_author = True
+    if hit is None:
+        other, _ = hybrid_search(term, book_slugs=None, rerank=True, rerank_top_n=8)
+        other = [s for s in other if s.book != book_slug]
+        hit = _best_support(other, order={}, before_section_id=before_section_id,
+                            min_score=min_score, formal_pref=formal_pref)
+        same_author = False
+    if hit is None:
+        return None
+    return ConceptSupport(
+        chunk_id=hit.chunkId, section=hit.section or hit.title, book_slug=hit.book,
+        book_name=hit.book_name or hit.book, authors_short=hit.authors_short or "",
+        page_from=hit.page_from if hit.page_from is not None else -1,
+        page_to=hit.page_to if hit.page_to is not None else -1,
+        text=(hit.chunk or hit.excerpt or ""), same_author=same_author, fallback=False)
 
 
 # ---------------------------------------------------------------------------
