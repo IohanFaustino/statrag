@@ -210,3 +210,152 @@
     transition-duration: 0ms !important;
   }
 }
+
+/* ── Facilitate: key-points list ────────────────────────────────── */
+.facilitate-keypoints {
+  margin: 8px 0;
+  padding-left: 1.1em;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.facilitate-keypoints li {
+  margin: 2px 0;
+}
+
+/* ── Concept anchors (inline pill buttons) ──────────────────────── */
+.concept-anchor {
+  display: inline;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  border-radius: 5px;
+  padding: 0 4px;
+  font: inherit;
+  cursor: pointer;
+  line-height: inherit;
+  text-decoration: none;
+}
+.concept-anchor:hover {
+  text-decoration: underline;
+  background: var(--bg-secondary);
+}
+.concept-anchor:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* Kind tints */
+.concept-anchor--concept {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.concept-anchor--theorem {
+  color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+}
+.concept-anchor--formula {
+  color: var(--accent-tertiary);
+  border-color: var(--accent-tertiary);
+}
+
+/* ── Concept modal ──────────────────────────────────────────────── */
+.concept-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.concept-modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--shadow-elev);
+  padding: 18px 20px;
+}
+
+.concept-modal__hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.concept-modal__kind {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.concept-modal__kind--concept {
+  color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+}
+.concept-modal__kind--theorem {
+  color: var(--accent-secondary);
+  border: 1px solid var(--accent-secondary);
+}
+.concept-modal__kind--formula {
+  color: var(--accent-tertiary);
+  border: 1px solid var(--accent-tertiary);
+}
+
+.concept-modal__term {
+  font-family: var(--font-serif);
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.concept-modal__close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.concept-modal__close:hover {
+  color: var(--text-primary);
+}
+
+.concept-modal__body {
+  font-family: var(--font-serif);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.concept-modal__prov {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.concept-modal__note {
+  color: var(--accent-secondary);
+}
+
+/* No transitions on these new classes; respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .concept-anchor,
+  .concept-modal,
+  .concept-modal__overlay {
+    transition: none !important;
+  }
+}
