@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import type { ConceptAnchor } from "../types";
-import { MathBlock } from "./Math";
+import FacilitateContent from "./FacilitateContent";
 
 interface Props { anchor: ConceptAnchor; onClose: () => void; }
 
@@ -13,7 +13,6 @@ export default function ConceptModal({ anchor, onClose }: Props) {
   const p = anchor.provenance;
   const prov = [p.authors_short, p.section, p.page_from > 0 ? `p. ${p.page_from}` : ""]
     .filter(Boolean).join(" · ");
-  const isFormula = anchor.kind === "formula" && anchor.explanation.includes("$");
   return (
     <div className="concept-modal__overlay" data-testid="concept-modal-overlay" onClick={onClose}>
       <div className="concept-modal" role="dialog" aria-label={anchor.term}
@@ -24,7 +23,7 @@ export default function ConceptModal({ anchor, onClose }: Props) {
           <button className="concept-modal__close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <div className="concept-modal__body">
-          {isFormula ? <MathBlock tex={anchor.explanation} /> : <p>{anchor.explanation}</p>}
+          <FacilitateContent text={anchor.explanation} />
         </div>
         {prov && (
           <p className="concept-modal__prov">

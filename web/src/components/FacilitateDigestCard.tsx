@@ -1,43 +1,7 @@
-import React, { useState } from "react";
-import type { FacilitateDigest, ConceptAnchor, FacilitateBlock } from "../types";
+import { useState } from "react";
+import type { FacilitateDigest, ConceptAnchor } from "../types";
 import ConceptModal from "./ConceptModal";
-import { renderInlineWithCites } from "./views/TutorView";
-
-const ANCHOR_RE = /\[\[(c\d+)\]\]/g;
-const EMPTY_CITES = new Map();
-
-function renderBody(block: FacilitateBlock, onPick: (a: ConceptAnchor) => void) {
-  const byId = new Map(block.concepts.map((c) => [c.id, c]));
-  const out: React.ReactNode[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  ANCHOR_RE.lastIndex = 0;
-  while ((m = ANCHOR_RE.exec(block.body))) {
-    if (m.index > last) {
-      const segment = block.body.slice(last, m.index);
-      const nodes = renderInlineWithCites(segment, EMPTY_CITES, null, () => {});
-      for (const node of nodes) out.push(<React.Fragment key={`t${k++}`}>{node}</React.Fragment>);
-    }
-    const c = byId.get(m[1]);
-    if (c) {
-      out.push(
-        <button key={`a${k++}`} type="button"
-          className={`concept-anchor concept-anchor--${c.kind}`}
-          onClick={() => onPick(c)}>{c.term}</button>,
-      );
-    } else {
-      out.push(m[0]);
-    }
-    last = m.index + m[0].length;
-  }
-  if (last < block.body.length) {
-    const segment = block.body.slice(last);
-    const nodes = renderInlineWithCites(segment, EMPTY_CITES, null, () => {});
-    for (const node of nodes) out.push(<React.Fragment key={`t${k++}`}>{node}</React.Fragment>);
-  }
-  return out;
-}
+import FacilitateContent from "./FacilitateContent";
 
 export default function FacilitateDigestCard({ digest }: { digest: FacilitateDigest }) {
   const [active, setActive] = useState<ConceptAnchor | null>(null);
@@ -67,7 +31,7 @@ export default function FacilitateDigestCard({ digest }: { digest: FacilitateDig
                 {b.key_points.map((kp, j) => <li key={j}>{kp}</li>)}
               </ul>
             )}
-            <div className="chapter-block__body">{renderBody(b, setActive)}</div>
+            <div className="chapter-block__body"><FacilitateContent text={b.body} concepts={b.concepts} onPick={setActive} /></div>
           </section>
         ))}
       </div>
