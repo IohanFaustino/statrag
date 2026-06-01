@@ -84,15 +84,15 @@ async def test_run_facilitate_builds_digest_with_anchor(monkeypatch):
                                                  "Assumes a strong assumption of normality.")])
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
         sysmsg = messages[0]["content"]
-        if "overview of what these sections" in sysmsg:
+        if "orient a learner before they read" in sysmsg:
             return "We will cover Chebyshev's inequality and why it bounds tail probabilities."
-        if "analyse ONE textbook section" in sysmsg:
+        if "analyse one textbook section" in sysmsg:
             return '{"key_points":["pt"],"concepts":[{"term":"strong assumption of normality","kind":"concept","status":"referenced"}]}'
-        if "Explain the term" in sysmsg:
+        if "You explain one term" in sysmsg:
             return "It assumes the data are normally distributed."
-        if "Rewrite this section" in sysmsg:
+        if "makes a textbook section easy" in sysmsg:
             return "- pt\n\nWe rely on the strong assumption of normality [[c1]]."
-        if "Check the rewritten body" in sysmsg:
+        if "fact-check a rewritten section" in sysmsg:
             return '{"ok":true,"unsupported":[],"confidence":0.9}'
         return "{}"
     monkeypatch.setattr(fac, "_chat", fake_chat)
@@ -130,13 +130,13 @@ def _stub_run_facilitate(monkeypatch, map_return):
 
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
         sysmsg = messages[0]["content"]
-        if "analyse ONE textbook section" in sysmsg:
+        if "analyse one textbook section" in sysmsg:
             return map_return
-        if "Explain the term" in sysmsg:
+        if "You explain one term" in sysmsg:
             return "Explanation text."
-        if "Rewrite this section" in sysmsg:
+        if "makes a textbook section easy" in sysmsg:
             return "- pt\n\nBody [[c1]]."
-        if "Check the rewritten body" in sysmsg:
+        if "fact-check a rewritten section" in sysmsg:
             return '{"ok":true,"unsupported":[],"confidence":0.9}'
         return "{}"
     monkeypatch.setattr(fac, "_chat", fake_chat)
@@ -216,15 +216,15 @@ async def test_run_facilitate_sets_intro(monkeypatch):
 
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
         sysmsg = messages[0]["content"]
-        if "overview of what these sections" in sysmsg:
+        if "orient a learner before they read" in sysmsg:
             return _EXPECTED_INTRO
-        if "analyse ONE textbook section" in sysmsg:
+        if "analyse one textbook section" in sysmsg:
             return map_json
-        if "Explain the term" in sysmsg:
+        if "You explain one term" in sysmsg:
             return "Explanation text."
-        if "Rewrite this section" in sysmsg:
+        if "makes a textbook section easy" in sysmsg:
             return "- pt\n\nBody text."
-        if "Check the rewritten body" in sysmsg:
+        if "fact-check a rewritten section" in sysmsg:
             return '{"ok":true,"unsupported":[],"confidence":0.9}'
         return "{}"
     monkeypatch.setattr(fac, "_chat", fake_chat)

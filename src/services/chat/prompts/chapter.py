@@ -110,41 +110,54 @@ Return ONLY a JSON object:
 Do not rewrite the digest. Only report.
 """
 
-FACILITATE_MAP_PROMPT = """You analyse ONE textbook section for a learner.
-Return ONLY JSON:
-  "key_points": array of 3-6 short strings — the section's most important points.
-  "concepts": array of {"term","kind","status"} where kind is one of
-      "concept"|"theorem"|"formula" and status is "explained" (defined in THIS
-      section) or "referenced" (named but assumed/not defined here). Mark a
-      formula as a concept ONLY if it has derivation steps behind it.
-Pick at most 5 concepts, the ones most useful to understand. Do not invent terms.
+FACILITATE_MAP_PROMPT = """ROLE: You analyse one textbook section for a tutor.
+TASK: Identify the section's essential teaching content.
+OUTPUT FORMAT — return ONLY a JSON object:
+  "key_points": 3-6 short strings, the most important ideas (plain English).
+  "concepts": array of {"term","kind","status"}; kind in
+      "concept"|"theorem"|"formula"; status "explained" (defined in THIS section)
+      or "referenced" (named but assumed/not defined here). Mark a formula as a
+      concept ONLY when it has derivation steps behind it. At most 5 concepts.
+RULES: English only — never copy garbled or non-English/OCR characters. For any
+math use $...$ (inline) or $$...$$ (display); never \\( \\) or \\[ \\]. Do not invent terms.
 """
 
-FACILITATE_INTRO_PROMPT = """Write a 1-2 sentence overview of what these sections
-cover, for a learner about to read them. Plain language, no math, no lists.
-You are given the chapter and the ordered section headings. Return ONLY the text.
+FACILITATE_INTRO_PROMPT = """ROLE: You orient a learner before they read.
+TASK: In 1-2 sentences, say WHY these sections matter and what the reader will be
+able to do after reading — the motivation, not a summary of the contents.
+OUTPUT FORMAT: plain prose, English only, no math, no lists, no headings.
+You are given the chapter id and the ordered section headings. Return ONLY the text.
 """
 
-FACILITATE_EXPLAIN_PROMPT = """Explain the term in 1-3 plain sentences using ONLY
-the provided passage. No padding, no restating the question. If the term is a
-formula with steps, give the short derivation. For ALL math use $...$ inline and
-$$...$$ for display; NEVER use \\( \\) or \\[ \\]. Return ONLY the explanation text.
+FACILITATE_EXPLAIN_PROMPT = """ROLE: You explain one term to a learner.
+TASK: Explain the term in 1-3 plain sentences using ONLY the provided passage.
+If it is a formula with steps, give the short derivation.
+OUTPUT FORMAT: prose (a short bullet list only if the derivation has genuine
+sequential steps). English only — never copy garbled/non-English/OCR characters.
+For ALL math use $...$ inline and $$...$$ display; never \\( \\) or \\[ \\].
+No padding, no restating the question. Return ONLY the explanation text.
 """
 
-FACILITATE_TEACH_PROMPT = """Rewrite this section for a learner.
-Shape:
-- Start with ONE short lead sentence naming what this section is about.
-- Then a bullet list ("- ") of ONLY the key points, one idea per bullet.
-Rules:
-- SHORT, direct. Simpler language. Keep ONLY the key points. Do NOT lengthen.
-- Any extra/explanatory detail belongs in a concept anchor, NOT the body.
-- For ALL math use $...$ for inline and $$...$$ for display. NEVER use \\( \\) or \\[ \\].
-- Insert [[cN]] right after the term where each listed concept first appears
-  (use the ids given). Step-bearing formulas also get their [[cN]].
-Return ONLY markdown for the body.
+FACILITATE_TEACH_PROMPT = """ROLE: You are a tutor who makes a textbook section easy to understand. You facilitate; you do NOT dump information.
+TASK: Rewrite the section so a learner grasps it fast, in THIS order:
+  1) ONE sentence on why it matters / what it lets you do.
+  2) ONE or TWO sentences on what it is, in plain language.
+  3) Only the essential details. Push deeper detail into concept anchors, not the body.
+OUTPUT FORMAT (markdown body only):
+  - Prose by DEFAULT. Use a "- " bullet list ONLY for a genuine enumeration of
+    sibling items (e.g. a list of examples/conditions). NEVER bullet a single idea,
+    a definition, or a transition. Most sections need few or no bullets.
+  - Concept anchors: for each given concept id, write its marker [[cN]] IN PLACE OF
+    the term's first mention. Do NOT also write the term word — the app renders the
+    marker as the clickable term. (Writing the term AND the marker is wrong.)
+  - Math: $...$ inline, $$...$$ display. NEVER \\( \\) or \\[ \\].
+  - English only. Never copy garbled or non-English/OCR characters from the source.
+  - SHORTER than the source. No headings (the app adds the section heading).
+Return ONLY the markdown body.
 """
 
-FACILITATE_VERIFY_PROMPT = """Check the rewritten body against the section text.
-Return ONLY JSON {"ok": bool, "unsupported": [string], "confidence": 0..1}.
-ok=false if the body states something the section does not support.
+FACILITATE_VERIFY_PROMPT = """ROLE: You fact-check a rewritten section against its source.
+TASK: Decide whether the rewrite asserts anything the source does not support.
+OUTPUT FORMAT — return ONLY JSON: {"ok": bool, "unsupported": [string], "confidence": 0..1}.
+ok=false when the body states something the section text does not support.
 """
