@@ -86,6 +86,19 @@
   margin: 0.8em 0;
 }
 
+/* Definition box — blockquotes rendered from "> **Term.** …" in teach output */
+.chapter-card--facilitate .facilitate-content blockquote {
+  border-left: 3px solid var(--accent-primary);
+  background: var(--bg-tertiary);
+  padding: 10px 14px;
+  margin: 0.9em 0;
+  border-radius: 4px;
+  line-height: 1.55;
+}
+.chapter-card--facilitate .facilitate-content blockquote strong {
+  color: var(--accent-primary);
+}
+
 /* Resume variant: secondary accent stripe */
 .chapter-card--resume {
   border-left: 3px solid var(--accent-secondary);
@@ -335,13 +348,42 @@
 }
 
 .concept-modal {
-  background: var(--bg-elevated);
+  background: #000;
   border: 1px solid var(--border-default);
   border-radius: 10px;
   max-width: 460px;
   width: 100%;
   box-shadow: var(--shadow-elev);
   padding: 18px 20px;
+  /* Hard black bg — force light text regardless of theme */
+  color: #F2F2F4;
+}
+
+/* Force all body text inside the modal to light, theme-independent */
+.concept-modal,
+.concept-modal * {
+  color: #F2F2F4;
+}
+
+/* Restore kind-pill accent colors (overrides the wildcard above) */
+.concept-modal__kind--concept {
+  color: var(--accent-primary) !important;
+}
+.concept-modal__kind--theorem {
+  color: var(--accent-secondary) !important;
+}
+.concept-modal__kind--formula {
+  color: var(--accent-tertiary) !important;
+}
+
+/* Muted provenance line — still light, just dimmer */
+.concept-modal__prov {
+  color: #A8A8B0 !important;
+}
+
+/* Accent note keeps its highlight */
+.concept-modal__note {
+  color: var(--accent-secondary) !important;
 }
 
 .concept-modal__hd {
@@ -362,15 +404,12 @@
   flex-shrink: 0;
 }
 .concept-modal__kind--concept {
-  color: var(--accent-primary);
   background: var(--accent-primary-soft);
 }
 .concept-modal__kind--theorem {
-  color: var(--accent-secondary);
   border: 1px solid var(--accent-secondary);
 }
 .concept-modal__kind--formula {
-  color: var(--accent-tertiary);
   border: 1px solid var(--accent-tertiary);
 }
 
@@ -380,7 +419,6 @@
   font-weight: 600;
   margin: 0;
   flex: 1;
-  color: var(--text-primary);
 }
 
 .concept-modal__close {
@@ -390,30 +428,20 @@
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  color: var(--text-secondary);
   padding: 0 2px;
   flex-shrink: 0;
-}
-.concept-modal__close:hover {
-  color: var(--text-primary);
 }
 
 .concept-modal__body {
   font-family: var(--font-serif);
   line-height: 1.6;
-  color: var(--text-primary);
 }
 
 .concept-modal__prov {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-tertiary);
   margin-top: 12px;
   margin-bottom: 0;
-}
-
-.concept-modal__note {
-  color: var(--accent-secondary);
 }
 
 /* No transitions on these new classes; respect prefers-reduced-motion */
