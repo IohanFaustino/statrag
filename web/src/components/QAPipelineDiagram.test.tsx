@@ -5,33 +5,25 @@ import QAPipelineDiagram from "./QAPipelineDiagram";
 import type { ModelProvider } from "../types";
 
 const PROVIDERS: ModelProvider[] = [
-  {
-    id: "openai", name: "OpenAI", short: "OAI", color: "#10A37F",
-    models: [{ id: "gpt-4o", name: "GPT-4o", tagline: "x", cost: "$$$", speed: "fast", ctx: "128k" }],
-  },
+  { id: "openai", name: "OpenAI", short: "OAI", color: "#10A37F",
+    models: [{ id: "gpt-4o", name: "GPT-4o", tagline: "x", cost: "$$$", speed: "fast", ctx: "128k" }] },
 ];
 
 describe("QAPipelineDiagram", () => {
-  it("renders a swappable dropdown for each LLM node and a fixed label for the data node", () => {
+  it("renders io nodes and a dropdown per llm stage, fixed label for the data stage", () => {
     const html = renderToStaticMarkup(
-      <QAPipelineDiagram providers={PROVIDERS} stageModels={{}} onStageModelChange={() => {}} />,
-    );
-    // scope / generate / verify are llm → custom dropdown toggles
-    expect(html).toContain("node-dd__toggle");
+      <QAPipelineDiagram providers={PROVIDERS} stageModels={{}} onStageModelChange={() => {}} />);
+    expect(html).toContain("pipe2__node--io");
+    expect(html).toContain("Question");
+    expect(html).toContain("Answer");
+    expect(html).toContain("node-dd__toggle");                       // llm nodes
+    expect(html).toContain("pipe2__model-fixed");                    // retrieve (data)
+    expect(html).toContain("RRF + rerank");
     expect(html).not.toContain("<select");
-    // retrieve is a data node → fixed label, no dropdown for it
-    expect(html).toContain("qa-pipeline__node--data");
-    expect(html).toContain("text-embedding-3-large → RRF + rerank");
   });
-
-  it("reflects a stageModels override on the matching node", () => {
+  it("reflects a stageModels override", () => {
     const html = renderToStaticMarkup(
-      <QAPipelineDiagram
-        providers={PROVIDERS}
-        stageModels={{ generate: "gpt-4o" }}
-        onStageModelChange={() => {}}
-      />,
-    );
+      <QAPipelineDiagram providers={PROVIDERS} stageModels={{ generate: "gpt-4o" }} onStageModelChange={() => {}} />);
     expect(html).toContain("GPT-4o");
   });
 });

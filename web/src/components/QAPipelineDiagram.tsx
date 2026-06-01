@@ -1,5 +1,5 @@
 import { QA_PIPELINE } from "../data/qaPipeline";
-import NodeModelDropdown from "./NodeModelDropdown";
+import FlowDiagram, { type FlowNode } from "./FlowDiagram";
 import type { ModelProvider } from "../types";
 
 interface QAPipelineDiagramProps {
@@ -8,35 +8,20 @@ interface QAPipelineDiagramProps {
   onStageModelChange(stage: string, modelId: string): void;
 }
 
-/** Editable Q&A pipeline diagram for the mode's (i) modal. Each LLM node
- *  carries a per-stage model dropdown writing stageModels[node.id]. */
-export default function QAPipelineDiagram({
-  providers,
-  stageModels,
-  onStageModelChange,
-}: QAPipelineDiagramProps) {
+const QA_NODES: FlowNode[] = QA_PIPELINE.nodes.map((n) => ({
+  id: n.id, label: n.label, desc: n.desc, kind: n.kind, defaultModel: n.defaultModel,
+}));
+
+/** Editable Q&A pipeline graph for the mode's (i) modal. */
+export default function QAPipelineDiagram({ providers, stageModels, onStageModelChange }: QAPipelineDiagramProps) {
   return (
-    <div className="qa-pipeline">
-      <ol className="qa-pipeline__nodes">
-        {QA_PIPELINE.nodes.map((n) => {
-          const activeId = stageModels[n.id] ?? n.defaultModel;
-          return (
-            <li key={n.id} className={"qa-pipeline__node qa-pipeline__node--" + n.kind}>
-              <div className="qa-pipeline__label">{n.label}</div>
-              <div className="qa-pipeline__desc">{n.desc}</div>
-              {n.kind === "llm" ? (
-                <NodeModelDropdown
-                  value={activeId}
-                  providers={providers}
-                  onChange={(id) => onStageModelChange(n.id, id)}
-                />
-              ) : (
-                <div className="qa-pipeline__model">{n.defaultModel}</div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </div>
+    <FlowDiagram
+      nodes={QA_NODES}
+      inputLabel="Question"
+      outputLabel="Answer"
+      providers={providers}
+      stageModels={stageModels}
+      onStageModelChange={onStageModelChange}
+    />
   );
 }
