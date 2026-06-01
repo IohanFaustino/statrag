@@ -20,7 +20,177 @@
   <a href="report.html">Verification</a>
 </nav>
 <main>
-  <!-- PAGE BODY -->
+  <!-- ===== SECTION 1: Hybrid retrieval pipeline ===== -->
+  <section>
+    <h2>Hybrid retrieval pipeline</h2>
+    <p>
+      The chat service performs multi-stage retrieval entirely in-process.
+      Dense embeddings (OpenAI <code>text-embedding-3-large</code>) and sparse
+      BM25 vectors are prefetched in parallel, then fused by Qdrant-native
+      Reciprocal Rank Fusion (RRF, k=60). The fused pool feeds a concept-density
+      selector that expands the top sections, runs cross-encoder reranking, and
+      applies an author-diversity round-robin before handing sources to the
+      drafting stage.
+    </p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="flowchart TD
+  Q[&quot;Query&quot;] --&gt; EXP[&quot;Query expansion&#10;(HyDE / multi-query / decompose)&quot;]
+  EXP --&gt; D[&quot;Dense — text-embedding-3-large&quot;]
+  EXP --&gt; S[&quot;Sparse — BM25 (fastembed Qdrant/bm25)&quot;]
+  D --&gt; RRF[&quot;Qdrant RRF fusion (k=60)&quot;]
+  S --&gt; RRF
+  RRF --&gt; DEN[&quot;Concept-density select&#10;(score = 0.6·concept_count_norm + 0.4·rrf_norm)&quot;]
+  DEN --&gt; SEC[&quot;Section-chunk expand&#10;(scroll all chunks of top_sections=4)&quot;]
+  SEC --&gt; ADJ[&quot;Sibling-section expansion&#10;(page-band ±25, rerank-gated)&quot;]
+  ADJ --&gt; RR[&quot;Cross-encoder rerank&#10;(BAAI/bge-reranker-v2-m3, top_n=10)&quot;]
+  RR --&gt; DIV[&quot;Author-diversity round-robin&#10;(_DIVERSITY_MAX=6, target auto)&quot;]
+  DIV --&gt; OUT[&quot;Selected sources (final_top_n=8)&quot;]">
+flowchart TD
+  Q["Query"] --> EXP["Query expansion&#10;(HyDE / multi-query / decompose)"]
+  EXP --> D["Dense — text-embedding-3-large"]
+  EXP --> S["Sparse — BM25 (fastembed Qdrant/bm25)"]
+  D --> RRF["Qdrant RRF fusion (k=60)"]
+  S --> RRF
+  RRF --> DEN["Concept-density select&#10;(score = 0.6·concept_count_norm + 0.4·rrf_norm)"]
+  DEN --> SEC["Section-chunk expand&#10;(scroll all chunks of top_sections=4)"]
+  SEC --> ADJ["Sibling-section expansion&#10;(page-band ±25, rerank-gated)"]
+  ADJ --> RR["Cross-encoder rerank&#10;(BAAI/bge-reranker-v2-m3, top_n=10)"]
+  RR --> DIV["Author-diversity round-robin&#10;(_DIVERSITY_MAX=6, target auto)"]
+  DIV --> OUT["Selected sources (final_top_n=8)"]
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 2: Components table ===== -->
+  <section>
+    <h2>Components</h2>
+    <table>
+      <tr>
+        <th>Stage</th>
+        <th>File</th>
+        <th>What it does</th>
+      </tr>
+      <tr>
+        <td>Dense embed</td>
+        <td><code>src/services/chat/retrieval.py:61-65</code></td>
+        <td>Calls OpenAI <code>text-embedding-3-large</code> (3072d) synchronously via <code>_embed_dense()</code>. Shared singleton per hybrid_search call.</td>
+      </tr>
+      <tr>
+        <td>Sparse embed (BM25)</td>
+        <td><code>src/services/chat/retrieval.py:48,68-75</code></td>
+        <td>Module-level <code>SparseTextEmbedding("Qdrant/bm25")</code> via fastembed (~200 MB, loaded once). Returns a <code>SparseVector</code> for the Qdrant sparse index.</td>
+      </tr>
+      <tr>
+        <td>RRF fusion</td>
+        <td><code>src/services/chat/retrieval.py:188-202, 379-383</code></td>
+        <td>Qdrant <code>FusionQuery(fusion=Fusion.RRF)</code> with two <code>Prefetch</code> arms (dense × 4×k, sparse × 4×k). Per-collection scores re-normalised by rank (1/(60+rank)) to make scores comparable across collections.</td>
+      </tr>
+      <tr>
+        <td>Query expansion</td>
+        <td><code>src/services/chat/query_expansion.py:48,71,109</code></td>
+        <td>Optional LLM-driven pre-retrieval step. Three strategies: HyDE (3-sentence hypothetical passage), multi-query (N paraphrases), decompose (2-4 sub-questions). Controlled by <code>RetrievalFlags</code>.</td>
+      </tr>
+      <tr>
+        <td>Concept-density select</td>
+        <td><code>src/services/chat/retrievers/density.py:60-303</code></td>
+        <td>Two-stage: (1) coarse hybrid search → count concept occurrences per (book, section), score = 0.6·count_norm + 0.4·rrf_norm; (2) scroll every chunk of top <em>top_sections</em> (default 4) and rerank. Falls back to plain hybrid+adjacent+rerank when no concepts supplied.</td>
+      </tr>
+      <tr>
+        <td>Sibling expansion</td>
+        <td><code>src/services/chat/retrievers/density.py:108-165</code></td>
+        <td>Fetches lead chunks (max_lead=2) of nearest preceding/following sibling sections (same parent, page-band ±25). Appended at score 0.0005 — cross-encoder rerank is the gate that decides whether they survive the final_top_n cut.</td>
+      </tr>
+      <tr>
+        <td>Adjacent-section expand</td>
+        <td><code>src/services/chat/retrieval.py:205-261</code></td>
+        <td><code>_expand_adjacent()</code>: scrolls all same-section chunks not already in the result set (appended at score 0.001). Activated by <code>adjacent_sections=True</code> flag on <code>hybrid_search</code>.</td>
+      </tr>
+      <tr>
+        <td>Cross-encoder rerank</td>
+        <td><code>src/services/chat/rerankers.py:32-123</code></td>
+        <td>Model: <strong>BAAI/bge-reranker-v2-m3</strong> (<code>src/core/config.py:72</code>). Default <code>top_n=10</code> (<code>rerank_top_n_out</code>, <code>config.py:74</code>). Candidate pool = 50 (<code>rerank_top_k_in</code>, <code>config.py:73</code>). Feeds up to 2000 chars of chunk text (not 200-char excerpt). Async-safe via <code>asyncio.to_thread</code>. Pre-rerank RRF score preserved on <code>raw_score</code>.</td>
+      </tr>
+      <tr>
+        <td>Author diversity</td>
+        <td><code>src/services/chat/retrievers/diversity.py:82-191</code></td>
+        <td>Round-robin over author groups (normalised by <code>author_key()</code> = authors_short → authors → book slug). Defaults: <code>_DIVERSITY_MAX=6</code>, target = "auto" (concept-extraction model suggests, clamped to cap), env vars <code>TUTOR_DIVERSITY_MAX_AUTHORS / TUTOR_DIVERSITY_TARGET_AUTHORS</code>. Year-spread tiebreak for 2nd+ picks from same author.</td>
+      </tr>
+      <tr>
+        <td>Final selection</td>
+        <td><code>src/services/chat/agents/deep_tutor.py:600-601</code></td>
+        <td><code>_TOP_SECTIONS=4</code> (env <code>TUTOR_DEEP_TOP_SECTIONS</code>), <code>_FINAL_TOP_N=8</code> (env <code>TUTOR_DEEP_FINAL_TOP_N</code>). The section budget is expanded to <code>max(top_sections, target_authors)</code> when diversity is active.</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ===== SECTION 3: Image retrieval path ===== -->
+  <section>
+    <h2>Image retrieval path</h2>
+    <p>
+      Images live in separate <code>&lt;field&gt;_images</code> collections (named by replacing
+      <code>_textbooks</code> with <code>_images</code> in the text collection name).
+      The image path is dense-only — no BM25 — because captions are embedded as text
+      at ingest time using <code>text-embedding-3-large</code>.
+    </p>
+    <table>
+      <tr><th>Step</th><th>File</th><th>Detail</th></tr>
+      <tr>
+        <td>Dense figure search</td>
+        <td><code>src/services/chat/retrieval.py:604-676</code></td>
+        <td><code>search_figures()</code> and <code>search_figures_with_scores()</code>: query each <code>&lt;field&gt;_images</code> collection with the dense vector using <code>IMAGE_VECTOR</code>. Returns up to k=5 <code>Figure</code> objects ordered by similarity.</td>
+      </tr>
+      <tr>
+        <td>Co-location boost</td>
+        <td><code>src/services/chat/retrievers/image_density.py:35-69</code></td>
+        <td><code>fetch_image_candidates()</code>: calls <code>search_figures_with_scores()</code> with pool×2 candidates, then adds <code>co_location_boost=0.15</code> to figures whose <code>(book, chapter)</code> matches a top text source. Returns pool=6 candidates sorted by combined score.</td>
+      </tr>
+      <tr>
+        <td>Image judge gate</td>
+        <td><code>src/services/chat/agents/image_judge.py</code></td>
+        <td>Downstream LLM judge that decides whether any candidate image is relevant enough to include in the answer. Image retrieval feeds into this judge, not directly into the draft.</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ===== SECTION 4: Two retrieval entrypoints ===== -->
+  <section>
+    <h2>Two retrieval entrypoints</h2>
+    <p>
+      There are <strong>two distinct retrieval implementations</strong> in this codebase. They share
+      the same Qdrant back-end and the same RRF fusion pattern, but are otherwise independent:
+    </p>
+    <table>
+      <tr><th>Entrypoint</th><th>Package</th><th>Used by</th><th>Dependencies</th></tr>
+      <tr>
+        <td><strong>Standalone retrieval service</strong></td>
+        <td><code>src/services/retrieval/</code><br/>(retrievers.py, chain.py, cli.py)</td>
+        <td>CLI only: <code>python -m src.services.retrieval.cli</code>.<br/>
+            LangChain-based (<code>BaseRetriever</code>, <code>langchain-openai</code>).<br/>
+            Wraps a single <code>settings.qdrant_collection_text</code> — does not iterate
+            per-field collections.</td>
+        <td>LangChain, langchain-openai</td>
+      </tr>
+      <tr>
+        <td><strong>Chat-service in-process retrievers</strong></td>
+        <td><code>src/services/chat/retrieval.py</code><br/>
+            <code>src/services/chat/retrievers/density.py</code><br/>
+            <code>src/services/chat/retrievers/diversity.py</code><br/>
+            <code>src/services/chat/retrievers/image_density.py</code></td>
+        <td><strong>Used by the deep-tutor pipeline</strong> (<code>src/services/chat/agents/deep_tutor.py:67-84</code>).<br/>
+            Pure Python + qdrant-client + fastembed. No LangChain dependency.
+            Iterates all per-field collections. Includes density, diversity, adjacency,
+            and reranking stages not present in the standalone service.</td>
+        <td>qdrant-client, fastembed, sentence-transformers (reranker), openai</td>
+      </tr>
+    </table>
+    <p class="note">
+      Verified from imports: <code>deep_tutor.py</code> lines 67–84 import from
+      <code>src.services.chat.retrievers.density</code>, <code>.diversity</code>,
+      <code>.image_density</code>, and <code>src.services.chat.retrieval</code>.
+      It does <em>not</em> import from <code>src.services.retrieval</code> (the standalone package).
+    </p>
+  </section>
 </main>
 <script>
   mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
