@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { storeReducer, initialStore, DRAFT_KEY } from "./chat";
 import type { Action } from "./chat";
-import type { ChatEvent, ClarifyData } from "../types";
+import type { ChatEvent, ClarifyData, FacilitateDigest } from "../types";
 
 // Helpers ────────────────────────────────────────────────────────────────────
 
@@ -122,5 +122,40 @@ describe("storeReducer (§13 multi-conversation)", () => {
     expect((last.structuredOutput.data as ClarifyData).candidates[0].slug).toBe("islp");
     expect(last.status).toBe("complete");
     expect(s.byConv["A"].status).toBe("idle");
+  });
+
+  it("structured_output FacilitateDigest attaches schema and data to the last assistant message", () => {
+    let s = run([send("A"), event("A", { type: "token", text: "loading", seq: 1 })]);
+
+    const digest: FacilitateDigest = {
+      mode: "facilitate",
+      scope: {
+        book_slug: "islp",
+        chapter_id: "ch03",
+        requested_subtopics: ["regression"],
+        resolution: [],
+      },
+      intro: "",
+      blocks: [
+        {
+          h2_path: "3.1 Simple Linear Regression",
+          section_id: "islp-ch03-s1",
+          key_points: ["k"],
+          body: "b [[c1]]",
+          concepts: [],
+          page_from: 1,
+          page_to: 1,
+        },
+      ],
+      outro: "",
+      math_blocks: [],
+      grounding: { ok: true },
+    };
+
+    const ev: ChatEvent = { type: "structured_output", schema: "FacilitateDigest", data: digest };
+    s = storeReducer(s, event("A", ev));
+
+    const last = s.byConv["A"].messages.at(-1) as any;
+    expect(last.structuredOutput.schema).toBe("FacilitateDigest");
   });
 });

@@ -192,6 +192,43 @@ export interface ChapterDigest {
   grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
 }
 
+export interface ConceptProvenance {
+  book_slug: string;
+  book_name: string;
+  authors_short: string;
+  section: string;
+  page_from: number;
+  page_to: number;
+  chunk_id: string;
+  same_author: boolean;
+  fallback: boolean;
+}
+export interface ConceptAnchor {
+  id: string;
+  term: string;
+  kind: "concept" | "theorem" | "formula";
+  explanation: string;
+  provenance: ConceptProvenance;
+}
+export interface FacilitateBlock {
+  h2_path: string;
+  section_id: string;
+  key_points: string[];
+  body: string;
+  concepts: ConceptAnchor[];
+  page_from: number;
+  page_to: number;
+}
+export interface FacilitateDigest {
+  mode: "facilitate";
+  scope: ChapterScope;
+  intro: string;
+  blocks: FacilitateBlock[];
+  outro: string;
+  math_blocks: string[];
+  grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
+}
+
 export interface ClarifyCandidate {
   slug: string;
   name: string;
@@ -210,6 +247,7 @@ export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
   | { type: "structured_output"; schema: "QAAnswer"; data: QAAnswer }
   | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
+  | { type: "structured_output"; schema: "FacilitateDigest"; data: FacilitateDigest }
   | { type: "structured_output"; schema: "Clarify"; data: ClarifyData }
   | { type: "structured_output"; schema: string; data: unknown };
 
