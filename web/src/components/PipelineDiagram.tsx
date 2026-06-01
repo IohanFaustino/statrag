@@ -93,7 +93,7 @@ const BASE_H = (() => {
 // Nodes that follow (vision_explain, output) are shifted down.
 
 const ORCH_Y       = BASE_LAYOUT.draft.y;  // where draft was (848)
-const ORCH_H       = 66;
+const ORCH_H       = 104;  // fits label + desc + model dropdown (matches draft node)
 const WORKER_ROW_Y = ORCH_Y + ORCH_H + 18;  // 848
 const WORKER_H     = 56;
 const SYNTH_Y      = WORKER_ROW_Y + WORKER_H + 18;  // 922
@@ -418,7 +418,6 @@ export default function PipelineDiagram({
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__node-sublabel" title={n.desc}>skipped when simple (perspectives ≤ 1)</span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
               <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
@@ -445,7 +444,6 @@ export default function PipelineDiagram({
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__node-sublabel">decides subtasks</span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
               <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>

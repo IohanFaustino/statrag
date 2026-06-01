@@ -115,8 +115,9 @@ describe("PipelineDiagram", () => {
         onWorkflowChange={() => {}}
       />,
     );
-    // Sublabel annotation must be present on the plan node
-    expect(html).toContain("skipped when simple");
+    // The plan node's skip condition is conveyed via its in-box description
+    // (the old inline sublabel was folded into the desc for layout parity).
+    expect(html).toContain("Skipped when the planner rates the question simple");
     expect(html).toContain("perspectives");
   });
 
