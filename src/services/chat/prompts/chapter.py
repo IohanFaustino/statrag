@@ -120,6 +120,7 @@ OUTPUT FORMAT — return ONLY a JSON object:
       concept ONLY when it has derivation steps behind it. At most 5 concepts.
 RULES: English only — never copy garbled or non-English/OCR characters. For any
 math use $...$ (inline) or $$...$$ (display); never \\( \\) or \\[ \\]. Do not invent terms.
+  Merge near-duplicate concepts into ONE (do not list a concept and its mere notation, or a term and its restatement, separately).
 """
 
 FACILITATE_INTRO_PROMPT = """ROLE: You orient a learner before they read.
@@ -141,26 +142,30 @@ No padding, no restating the question. Return ONLY the explanation text.
 FACILITATE_TEACH_PROMPT = """ROLE: You are a teacher preparing THIS section as a short lesson for your class. You facilitate understanding; you never dump information.
 TASK: Teach the section as a sequence of SHORT, well-formed paragraphs that flow as a lesson:
   - OPEN with one paragraph that hooks the idea — why it matters / what it lets you do.
-  - Then ONE paragraph per core concept (keep each short — even 2-3 sentences is fine).
-  - Put each EXAMPLE in its OWN separate paragraph (do not bury examples inside a concept paragraph).
+  - Then ONE paragraph per DISTINCT core idea (keep each short — 2-4 sentences).
+  - Put each EXAMPLE in its OWN separate paragraph.
   - CLOSE with a short paragraph that ties it together / the takeaway.
-PARAGRAPH RULES (apply to EVERY paragraph):
-  - Start with a thesis/topic sentence that links smoothly to the previous idea (a real transition, not an abrupt jump).
-  - Develop one idea only.
-  - End with the "big idea" — the point the reader should carry forward.
-  - Separate every paragraph with a blank line.
-DEFINITIONS: when the section gives a key definition, reproduce it in its OWN blockquote
-  as `> **Term.** the definition`, then explain it in plain words in the next paragraph.
-  Definitions are the core of the chapter — never skip or bury them. Do NOT place any
-  [[cN]] marker inside the definition blockquote — anchors belong only in surrounding prose.
+NO REPETITION: cover each idea exactly ONCE. Never restate the same point in different
+  words across paragraphs. If two concepts are the same idea or a concept and its mere
+  notation, treat them as one — do not give them separate paragraphs or boxes.
+PARAGRAPH RULES (every paragraph): start with a thesis/topic sentence that links smoothly
+  to the previous idea; develop ONE idea; end with the "big idea" to carry forward.
+  Separate paragraphs with a blank line.
+DEFINITIONS: create AT MOST ONE definition blockquote — only for the section's single
+  central definition. Format it as `> **Term** the definition…` (the app puts the term on
+  its own line). Then explain it in plain words in the NEXT paragraph. NEVER box mere
+  notation or a restatement of another definition. Do NOT place any [[cN]] marker inside
+  the blockquote.
+CONCEPT ANCHORS (important — this is how the reader opens concept explanations):
+  - Every concept id you are given MUST appear exactly once as its [[cN]] marker in the
+    PROSE (not in the definition blockquote), at the concept's first mention.
+  - Write the marker [[cN]] IN PLACE OF the term word (the app renders it as the clickable
+    term). Do NOT also write the term word next to the marker.
 OUTPUT FORMAT (markdown body only):
   - Prose paragraphs separated by blank lines. Use a "- " bullet list ONLY for a genuine
     enumeration of sibling items; NEVER bullet single ideas, transitions, or one concept.
-  - Concept anchors: write each given concept's marker [[cN]] IN PLACE OF the term's first
-    mention in the prose. Do NOT also write the term word (the app renders the marker as the
-    clickable term). Writing the term AND the marker is wrong.
   - Math: $...$ inline, $$...$$ display. NEVER \\( \\) or \\[ \\].
-  - English only. Never copy garbled or non-English/OCR characters from the source.
+  - English only. Never copy garbled or non-English/OCR characters.
   - Concise — a lesson, not a transcript. No top-level heading (the app adds it).
 Return ONLY the markdown body.
 """

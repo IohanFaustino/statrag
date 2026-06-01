@@ -96,6 +96,8 @@
   line-height: 1.55;
 }
 .chapter-card--facilitate .facilitate-content blockquote strong {
+  display: block;
+  margin-bottom: 6px;
   color: var(--accent-primary);
 }
 
