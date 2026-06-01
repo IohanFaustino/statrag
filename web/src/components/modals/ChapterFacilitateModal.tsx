@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import FocusModal from "./FocusModal";
 import ChapterPipelineDiagram from "../ChapterPipelineDiagram";
+import { FACILITATE_MODE } from "../../data/chapterMode";
 import type { ModelProvider } from "../../types";
 
 interface ChapterFacilitateModalProps {
@@ -41,13 +42,26 @@ export default function ChapterFacilitateModal({
       <div className="about-model">
         <header className="about-model__hd">
           <div>
-            <h2 id="facilitate-modal-title" className="about-model__title">Facilitate mode</h2>
-            <p className="about-model__blurb">Ordered didactic walkthrough — teaches each section of the chapter in reading order.</p>
+            <h2 id="facilitate-modal-title" className="about-model__title">{FACILITATE_MODE.title}</h2>
+            <p className="about-model__blurb">{FACILITATE_MODE.blurb}</p>
           </div>
           <button type="button" className="about-model__close" aria-label="Close" onClick={onClose}>✕</button>
         </header>
 
         <div className="about-model__body">
+          <p className="about-model__desc">{FACILITATE_MODE.description}</p>
+
+          <section className="about-model__section">
+            <h3 className="about-model__sub">Features</h3>
+            <ul className="about-model__caps">
+              {FACILITATE_MODE.features.map((f) => (
+                <li key={f.label} className="about-model__cap">
+                  <strong>{f.label}:</strong> {f.detail}
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <section className="about-model__section">
             <h3 className="about-model__sub">Pipeline — input → output</h3>
           </section>

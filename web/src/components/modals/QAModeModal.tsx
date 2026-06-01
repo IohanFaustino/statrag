@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import FocusModal from "./FocusModal";
 import QAPipelineDiagram from "../QAPipelineDiagram";
+import { QA_MODE } from "../../data/qaMode";
 import type { ModelProvider } from "../../types";
 
 interface QAModeModalProps {
@@ -42,13 +43,26 @@ export default function QAModeModal({
       <div className="about-model">
         <header className="about-model__hd">
           <div>
-            <h2 id="qa-modal-title" className="about-model__title">Q&amp;A mode</h2>
-            <p className="about-model__blurb">Punctual Q&amp;A: scope → retrieve → generate → verify</p>
+            <h2 id="qa-modal-title" className="about-model__title">{QA_MODE.title}</h2>
+            <p className="about-model__blurb">{QA_MODE.blurb}</p>
           </div>
           <button type="button" className="about-model__close" aria-label="Close" onClick={onClose}>✕</button>
         </header>
 
         <div className="about-model__body">
+          <p className="about-model__desc">{QA_MODE.description}</p>
+
+          <section className="about-model__section">
+            <h3 className="about-model__sub">Features</h3>
+            <ul className="about-model__caps">
+              {QA_MODE.features.map((f) => (
+                <li key={f.label} className="about-model__cap">
+                  <strong>{f.label}:</strong> {f.detail}
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <section className="about-model__section">
             <h3 className="about-model__sub">Pipeline — input → output</h3>
           </section>
