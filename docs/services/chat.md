@@ -107,6 +107,21 @@ src/core/config.py        →  .env (keys, models, host/port)
 
 SSE event types (in order of arrival, approximate): `meta`, `token` (many), `paragraph_break`, `math_block`, `figure`, `source_chip`, `sources_full`, `figures_full`, `figures_meta`, `retrieval_meta`, `usage`, `structured_output`, `done`. On failure: `error` then `done`. Every event carries a monotonic `seq` (1-based) and the SSE `id:` field. `usage` carries running token counts for the stats pill (see [feature 30](./chat-features/30-stats-pill.md)). `figures_meta` carries `{status, reason, candidateCount, approvedCount}` for the image branch — frontend surfaces `no_candidates` / `all_rejected` / `error` as a chip in the figures panel (see [feature 40](./chat-features/40-image-only-ingest.md)).
 
+**`clarify` event** — emitted by `facilitate`, `resume`, and `qa` modes when the user's book reference is ambiguous or unrecognised. It is **terminal for the turn**: the sequence is `meta → clarify → done` with no `structured_output`. Shape:
+
+```json
+{
+  "type": "clarify",
+  "reason": "book_ambiguous | book_unknown | chapter_missing",
+  "message": "<human-readable clarification prompt>",
+  "candidates": [{"slug": "…", "name": "…", "authors_short": "…", "chapters": ["…"]}],
+  "chapter_guess": "<chapter_id or null>",
+  "sections_guess": ["7.2", "7.3"]
+}
+```
+
+`reason` values: `book_unknown` (no catalog match), `book_ambiguous` (confidence below `BOOK_CONFIRM_CUTOFF=0.6` or ≥2 candidates), `chapter_missing` (named chapter not in book). A confident single match never emits `clarify`. Kill-switch: `CHAPTER_CLARIFY=0`. See [`chat-features/52-book-scope-resolve.md`](./chat-features/52-book-scope-resolve.md) for the full spec.
+
 ### Detached, resumable runs (§13)
 
 A `POST /api/chat` **with** a `conversationId` no longer streams the generator directly: it starts a *detached run* (`runs.py`) — a background `asyncio.Task` that drains the generator into a per-conversation event buffer and fans out to subscriber connections. The HTTP connection is just a subscriber, so disconnecting (switching conversation, refresh, tab-close, network drop) does **not** cancel generation, and the assistant row is still persisted on completion. A `POST` without a `conversationId` keeps the legacy connection-bound stream (ephemeral, not persisted).

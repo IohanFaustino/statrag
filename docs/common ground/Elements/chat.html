@@ -358,6 +358,18 @@
 
     <h3>SSE event types (in order)</h3>
     <p>Emitted by <code>run_deep_tutor</code> in this order: <code>meta</code>, <code>token</code> (streaming, repeated), <code>structured_output</code> (schema=TutorAnswer), <code>sources_full</code>, <code>figures_full</code>, <code>figures_meta</code>, <code>retrieval_meta</code>, <code>usage</code>, <code>done</code>. On error: <code>error</code> + <code>done</code>.</p>
+    <h3>clarify event — book scope resolve (facilitate / resume / qa)</h3>
+    <p>Before any retrieval, <code>facilitate</code>, <code>resume</code>, and <code>qa</code> modes run <strong>parse + resolve scope</strong> (<code>_scope.py::resolve_book</code>): a catalog-in-prompt LLM call that maps the user's natural-language book reference to a slug + chapter. A compact catalog (slug · name · authors_short · field · chapters) is injected into <code>CHAPTER_PARSE_PROMPT</code>; numeric section refs are expanded deterministically.</p>
+    <p>When the match is ambiguous or absent, <code>maybe_clarify()</code> emits a terminal <code>clarify</code> event — followed only by <code>done</code>, no <code>structured_output</code>:</p>
+    <table>
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td><code>reason</code></td><td><code>book_unknown</code> / <code>book_ambiguous</code> / <code>chapter_missing</code></td></tr>
+      <tr><td><code>message</code></td><td>Human-readable clarification prompt rendered as a card with candidate chips</td></tr>
+      <tr><td><code>candidates</code></td><td>Up to 3 books: <code>{slug, name, authors_short, chapters}</code>. Clicking a chip re-sends with <code>book_confidence=1.0</code></td></tr>
+      <tr><td><code>chapter_guess</code></td><td>Inferred chapter id (may be null)</td></tr>
+      <tr><td><code>sections_guess</code></td><td>Expanded numeric section ids (may be empty)</td></tr>
+    </table>
+    <p>A confident single match (<code>book_confidence ≥ BOOK_CONFIRM_CUTOFF=0.6</code>, one candidate) runs the pipeline immediately. A user-selected book is always <code>book_confidence=1.0</code>. Kill-switch: <code>CHAPTER_CLARIFY=0</code>. See <a href="../../services/chat-features/52-book-scope-resolve.md">feature 52</a>.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
