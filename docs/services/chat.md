@@ -194,16 +194,22 @@ Should print `wall ok`.
 |---|---|---|
 | `tutor` | Deep multi-aspect learning — synthesis plan, orchestrator-workers, author-diversity, coverage check, figure judge | [36-deep-tutor.md](./chat-features/36-deep-tutor.md) |
 | `qa` | Punctual Q&A — 4-node scope→retrieve→generate→verify pipeline, lean `QAAnswer` schema, gpt-5.4-nano default | [51-qa-mode.md](./chat-features/51-qa-mode.md) |
-| `facilitate` | Structural chapter traversal — teach sections in chapter reading order, building prior context across sections | [52-chapter-modes.md](./chat-features/52-chapter-modes.md) |
-| `resume` | Structural chapter traversal — compress sections in chapter reading order into dense summaries | [52-chapter-modes.md](./chat-features/52-chapter-modes.md) |
+| `facilitate` | Concept-map mode — clarify-not-expand; per-section map→retrieve→teach→verify pipeline; emits `FacilitateDigest` with `[[cN]]` concept anchors and `[[fN]]` formula anchors | [53-facilitate-concept-map.md](./chat-features/53-facilitate-concept-map.md) |
+| `resume` | Structural chapter traversal — compress sections in chapter reading order into dense summaries; emits `ChapterDigest` | [52-chapter-modes.md](./chat-features/52-chapter-modes.md) |
 
 ### Q&A mode
 
 The `qa` mode answers a single specific doubt punctually instead of teaching a topic globally. It runs a lean 4-node pipeline (scope-extract → hybrid retrieve → scoped generate → grounding verify), emits a `QAAnswer` with an inline scope line and a grounding-confidence badge, and defaults all LLM nodes to `gpt-5.4-nano`. On a corpus miss (0 retrieved sources) it emits an honest no-coverage message with empty citations rather than fabricating an answer. See [`chat-features/51-qa-mode.md`](./chat-features/51-qa-mode.md) for the full pipeline spec, env flags, and synced-artifacts checklist.
 
-### Chapter modes (facilitate / resume)
+### Facilitate mode (concept-map, clarify-not-expand)
 
-The `facilitate` and `resume` modes traverse a chapter's sections in **structural reading order** (`page_from`, then `section_id`) rather than by search relevance. `facilitate` teaches each selected section in sequence, threading prior-context forward so each block can reference what was covered before. `resume` compresses the same span into dense per-section summaries. Both modes are scoped to named subtopics within a single book+chapter; an empty subtopic list spans the whole chapter. Blocks in the emitted `ChapterDigest` are in fetched-section order and are **never re-sorted downstream** — this is an enforced invariant. See [`chat-features/52-chapter-modes.md`](./chat-features/52-chapter-modes.md) for the full pipeline spec (parse-scope → fetch-chapter → resolve-subtopics → map → stitch → ground), env flags, and synced-artifacts checklist.
+The `facilitate` mode teaches by **clarifying**, not expanding. Its pipeline — parse+resolve → fetch (ordered) → per-section [map → adaptive sub-retrieval → teach → verify] — builds a `FacilitateDigest` whose blocks are shorter than their source sections. Key points and deep concept detail are offloaded to inline `[[cN]]` concept anchors and `[[fN]]` formula anchors (rendered as modal pop-ups, or footnotes on export). Adaptive sub-retrieval (`fetch_concept_support`) escalates from same-author prior section → same-author anywhere → other authors, stopping when the retrieval score exceeds `CONCEPT_MIN_SCORE` (0.30). Stage keys in the SSE stream: `map`, `retrieve`, `teach`, `verify`. `stageModels` overrides use the same keys. See [`chat-features/53-facilitate-concept-map.md`](./chat-features/53-facilitate-concept-map.md) for the full pipeline spec, adaptive sub-retrieval policy, schemas, concept-anchor/modal/footnote UX, env flags, and the eval harness.
+
+**SSE contract for `facilitate`:** emits `structured_output{schema:"FacilitateDigest"}`. The `retrieve` stage key appears in progress events for observability but does not accept a model override (embedding-only). Resume is unchanged — it emits `structured_output{schema:"ChapterDigest"}`.
+
+### Chapter resume mode
+
+The `resume` mode traverses a chapter's sections in **structural reading order** (`page_from`, then `section_id`) rather than by search relevance, compressing each section into a dense per-section summary. Blocks in the emitted `ChapterDigest` are in fetched-section order and are **never re-sorted downstream** — this is an enforced invariant. See [`chat-features/52-chapter-modes.md`](./chat-features/52-chapter-modes.md) for the full pipeline spec (parse-scope → fetch-chapter → resolve-subtopics → map → stitch → ground), env flags, and synced-artifacts checklist.
 
 ## Status (2026-05-19)
 

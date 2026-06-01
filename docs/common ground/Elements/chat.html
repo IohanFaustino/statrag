@@ -42,10 +42,10 @@
       <tr>
         <td><code>facilitate</code></td>
         <td>multi (state-graph)</td>
-        <td><code>ChapterDigest</code></td>
+        <td><code>FacilitateDigest</code></td>
         <td>nano</td>
         <td>off</td>
-        <td>Chapter facilitate mode — ordered block-by-block walkthrough of a chapter with citations.</td>
+        <td>Concept-map mode — clarify-not-expand; map→retrieve→teach→verify per section; [[cN]] concept anchors + [[fN]] formula anchors (KaTeX); body always shorter than source.</td>
       </tr>
       <tr>
         <td><code>resume</code></td>
@@ -370,6 +370,35 @@
       <tr><td><code>sections_guess</code></td><td>Expanded numeric section ids (may be empty)</td></tr>
     </table>
     <p>A confident single match (<code>book_confidence ≥ BOOK_CONFIRM_CUTOFF=0.6</code>, one candidate) runs the pipeline immediately. A user-selected book is always <code>book_confidence=1.0</code>. Kill-switch: <code>CHAPTER_CLARIFY=0</code>. See <a href="../../services/chat-features/52-book-scope-resolve.md">feature 52</a>.</p>
+
+    <h3>Facilitate concept-map pipeline (feature 53)</h3>
+    <p><code>facilitate</code> now teaches by <strong>clarifying, not expanding</strong>. The body of each block is shorter than its source section; extra detail lives in concept anchors (<code>[[cN]]</code> modal) and formula anchors (<code>[[fN]]</code> KaTeX modal). SSE emits <code>structured_output{schema:"FacilitateDigest"}</code>. Stage keys: <code>map</code>, <code>retrieve</code>, <code>teach</code>, <code>verify</code>. <code>resume</code> is unchanged (emits <code>ChapterDigest</code>).</p>
+    <div class="diagram-wrap">
+      <div class="mermaid" data-src="flowchart TD
+  U[user message] --> PR[parse + resolve scope]
+  PR --> FE[fetch — ordered sections page_from]
+  FE --> MAP[map — concept-map + key points]
+  MAP -->|explained concepts| TCH[teach — short paragraphs + cN fN anchors]
+  MAP -->|referenced concepts| RTV[retrieve — adaptive sub-retrieval]
+  RTV --> TCH
+  TCH --> VRF[verify — grounding verdict]
+  VRF --> FD[FacilitateDigest — SSE structured_output]
+  style MAP fill:#1a1e2a,stroke:#4D6BFE,color:#fff
+  style RTV fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#3a1d1f,stroke:#E5484D,color:#fff">flowchart TD
+  U[user message] --> PR[parse + resolve scope]
+  PR --> FE[fetch — ordered sections page_from]
+  FE --> MAP[map — concept-map + key points]
+  MAP -->|explained concepts| TCH[teach — short paragraphs + cN fN anchors]
+  MAP -->|referenced concepts| RTV[retrieve — adaptive sub-retrieval]
+  RTV --> TCH
+  TCH --> VRF[verify — grounding verdict]
+  VRF --> FD[FacilitateDigest — SSE structured_output]
+  style MAP fill:#1a1e2a,stroke:#4D6BFE,color:#fff
+  style RTV fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#3a1d1f,stroke:#E5484D,color:#fff</div>
+    </div>
+    <p>Adaptive sub-retrieval escalation (per referenced concept): (1) same author + nearest prior section, formal-statement boost → (2) same author anywhere → (3) other authors. Escalates only when score &lt; <code>CONCEPT_MIN_SCORE=0.30</code>. See <a href="../../services/chat-features/53-facilitate-concept-map.md">feature 53</a>.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -418,6 +447,18 @@
       <tr><td><code>math_blocks</code></td><td>list[str]</td><td>Display-math strings.</td></tr>
       <tr><td><code>grounding</code></td><td>dict</td><td>Verify-node verdict.</td></tr>
     </table>
+
+    <h3>FacilitateDigest (facilitate mode — concept-map redesign)</h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>mode</code></td><td>Literal["facilitate"]</td><td>Always "facilitate".</td></tr>
+      <tr><td><code>scope</code></td><td>ChapterScope</td><td>Resolved book_slug, chapter_id, subtopics.</td></tr>
+      <tr><td><code>blocks</code></td><td>list[FacilitateBlock]</td><td>Ordered blocks (page_from order, never re-sorted). Each has body (short), key_points, anchors, citations.</td></tr>
+      <tr><td><code>citations</code></td><td>list[TutorCitation]</td><td>Global flattened citation list.</td></tr>
+      <tr><td><code>math_blocks</code></td><td>list[str]</td><td>Display-math strings.</td></tr>
+      <tr><td><code>grounding</code></td><td>dict</td><td>Verify-node verdict (advisory).</td></tr>
+    </table>
+    <p>Each <code>FacilitateBlock</code> embeds <code>anchors: list[ConceptAnchor]</code>. A <code>ConceptAnchor</code> has <code>id</code> ("c1"/"f1"), <code>kind</code> ("concept"|"formula"), <code>provenance: list[ConceptProvenance]</code>, and <code>derivation</code> (KaTeX, non-empty for formula anchors). Export to Markdown replaces <code>[[cN]]</code>/<code>[[fN]]</code> with footnotes.</p>
 
     <p class="caption">Source: <code>src/services/chat/schemas/output.py:1–335</code></p>
   </section>

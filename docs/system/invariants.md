@@ -40,6 +40,8 @@ preserve all of them. Verification commands are in each row.
 
 | 31 | **Book scope resolve**: a confident single book/chapter match (`book_confidence >= BOOK_CONFIRM_CUTOFF=0.6`, exactly one candidate) NEVER emits a `clarify` event — the pipeline runs immediately. A book that was explicitly selected by the user (e.g. by clicking a chip) is always treated as `book_confidence=1.0` and never clarifies. The `clarify` gate is advisory routing; it is disabled entirely by `CHAPTER_CLARIFY=0` (old fail-open). Applies to `facilitate`, `resume`, and `qa` modes. | `maybe_clarify` in `_scope.py` returns `None` when `book_confidence >= BOOK_CONFIRM_CUTOFF and len(book_candidates) < 2 and chapter_ok`; `test_scope_confident_match_no_clarify`, `test_scope_selected_book_always_confident`. |
 
+| 32 | **Facilitate clarify-not-expand**: the `facilitate` body is never longer than its source section; extra detail lives only in concept anchors (`[[cN]]` / `[[fN]]` modals). Block order == section reading order (`page_from`). Adaptive concept sub-retrieval prefers the same author + a prior section (formal-statement boost), escalating to same-author anywhere and then to other authors only when the retrieval score is below `CONCEPT_MIN_SCORE` (0.30). The `retrieve` stage key appears in SSE progress events but never accepts a model override (embedding-only). `resume` is unaffected and continues to emit `ChapterDigest`. | `FacilitateBlock.body` token count < source section token count (enforced by teach-node prompt); `blocks[i].page_from <= blocks[i+1].page_from` for all `i`; `fetch_concept_support` policy tests in `test_facilitate_concept_map.py`. |
+
 ## One-shot verification script
 
 Run after any ingest:
