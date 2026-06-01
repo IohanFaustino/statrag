@@ -1,0 +1,212 @@
+/* ─── ChapterDigestCard — Scholar's Terminal design system
+   Sibling to tutor.css; uses the same token vocabulary.
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Root card surface ───────────────────────────────────────────── */
+.chapter-card {
+  font-family: var(--font-serif);
+  font-size: var(--text-base);          /* 15 px */
+  line-height: 1.65;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 18px 22px 20px;
+  box-shadow: var(--shadow-elev), var(--glass-edge);
+  /* No forced max-width — the chat column already constrains width */
+}
+
+/* Facilitate variant: subtle left accent stripe */
+.chapter-card--facilitate {
+  border-left: 3px solid var(--accent-primary);
+}
+
+/* Resume variant: secondary accent stripe */
+.chapter-card--resume {
+  border-left: 3px solid var(--accent-secondary);
+}
+
+/* ── Header row ──────────────────────────────────────────────────── */
+.chapter-card__hd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* "FACILITATE" / "RESUME" — uppercase mono eyebrow in accent color */
+.chapter-card__mode {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);            /* 11 px */
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Resume mode tints the eyebrow with the secondary accent */
+.chapter-card--resume .chapter-card__mode {
+  color: var(--accent-secondary);
+  background: rgba(0, 0, 0, 0);          /* rely on border only for resume */
+  border: 1px solid var(--accent-secondary);
+}
+
+/* "hansen · ch07" — mono, muted book/chapter label */
+.chapter-card__scope {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);            /* 13 px */
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Grounding badge — pushed to the right */
+.chapter-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);            /* 11 px */
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ✓ grounded — subdued green-ish positive (no green token; use
+   accent-tertiary which is amber/warm in dark, olive in light — keep
+   it tasteful by using text-secondary for the main tint) */
+.chapter-card__badge.is-ok {
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  background: transparent;
+}
+
+/* ⚠ partial — amber warning */
+.chapter-card__badge.is-partial {
+  color: var(--accent-secondary);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+}
+
+/* ── Resolution note ("interpreted X as Y") ────────────────────── */
+.chapter-card__resolution {
+  margin: 0 0 12px;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);            /* 13 px */
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
+/* ── Lead / intro paragraph ─────────────────────────────────────── */
+.chapter-card__intro {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── Section blocks ─────────────────────────────────────────────── */
+.chapter-card__blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.chapter-block {
+  padding: 14px 16px 14px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: 6px;
+}
+
+/* Heading row: h3 + pages caption side by side */
+.chapter-block__h {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);            /* 13 px */
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  margin: 0 0 2px;
+  line-height: 1.3;
+}
+
+/* Page caption — immediately after the heading, reads as a caption */
+.chapter-block__pages {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);            /* 11 px */
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* Teaching prose */
+.chapter-block__body {
+  font-family: var(--font-serif);
+  font-size: var(--text-base);          /* 15 px */
+  line-height: 1.65;
+  color: var(--text-primary);
+  text-align: justify;
+  hyphens: auto;
+  margin: 0;
+}
+
+/* Ensure paragraphs inside body have spacing */
+.chapter-block__body p {
+  margin: 8px 0;
+}
+.chapter-block__body p:first-child { margin-top: 0; }
+.chapter-block__body p:last-child  { margin-bottom: 0; }
+
+/* ── Math blocks ────────────────────────────────────────────────── */
+.chapter-card__math-blocks {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chapter-card__math-block {
+  padding: 10px 14px;
+  background: rgba(229, 72, 77, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+/* ── Outro / closing note ───────────────────────────────────────── */
+.chapter-card__outro {
+  margin: 18px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);            /* 13 px */
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* ── Reduced-motion override ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .chapter-card,
+  .chapter-block {
+    transition-duration: 0ms !important;
+  }
+}
