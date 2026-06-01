@@ -360,6 +360,28 @@
   margin: 0 0.12em;
 }
 
+/* ── Copy-LaTeX scoping ─────────────────────────────────────────────
+   Only $$…$$ DISPLAY math is selectable/copyable. INLINE math is
+   non-selectable (removes the inline copy affordance) and click-through
+   inside concept anchors, so clicking a math pill opens its modal instead
+   of selecting/copying the TeX (fixes the copy-vs-modal overlap).        */
+.facilitate-content .katex,
+.concept-modal .katex {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.concept-anchor .katex {
+  pointer-events: none;
+}
+/* Display math keeps selection/copy (more specific → overrides above). */
+.facilitate-content .katex-display .katex,
+.facilitate-content__math-block .katex,
+.math-block .katex {
+  -webkit-user-select: text;
+  user-select: text;
+  pointer-events: auto;
+}
+
 /* ── Concept modal ──────────────────────────────────────────────── */
 .concept-modal__overlay {
   position: fixed;
