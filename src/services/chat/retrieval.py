@@ -788,6 +788,7 @@ def _section_order_in_book(book_slug: str) -> dict[str, int]:
             pts, _ = client().scroll(
                 collection_name=collection,
                 scroll_filter=Filter(must=[FieldCondition(key="book_slug", match=MatchAny(any=[book_slug]))]),
+                # Books beyond 2000 chunks get sentinel ordering (acceptable for textbook scale).
                 limit=2000, with_payload=True,
             )
             ranked = sorted(
@@ -828,9 +829,10 @@ def fetch_concept_support(
     before_section_id: str,
     min_score: float = 0.30,
     formal_pref: bool = True,
+    order: "dict[str, int] | None" = None,
 ) -> "ConceptSupport | None":
     """Adaptive same-author(prior-section-preferred) -> other-author support."""
-    order = _section_order_in_book(book_slug)
+    order = _section_order_in_book(book_slug) if order is None else order
     same, _ = hybrid_search(term, book_slugs=[book_slug], rerank=True, rerank_top_n=8)
     hit = _best_support(same, order=order, before_section_id=before_section_id,
                         min_score=min_score, formal_pref=formal_pref)

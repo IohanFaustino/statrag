@@ -9,6 +9,7 @@ Chinese-wall: imports only src.core.* and sibling src.services.chat.*.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -26,7 +27,11 @@ from src.services.chat.prompts.chapter import (
     FACILITATE_TEACH_PROMPT,
     FACILITATE_VERIFY_PROMPT,
 )
-from src.services.chat.retrieval import fetch_chapter_sections, fetch_concept_support
+from src.services.chat.retrieval import (
+    _section_order_in_book,
+    fetch_chapter_sections,
+    fetch_concept_support,
+)
 from src.services.chat.schemas import (
     ChapterScope,
     ConceptAnchor,
@@ -53,7 +58,9 @@ def _model_for(stage: str, req) -> str:
     if sm and isinstance(sm.get(stage), str) and sm[stage].strip():
         return sm[stage].strip()
     env = os.environ.get(f"FACILITATE_{stage.upper()}_MODEL", "").strip()
-    return env or settings.openai_model_nano
+    if env:
+        return env
+    return "qwen-plus" if stage == "teach" else settings.openai_model_nano
 
 
 async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
@@ -97,27 +104,34 @@ async def _explain(term: str, passage: str, *, model: str) -> str:
         return passage[:200]
 
 
+async def _build_one_concept(s: Source, c: dict, cid: str, *, order: dict, explain_model: str) -> ConceptAnchor:
+    """Build one ConceptAnchor, threading out the synchronous retrieval call."""
+    term, kind, status = c["term"], c["kind"], c["status"]
+    if status == "referenced" and _SUBRETRIEVAL:
+        sup = await asyncio.to_thread(
+            fetch_concept_support, term, book_slug=s.book,
+            before_section_id=s.chunkId, min_score=_MIN_SCORE, order=order)
+        if sup is not None:
+            expl = await _explain(term, sup.text, model=explain_model)
+            return ConceptAnchor(id=cid, term=term, kind=kind, explanation=expl,
+                provenance=ConceptProvenance(book_slug=sup.book_slug, book_name=sup.book_name,
+                    authors_short=sup.authors_short, section=sup.section, page_from=sup.page_from,
+                    page_to=sup.page_to, chunk_id=sup.chunk_id, same_author=sup.same_author, fallback=False))
+    expl = await _explain(term, (s.chunk or s.excerpt or ""), model=explain_model)
+    return ConceptAnchor(id=cid, term=term, kind=kind, explanation=expl,
+        provenance=ConceptProvenance(book_slug=s.book, book_name=s.book_name or s.book,
+            authors_short=s.authors_short or "", section=s.title,
+            page_from=s.page_from if s.page_from is not None else -1,
+            page_to=s.page_to if s.page_to is not None else -1, chunk_id=s.chunkId,
+            same_author=(status != "referenced"), fallback=(status == "referenced")))
+
+
 async def _build_concepts(s: Source, concept_dicts: list[dict], *, explain_model: str) -> list[ConceptAnchor]:
+    """Build all ConceptAnchors for a section (kept for eval compatibility)."""
+    order = await asyncio.to_thread(_section_order_in_book, s.book) if s.book else {}
     anchors: list[ConceptAnchor] = []
     for i, c in enumerate(concept_dicts, 1):
-        cid = f"c{i}"
-        term, kind, status = c["term"], c["kind"], c["status"]
-        if status == "referenced" and _SUBRETRIEVAL:
-            sup = fetch_concept_support(term, book_slug=s.book, before_section_id=s.chunkId, min_score=_MIN_SCORE)
-            if sup is not None:
-                expl = await _explain(term, sup.text, model=explain_model)
-                anchors.append(ConceptAnchor(id=cid, term=term, kind=kind, explanation=expl,
-                    provenance=ConceptProvenance(book_slug=sup.book_slug, book_name=sup.book_name,
-                        authors_short=sup.authors_short, section=sup.section, page_from=sup.page_from,
-                        page_to=sup.page_to, chunk_id=sup.chunk_id, same_author=sup.same_author, fallback=False)))
-                continue
-        expl = await _explain(term, (s.chunk or s.excerpt or ""), model=explain_model)
-        anchors.append(ConceptAnchor(id=cid, term=term, kind=kind, explanation=expl,
-            provenance=ConceptProvenance(book_slug=s.book, book_name=s.book_name or s.book,
-                authors_short=s.authors_short or "", section=s.title,
-                page_from=s.page_from if s.page_from is not None else -1,
-                page_to=s.page_to if s.page_to is not None else -1, chunk_id=s.chunkId,
-                same_author=True, fallback=(status == "referenced"))))
+        anchors.append(await _build_one_concept(s, c, f"c{i}", order=order, explain_model=explain_model))
     return anchors
 
 
@@ -134,12 +148,12 @@ async def _teach(s: Source, key_points: list[str], anchors: list[ConceptAnchor],
         return "\n".join(f"- {k}" for k in key_points)
 
 
-async def _verify(body: str, s: Source, *, model: str) -> dict:
+async def _verify(body: str, source_text: str, *, model: str) -> dict:
     if not _GROUND:
         return {"ok": True, "unsupported": [], "confidence": 1.0}
     try:
         raw = await _chat([{"role": "system", "content": FACILITATE_VERIFY_PROMPT},
-                           {"role": "user", "content": f"section:\n{(s.chunk or s.excerpt or '')[:_PREVIEW]}\n\nbody:\n{body}"}],
+                           {"role": "user", "content": f"section:\n{source_text[:_PREVIEW]}\n\nbody:\n{body}"}],
                           model=model, max_tokens=200)
         d = json.loads(strip_fences(raw))
         return {"ok": bool(d.get("ok", False)),
@@ -192,14 +206,21 @@ async def run_facilitate(req) -> AsyncIterator[dict]:
         yield {"type": "done"}
         return
 
+    # Build section order once per request to avoid re-scrolling on each concept (FIX 6).
+    order = await asyncio.to_thread(_section_order_in_book, scope.book_slug) if scope.book_slug else {}
+
     blocks: list[FacilitateBlock] = []
     for s in sections:
         yield {"type": "stage", "stage": "map", "label": f"Map · {s.title}"}
         key_points, concept_dicts = await _map_section(s, model=_model_for("map", req))
-        for c in concept_dicts:
-            if c["status"] == "referenced":
+        anchors: list[ConceptAnchor] = []
+        for i, c in enumerate(concept_dicts, 1):
+            cid = f"c{i}"
+            # Yield retrieve event immediately before the actual retrieval (FIX 2).
+            if c["status"] == "referenced" and _SUBRETRIEVAL:
                 yield {"type": "stage", "stage": "retrieve", "label": f"Retrieve · {c['term']}"}
-        anchors = await _build_concepts(s, concept_dicts, explain_model=_model_for("explain", req))
+            anchors.append(await _build_one_concept(s, c, cid, order=order,
+                                                    explain_model=_model_for("explain", req)))
         yield {"type": "stage", "stage": "teach", "label": f"Teach · {s.title}"}
         body = await _teach(s, key_points, anchors, model=_model_for("teach", req))
         blocks.append(FacilitateBlock(
@@ -209,7 +230,9 @@ async def run_facilitate(req) -> AsyncIterator[dict]:
 
     yield {"type": "stage", "stage": "verify", "label": "Verify"}
     joined = "\n".join(b.body for b in blocks)
-    grounding = await _verify(joined, sections[0], model=_model_for("verify", req))
+    # FIX 3: verify against all sections' source text, not just sections[0].
+    src_text = "\n\n".join((s.chunk or s.excerpt or "") for s in sections)[:6000]
+    grounding = await _verify(joined, src_text, model=_model_for("verify", req))
 
     dig = FacilitateDigest(mode="facilitate", scope=scope, blocks=blocks, grounding=grounding)
     yield {"type": "structured_output", "schema": "FacilitateDigest", "data": dig.model_dump()}

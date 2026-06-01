@@ -109,3 +109,86 @@ async def test_run_facilitate_builds_digest_with_anchor(monkeypatch):
     assert blk["concepts"][0]["id"] == "c1"
     assert "[[c1]]" in blk["body"]
     assert evs[-1]["type"] == "done"
+
+
+def _stub_run_facilitate(monkeypatch, map_return):
+    """Shared stub setup for run_facilitate concept-path tests."""
+    monkeypatch.setattr(fac, "parse_catalog", lambda: _CATF)
+
+    async def fake_resolve(*a, **k):
+        return BookResolution(book_slug="hansen", book_confidence=1.0,
+                              book_candidates=["hansen"], chapter_id="ch07",
+                              requested_subtopics=[])
+    monkeypatch.setattr(fac, "resolve_book", fake_resolve)
+    monkeypatch.setattr(fac, "fetch_chapter_sections",
+                        lambda b, c, **k: [_secf("7.1 INTRODUCTION", "s1",
+                                                 "Some section text.")])
+    monkeypatch.setattr(fac, "_section_order_in_book", lambda slug: {})
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        sysmsg = messages[0]["content"]
+        if "analyse ONE textbook section" in sysmsg:
+            return map_return
+        if "Explain the term" in sysmsg:
+            return "Explanation text."
+        if "Rewrite this section" in sysmsg:
+            return "- pt\n\nBody [[c1]]."
+        if "Check the rewritten body" in sysmsg:
+            return '{"ok":true,"unsupported":[],"confidence":0.9}'
+        return "{}"
+    monkeypatch.setattr(fac, "_chat", fake_chat)
+
+
+@pytest.mark.asyncio
+async def test_explained_concept_skips_retrieval(monkeypatch):
+    """Concepts with status='explained' must never trigger sub-retrieval."""
+    map_json = '{"key_points":["pt"],"concepts":[{"term":"normality","kind":"concept","status":"explained"}]}'
+    _stub_run_facilitate(monkeypatch, map_json)
+
+    def must_not_be_called(term, **k):
+        raise AssertionError("fetch_concept_support must not be called for explained concepts")
+    monkeypatch.setattr(fac, "fetch_concept_support", must_not_be_called)
+
+    req = ChatRequest(message="facilitate ch07 of hansen", mode="facilitate", bookFilter=["hansen"])
+    evs = [e async for e in fac.run_facilitate(req)]
+    so = next(e for e in evs if e["type"] == "structured_output")
+    blk = so["data"]["blocks"][0]
+    assert len(blk["concepts"]) == 1
+    assert blk["concepts"][0]["term"] == "normality"
+
+
+@pytest.mark.asyncio
+async def test_referenced_concept_no_support_still_anchors_with_fallback(monkeypatch):
+    """When fetch_concept_support returns None, fallback anchor is built from in-section text."""
+    map_json = '{"key_points":["pt"],"concepts":[{"term":"normality","kind":"concept","status":"referenced"}]}'
+    _stub_run_facilitate(monkeypatch, map_json)
+    monkeypatch.setattr(fac, "fetch_concept_support", lambda term, **k: None)
+
+    req = ChatRequest(message="facilitate ch07 of hansen", mode="facilitate", bookFilter=["hansen"])
+    evs = [e async for e in fac.run_facilitate(req)]
+    so = next(e for e in evs if e["type"] == "structured_output")
+    blk = so["data"]["blocks"][0]
+    assert len(blk["concepts"]) == 1
+    anchor = blk["concepts"][0]
+    assert anchor["provenance"]["fallback"] is True
+
+
+@pytest.mark.asyncio
+async def test_subretrieval_disabled_uses_in_section(monkeypatch):
+    """When _SUBRETRIEVAL=False, referenced concepts fall back without any retrieval call."""
+    map_json = '{"key_points":["pt"],"concepts":[{"term":"normality","kind":"concept","status":"referenced"}]}'
+    _stub_run_facilitate(monkeypatch, map_json)
+    monkeypatch.setattr(fac, "_SUBRETRIEVAL", False)
+
+    def must_not_be_called(term, **k):
+        raise AssertionError("fetch_concept_support must not be called when _SUBRETRIEVAL=False")
+    monkeypatch.setattr(fac, "fetch_concept_support", must_not_be_called)
+
+    req = ChatRequest(message="facilitate ch07 of hansen", mode="facilitate", bookFilter=["hansen"])
+    evs = [e async for e in fac.run_facilitate(req)]
+    so = next(e for e in evs if e["type"] == "structured_output")
+    blk = so["data"]["blocks"][0]
+    assert len(blk["concepts"]) == 1
+    anchor = blk["concepts"][0]
+    # fallback=True because status was "referenced" but no retrieval was attempted
+    assert anchor["provenance"]["fallback"] is True
