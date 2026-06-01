@@ -105,8 +105,13 @@ def _safe_int(value: Any) -> int | None:
     return v if v >= 0 else None
 
 
-def _point_to_source(point: Any, rank: int) -> Source:
+def _point_to_source(point: Any, rank: int, *, score: float | None = None) -> Source:
     """Convert a raw Qdrant scored point to a :class:`Source` object.
+
+    ``score`` lets callers supply a value for points that carry none —
+    ``scroll()`` returns immutable ``Record`` objects with no ``score`` field,
+    so they cannot be mutated in place. When ``score`` is None we read
+    ``point.score`` if present, else fall back to ``0.0``.
 
     Maps ingestion payload (`h1`, `h2_path`, `section_id`, `chapter_id`,
     `page_from`/`page_to`, `book_slug`, `book_name`, `authors`, `year`,
@@ -151,7 +156,7 @@ def _point_to_source(point: Any, rank: int) -> Source:
         section=section,
         title=title,
         excerpt=text[:200],
-        score=float(point.score),
+        score=float(score if score is not None else getattr(point, "score", 0.0) or 0.0),
         page=page,
         chunkId=str(point.id),
         chunk=text,
@@ -253,9 +258,9 @@ def _expand_adjacent(sources: list[Source], collections: list[str]) -> list[Sour
                 if pid in seen_ids:
                     continue
                 seen_ids.add(pid)
-                # Wrap as Source — reuse _point_to_source contract
-                p.score = appended_score  # noqa: F841 — mutate in place to feed _point_to_source
-                src = _point_to_source(p, rank=next_rank)
+                # Wrap as Source — scroll() points are immutable, so pass the
+                # appended score explicitly instead of mutating the point.
+                src = _point_to_source(p, rank=next_rank, score=appended_score)
                 next_rank += 1
                 out.append(src)
     return out
@@ -310,10 +315,9 @@ def fetch_chapter_sections(
     raw.sort(key=_order_key)
     out: list[Source] = []
     for i, p in enumerate(raw[:max_sections]):
-        # scroll() returns Record objects with no `.score`; _point_to_source
-        # reads point.score, so seed a neutral score (mirrors _expand_adjacent).
-        p.score = 0.0  # noqa: F841 — mutate in place to feed _point_to_source
-        out.append(_point_to_source(p, rank=i + 1))
+        # scroll() returns immutable Record objects with no `.score`; pass a
+        # neutral score explicitly rather than mutating the point.
+        out.append(_point_to_source(p, rank=i + 1, score=0.0))
     return out
 
 

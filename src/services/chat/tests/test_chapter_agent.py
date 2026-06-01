@@ -7,10 +7,15 @@ import src.services.chat.retrieval as retrieval
 
 
 class _FakePoint:
+    # __slots__ without `score` makes attribute assignment raise, faithfully
+    # mimicking the real immutable Qdrant `Record` returned by scroll() (a
+    # frozen pydantic model with no `score` field). A plain mutable fake hid the
+    # production crash where the code did `p.score = 0.0`.
+    __slots__ = ("id", "payload")
+
     def __init__(self, pid, payload):
         self.id = pid
         self.payload = payload
-        # deliberately no .score — mimics real Qdrant Record from scroll()
 
 
 def _payload(section_id, h2, page):
