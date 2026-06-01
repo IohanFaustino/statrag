@@ -5,33 +5,67 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>statrag — Resume</title>
 <link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body data-base="../">
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
-  <h1><span class="accent">Resume</span> mode <span class="pill">multi-agent</span></h1>
-  <div class="sub">Ordered compressed recap of a chapter — a faithful, condensed summary in reading order.</div>
+  <h1><span class="accent">Resume</span> mode <span class="pill">multi-agent (chapter pipeline)</span></h1>
+  <div class="sub">An ordered, compressed recap of a whole chapter. Same structural pipeline as Facilitate, but the map step is terse (~60-100 tokens/section) — a faithful condensed summary in reading order.</div>
 </header>
 <main>
+  <section>
+    <h2>What it serves</h2>
+    <div class="card"><p style="margin:0">Use to review or skim a chapter you have already studied, or to get the gist of one quickly. Pick Facilitate instead when you want a full teaching walkthrough.</p></div>
+  </section>
+  <section>
+    <h2>Pipeline</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
+  Q[&quot;Chapter request&quot;] --> PS[&quot;parse-scope&quot;]
+  PS --> FC[&quot;fetch-chapter (structural, in order)&quot;]
+  FC --> RS[&quot;resolve-subtopics (fuzzy, nano)&quot;]
+  RS --> MAP[&quot;map per-section IN ORDER<br/>resume = compact ~60-100 tok&quot;]
+  MAP --> ST[&quot;stitch&quot;]
+  ST --> GR[&quot;ground&quot;]
+  GR --> A[&quot;ChapterDigest (blocks in order)&quot;]
+  style MAP fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
+  Q["Chapter request"] --> PS["parse-scope"]
+  PS --> FC["fetch-chapter (structural, in order)"]
+  FC --> RS["resolve-subtopics (fuzzy, nano)"]
+  RS --> MAP["map per-section IN ORDER<br/>resume = compact ~60-100 tok"]
+  MAP --> ST["stitch"]
+  ST --> GR["ground"]
+  GR --> A["ChapterDigest (blocks in order)"]
+  style MAP fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
+    <p class="caption">Identical pipeline to Facilitate; the map prompt is compact instead of verbose.</p>
+  </section>
   <section>
     <h2>Spec</h2>
     <table>
       <tr><th>Mode id</th><td><code>resume</code></td></tr>
-      <tr><th>Architecture</th><td>multi</td></tr>
+      <tr><th>Architecture</th><td>multi-agent (chapter pipeline)</td></tr>
+      <tr><th>Default model</th><td>nano (per-stage override via CHAPTER_&lt;STAGE&gt;_MODEL)</td></tr>
       <tr><th>Output schema</th><td><code>ChapterDigest</code></td></tr>
-      <tr><th>Tools</th><td>—</td></tr>
-      <tr><th>Retrieval flags</th><td>rerank=False</td></tr>
-      <tr><th>Model tier</th><td>nano</td></tr>
-      <tr><th>Post-validators</th><td>—</td></tr>
+      <tr><th>Tools</th><td>none</td></tr>
+      <tr><th>Retrieval</th><td>rerank=False — structural fetch, NOT relevance search</td></tr>
       <tr><th>Memory</th><td>off</td></tr>
+      <tr><th>Post-validators</th><td>none (optional ground node)</td></tr>
+      <tr><th>System prompt</th><td><code>prompts/chapter.py — CHAPTER_MAP_RESUME_PROMPT</code></td></tr>
     </table>
-    <p class="caption">Source: <code>src/services/chat/modes.py</code> (ModeSpec registry).</p>
+    <p class="caption">Source: <code>src/services/chat/agents/chapter.py:3-4, modes.py:209-223</code>.</p>
   </section>
   <section>
-    <h2>Runner</h2>
-    <div class="card"><p style="margin:0">Same chapter pipeline as facilitate (parse-scope → fetch-chapter → resolve-subtopics → map → stitch → ground), different map prompt. Structural fetch, order preserved by section_id.</p></div>
-    <p class="caption">Code: <code>agents/chapter.py · prompts/chapter.py (CHAPTER_MAP_RESUME_PROMPT)</code>.</p>
+    <h2>Output fields</h2>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td><code>mode</code></td><td>"resume" — renderer styling.</td></tr>
+      <tr><td><code>scope</code></td><td>ChapterScope: book_slug, chapter_id, requested_subtopics, resolution.</td></tr>
+      <tr><td><code>intro / outro</code></td><td>Framing before/after the blocks.</td></tr>
+      <tr><td><code>blocks[]</code></td><td>ChapterBlock per section: h2_path, section_id, body, page_from, page_to — list position IS chapter order.</td></tr>
+      <tr><td><code>citations / math_blocks / grounding</code></td><td>Sources, math, verify verdict.</td></tr>
+    </table>
+    <p class="caption">schemas/output.py:296-313. Chapter knobs below.</p>
   </section>
   <section>
     <h2>Chapter knobs</h2>
@@ -42,10 +76,23 @@
       <tr><td><code>CHAPTER_STITCH</code></td><td>1</td><td>Run the stitch pass that links per-section digests into a flowing whole.</td></tr>
       <tr><td><code>CHAPTER_GROUND</code></td><td>1</td><td>Run the grounding pass that checks the digest against the fetched sections.</td></tr>
     </table>
-    <p class="caption">Source: <code>src/services/chat/agents/chapter.py:45-48</code>. Per-stage model override via <code>CHAPTER_&lt;STAGE&gt;_MODEL</code>.</p>
+    <p class="caption">Source: <code>src/services/chat/agents/chapter.py:45-48</code>.</p>
   </section>
 </main>
 </div>
 <script src="../sidebar.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
 </body>
 </html>

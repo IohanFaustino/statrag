@@ -27,6 +27,7 @@ h1 .accent{color:var(--accent)}
 .side-toggle .caret{display:inline-block;transition:transform .15s;font-size:10px}
 .side-toggle.open .caret{transform:rotate(90deg)}
 .side-sub{display:flex;flex-direction:column}
+.side-sub[hidden]{display:none}  /* override .side-sub display so the hidden attr collapses it */
 .side-sub a{padding-left:20px}
 .content{min-width:0}
 @media(max-width:760px){

@@ -5,36 +5,93 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>statrag — Tutor</title>
 <link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body data-base="../">
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
-  <h1><span class="accent">Tutor</span> mode <span class="pill">single-agent</span></h1>
-  <div class="sub">Default didactic Q&amp;A over the corpus. Deep, multi-author synthesis with citations, figures, and math. Memory on (auto).</div>
+  <h1><span class="accent">Tutor</span> mode <span class="pill">single-agent (tool loop)</span></h1>
+  <div class="sub">The default, deepest mode. Answers a question with a multi-author, structured tutorial: TL;DR, definition, formal statement, worked example + intuition, applications, and further reading — with inline citations, figures, and rendered math.</div>
 </header>
 <main>
+  <section>
+    <h2>What it serves</h2>
+    <div class="card"><p style="margin:0">Use for conceptual questions where you want depth, multiple textbook perspectives, formulas, and figures ("What is the bias-variance tradeoff?"). Not for a one-line fact (use Q&amp;A) or for walking a whole chapter (use Facilitate / Resume).</p></div>
+  </section>
+  <section>
+    <h2>Pipeline</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
+  Q[&quot;Question&quot;] --> QP[&quot;Query planner (nano)<br/>concepts + queries + facets&quot;]
+  QP --> RET[&quot;Multi-query retrieval -> RRF&quot;]
+  RET --> DR[&quot;Density + author-diversity + rerank&quot;]
+  DR --> CC{&quot;Coverage check (nano)&quot;}
+  CC -. &quot;missing facet&quot; .-> RET
+  CC --> FJ[&quot;Figure judge&quot;]
+  FJ --> PL[&quot;Planner-orchestrator (LLM)&quot;]
+  PL --> DFT[&quot;Draft / synthesis (draft model)&quot;]
+  DFT --> VE[&quot;Vision explain&quot;]
+  VE --> A[&quot;TutorAnswer&quot;]
+  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style CC fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
+  Q["Question"] --> QP["Query planner (nano)<br/>concepts + queries + facets"]
+  QP --> RET["Multi-query retrieval -> RRF"]
+  RET --> DR["Density + author-diversity + rerank"]
+  DR --> CC{"Coverage check (nano)"}
+  CC -. "missing facet" .-> RET
+  CC --> FJ["Figure judge"]
+  FJ --> PL["Planner-orchestrator (LLM)"]
+  PL --> DFT["Draft / synthesis (draft model)"]
+  DFT --> VE["Vision explain"]
+  VE --> A["TutorAnswer"]
+  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style CC fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
+    <p class="caption">Full pipeline on the Chat &amp; deep-tutor page. The draft node is the only stage that uses the heavy draft model; everything else is nano.</p>
+  </section>
   <section>
     <h2>Spec</h2>
     <table>
       <tr><th>Mode id</th><td><code>tutor</code></td></tr>
-      <tr><th>Architecture</th><td>single</td></tr>
-      <tr><th>Output schema</th><td><code>TutorAnswer</code></td></tr>
+      <tr><th>Architecture</th><td>single-agent (tool loop)</td></tr>
+      <tr><th>Default model</th><td>nano for aux stages; <b>draft stage</b> overrides to <code>TUTOR_DRAFT_MODEL</code> (qwen-plus) with the full OpenAI model as fallback</td></tr>
+      <tr><th>Output schema</th><td><code>TutorAnswer / DeepTutorAnswer</code></td></tr>
       <tr><th>Tools</th><td>retrieve</td></tr>
-      <tr><th>Retrieval flags</th><td>rerank=False (gated until M4)</td></tr>
-      <tr><th>Model tier</th><td>nano</td></tr>
+      <tr><th>Retrieval</th><td>rerank gated (off until M4) at the mode level; the deep-tutor pipeline does its own rerank</td></tr>
+      <tr><th>Memory</th><td>auto (carries conversation context)</td></tr>
       <tr><th>Post-validators</th><td>citation</td></tr>
-      <tr><th>Memory</th><td>auto</td></tr>
+      <tr><th>System prompt</th><td><code>prompts/tutor.py — TUTOR_INSTRUCTIONS</code></td></tr>
     </table>
-    <p class="caption">Source: <code>src/services/chat/modes.py</code> (ModeSpec registry).</p>
+    <p class="caption">Source: <code>src/services/chat/agents/deep_tutor.py + modes.py:153-167</code>.</p>
   </section>
   <section>
-    <h2>Runner</h2>
-    <div class="card"><p style="margin:0">Single-agent tool loop. The rich deep-tutor pipeline (see the Chat &amp; deep-tutor page) produces the structured TutorAnswer — query planner → multi-query retrieval → density/diversity/rerank → coverage → figure judge → planner-orchestrator → drafting workflow → vision explain.</p></div>
-    <p class="caption">Code: <code>agents/deep_tutor.py · prompts/tutor.py (TUTOR_INSTRUCTIONS)</code>.</p>
+    <h2>Output fields</h2>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td><code>tldr</code></td><td>Intro: direct answer + roadmap of the sections.</td></tr>
+      <tr><td><code>definition</code></td><td>Markdown paragraph defining the concept.</td></tr>
+      <tr><td><code>formal_statement</code></td><td>Verbatim numbered theorem when sources state one; else empty (heading dropped).</td></tr>
+      <tr><td><code>example_intuition</code></td><td>Three cases analysed, then explicit intuition.</td></tr>
+      <tr><td><code>applications</code></td><td>Corpus-grounded use-cases grouped by domain.</td></tr>
+      <tr><td><code>further_reading</code></td><td>Related topics + open questions, with citations.</td></tr>
+      <tr><td><code>citations / math_blocks / figures</code></td><td>Inline [n] sources, rendered math, figure refs.</td></tr>
+    </table>
+    <p class="caption">DeepTutorAnswer aspects (schemas/output.py:111-158); assembled into TutorAnswer.text + aspects for the UI.</p>
   </section>
 </main>
 </div>
 <script src="../sidebar.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
 </body>
 </html>
