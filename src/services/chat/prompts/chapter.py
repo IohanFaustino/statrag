@@ -109,3 +109,33 @@ Return ONLY a JSON object:
 
 Do not rewrite the digest. Only report.
 """
+
+FACILITATE_MAP_PROMPT = """You analyse ONE textbook section for a learner.
+Return ONLY JSON:
+  "key_points": array of 3-6 short strings — the section's most important points.
+  "concepts": array of {"term","kind","status"} where kind is one of
+      "concept"|"theorem"|"formula" and status is "explained" (defined in THIS
+      section) or "referenced" (named but assumed/not defined here). Mark a
+      formula as a concept ONLY if it has derivation steps behind it.
+Pick at most 5 concepts, the ones most useful to understand. Do not invent terms.
+"""
+
+FACILITATE_EXPLAIN_PROMPT = """Explain the term in 1-3 plain sentences using ONLY
+the provided passage. No padding, no restating the question. If the term is a
+formula with steps, give the short derivation. Return ONLY the explanation text.
+"""
+
+FACILITATE_TEACH_PROMPT = """Rewrite this section for a learner.
+Rules:
+- SHORT, direct paragraphs (<=2-3 sentences). Prefer a bullet list of the key points.
+- Simpler language. Keep ONLY the key points. Do NOT lengthen or add background.
+- Any extra/explanatory detail belongs in a concept anchor, NOT the body.
+- Insert [[cN]] right after the term where each listed concept first appears
+  (use the ids given). Step-bearing formulas also get their [[cN]].
+Return ONLY markdown for the body.
+"""
+
+FACILITATE_VERIFY_PROMPT = """Check the rewritten body against the section text.
+Return ONLY JSON {"ok": bool, "unsupported": [string], "confidence": 0..1}.
+ok=false if the body states something the section does not support.
+"""
