@@ -3,104 +3,45 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>statrag — implementation audit report</title>
-<style>
-  :root{--bg:#0b0c0e;--panel:#141619;--panel2:#1b1e22;--line:#2a2e34;--txt:#e6e8eb;--dim:#9aa1aa;--accent:#E5484D;--ok:#3fb950;--warn:#d2a24c}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.6 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif}
-  header{padding:26px 32px;border-bottom:1px solid var(--line)}
-  h1{margin:0 0 4px;font-size:21px}h1 .a{color:var(--accent)}
-  .sub{color:var(--dim);font-size:13px}
-  main{max-width:1060px;margin:0 auto;padding:22px 32px 64px}
-  h2{font-size:16px;border-left:3px solid var(--accent);padding-left:10px;margin:30px 0 12px}
-  p{color:#cdd2d8}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:10px 0}
-  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0}
-  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
-  th{background:var(--panel2);color:var(--dim)}
-  .ok{color:var(--ok);font-weight:600}.warn{color:var(--warn);font-weight:600}.bad{color:var(--accent);font-weight:600}
-  code{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
-  pre{background:#000;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;font-size:12.5px;color:#cdd2d8}
-  .verdict{border-radius:10px;padding:14px 18px;margin:10px 0}
-  .v-ok{border:1px solid var(--ok);background:rgba(63,185,80,.08)}
-  .v-warn{border:1px solid var(--warn);background:rgba(210,162,76,.08)}
-  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
-  ul{color:#cdd2d8}
-</style>
+<title>statrag — Verification</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body>
 <header>
-  <h1>statrag — <span class="a">implementation audit</span> report</h1>
-  <div class="sub">Triggered by "the modal is exactly the same." Full inspection: disk · runtime · services · browser. <span class="pill">2026-05-21</span></div>
+  <h1>statrag — <span class="accent">Verification</span></h1>
+  <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
 </header>
+<nav class="top">
+  <a href="index.html">Overview</a>
+  <a href="ingestion.html">Ingestion</a>
+  <a href="retrieval.html">Retrieval</a>
+  <a href="chat.html">Chat &amp; deep-tutor</a>
+  <a href="report.html" class="active">Verification</a>
+</nav>
 <main>
-
-  <h2>0 · Headline</h2>
-  <div class="verdict v-ok">
-    <b>Disk code matched the plan all along.</b> The "same modal" was a <b>runtime</b> problem (two dev servers + a stale tab), now fixed.
-    Crucially, log-monitoring (as you required) uncovered a <b>real silent bug</b>: the Planner had been <b>failing on every request</b> due to an OpenAI strict-schema violation, degrading gracefully so it was invisible. <b>Now fixed and proven end-to-end.</b>
-  </div>
-
-  <h2>1 · Plan ↔ implementation matrix</h2>
-  <table>
-    <tr><th>Plan element</th><th>Disk evidence</th><th>Status</th></tr>
-    <tr><td>Planner = merged Synthesis-plan + Orchestrator</td><td><code>tutorPipeline.ts</code> node <code>id:"plan"</code> label "Planner"; <code>SynthesisPlan.tasks</code>; orchestrator reads <code>plan.tasks</code> (no 2nd LLM call)</td><td class="ok">Implemented</td></tr>
-    <tr><td>Critique dropped from canonical DAG</td><td>No <code>critique</code> node; edge <code>draft → vision_explain</code>; critique code stays env opt-in (<code>TUTOR_DEEP_CRITIQUE</code>)</td><td class="ok">Implemented</td></tr>
-    <tr><td>Workflow-aware diagram (orchestrator morph)</td><td><code>PipelineDiagram</code> derives orchestrator/worker/synthesizer nodes when <code>tutorWorkflow==="orchestrator"</code></td><td class="ok">Implemented</td></tr>
-    <tr><td>Author-diversity (Auto), Vision-explain selectable, LaTeX repair</td><td>Present + tested (prior sessions)</td><td class="ok">Implemented</td></tr>
-    <tr><td>Planner actually produces a plan at runtime</td><td>Was 400-ing silently (see §3)</td><td class="warn">Broken → now fixed</td></tr>
+<section>
+  <h2>Verification matrix</h2>
+  <p>Every non-trivial claim on the content pages, traced to its source with a verdict. Built during the 2026-06-01 rebuild by inspecting the code, not the prior docs.</p>
+  <table id="matrix">
+    <tr><th>Page</th><th>Claim</th><th>Source (file:line)</th><th>Verdict</th></tr>
+    <!-- ROWS APPENDED PER TASK -->
   </table>
-
-  <h2>2 · The "modal is the same" cause (runtime, not code)</h2>
-  <div class="card">
-    Two dev Vite servers were running (<code>:5175</code> pid 201184 + <code>:5176</code> pid 398277) from repeated <code>./scripts/dev.sh</code> runs, plus a 19h-old prod Docker on <code>:5173</code>. HMR for the data-only <code>tutorPipeline.ts</code> change hadn't propagated to the tab you had open.
-    <br><b>Fix:</b> killed the duplicate dev processes, started <b>one</b> clean server (<code>:5175</code> + <code>:8766</code>), hard-reloaded. The modal then correctly showed <b>Planner</b> and <b>no Critique</b>.
-  </div>
-
-  <h2>3 · Real bug found by service monitoring</h2>
-  <div class="verdict v-warn"><b>Symptom (dev log):</b> every tutor request logged:</div>
-  <pre>build_synthesis_plan failed; proceeding without a plan
-openai.BadRequestError: 400 - Invalid schema for response_format 'SynthesisPlan':
-  ... Extra required key 'outline' supplied.</pre>
-  <p><b>Root cause:</b> <code>SynthesisPlan.outline: dict[str,str]</code> — OpenAI strict structured outputs forbid open-keyed objects. <code>build_synthesis_plan</code> 400'd, caught the error, returned <code>None</code> → no plan injected, orchestrator fell back to the per-author split instead of LLM-chosen tasks. It failed <i>gracefully</i>, so the answer still streamed and the bug stayed hidden. After removing the dict it then truncated (<code>LengthFinishReasonError</code>, 850-token cap).</p>
-  <p><b>Fix:</b> slimmed <code>SynthesisPlan</code> to exactly <code>{thesis, contrasts, tasks}</code> (removed the carried-over <code>outline</code>+<code>ledger</code> and their classes), trimmed the prompt, raised the cap to 1200. Added a regression guard test that rejects any open-keyed dict in a <code>response_format</code> model.</p>
-  <div class="card"><b>Proof — live API call</b> (4 sources):<pre>RESULT: OK
-thesis: True | contrasts: 2 | tasks: [
-  ('Goodfellow: general definition', [1]),
-  ('ISLP: regularization as shrinkage', [3]),
-  ('Murphy: Bayesian interpretation', [4]),
-  ('Atwan: concrete regularizers L1/L2', [2]) ]</pre>
-  The Planner now returns a thesis, contrasts, and <b>LLM-chosen worker tasks</b> with source ranks.</div>
-
-  <h2>4 · Tests</h2>
-  <table>
-    <tr><th>Suite</th><th>Result</th></tr>
-    <tr><td>Backend <code>src/services/chat/tests/</code> (full)</td><td class="ok">all pass</td></tr>
-    <tr><td>Frontend <code>tsc --noEmit</code></td><td class="ok">0 errors</td></tr>
-    <tr><td>Frontend <code>vitest</code> (incl. PipelineDiagram)</td><td class="ok">31 pass</td></tr>
-    <tr><td>New guard: strict-output models have no open dict</td><td class="ok">pass</td></tr>
-  </table>
-
-  <h2>5 · Service health / error audit</h2>
-  <div class="card">
-    One clean dev stack: Vite <code>:5175</code> + FastAPI <code>:8766</code> (<code>/api/health → {"status":"ok"}</code>). Prod Docker <code>:5173</code>/<code>:8765</code> left untouched (19h-old build — rebuild with <code>docker compose --profile prod up -d --build</code> to ship these changes there).
-    <br>After the fix, a live tutor query produced <b>0 <code>build_synthesis_plan failed</code></b> and <b>0 exceptions</b> in the backend log. Pre-fix occurrences are retained in older logs for traceability.
-  </div>
-
-  <h2>6 · Browser verification</h2>
-  <ul>
-    <li><b>Modal (single mode):</b> Question → Concept extraction ‖ Hybrid retrieval → Density+rerank → Author diversity → Figure judge → <b>Planner</b> → Drafting workflow → Draft/synthesis → Vision explain → Answer. <span class="ok">No Critique node.</span></li>
-    <li><b>Modal (orchestrator):</b> Drafting workflow = Orchestrator redraws Draft into <b>Orchestrator → Worker ×N → Synthesizer</b>.</li>
-    <li><b>Planner-driven answer:</b> "Compare how different authors define regularization" → coherent intro spanning 4 authors (Goodfellow / Atwan / Peters / Murphy), 0 errors.</li>
-  </ul>
-
-  <h2>7 · Honest residual notes</h2>
-  <ul>
-    <li>Prod <code>:5173</code> is stale until rebuilt — only dev <code>:5175</code> reflects current code.</li>
-    <li>Unused leftovers kept (harmless): <code>ORCHESTRATOR_PROMPT</code> / <code>OrchestratorPlan</code> (superseded by the Planner). Can be removed in a cleanup pass.</li>
-    <li>The Planner degrades gracefully to "no plan" on any future API error — by design — so monitor the <code>build_synthesis_plan failed</code> log line as the canary.</li>
-  </ul>
-
+  <p class="caption">Verdict legend: <span class="yes">verified</span> = matches code · <span class="warn">drift</span> = prior doc was wrong, corrected here · <span class="no">removed</span> = prior doc claimed something no longer in code.</p>
+</section>
 </main>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
 </body>
 </html>
