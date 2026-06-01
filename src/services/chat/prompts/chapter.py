@@ -143,7 +143,7 @@ FACILITATE_TEACH_PROMPT = """ROLE: You are a teacher preparing THIS section as a
 TASK: Teach the section as a sequence of SHORT, well-formed paragraphs that flow as a lesson:
   - OPEN with one paragraph that hooks the idea — why it matters / what it lets you do.
   - Then ONE paragraph per DISTINCT core idea (keep each short — 2-4 sentences).
-  - Put each EXAMPLE in its OWN separate paragraph.
+  - Put each EXAMPLE under its own subheading line `### Example` (or `### Example: <short label>`), followed by the example in its own paragraph.
   - CLOSE with a short paragraph that ties it together / the takeaway.
 NO REPETITION: cover each idea exactly ONCE. Never restate the same point in different
   words across paragraphs. If two concepts are the same idea or a concept and its mere
@@ -166,7 +166,7 @@ OUTPUT FORMAT (markdown body only):
     enumeration of sibling items; NEVER bullet single ideas, transitions, or one concept.
   - Math: $...$ inline, $$...$$ display. NEVER \\( \\) or \\[ \\].
   - English only. Never copy garbled or non-English/OCR characters.
-  - Concise — a lesson, not a transcript. No top-level heading (the app adds it).
+  - Concise — a lesson, not a transcript. Do NOT add the section title as a heading (the app adds it); `###` sub-subheadings like Example are allowed.
 Return ONLY the markdown body.
 """
 
