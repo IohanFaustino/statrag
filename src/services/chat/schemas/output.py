@@ -333,6 +333,51 @@ class BookResolution(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Mode 3 — facilitate (concept-map digest)
+# ---------------------------------------------------------------------------
+
+
+class ConceptProvenance(BaseModel):
+    book_slug: str = ""
+    book_name: str = ""
+    authors_short: str = ""
+    section: str = ""
+    page_from: int = -1
+    page_to: int = -1
+    chunk_id: str = ""
+    same_author: bool = True
+    fallback: bool = False
+
+
+class ConceptAnchor(BaseModel):
+    id: str
+    term: str
+    kind: Literal["concept", "theorem", "formula"] = "concept"
+    explanation: str = ""
+    provenance: ConceptProvenance = Field(default_factory=ConceptProvenance)
+
+
+class FacilitateBlock(BaseModel):
+    h2_path: str
+    section_id: str
+    key_points: list[str] = Field(default_factory=list)
+    body: str = ""
+    concepts: list[ConceptAnchor] = Field(default_factory=list)
+    page_from: int = -1
+    page_to: int = -1
+
+
+class FacilitateDigest(BaseModel):
+    mode: Literal["facilitate"]
+    scope: ChapterScope
+    intro: str = ""
+    blocks: list[FacilitateBlock] = Field(default_factory=list)
+    outro: str = ""
+    math_blocks: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
 # Concept graph primitives (kept — kg.py depends on these)
 # ---------------------------------------------------------------------------
 
