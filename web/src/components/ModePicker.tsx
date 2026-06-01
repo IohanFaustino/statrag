@@ -25,9 +25,13 @@ interface ModePickerProps {
   onAbout?(): void;
   // Opens the Q&A info modal (info icon lives on the Q&A card).
   onAboutQA?(): void;
+  // Opens the Facilitate info modal (info icon lives on the Facilitate card).
+  onAboutFacilitate?(): void;
+  // Opens the Resume info modal (info icon lives on the Resume card).
+  onAboutResume?(): void;
 }
 
-export default function ModePicker({ activeMode, modes, onChange, onAbout, onAboutQA }: ModePickerProps) {
+export default function ModePicker({ activeMode, modes, onChange, onAbout, onAboutQA, onAboutFacilitate, onAboutResume }: ModePickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -140,6 +144,56 @@ export default function ModePicker({ activeMode, modes, onChange, onAbout, onAbo
                       onClick={(e) => {
                         e.stopPropagation();
                         onAboutQA();
+                        setOpen(false);
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="8" cy="8" r="6.5" />
+                        <path d="M8 7.2v4" strokeLinecap="round" />
+                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              }
+              // The Facilitate card carries an info (i) button → opens Facilitate modal.
+              if (m.id === "facilitate" && onAboutFacilitate) {
+                return (
+                  <div key={m.id} className="mode-picker__cell">
+                    {item}
+                    <button
+                      type="button"
+                      className="mode-picker__about"
+                      aria-label="About the Facilitate pipeline"
+                      title="About the Facilitate pipeline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAboutFacilitate();
+                        setOpen(false);
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="8" cy="8" r="6.5" />
+                        <path d="M8 7.2v4" strokeLinecap="round" />
+                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              }
+              // The Resume card carries an info (i) button → opens Resume modal.
+              if (m.id === "resume" && onAboutResume) {
+                return (
+                  <div key={m.id} className="mode-picker__cell">
+                    {item}
+                    <button
+                      type="button"
+                      className="mode-picker__about"
+                      aria-label="About the Resume pipeline"
+                      title="About the Resume pipeline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAboutResume();
                         setOpen(false);
                       }}
                     >

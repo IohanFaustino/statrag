@@ -9,6 +9,8 @@ interface InputBarProps {
   onModeChange(id: string): void;
   onModeAbout?(): void;
   onModeAboutQA?(): void;
+  onModeAboutFacilitate?(): void;
+  onModeAboutResume?(): void;
   onSend(text: string): void;
   disabled?: boolean;
 }
@@ -19,6 +21,8 @@ export default function InputBar({
   onModeChange,
   onModeAbout,
   onModeAboutQA,
+  onModeAboutFacilitate,
+  onModeAboutResume,
   onSend,
   disabled = false,
 }: InputBarProps) {
@@ -94,6 +98,8 @@ export default function InputBar({
             onChange={onModeChange}
             onAbout={onModeAbout}
             onAboutQA={onModeAboutQA}
+            onAboutFacilitate={onModeAboutFacilitate}
+            onAboutResume={onModeAboutResume}
           />
         </div>
       </div>

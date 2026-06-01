@@ -15,6 +15,8 @@ import BookModal from "./components/modals/BookModal";
 import SourceModal from "./components/modals/SourceModal";
 import AboutModelModal from "./components/modals/AboutModelModal";
 import QAModeModal from "./components/modals/QAModeModal";
+import ChapterFacilitateModal from "./components/modals/ChapterFacilitateModal";
+import ChapterResumeModal from "./components/modals/ChapterResumeModal";
 import type { StageKey } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
@@ -176,6 +178,8 @@ export default function App() {
   const [aboutModelId, setAboutModelId] = useState<string | null>(null);
   // Q&A mode info modal (ephemeral).
   const [qaModalOpen, setQaModalOpen] = useState(false);
+  const [facilitateModalOpen, setFacilitateModalOpen] = useState(false);
+  const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [stageModels, setStageModels] = usePersistentState<Record<string, string>>(
     "statrag.stageModels",
     DEFAULT_STAGE_MODELS,
@@ -691,6 +695,8 @@ export default function App() {
               onModeChange={(id) => setActiveMode(id)}
               onModeAbout={() => setAboutModelId(activeModel)}
               onModeAboutQA={() => setQaModalOpen(true)}
+              onModeAboutFacilitate={() => setFacilitateModalOpen(true)}
+              onModeAboutResume={() => setResumeModalOpen(true)}
               onSend={handleSend}
               disabled={isStreaming}
             />
@@ -756,6 +762,22 @@ export default function App() {
         stageModels={stageModels}
         onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setQaModalOpen(false)}
+      />
+
+      <ChapterFacilitateModal
+        open={facilitateModalOpen}
+        providers={providers}
+        stageModels={stageModels}
+        onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
+        onClose={() => setFacilitateModalOpen(false)}
+      />
+
+      <ChapterResumeModal
+        open={resumeModalOpen}
+        providers={providers}
+        stageModels={stageModels}
+        onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
+        onClose={() => setResumeModalOpen(false)}
       />
 
       {/* T21: settings moved into InputBar toolbar via SettingsPicker. */}
