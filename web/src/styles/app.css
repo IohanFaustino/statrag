@@ -2567,6 +2567,10 @@ select:focus-visible {
 .flow__seg { width: 100%; display: flex; flex-direction: column; align-items: center; }
 .flow__arrow { display: flex; justify-content: center; line-height: 0; margin: 1px 0; }
 .pipe2__node-desc { font-size: 0.74rem; color: var(--text-tertiary, #9aa1aa); line-height: 1.45; }
+.pipe2__node-desc--clamp {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+}
 .pipe2__badge--data { color: var(--text-tertiary, #9aa1aa); border-color: var(--text-tertiary, #9aa1aa); }
 
 /* ─── Node model dropdown (replicates chatbox model picker) ───────────── */

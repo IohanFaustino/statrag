@@ -40,6 +40,9 @@ describe("PipelineDiagram", () => {
     expect(html).not.toContain("<select");
     // draft toggle shows the active picker model name
     expect(html).toContain("GPT-4o");
+    // nodes now show an in-box description line (parity with qa/chapter modals)
+    expect(html).toContain("pipe2__node-desc");
+    expect(html).toContain("Interprets the question");
   });
 
   it("shows the override value once a stage model is set", () => {

@@ -31,38 +31,59 @@ interface PipelineDiagramProps {
   onWorkflowChange(v: string): void;
 }
 
-// Hand-laid layout (px) in a 520×1200 coordinate space. Single vertical column:
+// Hand-laid layout (px) in a 520×computed coordinate space. Single vertical column:
 // Question → Query planner → Hybrid retrieval ×N → Density select + rerank →
 // Author diversity → Coverage check → Figure judge → Planner →
 // Drafting workflow → Draft / synthesis → Vision explain → Answer
 //
 // Coverage check also has a loop-back edge to Hybrid retrieval (left-side arc).
 const W = 520;
-const BASE_H = 1200;
 interface Box { x: number; y: number; w: number; h: number; }
 
-// Row heights and vertical gap between rows.
-const GAP = 20;
-// Base layout for the "single" workflow — all centred at x=144, w=232.
-const CX = 144;    // left edge of centred nodes
-const CW = 232;    // width of centred nodes
-const BASE_LAYOUT: Record<string, Box> = {
-  input:          { x: 160, y: 8,    w: 200, h: 46  },
-  expansion:      { x: CX,  y: 82,   w: CW,  h: 92  },
-  retrieval:      { x: CX,  y: 194,  w: CW,  h: 66  },
-  rerank:         { x: CX,  y: 280,  w: CW,  h: 66  },
-  diversity:      { x: CX,  y: 366,  w: CW,  h: 66  },
-  coverage:       { x: CX,  y: 452,  w: CW,  h: 66  },
-  image_judge:    { x: CX,  y: 538,  w: CW,  h: 92  },
-  plan:           { x: CX,  y: 650,  w: CW,  h: 92  },
-  drafting:       { x: CX,  y: 762,  w: CW,  h: 66  },
-  draft:          { x: CX,  y: 848,  w: CW,  h: 92  },
-  vision_explain: { x: CX,  y: 960,  w: CW,  h: 60  },
-  output:         { x: 160, y: 1040, w: 200, h: 46  },
-};
+// Vertical gap between rows.
+const GAP = 18;
+// Centred nodes geometry.
+const CX = 144;   // left edge of centred nodes
+const CW = 232;   // width of centred nodes
+// io nodes are a touch narrower + centred in the 520 canvas.
+const IO_X = 160;
+const IO_W = 200;
+const TOP = 8;    // top padding
 
-// Suppresses linting of intentionally-used GAP const
-void GAP;
+// Ordered rows with per-node heights (sized to fit label + clamped desc +
+// the model control). Growing a height auto-reflows everything below.
+const ROW_DEF: ReadonlyArray<{ id: string; h: number; io?: boolean }> = [
+  { id: "input",          h: 46,  io: true },
+  { id: "expansion",      h: 122 },
+  { id: "retrieval",      h: 104 },
+  { id: "rerank",         h: 112 },
+  { id: "diversity",      h: 116 },
+  { id: "coverage",       h: 112 },
+  { id: "image_judge",    h: 104 },
+  { id: "plan",           h: 132 },
+  { id: "drafting",       h: 132 },
+  { id: "draft",          h: 104 },
+  { id: "vision_explain", h: 112 },
+  { id: "output",         h: 46,  io: true },
+];
+
+const BASE_LAYOUT: Record<string, Box> = (() => {
+  const out: Record<string, Box> = {};
+  let y = TOP;
+  for (const r of ROW_DEF) {
+    out[r.id] = r.io
+      ? { x: IO_X, y, w: IO_W, h: r.h }
+      : { x: CX,   y, w: CW,   h: r.h };
+    y += r.h + GAP;
+  }
+  return out;
+})();
+
+const BASE_H = (() => {
+  let y = TOP;
+  for (const r of ROW_DEF) y += r.h + GAP;
+  return y + 8; // bottom padding
+})();
 
 // ── orchestrator cluster geometry ──────────────────────────────────────────
 // The `draft` slot starts at y=848. The orchestrator cluster replaces it with:
@@ -350,6 +371,7 @@ export default function PipelineDiagram({
                 <span className="pipe2__node-label">{n.label}</span>
                 <span className="pipe2__badge" title="Click to set author diversity">set</span>
               </div>
+              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
               <NodeChoiceDropdown
                 value={diversityAuthors}
                 options={DIVERSITY_OPTIONS}
@@ -373,6 +395,7 @@ export default function PipelineDiagram({
                 <span className="pipe2__node-label">{n.label}</span>
                 <span className="pipe2__badge" title="Click to set drafting workflow">set</span>
               </div>
+              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
               <NodeChoiceDropdown
                 value={tutorWorkflow}
                 options={WORKFLOW_OPTIONS}
@@ -398,6 +421,7 @@ export default function PipelineDiagram({
                 <span className="pipe2__node-sublabel" title={n.desc}>skipped when simple (perspectives ≤ 1)</span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
+              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
               <NodeModelDropdown
                 value={activeId}
                 providers={providers}
@@ -424,6 +448,7 @@ export default function PipelineDiagram({
                 <span className="pipe2__node-sublabel">decides subtasks</span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
+              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
               <NodeModelDropdown
                 value={activeId}
                 providers={providers}
@@ -493,6 +518,9 @@ export default function PipelineDiagram({
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               )}
             </div>
+            {n.kind !== "io" && (
+              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
+            )}
             {n.kind !== "io" && (
               overridable && n.stage ? (
                 <NodeModelDropdown
