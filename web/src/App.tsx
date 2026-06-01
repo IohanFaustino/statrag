@@ -752,6 +752,9 @@ export default function App() {
 
       <QAModeModal
         open={qaModalOpen}
+        providers={providers}
+        stageModels={stageModels}
+        onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setQaModalOpen(false)}
       />
 
