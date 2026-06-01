@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { storeReducer, initialStore, DRAFT_KEY } from "./chat";
 import type { Action } from "./chat";
-import type { ChatEvent } from "../types";
+import type { ChatEvent, ClarifyData } from "../types";
 
 // Helpers ────────────────────────────────────────────────────────────────────
 
@@ -98,5 +98,29 @@ describe("storeReducer (§13 multi-conversation)", () => {
     expect(s.byConv["A"].status).toBe("idle"); // no longer streaming
     expect((s.byConv["A"].messages.at(-1) as any).status).toBe("complete");
     expect(s.byConv["B"].status).toBe("streaming"); // untouched
+  });
+
+  it("clarify event attaches a Clarify structuredOutput and completes the turn", () => {
+    // Build state with an in-flight assistant message: USER_SENT creates the
+    // placeholder, then a token arrives to confirm streaming — same pattern as
+    // the "done" test above.
+    let s = run([send("A"), event("A", { type: "token", text: "pick one", seq: 1 })]);
+
+    const clarify: ChatEvent = {
+      type: "clarify",
+      reason: "book_unknown",
+      message: "Pick one:",
+      candidates: [{ slug: "islp", name: "ISL", authors_short: "James et al.", chapters: ["ch02"] }],
+      chapter_guess: "ch07",
+      sections_guess: ["7.2", "7.3"],
+    };
+
+    s = storeReducer(s, event("A", clarify));
+
+    const last = s.byConv["A"].messages.at(-1) as any;
+    expect(last.structuredOutput.schema).toBe("Clarify");
+    expect((last.structuredOutput.data as ClarifyData).candidates[0].slug).toBe("islp");
+    expect(last.status).toBe("complete");
+    expect(s.byConv["A"].status).toBe("idle");
   });
 });

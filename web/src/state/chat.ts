@@ -352,6 +352,25 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
             }),
           };
 
+        case "clarify":
+          return {
+            ...state,
+            status: "idle",
+            streamingPhase: "idle",
+            messages: updateLastAssistant(state.messages, (msg) => ({
+              ...msg,
+              status: "complete",
+              structuredOutput: {
+                schema: "Clarify",
+                data: {
+                  reason: ev.reason, message: ev.message,
+                  candidates: ev.candidates, chapter_guess: ev.chapter_guess,
+                  sections_guess: ev.sections_guess,
+                },
+              },
+            })),
+          };
+
         case "structured_output":
           return {
             ...state,
