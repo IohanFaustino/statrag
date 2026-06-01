@@ -258,7 +258,12 @@ async def stream_chat(
             yield event
         return
 
-    if req.mode in ("facilitate", "resume"):
+    if req.mode == "facilitate":
+        from src.services.chat.agents.facilitate import run_facilitate  # noqa: PLC0415
+        async for event in run_facilitate(req):
+            yield event
+        return
+    if req.mode == "resume":
         from src.services.chat.agents.chapter import run_chapter  # noqa: PLC0415
         async for event in run_chapter(req):
             yield event
