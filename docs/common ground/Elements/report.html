@@ -17,7 +17,7 @@
 <section>
   <h2>Headline</h2>
   <div class="verdict v-ok"><b>Rebuilt 2026-06-01 from code inspection.</b> The prior single-page index.html (§1–§17, a dated change-log) was replaced by four current-state pages (Overview / Ingestion / Retrieval / Chat &amp; deep-tutor), a 16-model section (one page per model), and this audit. Every claim below was traced to a source file; drift rows mark where the old docs or modal card were wrong.</div>
-  <p>Matrix: <b>69</b> claims — <span class="yes">65 verified</span>, <span class="warn">4 drift</span>, <span class="no">0 removed</span>.</p>
+  <p>Matrix: <b>73</b> claims — <span class="yes">69 verified</span>, <span class="warn">4 drift</span>, <span class="no">0 removed</span>.</p>
 </section>
 <section>
   <h2>Verification matrix</h2>
@@ -97,6 +97,10 @@
     <tr><td>Models</td><td>Routing: deepseek→prefix, groq→GROQ_MODEL_IDS membership, gemini/qwen→prefix, else→OpenAI</td><td><code>src/services/chat/llm/router.py:253-261</code></td><td class="yes">verified</td></tr>
     <tr><td>Models</td><td>Draft default = qwen-plus via TUTOR_DRAFT_MODEL (.env); code fallback = openai full</td><td><code>deep_tutor.py:787</code>, <code>changelog.md:26-39</code></td><td class="yes">verified</td></tr>
     <tr><td>Models</td><td>web modelMeta.ts lists only 7 models (missing all Groq/Google/Alibaba) — frontend "About model" modal is stale vs the 16-model registry</td><td><code>web/src/data/modelMeta.ts:31-130</code></td><td class="warn">drift</td></tr>
+    <tr><td>Modes</td><td>4 registered modes: tutor (single/TutorAnswer), qa (multi/QAAnswer), facilitate + resume (multi/ChapterDigest)</td><td><code>src/services/chat/modes.py:153-225</code></td><td class="yes">verified</td></tr>
+    <tr><td>Modes</td><td>qa runner = 4-node graph: scope → retrieve → scoped generate → verify; rerank_top_n=4</td><td><code>src/services/chat/agents/qa.py:3</code></td><td class="yes">verified</td></tr>
+    <tr><td>Modes</td><td>facilitate/resume = chapter pipeline (parse → fetch → resolve → map per-section in order → stitch → ground); structural fetch, not search</td><td><code>src/services/chat/agents/chapter.py:3-4</code></td><td class="yes">verified</td></tr>
+    <tr><td>Modes</td><td>Chapter knobs: CHAPTER_RESOLVE=1, CHAPTER_MAX_SECTIONS=30, CHAPTER_STITCH=1, CHAPTER_GROUND=1</td><td><code>src/services/chat/agents/chapter.py:45-48</code></td><td class="yes">verified</td></tr>
     <!-- ROWS APPENDED PER TASK -->
   </table>
   <p class="caption">Verdict legend: <span class="yes">verified</span> = matches code · <span class="warn">drift</span> = prior doc was wrong, corrected here · <span class="no">removed</span> = prior doc claimed something no longer in code.</p>

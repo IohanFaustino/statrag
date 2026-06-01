@@ -18,6 +18,16 @@ h1 .accent{color:var(--accent)}
 .side a{display:block;color:var(--dim);text-decoration:none;padding:5px 10px;border-radius:7px;font-size:13px}
 .side a:hover{color:var(--txt);background:var(--panel2)}
 .side a.active{background:var(--accent);color:#fff}
+/* Collapsible toggle groups (items that have subpages). */
+.side-toggle{display:flex;align-items:center;gap:6px;width:100%;text-align:left;
+  background:none;border:0;color:var(--dim);font:inherit;font-size:11px;
+  text-transform:uppercase;letter-spacing:.5px;cursor:pointer;
+  margin:16px 0 6px;padding:12px 10px 0;border-top:1px solid var(--line)}
+.side-toggle:hover{color:var(--txt)}
+.side-toggle .caret{display:inline-block;transition:transform .15s;font-size:10px}
+.side-toggle.open .caret{transform:rotate(90deg)}
+.side-sub{display:flex;flex-direction:column}
+.side-sub a{padding-left:20px}
 .content{min-width:0}
 @media(max-width:760px){
   body{padding-left:0}

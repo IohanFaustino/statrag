@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Tutor</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Tutor</span> mode <span class="pill">single-agent</span></h1>
+  <div class="sub">Default didactic Q&amp;A over the corpus. Deep, multi-author synthesis with citations, figures, and math. Memory on (auto).</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Mode id</th><td><code>tutor</code></td></tr>
+      <tr><th>Architecture</th><td>single</td></tr>
+      <tr><th>Output schema</th><td><code>TutorAnswer</code></td></tr>
+      <tr><th>Tools</th><td>retrieve</td></tr>
+      <tr><th>Retrieval flags</th><td>rerank=False (gated until M4)</td></tr>
+      <tr><th>Model tier</th><td>nano</td></tr>
+      <tr><th>Post-validators</th><td>citation</td></tr>
+      <tr><th>Memory</th><td>auto</td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/modes.py</code> (ModeSpec registry).</p>
+  </section>
+  <section>
+    <h2>Runner</h2>
+    <div class="card"><p style="margin:0">Single-agent tool loop. The rich deep-tutor pipeline (see the Chat &amp; deep-tutor page) produces the structured TutorAnswer — query planner → multi-query retrieval → density/diversity/rerank → coverage → figure judge → planner-orchestrator → drafting workflow → vision explain.</p></div>
+    <p class="caption">Code: <code>agents/deep_tutor.py · prompts/tutor.py (TUTOR_INSTRUCTIONS)</code>.</p>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

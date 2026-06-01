@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Q&A</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Q&amp;A</span> mode <span class="pill">multi-agent</span></h1>
+  <div class="sub">Punctual, scoped Q&amp;A. Extracts the target gap + assumed-known, retrieves narrowly (top 4), generates a terse grounded answer, then verifies grounding. No memory.</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Mode id</th><td><code>qa</code></td></tr>
+      <tr><th>Architecture</th><td>multi</td></tr>
+      <tr><th>Output schema</th><td><code>QAAnswer</code></td></tr>
+      <tr><th>Tools</th><td>—</td></tr>
+      <tr><th>Retrieval flags</th><td>rerank=True, rerank_top_n=4</td></tr>
+      <tr><th>Model tier</th><td>nano</td></tr>
+      <tr><th>Post-validators</th><td>—</td></tr>
+      <tr><th>Memory</th><td>off</td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/modes.py</code> (ModeSpec registry).</p>
+  </section>
+  <section>
+    <h2>Runner</h2>
+    <div class="card"><p style="margin:0">Four-node graph: scope → retrieve → scoped generate → verify / finalise.</p></div>
+    <p class="caption">Code: <code>agents/qa.py · prompts/qa.py (QA_GENERATE_PROMPT)</code>.</p>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

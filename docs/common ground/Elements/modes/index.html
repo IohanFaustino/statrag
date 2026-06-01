@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Modes</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1>statrag — <span class="accent">Modes</span></h1>
+  <div class="sub">The chat modes you can pick. Each is a registered ModeSpec with its own runner + output schema. <span class="pill">4 modes</span></div>
+</header>
+<main>
+  <section>
+    <h2>All modes</h2>
+    <table>
+      <tr><th>Mode</th><th>Arch</th><th>Output schema</th><th>Purpose</th></tr>
+      <tr><td><a href="tutor.html">Tutor</a></td><td>single</td><td><code>TutorAnswer</code></td><td>Default didactic Q&amp;A over the corpus. Deep, multi-author synthesis with citations, figures, and math. Memory on (auto).</td></tr>
+      <tr><td><a href="qa.html">Q&amp;A</a></td><td>multi</td><td><code>QAAnswer</code></td><td>Punctual, scoped Q&amp;A. Extracts the target gap + assumed-known, retrieves narrowly (top 4), generates a terse grounded answer, then verifies grounding. No memory.</td></tr>
+      <tr><td><a href="facilitate.html">Facilitate</a></td><td>multi</td><td><code>ChapterDigest</code></td><td>Ordered didactic walkthrough of a chapter — teach it section by section in the book's own order.</td></tr>
+      <tr><td><a href="resume.html">Resume</a></td><td>multi</td><td><code>ChapterDigest</code></td><td>Ordered compressed recap of a chapter — a faithful, condensed summary in reading order.</td></tr>
+    </table>
+    <p class="caption">Source of truth: <code>src/services/chat/modes.py</code> (register_all_modes). Click a mode for its full spec + runner.</p>
+  </section>
+  <section>
+    <h2>Two families</h2>
+    <div class="card"><p style="margin:0 0 8px"><b>Search modes</b> (tutor, qa) retrieve by relevance to a question. <b>Chapter modes</b> (facilitate, resume) do a <b>structural fetch</b> of a whole chapter and emit a <code>ChapterDigest</code> in the book's own section order — not a search.</p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

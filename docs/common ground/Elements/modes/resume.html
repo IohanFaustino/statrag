@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Resume</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Resume</span> mode <span class="pill">multi-agent</span></h1>
+  <div class="sub">Ordered compressed recap of a chapter — a faithful, condensed summary in reading order.</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Mode id</th><td><code>resume</code></td></tr>
+      <tr><th>Architecture</th><td>multi</td></tr>
+      <tr><th>Output schema</th><td><code>ChapterDigest</code></td></tr>
+      <tr><th>Tools</th><td>—</td></tr>
+      <tr><th>Retrieval flags</th><td>rerank=False</td></tr>
+      <tr><th>Model tier</th><td>nano</td></tr>
+      <tr><th>Post-validators</th><td>—</td></tr>
+      <tr><th>Memory</th><td>off</td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/modes.py</code> (ModeSpec registry).</p>
+  </section>
+  <section>
+    <h2>Runner</h2>
+    <div class="card"><p style="margin:0">Same chapter pipeline as facilitate (parse-scope → fetch-chapter → resolve-subtopics → map → stitch → ground), different map prompt. Structural fetch, order preserved by section_id.</p></div>
+    <p class="caption">Code: <code>agents/chapter.py · prompts/chapter.py (CHAPTER_MAP_RESUME_PROMPT)</code>.</p>
+  </section>
+  <section>
+    <h2>Chapter knobs</h2>
+    <table>
+      <tr><th>Env var</th><th>Default</th><th>Effect</th></tr>
+      <tr><td><code>CHAPTER_RESOLVE</code></td><td>1</td><td>LLM-resolve requested subtopics that did not match a heading by string.</td></tr>
+      <tr><td><code>CHAPTER_MAX_SECTIONS</code></td><td>30</td><td>Cap on sections mapped per chapter.</td></tr>
+      <tr><td><code>CHAPTER_STITCH</code></td><td>1</td><td>Run the stitch pass that links per-section digests into a flowing whole.</td></tr>
+      <tr><td><code>CHAPTER_GROUND</code></td><td>1</td><td>Run the grounding pass that checks the digest against the fetched sections.</td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/agents/chapter.py:45-48</code>. Per-stage model override via <code>CHAPTER_&lt;STAGE&gt;_MODEL</code>.</p>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>
