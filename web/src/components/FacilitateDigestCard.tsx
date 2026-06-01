@@ -26,11 +26,6 @@ export default function FacilitateDigestCard({ digest }: { digest: FacilitateDig
                 pp. {b.page_from}{b.page_to > b.page_from ? `–${b.page_to}` : ""}
               </span>
             )}
-            {b.key_points.length > 0 && (
-              <ul className="facilitate-keypoints">
-                {b.key_points.map((kp, j) => <li key={j}>{kp}</li>)}
-              </ul>
-            )}
             <div className="chapter-block__body"><FacilitateContent text={b.body} concepts={b.concepts} onPick={setActive} /></div>
           </section>
         ))}

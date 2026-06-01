@@ -37,9 +37,13 @@ const mathDigest: FacilitateDigest = {
 };
 
 describe("FacilitateDigestCard", () => {
-  it("renders key points and a clickable concept anchor that opens a modal", () => {
+  it("renders body content and a clickable concept anchor that opens a modal", () => {
     render(<FacilitateDigestCard digest={digest} />);
-    expect(screen.getByText(/Sample means converge/)).toBeInTheDocument();
+    // key_points list is no longer rendered — the text must NOT appear
+    expect(screen.queryByText(/Sample means converge/)).toBeNull();
+    // Section heading is present
+    expect(screen.getByText(/7\.1 INTRODUCTION/)).toBeInTheDocument();
+    // Anchor from body is present and click opens modal
     const anchor = screen.getByRole("button", { name: /strong assumption of normality/ });
     fireEvent.click(anchor);
     expect(screen.getByRole("dialog")).toBeInTheDocument();

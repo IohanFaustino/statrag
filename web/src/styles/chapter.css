@@ -16,9 +16,74 @@
   /* No forced max-width — the chat column already constrains width */
 }
 
-/* Facilitate variant: subtle left accent stripe */
+/* Facilitate variant: headered document — strip the card chrome */
 .chapter-card--facilitate {
-  border-left: 3px solid var(--accent-primary);
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* Facilitate header: hairline separator acts as doc header, not card chrome */
+.chapter-card--facilitate .chapter-card__hd {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+}
+
+/* Facilitate intro: comfortable lead paragraph */
+.chapter-card--facilitate .chapter-card__intro {
+  margin: 4px 0 18px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* Facilitate section: no bordered box, just spacing */
+.chapter-card--facilitate .chapter-block {
+  padding: 0;
+  background: none;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  margin: 0 0 22px;
+}
+
+/* Facilitate section heading: real header, generous top margin */
+.chapter-card--facilitate .chapter-block__h {
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--accent-primary);
+  margin-top: 24px;
+  margin-bottom: 2px;
+}
+
+/* Facilitate pages caption: small muted mono, breathing room before body */
+.chapter-card--facilitate .chapter-block__pages {
+  margin-bottom: 10px;
+}
+
+/* Facilitate body content spacing — paragraphs and lists breathe */
+.chapter-card--facilitate .facilitate-content p {
+  margin: 0 0 0.7em;
+  line-height: 1.6;
+}
+.chapter-card--facilitate .facilitate-content ul,
+.chapter-card--facilitate .facilitate-content ol {
+  margin: 0.5em 0 0.9em;
+  padding-left: 1.25em;
+}
+.chapter-card--facilitate .facilitate-content li {
+  margin: 0.3em 0;
+  line-height: 1.55;
+}
+.chapter-card--facilitate .facilitate-content > :last-child {
+  margin-bottom: 0;
+}
+.chapter-card--facilitate .facilitate-content__math-block {
+  margin: 0.8em 0;
 }
 
 /* Resume variant: secondary accent stripe */
