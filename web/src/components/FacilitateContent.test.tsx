@@ -104,6 +104,60 @@ describe("FacilitateContent — concept anchors", () => {
   });
 });
 
+// ─── Concept anchor with math term ─────────────────────────────────────────
+
+describe("FacilitateContent — concept anchor math labels", () => {
+  it("renders a math-term anchor without raw $...$ literal visible, with .katex inside the button", () => {
+    const c1: ConceptAnchor = {
+      id: "c1",
+      term: "$n_\\delta$",
+      kind: "formula",
+      explanation: "delta neighbourhood index",
+      provenance: {
+        book_slug: "test", book_name: "Test Book", authors_short: "Author",
+        section: "1.1", page_from: 1, page_to: 1, chunk_id: "c1",
+        same_author: true, fallback: false,
+      },
+    };
+    const onPick = vi.fn();
+    const { container } = render(
+      <FacilitateContent
+        text="The index [[c1]] is used."
+        concepts={[c1]}
+        onPick={onPick}
+      />,
+    );
+    // Raw "$n_\delta$" string must NOT appear as visible text
+    expect(container.textContent).not.toContain("$n_\\delta$");
+    // A .katex element should be present inside the button
+    const btn = container.querySelector("button.concept-anchor");
+    expect(btn).not.toBeNull();
+    expect(btn!.querySelector(".katex")).not.toBeNull();
+    // Button is findable by aria-label (raw term) and clicking calls onPick
+    const btnByLabel = screen.getByRole("button", { name: "$n_\\delta$" });
+    expect(btnByLabel).toBeInTheDocument();
+    fireEvent.click(btnByLabel);
+    expect(onPick).toHaveBeenCalledWith(c1);
+  });
+
+  it("plain-term anchor still renders its text and is findable by name", () => {
+    const c2 = makeConcept("c2", "strong assumption of normality");
+    const onPick = vi.fn();
+    render(
+      <FacilitateContent
+        text="We rely on [[c2]] here."
+        concepts={[c2]}
+        onPick={onPick}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /strong assumption of normality/ });
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toContain("strong assumption of normality");
+    fireEvent.click(btn);
+    expect(onPick).toHaveBeenCalledWith(c2);
+  });
+});
+
 // ─── Math rendering ─────────────────────────────────────────────────────────
 
 describe("FacilitateContent — math rendering", () => {

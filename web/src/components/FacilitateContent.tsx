@@ -18,6 +18,53 @@ export function normalizeMath(s: string): string {
   return result;
 }
 
+// ─── Term segment renderer ─────────────────────────────────────────────────
+// Splits a concept-term string (which may contain $…$ or $$…$$ math) into
+// rendered React nodes. Does NOT handle [[cN]] anchors — terms never nest anchors.
+// Used for both the concept-anchor label and (via renderInline) body text.
+function renderTermSegments(term: string, startKey = 0): React.ReactNode[] {
+  const normalized = normalizeMath(term);
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  let key = startKey;
+
+  while (i < normalized.length) {
+    // ── $$...$$ display math
+    if (normalized[i] === "$" && normalized[i + 1] === "$") {
+      const end = normalized.indexOf("$$", i + 2);
+      if (end !== -1) {
+        const tex = normalized.slice(i + 2, end);
+        out.push(<MathBlock key={key++} tex={tex} />);
+        i = end + 2;
+        continue;
+      }
+    }
+    // ── $...$ inline math
+    if (normalized[i] === "$") {
+      const end = normalized.indexOf("$", i + 1);
+      if (end !== -1) {
+        const tex = normalized.slice(i + 1, end);
+        out.push(<MathInline key={key++} tex={tex} />);
+        i = end + 1;
+        continue;
+      }
+    }
+    // ── Plain text run until next special char
+    let j = i + 1;
+    while (
+      j < normalized.length &&
+      normalized[j] !== "$" &&
+      normalized[j] !== "\\"
+    ) {
+      j++;
+    }
+    out.push(<React.Fragment key={key++}>{normalized.slice(i, j)}</React.Fragment>);
+    i = j;
+  }
+
+  return out;
+}
+
 // ─── Inline renderer ───────────────────────────────────────────────────────
 // Tokenises a single line of text into: $$…$$, $…$, [[cN]] anchors, and plain text.
 function renderInline(
@@ -61,10 +108,11 @@ function renderInline(
             <button
               key={key++}
               type="button"
+              aria-label={anchor.term}
               className={`concept-anchor concept-anchor--${anchor.kind}`}
               onClick={() => onPick?.(anchor)}
             >
-              {anchor.term}
+              {renderTermSegments(anchor.term)}
             </button>,
           );
         } else {
