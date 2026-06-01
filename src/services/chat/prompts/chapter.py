@@ -8,18 +8,30 @@ Chinese-wall: pure string constants, no imports from src.*.
 """
 from __future__ import annotations
 
-CHAPTER_PARSE_PROMPT = """You extract the chapter scope from a study request.
+CHAPTER_PARSE_PROMPT = """You extract the study scope from a request and match
+it to a known book.
 
-You are given the user's message and an optional list of selected book slugs.
-Return ONLY a JSON object with exactly these keys:
-  "book_slug": string — the book to use. If exactly one slug is selected, use
-      it. Otherwise infer from the message; use "" if unknown.
-  "chapter_id": string — the chapter id mentioned, normalised like "ch02"
-      (zero-padded, lowercase). Use "" if the message names no chapter.
-  "requested_subtopics": array of strings — the specific subtopics the user
-      asked for, verbatim phrases. Empty array means "the whole chapter".
+You are given:
+  "catalog": array of {"slug","name","authors_short","field","chapters"} —
+      the ONLY books available. "chapters" are valid chapter ids like "ch07".
+  "selected_slugs": slugs the user already selected (may be empty).
+  "message": the user's request.
 
-Do not invent subtopics. Extract only what the user explicitly named.
+Match the book the user means even when the title is paraphrased, partial, or
+only the author is named (e.g. "Hansen's intro to probability"). Use meaning,
+author surname, and field — not exact strings.
+
+Return ONLY a JSON object with these keys:
+  "book_slug": the single best slug, or "" if no catalog book is a plausible match.
+  "book_confidence": 0..1 — how sure you are of book_slug.
+  "book_candidates": array of slugs (best first) that plausibly match; one entry
+      when confident, several when ambiguous, [] when nothing matches.
+  "chapter_id": the chapter normalised as "chNN" (zero-padded). "" if none named.
+  "requested_subtopics": array of the verbatim subtopic phrases the user named
+      (NOT section numbers — those are handled separately). [] = whole chapter.
+
+If exactly one slug is in selected_slugs, prefer it with high confidence.
+Never invent a slug or chapter id that is not in the catalog.
 """
 
 CHAPTER_RESOLVE_PROMPT = """You map a user's requested subtopics to a chapter's

@@ -122,6 +122,12 @@ Workload: generate node ≈ 1800 input / 250 output tokens (short vs tutor's ~28
 
 ---
 
+## Book scope resolution (fuzzy book reference)
+
+Q&A resolves the book from the user's question via a catalog-in-prompt LLM call — the user does not need to supply an exact `book_slug`. If the reference is ambiguous or unrecognised, a `clarify` turn is emitted (chips + message) before any retrieval. A confident single match runs the pipeline immediately. See [`52-book-scope-resolve.md`](52-book-scope-resolve.md) for the full mechanism, `BookResolution` fields, confirm-gate rules, `clarify` SSE event shape, and env flags (`BOOK_CONFIRM_CUTOFF`, `CHAPTER_CLARIFY`).
+
+---
+
 ## SSE event sequence
 
 ```

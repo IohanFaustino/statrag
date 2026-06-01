@@ -3,7 +3,7 @@
 // override is via Settings, not per-node clickable like the tutor diagram).
 
 export interface QANode {
-  id: "scope" | "retrieve" | "generate" | "verify";
+  id: "scope" | "retrieve" | "generate" | "verify" | "clarify";
   label: string;
   desc: string;
   kind: "llm" | "data";
@@ -19,8 +19,8 @@ export const QA_PIPELINE: { nodes: QANode[]; edges: QAEdge[] } = {
   nodes: [
     {
       id: "scope",
-      label: "Scope extract",
-      desc: "Parses your question into {target gap, what you already know, answer form} so generation answers only the gap.",
+      label: "Scope extract + resolve book",
+      desc: "Parses your question into {target gap, what you already know, answer form} so generation answers only the gap. Also fuzzy-matches the book/author if you named one — resolves it against the catalog before retrieval.",
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
@@ -45,8 +45,16 @@ export const QA_PIPELINE: { nodes: QANode[]; edges: QAEdge[] } = {
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
+    {
+      id: "clarify",
+      label: "Clarify (if ambiguous)",
+      desc: "If the named book is unknown or ambiguous, the run stops and asks you to pick — candidate chips + a short message. A confident match skips this.",
+      kind: "data",
+      defaultModel: "—",
+    },
   ],
   edges: [
+    { from: "scope", to: "clarify" },
     { from: "scope", to: "retrieve" },
     { from: "retrieve", to: "generate" },
     { from: "generate", to: "verify" },

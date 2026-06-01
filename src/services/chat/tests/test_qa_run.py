@@ -3,7 +3,16 @@ from __future__ import annotations
 
 import pytest
 
-from src.services.chat.schemas import ChatRequest
+from src.services.chat.schemas import BookResolution, CatalogBook, ChatRequest
+
+# Confident stub catalog + resolution — keeps resolve_book calls unit-scoped.
+_STUB_CAT = [CatalogBook(slug="islp", name="ISLP", authors_short="James et al.",
+                         field="ml_dp", chapters=["ch02"])]
+
+
+async def _confident_resolve(*a, **k):
+    return BookResolution(book_slug="islp", book_confidence=0.95,
+                          book_candidates=["islp"])
 
 
 def _src(rank=1):
@@ -36,6 +45,8 @@ async def test_run_qa_emits_full_event_sequence(monkeypatch):
     async def fake_verify(answer, sources, *, model=None):
         return answer.model_copy(update={"grounding": {"ok": True, "unsupported": [], "confidence": 0.95}})
 
+    monkeypatch.setattr(qa, "parse_catalog", lambda: _STUB_CAT)
+    monkeypatch.setattr(qa, "resolve_book", _confident_resolve)
     monkeypatch.setattr(qa, "extract_scope", fake_scope)
     monkeypatch.setattr(qa, "retrieve_for_gap", fake_retrieve)
     monkeypatch.setattr(qa, "generate_scoped", fake_gen)
@@ -63,6 +74,8 @@ async def test_run_qa_corpus_miss_no_fabricated_citation(monkeypatch):
     def empty_retrieve(scope, *, book_slugs, k=4):
         return [], {"mode": "qa-test"}
 
+    monkeypatch.setattr(qa, "parse_catalog", lambda: _STUB_CAT)
+    monkeypatch.setattr(qa, "resolve_book", _confident_resolve)
     monkeypatch.setattr(qa, "extract_scope", fake_scope)
     monkeypatch.setattr(qa, "retrieve_for_gap", empty_retrieve)
 
@@ -96,6 +109,8 @@ async def test_run_qa_generate_error_yields_error_then_done(monkeypatch):
     async def boom_gen(scope, sources, *, model=None):
         raise RuntimeError("provider timed out")
 
+    monkeypatch.setattr(qa, "parse_catalog", lambda: _STUB_CAT)
+    monkeypatch.setattr(qa, "resolve_book", _confident_resolve)
     monkeypatch.setattr(qa, "extract_scope", fake_scope)
     monkeypatch.setattr(qa, "retrieve_for_gap", fake_retrieve)
     monkeypatch.setattr(qa, "generate_scoped", boom_gen)
@@ -140,6 +155,8 @@ async def test_run_qa_answer_is_concise(monkeypatch):
     async def fake_verify(answer, sources, *, model=None):
         return answer.model_copy(update={"grounding": {"ok": True, "unsupported": [], "confidence": 0.95}})
 
+    monkeypatch.setattr(qa, "parse_catalog", lambda: _STUB_CAT)
+    monkeypatch.setattr(qa, "resolve_book", _confident_resolve)
     monkeypatch.setattr(qa, "extract_scope", fake_scope)
     monkeypatch.setattr(qa, "retrieve_for_gap", fake_retrieve)
     monkeypatch.setattr(qa, "generate_scoped", fake_gen)

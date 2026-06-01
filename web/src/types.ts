@@ -192,10 +192,25 @@ export interface ChapterDigest {
   grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
 }
 
+export interface ClarifyCandidate {
+  slug: string;
+  name: string;
+  authors_short: string;
+  chapters: string[];
+}
+export interface ClarifyData {
+  reason: "book_unknown" | "book_ambiguous" | "chapter_missing" | "sections_empty";
+  message: string;
+  candidates: ClarifyCandidate[];
+  chapter_guess: string;
+  sections_guess: string[];
+}
+
 export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
   | { type: "structured_output"; schema: "QAAnswer"; data: QAAnswer }
   | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
+  | { type: "structured_output"; schema: "Clarify"; data: ClarifyData }
   | { type: "structured_output"; schema: string; data: unknown };
 
 // Every chat event carries a monotonic `seq` (§13) when it comes from a
@@ -223,4 +238,6 @@ export type ChatEventBody =
   | { type: "usage"; durationMs: number; promptChars: number; completionChars: number; estTokens: number }
   | { type: "done" }
   | { type: "error"; code: string; message: string }
+  | { type: "clarify"; reason: ClarifyData["reason"]; message: string;
+      candidates: ClarifyCandidate[]; chapter_guess: string; sections_guess: string[] }
   | StructuredOutputEvent;

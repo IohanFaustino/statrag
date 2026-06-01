@@ -312,6 +312,27 @@ class ChapterDigest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Scope resolver schemas (book catalog + resolution)
+# ---------------------------------------------------------------------------
+
+
+class CatalogBook(BaseModel):
+    slug: str
+    name: str
+    authors_short: str = ""
+    field: str = ""
+    chapters: list[str] = Field(default_factory=list)  # ordered chNN ids
+
+
+class BookResolution(BaseModel):
+    book_slug: str = ""
+    book_confidence: float = 0.0
+    book_candidates: list[str] = Field(default_factory=list)
+    chapter_id: str = ""
+    requested_subtopics: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Concept graph primitives (kept — kg.py depends on these)
 # ---------------------------------------------------------------------------
 

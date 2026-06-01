@@ -3,7 +3,7 @@
 // Both modes share this diagram; only node-label copy verbosity differs.
 
 export interface ChapterNode {
-  id: "parse" | "fetch" | "resolve" | "map" | "stitch" | "ground";
+  id: "parse" | "fetch" | "resolve" | "map" | "stitch" | "ground" | "clarify";
   label: string;
   desc: string;
   kind: "llm" | "data";
@@ -19,8 +19,8 @@ export const CHAPTER_PIPELINE: { nodes: ChapterNode[]; edges: ChapterEdge[] } = 
   nodes: [
     {
       id: "parse",
-      label: "Parse scope",
-      desc: "Reads which book, chapter, and subtopics you named.",
+      label: "Parse + resolve scope",
+      desc: "Matches your request to a known book (fuzzy title/author), normalises the chapter, and expands section ranges — using the book catalog.",
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
@@ -59,8 +59,16 @@ export const CHAPTER_PIPELINE: { nodes: ChapterNode[]; edges: ChapterEdge[] } = 
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
+    {
+      id: "clarify",
+      label: "Clarify (if ambiguous)",
+      desc: "If the book is unknown or ambiguous, or the chapter doesn't exist, the run stops and asks you to pick — candidate chips + a short message. A confident match skips this.",
+      kind: "data",
+      defaultModel: "—",
+    },
   ],
   edges: [
+    { from: "parse", to: "clarify" },
     { from: "parse", to: "fetch" },
     { from: "fetch", to: "resolve" },
     { from: "resolve", to: "map" },

@@ -2,6 +2,10 @@
 
 Append-only. Latest at top.
 
+## 2026-06-01 — Book scope resolve + clarify (feature 52)
+
+Added fuzzy book-reference resolution to `facilitate`, `resume`, and `qa` modes. A compact book catalog (slug · name · authors_short · field · chapter ids), built by `parse_catalog()` in `src/services/chat/books.py`, is injected into the parse-scope LLM prompt (`CHAPTER_PARSE_PROMPT`). The shared resolver `resolve_book()` in `src/services/chat/agents/_scope.py` returns `BookResolution{book_slug, book_confidence, book_candidates, chapter_id, requested_subtopics}`. Numeric section refs ("7.2 up to 7.4") are expanded deterministically by `expand_section_refs`. A confirm gate `maybe_clarify(res, catalog)` emits a new terminal SSE event `clarify` only on ambiguity or miss (`book_unknown`, `book_ambiguous`, `chapter_missing`); a confident single match runs the pipeline with no extra turn. A book selected explicitly by the user is always `book_confidence=1.0`. Kill-switch: `CHAPTER_CLARIFY=0`. New env flags: `BOOK_CONFIRM_CUTOFF=0.6`, `CHAPTER_CLARIFY=1`. Invariant 31 added. See [`docs/services/chat-features/52-book-scope-resolve.md`](../services/chat-features/52-book-scope-resolve.md).
+
 ## 2026-06-01 — Editable mode modals (qa / facilitate / resume)
 
 Q&A, Facilitate, and Resume modes now have an editable `(i)` modal with a
