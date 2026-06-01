@@ -176,7 +176,9 @@ structured_output{schema:"FacilitateDigest", data} → sources_full → usage �
 - **`web/src/components/ConceptModal.tsx`** (new): on anchor click, modal shows
   `term`, `kind` tag, `explanation`, and provenance line (`author · section · p.`,
   with a "from this section" note when `fallback`, and a "other author" note when
-  `!same_author`). Dismiss on overlay/Esc.
+  `!same_author`). Dismiss on overlay/Esc. **Renders LaTeX with KaTeX** so
+  `kind:"formula"` derivation steps display as math (reuse the existing `Math`
+  component).
 - **`MessageThread.tsx`**: render `FacilitateDigestCard` when
   `structuredOutput.schema === "FacilitateDigest"` (alongside ChapterDigest).
 - **Markdown export** (`web/src/lib/exportMarkdown.ts`): each concept anchor →
@@ -197,8 +199,11 @@ Prompt intents (final wording chosen by the eval harness, §9):
   For each concept mark whether it is *defined here* or only *referenced*. Return JSON."
 - **explain-concept**: "In 1–3 plain sentences, explain <term> using ONLY the provided
   passage. No padding."
-- **teach**: "Rewrite this section for a learner: simpler language, keep ONLY the key
-  points, do not lengthen. Insert [[cN]] where each listed concept first appears.
+- **teach**: "Rewrite this section for a learner. SHORT, direct paragraphs (≤2–3
+  sentences each); prefer bullet lists for the key points. Simpler language, keep
+  ONLY the key points — do NOT lengthen or add background. Any extra/explanatory
+  detail goes into a concept anchor, never the body. Insert [[cN]] where each
+  listed concept (and each formula that has derivation steps) first appears.
   Return markdown."
 - **verify**: grounding check (reuse existing ground contract).
 
@@ -266,11 +271,36 @@ This harness runs DURING implementation (before finalizing prompts), not in prod
 
 **Eval:** the §9 harness (manual/marked run).
 
+## 12.5 · Readability & modal-offload rules (body style)
+
+The body is for **fast reading**; depth lives in modals.
+
+- **Short, direct paragraphs** — ≤2–3 sentences each. No long blocks.
+- **Bullets first** — the section's key points render as a bullet list; prose
+  only for connective sentences.
+- **Offload extra info to modals** — any background, expansion, or
+  "nice-to-know" detail does NOT go in the body. It becomes a concept anchor
+  whose `explanation` (and provenance) shows in the modal. The body stays lean.
+- **Formula modals** — a `kind:"formula"` anchor is created whenever a formula
+  has **math steps / a derivation behind it**. Its `explanation` holds the
+  step-by-step derivation (LaTeX allowed, rendered with KaTeX in the modal).
+  The body shows the formula result inline + a `[[cN]]` anchor; the steps live
+  in the modal (footnote on export). Formulas with no hidden steps stay inline
+  with no anchor.
+- The eval harness (§9) **non-expansion** dimension enforces this: a variant
+  whose body is longer than the source or buries detail in prose scores low.
+
+`FacilitateBlock.body` therefore tends to be: a tight intro sentence → a
+bulleted key-points list → minimal connective prose, with `[[cN]]` anchors on
+concepts/theorems and step-bearing formulas.
+
 ## 12 · Definition of done
 
 - Facilitate output is **shorter/clearer** than before, lists key points, and
   flags referenced concepts as clickable anchors backed by adaptive
   same-author-first retrieval (verified on hansen ch07 §7.1–7.4).
+- Body is short paragraphs + bullets; extra detail lives only in anchors/modals;
+  step-bearing formulas have a `formula` modal rendering the derivation (KaTeX).
 - Clicking an anchor opens a modal; markdown export renders footnotes.
 - Eval harness ran; winning prompts shipped; ranked table committed.
 - resume/qa/tutor unchanged; diagrams + (i) modal + docs updated and
