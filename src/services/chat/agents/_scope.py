@@ -47,3 +47,78 @@ def expand_section_refs(text: str) -> list[str]:
             seen.add(s)
             deduped.append(s)
     return deduped
+
+
+# ---------------------------------------------------------------------------
+# Catalog-in-prompt resolver
+# ---------------------------------------------------------------------------
+
+from src.services.chat.llm.router import aclient_for  # noqa: E402
+from src.services.chat.prompts.chapter import CHAPTER_PARSE_PROMPT  # noqa: E402
+
+
+async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
+    """Single LLM seam (tests monkeypatch this)."""
+    oa = aclient_for(model)
+    resp = await oa.chat.completions.create(
+        model=model, messages=messages,
+        temperature=temperature, max_completion_tokens=max_tokens,
+    )
+    return resp.choices[0].message.content or ""
+
+
+def _catalog_payload(catalog: list[CatalogBook]) -> list[dict]:
+    return [c.model_dump() for c in catalog]
+
+
+async def resolve_book(
+    message: str,
+    *,
+    selected_slugs: list[str] | None,
+    catalog: list[CatalogBook],
+    model: str | None = None,
+) -> BookResolution:
+    """Resolve {book, chapter, subtopics} from a fuzzy request via catalog-in-prompt."""
+    single = selected_slugs[0] if selected_slugs and len(selected_slugs) == 1 else ""
+    sections = expand_section_refs(message)
+    fallback = BookResolution(
+        book_slug=single,
+        book_confidence=1.0 if single else 0.0,
+        book_candidates=[single] if single else [],
+        chapter_id="",
+        requested_subtopics=sections,
+    )
+    chosen = model or settings.openai_model_nano
+    try:
+        raw = await _chat(
+            [
+                {"role": "system", "content": CHAPTER_PARSE_PROMPT},
+                {"role": "user", "content": json.dumps({
+                    "catalog": _catalog_payload(catalog),
+                    "selected_slugs": selected_slugs or [],
+                    "message": message,
+                })},
+            ],
+            model=chosen, max_tokens=300,
+        )
+        data = json.loads(strip_fences(raw))
+        valid = {c.slug for c in catalog}
+        slug = str(data.get("book_slug") or single).strip()
+        if slug and slug not in valid:
+            slug = ""
+        cands = [str(s).strip() for s in (data.get("book_candidates") or []) if str(s).strip() in valid]
+        if single:
+            slug = single
+            cands = [single]
+        subtopics = [str(x).strip() for x in (data.get("requested_subtopics") or []) if str(x).strip()]
+        subtopics = sections + [s for s in subtopics if s not in sections]
+        return BookResolution(
+            book_slug=slug,
+            book_confidence=1.0 if single else float(data.get("book_confidence", 0.0)),
+            book_candidates=cands or ([slug] if slug else []),
+            chapter_id=str(data.get("chapter_id") or "").strip(),
+            requested_subtopics=subtopics,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("_scope.resolve_book failed; fail-open")
+        return fallback

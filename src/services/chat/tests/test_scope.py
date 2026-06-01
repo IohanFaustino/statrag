@@ -24,3 +24,60 @@ def test_expand_section_refs_list_and_dash():
 
 def test_expand_section_refs_none():
     assert expand_section_refs("teach me about variance") == []
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — resolve_book catalog-in-prompt resolver
+# ---------------------------------------------------------------------------
+
+import json as _json
+import pytest
+from src.services.chat.agents import _scope
+from src.services.chat.schemas import CatalogBook
+
+_CAT = [
+    CatalogBook(slug="islp", name="An Introduction to Statistical Learning",
+                authors_short="James et al.", field="ml_dp",
+                chapters=["ch01", "ch02", "ch07"]),
+    CatalogBook(slug="hansen-econometrics", name="Econometrics",
+                authors_short="Hansen", field="econometrics", chapters=["ch01"]),
+]
+
+
+@pytest.mark.asyncio
+async def test_resolve_book_confident(monkeypatch):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return _json.dumps({
+            "book_slug": "islp", "book_confidence": 0.92,
+            "book_candidates": ["islp"], "chapter_id": "ch07",
+            "requested_subtopics": [],
+        })
+    monkeypatch.setattr(_scope, "_chat", fake_chat)
+    r = await _scope.resolve_book("chapter 7 of ISL", selected_slugs=None, catalog=_CAT)
+    assert r.book_slug == "islp"
+    assert r.chapter_id == "ch07"
+    assert r.book_confidence >= 0.6
+
+
+@pytest.mark.asyncio
+async def test_resolve_book_expands_sections(monkeypatch):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        return _json.dumps({
+            "book_slug": "islp", "book_confidence": 0.9,
+            "book_candidates": ["islp"], "chapter_id": "ch07",
+            "requested_subtopics": [],
+        })
+    monkeypatch.setattr(_scope, "_chat", fake_chat)
+    r = await _scope.resolve_book(
+        "chapter 7 sections 7.2 up to 7.4 of ISL", selected_slugs=None, catalog=_CAT)
+    assert r.requested_subtopics == ["7.2", "7.3", "7.4"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_book_single_selection_failopen(monkeypatch):
+    async def boom(*a, **k):
+        raise RuntimeError("llm down")
+    monkeypatch.setattr(_scope, "_chat", boom)
+    r = await _scope.resolve_book("teach ch02", selected_slugs=["islp"], catalog=_CAT)
+    assert r.book_slug == "islp"
+    assert r.book_confidence == 1.0
