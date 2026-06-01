@@ -750,6 +750,7 @@ export default function App() {
         modelId={aboutModelId}
         providers={providers}
         pickerModel={activeModel}
+        recommendedModel={recommendedModel}
         stageModels={stageModels as Partial<Record<StageKey, string>>}
         diversityAuthors={diversityAuthors}
         tutorWorkflow={tutorWorkflow}
@@ -765,6 +766,7 @@ export default function App() {
         open={qaModalOpen}
         providers={providers}
         stageModels={stageModels}
+        recommendedModel={recommendedModel}
         onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setQaModalOpen(false)}
       />
@@ -773,6 +775,7 @@ export default function App() {
         open={facilitateModalOpen}
         providers={providers}
         stageModels={stageModels}
+        recommendedModel={recommendedModel}
         onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setFacilitateModalOpen(false)}
       />
@@ -781,6 +784,7 @@ export default function App() {
         open={resumeModalOpen}
         providers={providers}
         stageModels={stageModels}
+        recommendedModel={recommendedModel}
         onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setResumeModalOpen(false)}
       />

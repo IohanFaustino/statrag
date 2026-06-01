@@ -8,6 +8,7 @@ interface ChapterFacilitateModalProps {
   open: boolean;
   providers: ModelProvider[];
   stageModels: Record<string, string>;
+  recommendedModel: string;
   onApply(cfg: { stageModels: Record<string, string> }): void;
   onClose(): void;
 }
@@ -19,6 +20,7 @@ export default function ChapterFacilitateModal({
   open,
   providers,
   stageModels,
+  recommendedModel,
   onApply,
   onClose,
 }: ChapterFacilitateModalProps) {
@@ -30,6 +32,16 @@ export default function ChapterFacilitateModal({
   }, [open]);
 
   if (!open) return null;
+
+  const setDefaults = () =>
+    setDraft((prev) => ({
+      ...prev,
+      parse: recommendedModel,
+      resolve: recommendedModel,
+      map: recommendedModel,
+      stitch: recommendedModel,
+      ground: recommendedModel,
+    }));
 
   const dirty = CHAPTER_STAGES.some((s) => draft[s] !== stageModels[s]);
   const apply = () => {
@@ -76,6 +88,7 @@ export default function ChapterFacilitateModal({
         <footer className="about-model__footer">
           <span className="about-model__footer-hint">{dirty ? "Unsaved pipeline changes" : "No changes"}</span>
           <div className="about-model__footer-actions">
+            <button type="button" className="about-model__btn about-model__btn--ghost" onClick={setDefaults}>Default</button>
             <button type="button" className="about-model__btn about-model__btn--ghost" onClick={onClose}>Cancel</button>
             <button type="button" className="about-model__btn about-model__btn--apply" onClick={apply} disabled={!dirty}>Apply</button>
           </div>

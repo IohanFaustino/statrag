@@ -8,6 +8,7 @@ interface QAModeModalProps {
   open: boolean;
   providers: ModelProvider[];
   stageModels: Record<string, string>;
+  recommendedModel: string;
   onApply(cfg: { stageModels: Record<string, string> }): void;
   onClose(): void;
 }
@@ -19,6 +20,7 @@ export default function QAModeModal({
   open,
   providers,
   stageModels,
+  recommendedModel,
   onApply,
   onClose,
 }: QAModeModalProps) {
@@ -31,6 +33,14 @@ export default function QAModeModal({
   }, [open]);
 
   if (!open) return null;
+
+  const setDefaults = () =>
+    setDraft((prev) => ({
+      ...prev,
+      scope: recommendedModel,
+      generate: recommendedModel,
+      verify: recommendedModel,
+    }));
 
   const dirty = QA_STAGES.some((s) => draft[s] !== stageModels[s]);
   const apply = () => {
@@ -76,6 +86,7 @@ export default function QAModeModal({
         <footer className="about-model__footer">
           <span className="about-model__footer-hint">{dirty ? "Unsaved pipeline changes" : "No changes"}</span>
           <div className="about-model__footer-actions">
+            <button type="button" className="about-model__btn about-model__btn--ghost" onClick={setDefaults}>Default</button>
             <button type="button" className="about-model__btn about-model__btn--ghost" onClick={onClose}>Cancel</button>
             <button type="button" className="about-model__btn about-model__btn--apply" onClick={apply} disabled={!dirty}>Apply</button>
           </div>
