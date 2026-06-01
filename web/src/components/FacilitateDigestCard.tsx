@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import type { FacilitateDigest, ConceptAnchor, FacilitateBlock } from "../types";
 import ConceptModal from "./ConceptModal";
+import { renderInlineWithCites } from "./views/TutorView";
 
 const ANCHOR_RE = /\[\[(c\d+)\]\]/g;
+const EMPTY_CITES = new Map();
 
 function renderBody(block: FacilitateBlock, onPick: (a: ConceptAnchor) => void) {
   const byId = new Map(block.concepts.map((c) => [c.id, c]));
@@ -12,7 +14,11 @@ function renderBody(block: FacilitateBlock, onPick: (a: ConceptAnchor) => void) 
   let k = 0;
   ANCHOR_RE.lastIndex = 0;
   while ((m = ANCHOR_RE.exec(block.body))) {
-    if (m.index > last) out.push(block.body.slice(last, m.index));
+    if (m.index > last) {
+      const segment = block.body.slice(last, m.index);
+      const nodes = renderInlineWithCites(segment, EMPTY_CITES, null, () => {});
+      for (const node of nodes) out.push(<React.Fragment key={`t${k++}`}>{node}</React.Fragment>);
+    }
     const c = byId.get(m[1]);
     if (c) {
       out.push(
@@ -25,7 +31,11 @@ function renderBody(block: FacilitateBlock, onPick: (a: ConceptAnchor) => void) 
     }
     last = m.index + m[0].length;
   }
-  if (last < block.body.length) out.push(block.body.slice(last));
+  if (last < block.body.length) {
+    const segment = block.body.slice(last);
+    const nodes = renderInlineWithCites(segment, EMPTY_CITES, null, () => {});
+    for (const node of nodes) out.push(<React.Fragment key={`t${k++}`}>{node}</React.Fragment>);
+  }
   return out;
 }
 
