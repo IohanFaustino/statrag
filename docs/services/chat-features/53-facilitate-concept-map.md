@@ -17,7 +17,7 @@ The redesign inverts the goal: **facilitate now teaches by clarifying**, not exp
 - Short paragraphs (body stays lean).
 - Bullet key-points per concept.
 - `[[cN]]` anchors in the text that open a `ConceptModal` with the full concept provenance + supporting quotes.
-- Formula anchors (`[[fN]]`) that show derivations inline via KaTeX.
+- Formula anchors — `[[cN]]` markers with `kind="formula"` — that show derivations inline via KaTeX.
 - Export flattens anchors to footnotes.
 
 This approach keeps the main reading flow readable for a student who already has the book open, and makes depth-on-demand rather than depth-by-default the interaction model.
@@ -48,7 +48,7 @@ parse + resolve scope
                                                      ▼
    [teach]  simplify + key-points
           • short paragraphs
-          • [[cN]] anchors (concept) + [[fN]] anchors (formula)
+          • [[cN]] anchors (concept; kind="formula" for formulas)
           • prior_context threaded forward
         │
         ▼
@@ -65,7 +65,7 @@ flowchart TD
   U[user message] --> PR[parse + resolve scope]
   PR --> FE[fetch — ordered sections page_from]
   FE --> MAP[map — concept-map + key points]
-  MAP -->|explained concepts| TCH[teach — simplify + [[cN]][[fN]] anchors]
+  MAP -->|explained concepts| TCH[teach — simplify + [[cN]] anchors (kind=concept/formula)]
   MAP -->|referenced concepts| RTV[retrieve — adaptive sub-retrieval]
   RTV --> TCH
   TCH --> VRF[verify — grounding verdict]
@@ -118,7 +118,7 @@ class FacilitateBlock(BaseModel):
     h2_path: str
     page_from: int
     page_to: int
-    body: str           # short paragraphs; [[cN]] / [[fN]] inline
+    body: str           # short paragraphs; [[cN]] inline (kind="formula" for formula anchors)
     key_points: list[str]
     anchors: list[ConceptAnchor]
     citations: list[TutorCitation]
@@ -140,7 +140,7 @@ class FacilitateDigest(BaseModel):
 
 ### Inline anchors
 
-The teach node embeds `[[cN]]` markers in the body text wherever a concept is first meaningfully used. Formula anchors `[[fN]]` appear at the step in a derivation where the formula is introduced. The renderer replaces each marker with a clickable badge.
+The teach node embeds `[[cN]]` markers in the body text wherever a concept is first meaningfully used. Formula anchors also use the `[[cN]]` marker (with `kind="formula"`) and appear at the step in a derivation where the formula is introduced. The renderer replaces each marker with a clickable badge.
 
 ### ConceptModal
 
@@ -148,7 +148,7 @@ Clicking a `[[cN]]` badge opens `ConceptModal` (React component):
 
 - Header: concept label.
 - Provenance cards: supporting quotes from `ConceptAnchor.provenance`, with author / section / page attribution.
-- For formula anchors (`[[fN]]`): a KaTeX block rendering `derivation`.
+- For formula anchors (`[[cN]]` with `kind="formula"`): a KaTeX block rendering `derivation`.
 
 ### Export to footnotes
 
@@ -199,7 +199,7 @@ The teach node is prompted with explicit readability constraints:
 | Component / file | Path | Role |
 |---|---|---|
 | `FacilitateDigestCard` | `web/src/components/FacilitateDigestCard.tsx` | Top-level renderer for `FacilitateDigest`; iterates `blocks` in order |
-| `ConceptModal` | `web/src/components/ConceptModal.tsx` | Modal opened by `[[cN]]`/`[[fN]]` badge clicks; shows provenance + KaTeX |
+| `ConceptModal` | `web/src/components/ConceptModal.tsx` | Modal opened by `[[cN]]` badge clicks (concept or formula kind); shows provenance + KaTeX |
 | `FACILITATE_PIPELINE` | `web/src/data/facilitatePipeline.ts` | Static pipeline node/edge definitions (map/retrieve/teach/verify) |
 | `MessageThread` | `web/src/components/MessageThread.tsx` | Render branch on `schema === "FacilitateDigest"` → `<FacilitateDigestCard>` |
 | Facilitate `(i)` modal | `web/src/components/ChapterFacilitateModal.tsx` | Pipeline diagram showing map/retrieve/teach/verify nodes with per-stage model pickers |

@@ -14,7 +14,7 @@ interface ChapterFacilitateModalProps {
 }
 
 // Facilitate pipeline stages whose models are user-overridable (LLM nodes only).
-const CHAPTER_STAGES = ["parse", "map", "teach", "verify"] as const;
+const CHAPTER_STAGES = ["parse", "map", "explain", "teach", "verify"] as const;
 
 export default function ChapterFacilitateModal({
   open,
@@ -38,6 +38,7 @@ export default function ChapterFacilitateModal({
       ...prev,
       parse: recommendedModel,
       map: recommendedModel,
+      explain: recommendedModel,
       teach: recommendedModel,
       verify: recommendedModel,
     }));

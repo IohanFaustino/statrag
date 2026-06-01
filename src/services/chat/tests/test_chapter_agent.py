@@ -162,7 +162,7 @@ async def test_resolve_fuzzy_falls_back_to_llm(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_map_sections_preserves_order_and_uses_mode_prompt(monkeypatch):
+async def test_map_sections_preserves_order_and_uses_resume_prompt(monkeypatch):
     from src.services.chat.agents import chapter as ch
 
     seen_prompts = []
@@ -174,9 +174,11 @@ async def test_map_sections_preserves_order_and_uses_mode_prompt(monkeypatch):
     monkeypatch.setattr(ch, "_chat", fake_chat)
     sections = [_src("2.1", "2.1 | A"), _src("2.2", "2.2 | B")]
 
+    # map_sections now always uses CHAPTER_MAP_RESUME_PROMPT (facilitate was removed
+    # from chapter.py; facilitate mode is handled by run_facilitate in facilitate.py).
     blocks_fac, _cites, math = await ch.map_sections(sections, mode="facilitate")
     assert [b.section_id for b in blocks_fac] == ["2.1", "2.2"]  # order preserved
-    assert all("TEACH" in p for p in seen_prompts)
+    assert all("COMPRESS" in p for p in seen_prompts)  # always resume prompt now
     assert "x^2" in math  # math_blocks are threaded through
 
     seen_prompts.clear()

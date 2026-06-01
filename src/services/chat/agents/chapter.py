@@ -25,7 +25,6 @@ from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.prompts.chapter import (
     CHAPTER_GROUND_PROMPT,
-    CHAPTER_MAP_FACILITATE_PROMPT,
     CHAPTER_MAP_RESUME_PROMPT,
     CHAPTER_PARSE_PROMPT,
     CHAPTER_RESOLVE_PROMPT,
@@ -198,7 +197,7 @@ async def map_sections(
 
     Returns a 3-tuple: (blocks, citations, math_blocks).
     """
-    sys_prompt = CHAPTER_MAP_FACILITATE_PROMPT if mode == "facilitate" else CHAPTER_MAP_RESUME_PROMPT
+    sys_prompt = CHAPTER_MAP_RESUME_PROMPT
     chosen = model or settings.openai_model_nano
     blocks: list[ChapterBlock] = []
     all_citations: list[TutorCitation] = []
