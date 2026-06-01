@@ -25,6 +25,19 @@
   <p>Every non-trivial claim on the content pages, traced to its source with a verdict. Built during the 2026-06-01 rebuild by inspecting the code, not the prior docs.</p>
   <table id="matrix">
     <tr><th>Page</th><th>Claim</th><th>Source (file:line)</th><th>Verdict</th></tr>
+    <!-- Task 1: Overview page — verified 2026-06-01 -->
+    <tr><td>Overview</td><td>Embedding model = text-embedding-3-large</td><td><code>src/core/config.py:38</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Embedding dimension = 3072</td><td><code>src/core/qdrant_store.py:27</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Qdrant version = v1.12.4</td><td><code>ops/docker/docker-compose.yml:3</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Qdrant dashboard + REST port = 6333</td><td><code>ops/docker/docker-compose.yml:6</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Default chat LLM = gpt-5.4-nano-2026-03-17 (llm_model)</td><td><code>src/core/config.py:39</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Groq default model = meta-llama/llama-4-scout-17b-16e-instruct</td><td><code>src/core/config.py:64</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Ingestion-enrich LLM = deepseek-v4-flash (RAG_INGEST_DEEPSEEK_MODEL)</td><td><code>src/core/config.py:49</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Sparse = BM25 via Qdrant native fastembed (SPARSE_VECTOR = "bm25")</td><td><code>src/core/qdrant_store.py:29</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Chunking = 1 section = 1 chunk; split at 8000 tokens (TARGET_TOKENS=8000) using tiktoken cl100k_base</td><td><code>src/ingestion/build_documents.py:29,28</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Wall rule — Core: imports NOTHING in repo, only third-party</td><td><code>src/core/__init__.py:3-5</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Wall rule — Ingestion: imports only from src.core; other tasks/services never import from ingestion</td><td><code>src/ingestion/__init__.py:3-6</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Wall rule — Services/chat: imports only from src.core; never from other services or src.ingestion; reads ingestion artifacts as filesystem only</td><td><code>src/services/chat/__init__.py:3-7</code></td><td class="yes">verified</td></tr>
     <!-- ROWS APPENDED PER TASK -->
   </table>
   <p class="caption">Verdict legend: <span class="yes">verified</span> = matches code · <span class="warn">drift</span> = prior doc was wrong, corrected here · <span class="no">removed</span> = prior doc claimed something no longer in code.</p>

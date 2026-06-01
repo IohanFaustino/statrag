@@ -21,6 +21,88 @@
 </nav>
 <main>
   <!-- PAGE BODY -->
+  <section>
+    <h2>What it is</h2>
+    <div class="card">
+      <p>
+        <strong>statrag</strong> is a local-first, hybrid Retrieval-Augmented Generation system over OCR-processed statistics textbooks.
+        It combines <em>dense</em> vector search (OpenAI embeddings) with <em>sparse</em> BM25 search (Qdrant native fastembed) via
+        Reciprocal Rank Fusion, with optional cross-encoder reranking.
+      </p>
+      <p>
+        Collections follow a per-field naming scheme: <code>field_textbooks</code> for section chunks and
+        <code>field_images</code> for extracted figures. The <code>field</code> key comes from each book's YAML config;
+        collections are auto-created on first ingest.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Stack</h2>
+    <table>
+      <tr><th>Component</th><th>Detail</th></tr>
+      <tr><td>Vector DB</td><td>Qdrant v1.12.4 — dashboard + REST on port 6333, gRPC on 6334</td></tr>
+      <tr><td>Embeddings</td><td><code>text-embedding-3-large</code> (OpenAI) · 3072 dimensions</td></tr>
+      <tr><td>Chat LLMs</td><td>
+        Default: <code>gpt-5.4-nano-2026-03-17</code> (OpenAI nano) ·
+        Full: <code>gpt-5.4-2026-03-05</code> ·
+        DeepSeek: <code>deepseek-v4-pro</code> (chat organizer) ·
+        Groq: <code>meta-llama/llama-4-scout-17b-16e-instruct</code> (chat-only)
+      </td></tr>
+      <tr><td>Ingestion-enrich LLM</td><td><code>deepseek-v4-flash</code> (non-thinking, cheap) via <code>RAG_INGEST_DEEPSEEK_MODEL</code></td></tr>
+      <tr><td>Sparse</td><td>Qdrant native BM25 via <code>fastembed</code></td></tr>
+      <tr><td>Chunking</td><td>1 section = 1 chunk; sections &gt; 8000 tokens split with overlap · tiktoken <code>cl100k_base</code></td></tr>
+      <tr><td>Language</td><td>Python 3.12 in <code>.venv</code></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Three-layer Chinese wall</h2>
+    <table>
+      <tr><th>Layer</th><th>Folder</th><th>Import rule (verified from __init__.py)</th></tr>
+      <tr>
+        <td><strong>Core</strong></td>
+        <td><code>src/core/</code></td>
+        <td>Depends on NOTHING in the repo — only third-party libs. Never imports from ingestion or services.</td>
+      </tr>
+      <tr>
+        <td><strong>Tasks</strong></td>
+        <td><code>src/ingestion/</code></td>
+        <td>Imports only from <code>src.core</code> and third-party libs. No imports from <code>services/</code>. Other tasks/services never import from ingestion.</td>
+      </tr>
+      <tr>
+        <td><strong>Services</strong></td>
+        <td><code>src/services/&lt;name&gt;/</code></td>
+        <td>Imports only from <code>src.core</code>. Never imports from other services or from <code>src.ingestion</code>. Reads ingestion artifacts (yaml, manifest.json) as filesystem only — no module import.</td>
+      </tr>
+    </table>
+    <p class="caption">Wall is encoded in each <code>__init__.py</code>: <code>src/core/__init__.py</code>, <code>src/ingestion/__init__.py</code>, <code>src/services/chat/__init__.py</code>.</p>
+  </section>
+
+  <section>
+    <h2>End-to-end flow</h2>
+    <div class="diagram-wrap">
+      <div class="mermaid" data-src="flowchart LR
+  B[&quot;Book (OCR md)&quot;] --&gt; ING[&quot;Ingestion task&lt;br/&gt;preprocess, enrich, embed&quot;]
+  ING --&gt; QD[&quot;Qdrant&lt;br/&gt;field_textbooks + field_images&quot;]
+  QD --&gt; RET[&quot;Retrieval service&lt;br/&gt;hybrid BM25+dense, RRF, rerank&quot;]
+  RET --&gt; CHAT[&quot;Chat service&lt;br/&gt;modes + deep-tutor&quot;]
+  CHAT --&gt; ANS[&quot;Answer (SSE stream)&quot;]">
+flowchart LR
+  B["Book (OCR md)"] --> ING["Ingestion task&lt;br/&gt;preprocess, enrich, embed"]
+  ING --> QD["Qdrant&lt;br/&gt;field_textbooks + field_images"]
+  QD --> RET["Retrieval service&lt;br/&gt;hybrid BM25+dense, RRF, rerank"]
+  RET --> CHAT["Chat service&lt;br/&gt;modes + deep-tutor"]
+  CHAT --> ANS["Answer (SSE stream)"]
+      </div>
+    </div>
+    <p class="caption">
+      See also:
+      <a href="ingestion.html">Ingestion</a> ·
+      <a href="retrieval.html">Retrieval</a> ·
+      <a href="chat.html">Chat &amp; deep-tutor</a>
+    </p>
+  </section>
 </main>
 <script>
   mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
