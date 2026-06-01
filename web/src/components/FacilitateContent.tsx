@@ -158,6 +158,13 @@ function renderInline(
   return out;
 }
 
+// ─── MathText ──────────────────────────────────────────────────────────────
+// Renders a string with $..$/$$..$$ math (and \(..\)/\[..\] normalized) as inline
+// nodes, no concept anchors. For headings/labels like the concept term.
+export function MathText({ text }: { text: string }) {
+  return <>{renderTermSegments(text)}</>;
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────
 
 interface Props {

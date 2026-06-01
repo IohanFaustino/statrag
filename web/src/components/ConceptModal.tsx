@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { ConceptAnchor } from "../types";
-import FacilitateContent from "./FacilitateContent";
+import FacilitateContent, { MathText } from "./FacilitateContent";
 
 interface Props { anchor: ConceptAnchor; onClose: () => void; }
 
@@ -19,7 +19,7 @@ export default function ConceptModal({ anchor, onClose }: Props) {
            onClick={(e) => e.stopPropagation()}>
         <div className="concept-modal__hd">
           <span className={`concept-modal__kind concept-modal__kind--${anchor.kind}`}>{anchor.kind}</span>
-          <h3 className="concept-modal__term">{anchor.term}</h3>
+          <h3 className="concept-modal__term"><MathText text={anchor.term} /></h3>
           <button className="concept-modal__close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <div className="concept-modal__body">
