@@ -84,6 +84,8 @@ async def test_run_facilitate_builds_digest_with_anchor(monkeypatch):
                                                  "Assumes a strong assumption of normality.")])
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
         sysmsg = messages[0]["content"]
+        if "overview of what these sections" in sysmsg:
+            return "We will cover Chebyshev's inequality and why it bounds tail probabilities."
         if "analyse ONE textbook section" in sysmsg:
             return '{"key_points":["pt"],"concepts":[{"term":"strong assumption of normality","kind":"concept","status":"referenced"}]}'
         if "Explain the term" in sysmsg:
@@ -108,6 +110,7 @@ async def test_run_facilitate_builds_digest_with_anchor(monkeypatch):
     assert blk["key_points"] == ["pt"]
     assert blk["concepts"][0]["id"] == "c1"
     assert "[[c1]]" in blk["body"]
+    assert so["data"]["intro"] == "We will cover Chebyshev's inequality and why it bounds tail probabilities."
     assert evs[-1]["type"] == "done"
 
 
@@ -192,3 +195,50 @@ async def test_subretrieval_disabled_uses_in_section(monkeypatch):
     anchor = blk["concepts"][0]
     # fallback=True because status was "referenced" but no retrieval was attempted
     assert anchor["provenance"]["fallback"] is True
+
+
+@pytest.mark.asyncio
+async def test_run_facilitate_sets_intro(monkeypatch):
+    """Intro node runs after per-section loop and sets FacilitateDigest.intro."""
+    _EXPECTED_INTRO = "We will cover Chebyshev's inequality and why it bounds tail probabilities."
+    map_json = '{"key_points":["pt"],"concepts":[]}'
+    monkeypatch.setattr(fac, "parse_catalog", lambda: _CATF)
+
+    async def fake_resolve(*a, **k):
+        return BookResolution(book_slug="hansen", book_confidence=1.0,
+                              book_candidates=["hansen"], chapter_id="ch07",
+                              requested_subtopics=[])
+    monkeypatch.setattr(fac, "resolve_book", fake_resolve)
+    monkeypatch.setattr(fac, "fetch_chapter_sections",
+                        lambda b, c, **k: [_secf("7.1 INTRODUCTION", "s1",
+                                                 "Assumes a strong assumption of normality.")])
+    monkeypatch.setattr(fac, "_section_order_in_book", lambda slug: {})
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+        sysmsg = messages[0]["content"]
+        if "overview of what these sections" in sysmsg:
+            return _EXPECTED_INTRO
+        if "analyse ONE textbook section" in sysmsg:
+            return map_json
+        if "Explain the term" in sysmsg:
+            return "Explanation text."
+        if "Rewrite this section" in sysmsg:
+            return "- pt\n\nBody text."
+        if "Check the rewritten body" in sysmsg:
+            return '{"ok":true,"unsupported":[],"confidence":0.9}'
+        return "{}"
+    monkeypatch.setattr(fac, "_chat", fake_chat)
+    monkeypatch.setattr(fac, "fetch_concept_support", lambda term, **k: None)
+
+    req = ChatRequest(message="facilitate ch07 of hansen", mode="facilitate", bookFilter=["hansen"])
+    evs = [e async for e in fac.run_facilitate(req)]
+
+    # Check the intro stage event is emitted
+    stage_labels = [e["stage"] for e in evs if e["type"] == "stage"]
+    assert "intro" in stage_labels
+
+    so = next(e for e in evs if e["type"] == "structured_output")
+    assert so["data"]["intro"] == _EXPECTED_INTRO
+    # Existing anchor assertions still hold (no concepts here, but blocks are built)
+    assert len(so["data"]["blocks"]) == 1
+    assert evs[-1]["type"] == "done"

@@ -23,6 +23,7 @@ from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.prompts.chapter import (
     FACILITATE_EXPLAIN_PROMPT,
+    FACILITATE_INTRO_PROMPT,
     FACILITATE_MAP_PROMPT,
     FACILITATE_TEACH_PROMPT,
     FACILITATE_VERIFY_PROMPT,
@@ -163,6 +164,18 @@ async def _verify(body: str, source_text: str, *, model: str) -> dict:
         return {"ok": False, "unsupported": [], "confidence": 0.5}
 
 
+async def _intro(scope, sections, *, model: str) -> str:
+    headings = "; ".join(s.title for s in sections)
+    user = f"chapter: {scope.chapter_id}\nsections (in order): {headings}"
+    try:
+        out = await _chat([{"role": "system", "content": FACILITATE_INTRO_PROMPT},
+                           {"role": "user", "content": user}], model=model, max_tokens=120)
+        return out.strip()
+    except Exception:  # noqa: BLE001
+        logger.exception("facilitate._intro failed")
+        return ""
+
+
 async def run_facilitate(req) -> AsyncIterator[dict]:
     t0 = time.time()
     message = req.message or ""
@@ -228,13 +241,16 @@ async def run_facilitate(req) -> AsyncIterator[dict]:
             concepts=anchors, page_from=s.page_from if s.page_from is not None else -1,
             page_to=s.page_to if s.page_to is not None else -1))
 
+    yield {"type": "stage", "stage": "intro", "label": "Overview"}
+    intro_text = await _intro(scope, sections, model=_model_for("map", req))
+
     yield {"type": "stage", "stage": "verify", "label": "Verify"}
     joined = "\n".join(b.body for b in blocks)
     # FIX 3: verify against all sections' source text, not just sections[0].
     src_text = "\n\n".join((s.chunk or s.excerpt or "") for s in sections)[:6000]
     grounding = await _verify(joined, src_text, model=_model_for("verify", req))
 
-    dig = FacilitateDigest(mode="facilitate", scope=scope, blocks=blocks, grounding=grounding)
+    dig = FacilitateDigest(mode="facilitate", scope=scope, blocks=blocks, intro=intro_text, grounding=grounding)
     yield {"type": "structured_output", "schema": "FacilitateDigest", "data": dig.model_dump()}
     yield {"type": "sources_full", "sources": [s.model_dump() for s in sections]}
     yield {"type": "usage", "durationMs": int((time.time() - t0) * 1000), "promptChars": len(message),

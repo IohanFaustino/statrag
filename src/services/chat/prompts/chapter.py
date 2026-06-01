@@ -120,16 +120,25 @@ Return ONLY JSON:
 Pick at most 5 concepts, the ones most useful to understand. Do not invent terms.
 """
 
+FACILITATE_INTRO_PROMPT = """Write a 1-2 sentence overview of what these sections
+cover, for a learner about to read them. Plain language, no math, no lists.
+You are given the chapter and the ordered section headings. Return ONLY the text.
+"""
+
 FACILITATE_EXPLAIN_PROMPT = """Explain the term in 1-3 plain sentences using ONLY
 the provided passage. No padding, no restating the question. If the term is a
-formula with steps, give the short derivation. Return ONLY the explanation text.
+formula with steps, give the short derivation. For ALL math use $...$ inline and
+$$...$$ for display; NEVER use \\( \\) or \\[ \\]. Return ONLY the explanation text.
 """
 
 FACILITATE_TEACH_PROMPT = """Rewrite this section for a learner.
+Shape:
+- Start with ONE short lead sentence naming what this section is about.
+- Then a bullet list ("- ") of ONLY the key points, one idea per bullet.
 Rules:
-- SHORT, direct paragraphs (<=2-3 sentences). Prefer a bullet list of the key points.
-- Simpler language. Keep ONLY the key points. Do NOT lengthen or add background.
+- SHORT, direct. Simpler language. Keep ONLY the key points. Do NOT lengthen.
 - Any extra/explanatory detail belongs in a concept anchor, NOT the body.
+- For ALL math use $...$ for inline and $$...$$ for display. NEVER use \\( \\) or \\[ \\].
 - Insert [[cN]] right after the term where each listed concept first appears
   (use the ids given). Step-bearing formulas also get their [[cN]].
 Return ONLY markdown for the body.
