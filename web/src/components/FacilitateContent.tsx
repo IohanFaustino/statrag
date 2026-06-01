@@ -126,7 +126,7 @@ function renderInline(
     if (text[i] === "*" && text[i + 1] === "*") {
       const end = text.indexOf("**", i + 2);
       if (end !== -1) {
-        out.push(<strong key={key++}>{text.slice(i + 2, end)}</strong>);
+        out.push(<strong key={key++}>{renderTermSegments(text.slice(i + 2, end), key)}</strong>);
         i = end + 2;
         continue;
       }
@@ -135,7 +135,7 @@ function renderInline(
     if (text[i] === "*") {
       const m = text.slice(i).match(/^\*([^*\n]+)\*/);
       if (m) {
-        out.push(<em key={key++}>{m[1]}</em>);
+        out.push(<em key={key++}>{renderTermSegments(m[1], key)}</em>);
         i += m[0].length;
         continue;
       }

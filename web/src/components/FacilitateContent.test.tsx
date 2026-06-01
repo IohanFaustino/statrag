@@ -182,6 +182,50 @@ describe("FacilitateContent — math rendering", () => {
   });
 });
 
+// ─── Bold / italic with math inside ────────────────────────────────────────
+
+describe("FacilitateContent — bold/italic with inner math", () => {
+  it("renders **$x^2$** as <strong> with KaTeX, no raw $x^2$ literal in textContent", () => {
+    const { container } = render(
+      <FacilitateContent text={"**$x^2$**"} />,
+    );
+    const strong = container.querySelector("strong");
+    expect(strong).not.toBeNull();
+    // Raw dollar-delimited literal must not appear
+    expect(container.textContent).not.toContain("$x^2$");
+    // KaTeX element must be present inside the <strong>
+    expect(strong!.querySelector(".katex")).not.toBeNull();
+  });
+
+  it("renders plain **bold** as <strong> with plain text content (no regression)", () => {
+    const { container } = render(
+      <FacilitateContent text={"**bold term**"} />,
+    );
+    const strong = container.querySelector("strong");
+    expect(strong).not.toBeNull();
+    expect(strong!.textContent).toContain("bold term");
+  });
+
+  it("renders plain *italic* as <em> with plain text content (no regression)", () => {
+    const { container } = render(
+      <FacilitateContent text={"*italic term*"} />,
+    );
+    const em = container.querySelector("em");
+    expect(em).not.toBeNull();
+    expect(em!.textContent).toContain("italic term");
+  });
+
+  it("renders *$y^2$* as <em> with KaTeX, no raw $y^2$ literal in textContent", () => {
+    const { container } = render(
+      <FacilitateContent text={"*$y^2$*"} />,
+    );
+    const em = container.querySelector("em");
+    expect(em).not.toBeNull();
+    expect(container.textContent).not.toContain("$y^2$");
+    expect(em!.querySelector(".katex")).not.toBeNull();
+  });
+});
+
 // ─── Blockquote rendering with concept anchors ──────────────────────────────
 
 describe("FacilitateContent — blockquote with concept anchors", () => {
