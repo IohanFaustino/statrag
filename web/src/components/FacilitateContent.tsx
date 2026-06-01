@@ -116,10 +116,7 @@ function renderInline(
             </button>,
           );
         } else {
-          // Unmatched marker → emit as raw text (no crash)
-          out.push(
-            <React.Fragment key={key++}>{text.slice(i, close + 2)}</React.Fragment>,
-          );
+          // Unmatched marker → drop silently (no crash, no raw [[cN]] literal)
         }
         i = close + 2;
         continue;

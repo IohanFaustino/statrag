@@ -148,6 +148,8 @@ TASK: Teach the section as a flowing mini-lesson, in this arc:
 DEFINITIONS: when the section gives a key definition, reproduce it in a blockquote
   as `> **Term.** the definition`, then explain it in plain words right after.
   Definitions are the core of the chapter — never skip or bury them.
+  Do NOT place any [[cN]] marker inside the definition blockquote — anchors belong
+  only in the surrounding prose.
 OUTPUT FORMAT (markdown body only):
   - Prose by DEFAULT, with smooth transitions. Use a "- " bullet list ONLY for a
     genuine enumeration of sibling items; NEVER bullet single ideas or transitions.

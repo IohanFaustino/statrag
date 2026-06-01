@@ -90,8 +90,8 @@ describe("FacilitateContent — concept anchors", () => {
     expect(onPick).toHaveBeenCalledWith(c1);
   });
 
-  it("renders unmatched [[c9]] as raw text without crashing", () => {
-    render(
+  it("drops unmatched [[c9]] silently — no raw literal in output, no crash", () => {
+    const { container } = render(
       <FacilitateContent
         text="Contains [[c9]] unknown anchor."
         concepts={[]}
@@ -99,8 +99,8 @@ describe("FacilitateContent — concept anchors", () => {
     );
     // No button should exist
     expect(screen.queryByRole("button")).toBeNull();
-    // The raw marker text should be present (no crash)
-    expect(screen.getByText(/\[\[c9\]\]/)).toBeInTheDocument();
+    // The raw marker text must NOT appear anywhere in the output
+    expect(container.textContent).not.toContain("[[c9]]");
   });
 });
 
