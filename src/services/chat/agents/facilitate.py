@@ -149,19 +149,24 @@ async def _teach(s: Source, key_points: list[str], anchors: list[ConceptAnchor],
         return "\n".join(f"- {k}" for k in key_points)
 
 
-async def _verify(body: str, source_text: str, *, model: str) -> dict:
-    if not _GROUND:
-        return {"ok": True, "unsupported": [], "confidence": 1.0}
+async def _verify(body: str, section_text: str, *, model: str) -> tuple[str, dict]:
+    """Proofread/repair the body and judge grounding. Returns (fixed_body, grounding).
+
+    Fail-open: on any error keep the original body and a neutral grounding.
+    """
     try:
         raw = await _chat([{"role": "system", "content": FACILITATE_VERIFY_PROMPT},
-                           {"role": "user", "content": f"section:\n{source_text[:_PREVIEW]}\n\nbody:\n{body}"}],
-                          model=model, max_tokens=200)
+                           {"role": "user", "content": f"SOURCE:\n{section_text[:_PREVIEW]}\n\nBODY:\n{body}"}],
+                          model=model, max_tokens=1100)
         d = json.loads(strip_fences(raw))
-        return {"ok": bool(d.get("ok", False)),
-                "unsupported": [str(x) for x in (d.get("unsupported") or [])],
-                "confidence": float(d.get("confidence", 0.5))}
+        fixed = str(d.get("fixed_body") or "").strip() or body
+        grounding = {"ok": bool(d.get("ok", False)),
+                     "unsupported": [str(x) for x in (d.get("unsupported") or [])],
+                     "confidence": float(d.get("confidence", 0.5))}
+        return fixed, grounding
     except Exception:  # noqa: BLE001
-        return {"ok": False, "unsupported": [], "confidence": 0.5}
+        logger.exception("facilitate._verify failed; keeping original body")
+        return body, {"ok": False, "unsupported": [], "confidence": 0.5}
 
 
 async def _intro(scope, sections, *, model: str) -> str:
@@ -223,6 +228,7 @@ async def run_facilitate(req) -> AsyncIterator[dict]:
     order = await asyncio.to_thread(_section_order_in_book, scope.book_slug) if scope.book_slug else {}
 
     blocks: list[FacilitateBlock] = []
+    groundings: list[dict] = []
     for s in sections:
         yield {"type": "stage", "stage": "map", "label": f"Map · {s.title}"}
         key_points, concept_dicts = await _map_section(s, model=_model_for("map", req))
@@ -236,6 +242,9 @@ async def run_facilitate(req) -> AsyncIterator[dict]:
                                                     explain_model=_model_for("explain", req)))
         yield {"type": "stage", "stage": "teach", "label": f"Teach · {s.title}"}
         body = await _teach(s, key_points, anchors, model=_model_for("teach", req))
+        yield {"type": "stage", "stage": "verify", "label": f"Verify · {s.title}"}
+        body, grounding_i = await _verify(body, (s.chunk or s.excerpt or ""), model=_model_for("verify", req))
+        groundings.append(grounding_i)
         blocks.append(FacilitateBlock(
             h2_path=s.title, section_id=s.chunkId, key_points=key_points, body=body,
             concepts=anchors, page_from=s.page_from if s.page_from is not None else -1,
@@ -244,12 +253,13 @@ async def run_facilitate(req) -> AsyncIterator[dict]:
     yield {"type": "stage", "stage": "intro", "label": "Overview"}
     intro_text = await _intro(scope, sections, model=_model_for("map", req))
 
-    yield {"type": "stage", "stage": "verify", "label": "Verify"}
-    joined = "\n".join(b.body for b in blocks)
-    # FIX 3: verify against all sections' source text, not just sections[0].
-    src_text = "\n\n".join((s.chunk or s.excerpt or "") for s in sections)[:6000]
-    grounding = await _verify(joined, src_text, model=_model_for("verify", req))
+    grounding = {
+        "ok": all(g.get("ok") for g in groundings) if groundings else True,
+        "unsupported": [u for g in groundings for u in g.get("unsupported", [])],
+        "confidence": (sum(g.get("confidence", 0.0) for g in groundings) / len(groundings)) if groundings else 1.0,
+    }
 
+    joined = "\n".join(b.body for b in blocks)
     dig = FacilitateDigest(mode="facilitate", scope=scope, blocks=blocks, intro=intro_text, grounding=grounding)
     yield {"type": "structured_output", "schema": "FacilitateDigest", "data": dig.model_dump()}
     yield {"type": "sources_full", "sources": [s.model_dump() for s in sections]}

@@ -90,10 +90,10 @@ async def test_run_facilitate_builds_digest_with_anchor(monkeypatch):
             return '{"key_points":["pt"],"concepts":[{"term":"strong assumption of normality","kind":"concept","status":"referenced"}]}'
         if "You explain one term" in sysmsg:
             return "It assumes the data are normally distributed."
-        if "makes a textbook section easy" in sysmsg:
+        if "preparing THIS section as a short lesson" in sysmsg:
             return "- pt\n\nWe rely on the strong assumption of normality [[c1]]."
-        if "fact-check a rewritten section" in sysmsg:
-            return '{"ok":true,"unsupported":[],"confidence":0.9}'
+        if "proofreading a lesson" in sysmsg:
+            return '{"fixed_body":"- pt\\n\\nWe rely on the strong assumption of normality [[c1]].","ok":true,"unsupported":[],"confidence":0.9}'
         return "{}"
     monkeypatch.setattr(fac, "_chat", fake_chat)
     from src.services.chat import retrieval as r
@@ -134,10 +134,10 @@ def _stub_run_facilitate(monkeypatch, map_return):
             return map_return
         if "You explain one term" in sysmsg:
             return "Explanation text."
-        if "makes a textbook section easy" in sysmsg:
+        if "preparing THIS section as a short lesson" in sysmsg:
             return "- pt\n\nBody [[c1]]."
-        if "fact-check a rewritten section" in sysmsg:
-            return '{"ok":true,"unsupported":[],"confidence":0.9}'
+        if "proofreading a lesson" in sysmsg:
+            return '{"fixed_body":"- pt\\n\\nBody [[c1]].","ok":true,"unsupported":[],"confidence":0.9}'
         return "{}"
     monkeypatch.setattr(fac, "_chat", fake_chat)
 
@@ -222,10 +222,10 @@ async def test_run_facilitate_sets_intro(monkeypatch):
             return map_json
         if "You explain one term" in sysmsg:
             return "Explanation text."
-        if "makes a textbook section easy" in sysmsg:
+        if "preparing THIS section as a short lesson" in sysmsg:
             return "- pt\n\nBody text."
-        if "fact-check a rewritten section" in sysmsg:
-            return '{"ok":true,"unsupported":[],"confidence":0.9}'
+        if "proofreading a lesson" in sysmsg:
+            return '{"fixed_body":"- pt\\n\\nBody text.","ok":true,"unsupported":[],"confidence":0.9}'
         return "{}"
     monkeypatch.setattr(fac, "_chat", fake_chat)
     monkeypatch.setattr(fac, "fetch_concept_support", lambda term, **k: None)

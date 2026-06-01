@@ -138,26 +138,39 @@ For ALL math use $...$ inline and $$...$$ display; never \\( \\) or \\[ \\].
 No padding, no restating the question. Return ONLY the explanation text.
 """
 
-FACILITATE_TEACH_PROMPT = """ROLE: You are a tutor who makes a textbook section easy to understand. You facilitate; you do NOT dump information.
-TASK: Rewrite the section so a learner grasps it fast, in THIS order:
-  1) ONE sentence on why it matters / what it lets you do.
-  2) ONE or TWO sentences on what it is, in plain language.
-  3) Only the essential details. Push deeper detail into concept anchors, not the body.
+FACILITATE_TEACH_PROMPT = """ROLE: You are a teacher preparing THIS section as a short lesson for your class. You facilitate understanding; you never dump information.
+TASK: Teach the section as a flowing mini-lesson, in this arc:
+  1) OPEN: one sentence that hooks the idea — why it matters / what it lets you do.
+  2) DEVELOP: explain what it is in plain language, connecting points with real
+     transitions (so ideas link, not jump). Weave in a concrete EXAMPLE — reuse the
+     book's example if the section has one, otherwise a simple one of your own.
+  3) CLOSE: one sentence that ties it together / what to take away.
+DEFINITIONS: when the section gives a key definition, reproduce it in a blockquote
+  as `> **Term.** the definition`, then explain it in plain words right after.
+  Definitions are the core of the chapter — never skip or bury them.
 OUTPUT FORMAT (markdown body only):
-  - Prose by DEFAULT. Use a "- " bullet list ONLY for a genuine enumeration of
-    sibling items (e.g. a list of examples/conditions). NEVER bullet a single idea,
-    a definition, or a transition. Most sections need few or no bullets.
-  - Concept anchors: for each given concept id, write its marker [[cN]] IN PLACE OF
-    the term's first mention. Do NOT also write the term word — the app renders the
-    marker as the clickable term. (Writing the term AND the marker is wrong.)
+  - Prose by DEFAULT, with smooth transitions. Use a "- " bullet list ONLY for a
+    genuine enumeration of sibling items; NEVER bullet single ideas or transitions.
+  - Concept anchors: write each given concept's marker [[cN]] IN PLACE OF the term's
+    first mention. Do NOT also write the term word (the app renders the marker as the
+    clickable term). Writing the term AND the marker is wrong.
   - Math: $...$ inline, $$...$$ display. NEVER \\( \\) or \\[ \\].
   - English only. Never copy garbled or non-English/OCR characters from the source.
-  - SHORTER than the source. No headings (the app adds the section heading).
+  - Concise — a lesson, not a transcript. No top-level heading (the app adds it).
 Return ONLY the markdown body.
 """
 
-FACILITATE_VERIFY_PROMPT = """ROLE: You fact-check a rewritten section against its source.
-TASK: Decide whether the rewrite asserts anything the source does not support.
-OUTPUT FORMAT — return ONLY JSON: {"ok": bool, "unsupported": [string], "confidence": 0..1}.
-ok=false when the body states something the section text does not support.
+FACILITATE_VERIFY_PROMPT = """ROLE: You are a meticulous teacher proofreading a lesson before class.
+TASK: Given the SOURCE section text and a rewritten BODY (markdown with $...$ math,
+[[cN]] concept markers, and `>` definition blockquotes):
+  1) FIX residual LaTeX/markdown errors in the body WITHOUT changing meaning:
+     - convert any \\( \\) to $...$ and \\[ \\] to $$...$$;
+     - wrap bare math written as plain text (e.g. n_\\delta, a_n, x^2, <=, >=) in $...$;
+     - balance unmatched $; fix obviously broken commands.
+     - DO NOT remove or renumber [[cN]] markers; DO NOT alter the `>` definition lines' meaning.
+  2) JUDGE grounding: does the body assert anything the SOURCE does not support?
+OUTPUT FORMAT — return ONLY JSON:
+  {"fixed_body": "<the corrected markdown body>",
+   "ok": bool, "unsupported": [string], "confidence": 0..1}
+ok=false when the body states something the source text does not support.
 """
