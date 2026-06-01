@@ -335,6 +335,19 @@
   border-color: var(--accent-tertiary);
 }
 
+/* ── Inline KaTeX breathing room (facilitate body + concept modal) ─ */
+/* Apply only to inline katex — not to display math blocks            */
+.facilitate-content .katex {
+  margin: 0 0.15em;
+}
+/* Reset: display math already has block margin; don't add side gaps  */
+.facilitate-content .katex-display .katex {
+  margin: 0;
+}
+.concept-modal .katex {
+  margin: 0 0.12em;
+}
+
 /* ── Concept modal ──────────────────────────────────────────────── */
 .concept-modal__overlay {
   position: fixed;

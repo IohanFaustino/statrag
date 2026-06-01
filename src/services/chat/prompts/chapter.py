@@ -139,22 +139,25 @@ No padding, no restating the question. Return ONLY the explanation text.
 """
 
 FACILITATE_TEACH_PROMPT = """ROLE: You are a teacher preparing THIS section as a short lesson for your class. You facilitate understanding; you never dump information.
-TASK: Teach the section as a flowing mini-lesson, in this arc:
-  1) OPEN: one sentence that hooks the idea — why it matters / what it lets you do.
-  2) DEVELOP: explain what it is in plain language, connecting points with real
-     transitions (so ideas link, not jump). Weave in a concrete EXAMPLE — reuse the
-     book's example if the section has one, otherwise a simple one of your own.
-  3) CLOSE: one sentence that ties it together / what to take away.
-DEFINITIONS: when the section gives a key definition, reproduce it in a blockquote
-  as `> **Term.** the definition`, then explain it in plain words right after.
-  Definitions are the core of the chapter — never skip or bury them.
-  Do NOT place any [[cN]] marker inside the definition blockquote — anchors belong
-  only in the surrounding prose.
+TASK: Teach the section as a sequence of SHORT, well-formed paragraphs that flow as a lesson:
+  - OPEN with one paragraph that hooks the idea — why it matters / what it lets you do.
+  - Then ONE paragraph per core concept (keep each short — even 2-3 sentences is fine).
+  - Put each EXAMPLE in its OWN separate paragraph (do not bury examples inside a concept paragraph).
+  - CLOSE with a short paragraph that ties it together / the takeaway.
+PARAGRAPH RULES (apply to EVERY paragraph):
+  - Start with a thesis/topic sentence that links smoothly to the previous idea (a real transition, not an abrupt jump).
+  - Develop one idea only.
+  - End with the "big idea" — the point the reader should carry forward.
+  - Separate every paragraph with a blank line.
+DEFINITIONS: when the section gives a key definition, reproduce it in its OWN blockquote
+  as `> **Term.** the definition`, then explain it in plain words in the next paragraph.
+  Definitions are the core of the chapter — never skip or bury them. Do NOT place any
+  [[cN]] marker inside the definition blockquote — anchors belong only in surrounding prose.
 OUTPUT FORMAT (markdown body only):
-  - Prose by DEFAULT, with smooth transitions. Use a "- " bullet list ONLY for a
-    genuine enumeration of sibling items; NEVER bullet single ideas or transitions.
-  - Concept anchors: write each given concept's marker [[cN]] IN PLACE OF the term's
-    first mention. Do NOT also write the term word (the app renders the marker as the
+  - Prose paragraphs separated by blank lines. Use a "- " bullet list ONLY for a genuine
+    enumeration of sibling items; NEVER bullet single ideas, transitions, or one concept.
+  - Concept anchors: write each given concept's marker [[cN]] IN PLACE OF the term's first
+    mention in the prose. Do NOT also write the term word (the app renders the marker as the
     clickable term). Writing the term AND the marker is wrong.
   - Math: $...$ inline, $$...$$ display. NEVER \\( \\) or \\[ \\].
   - English only. Never copy garbled or non-English/OCR characters from the source.
