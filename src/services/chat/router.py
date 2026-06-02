@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
 
 from src.core.config import settings
 from src.services.chat.schemas import ChatRequest
@@ -231,18 +231,21 @@ async def _run_tutor(req: ChatRequest, history: list[dict] | None) -> AsyncItera
 
 
 async def _run_qa(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    """Q&A runner -> agents.qa.run_qa."""
     from src.services.chat.agents.qa import run_qa  # noqa: PLC0415
     async for event in run_qa(req):
         yield event
 
 
 async def _run_facilitate(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    """Facilitate runner -> agents.facilitate.run_facilitate."""
     from src.services.chat.agents.facilitate import run_facilitate  # noqa: PLC0415
     async for event in run_facilitate(req):
         yield event
 
 
 async def _run_resume(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    """Resume runner -> agents.chapter.run_chapter."""
     from src.services.chat.agents.chapter import run_chapter  # noqa: PLC0415
     async for event in run_chapter(req):
         yield event
@@ -251,7 +254,7 @@ async def _run_resume(req: ChatRequest, history: list[dict] | None) -> AsyncIter
 # Explicit mode -> v2 runner table. Every ModeId MUST appear here; the
 # exhaustiveness test (test_mode_routing_contract.py) fails otherwise, so a new
 # mode cannot ship unrouted.
-_V2_DISPATCH: dict[str, Callable[["ChatRequest", "list[dict] | None"], AsyncIterator[dict]]] = {
+_V2_DISPATCH: dict[str, Callable[["ChatRequest", "list[dict] | None"], AsyncGenerator[dict, None]]] = {
     "tutor": _run_tutor,
     "qa": _run_qa,
     "facilitate": _run_facilitate,
