@@ -94,3 +94,24 @@ open conv: picker synced once to last-turn mode; user may switch freely thereaft
 - Migrating the chat to a LangGraph `StateGraph` (Approach 2) — the dispatch table already routes.
 - Changing the backend routing/dispatch (already correct + hardened).
 - Per-stage model overrides, cancel, clarify — untouched.
+
+## Pending steps (user will implement further)
+
+> **Status:** code complete + green at every layer (backend 583 / frontend 183 / tsc clean). The items below are deferred to the user.
+
+- [ ] **Live functional verification on :5175** — the automated proof is the
+  mocked `test_per_turn_mode.py` (one conversation, tutor→facilitate→qa→resume,
+  each persisted with its own `turnMode`). The **live browser click-through was
+  NOT run** this session because the Claude-in-Chrome extension was disconnected
+  (`mcp__claude-in-chrome__tabs_context_mcp` → "extension not connected").
+  To finish: reconnect the extension (or run a real 2–4 turn `/api/chat`
+  sequence in one conversation with any provider — kimi/ollama), and confirm in
+  the UI that switching the picker mid-conversation runs the new mode and that
+  reloading the conversation renders each turn with its own pipeline/card.
+- [ ] **Branch wrap-up** — `feat/facilitate-concept-map` carries 6 features
+  (structured-output gate, resume scaffold+gate, mode-orchestration hardening,
+  mode-sync fix, cancel button, per-turn modes) + the clarify-pick fix. Decide:
+  open a PR, add a `docs/system/changelog.md` entry, or leave as-is.
+- [ ] **Optional follow-ups (deferred):** "Auto" mode-classification picker
+  option (hindsight Approach 3); migrate routing to a LangGraph `StateGraph`
+  (Approach 2) if/when the chat grows beyond the dispatch table.
