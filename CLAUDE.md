@@ -79,7 +79,7 @@ Wall is encoded in each `__init__.py`. Add new services as `src/services/<name>/
 | **Ingestion ops** | [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md) |
 | **Retrieval ops** | [`docs/services/retrieval.md`](docs/services/retrieval.md) |
 | **Chat service ops** | [`docs/services/chat.md`](docs/services/chat.md) |
-| **Chat feature deep-dive** | [`docs/services/chat-features/`](docs/services/chat-features/README.md) — 39+ per-feature docs w/ graphs; recent: 36 deep-tutor, 39 image-judge, 42 author-diversity, 43 synthesis-plan, 44 orchestrator-workers, 45 query-planner-coverage, 46 adjacency-recall, 47 answer-coherence, 48 long-context-organizer, 49 subsections-and-citation-links, 50 groq-provider-and-prompt-schema, 51 qa-mode |
+| **Chat feature deep-dive** | [`docs/services/chat-features/`](docs/services/chat-features/README.md) — 39+ per-feature docs w/ graphs; recent: 36 deep-tutor, 39 image-judge, 42 author-diversity, 43 synthesis-plan, 44 orchestrator-workers, 45 query-planner-coverage, 46 adjacency-recall, 47 answer-coherence, 48 long-context-organizer, 49 subsections-and-citation-links, 50 groq-provider-and-prompt-schema, 51 qa-mode, 52 book-scope-resolve, 53 facilitate-concept-map |
 | **Image eval** | [`docs/eval/image_label_instructions.md`](docs/eval/image_label_instructions.md) — labeling guide + KPIs; live runner via `pytest -m quality_images` |
 | **Chat next step** | [`docs/services/chat.md#next-step--make-chat-work-in-browser`](docs/services/chat.md) — verify and harden in-browser flow |
 | **Architecture** | [`docs/system/architecture.md`](docs/system/architecture.md) |
@@ -128,11 +128,11 @@ Each tutor pipeline stage / agent (concept→query planner, retrieval, density+r
 | **Modal card (the graph users see)** | `web/src/data/tutorPipeline.ts` (nodes/edges/labels) + `web/src/components/PipelineDiagram.tsx` (layout/render) |
 | **Backend mermaid graph** | `docs/services/chat-features/36-deep-tutor.md` |
 | **Per-feature doc** | `docs/services/chat-features/<NN>-<feature>.md` |
-| **Reference design graph** | `docs/common ground/index.html` |
+| **Reference design graph** | `docs/common ground/Elements/index.html` — multi-page current-state doc set (Overview / Ingestion / Retrieval / Chat &amp; deep-tutor / Verification) |
 | **Invariants + changelog** | `docs/system/invariants.md`, `docs/system/changelog.md` |
 | **Tests** | `src/services/chat/tests/test_*.py` + `web/src/components/PipelineDiagram.test.tsx` |
 
-Rule: a logic change is **incomplete** until the **modal card** (`tutorPipeline.ts`/`PipelineDiagram.tsx`), the **docs/graphs**, and the **tests** all reflect it. After a diagram/stage change, **open the tutor (i) modal in the browser on :5175 and confirm it visually matches** `docs/common ground/index.html` — the modal is the source of truth users see, and it has drifted before.
+Rule: a logic change is **incomplete** until the **modal card** (`tutorPipeline.ts`/`PipelineDiagram.tsx`), the **docs/graphs**, and the **tests** all reflect it. After a diagram/stage change, **open the tutor (i) modal in the browser on :5175 and confirm it visually matches** `docs/common ground/Elements/index.html` — the modal is the source of truth users see, and it has drifted before.
 
 Commands:
 - Ingest: `python -m src.ingestion.pipeline --book <slug> --chapter chNN --force`

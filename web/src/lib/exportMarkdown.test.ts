@@ -5,7 +5,7 @@ import {
   userMessageToMarkdown,
   conversationToMarkdown,
 } from "./exportMarkdown";
-import type { AssistantMessage, UserMessage } from "../types";
+import type { AssistantMessage, UserMessage, FacilitateDigest } from "../types";
 
 function baseAssistant(partial: Partial<AssistantMessage>): AssistantMessage {
   return {
@@ -127,6 +127,54 @@ describe("conversationToMarkdown", () => {
     expect(youIdx).toBeGreaterThan(-1);
     expect(tutorIdx).toBeGreaterThan(youIdx);
     expect(md.endsWith("\n")).toBe(true);
+  });
+
+  it("renders FacilitateDigest with key_points, footnote refs, and footnote defs", () => {
+    const digest: FacilitateDigest = {
+      mode: "facilitate",
+      scope: { book_slug: "hansen", chapter_id: "ch07", requested_subtopics: [], resolution: [] },
+      intro: "Intro text.",
+      blocks: [
+        {
+          h2_path: "7.2 Variance",
+          section_id: "s7.2",
+          key_points: ["kp1"],
+          body: "Uses [[c1]] here.",
+          concepts: [
+            {
+              id: "c1",
+              term: "Term",
+              kind: "concept",
+              explanation: "Expl.",
+              provenance: {
+                book_slug: "hansen", book_name: "Econometrics",
+                authors_short: "Hansen", section: "7.2",
+                page_from: 172, page_to: 173,
+                chunk_id: "hansen_ch07_s7.2", same_author: true, fallback: false,
+              },
+            },
+          ],
+          page_from: 172,
+          page_to: 175,
+        },
+      ],
+      outro: "Outro text.",
+      math_blocks: [],
+      grounding: { ok: true, unsupported: [], confidence: 0.95 },
+    };
+    const msg = baseAssistant({
+      mode: "facilitate",
+      structuredOutput: { schema: "FacilitateDigest", data: digest },
+    });
+    const md = assistantMessageToMarkdown(msg);
+    expect(md).toContain("- kp1");
+    expect(md).toContain("[^b0c1]");
+    expect(md).not.toContain("[[c1]]");
+    const defLine = md.split("\n").find((l) => l.startsWith("[^b0c1]:"));
+    expect(defLine).toBeDefined();
+    expect(defLine).toContain("Term");
+    expect(defLine).toContain("Expl.");
+    expect(defLine).toContain("Hansen");
   });
 
   it("skips pending/streaming assistant turns", () => {

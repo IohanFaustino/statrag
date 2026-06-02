@@ -1,0 +1,60 @@
+:root{
+  --bg:#0b0c0e; --panel:#141619; --panel2:#1b1e22; --line:#2a2e34;
+  --txt:#e6e8eb; --dim:#9aa1aa; --accent:#E5484D; --ok:#3fb950; --warn:#d2a24c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);padding-left:256px;
+  font:15px/1.6 ui-sans-serif,system-ui,"IBM Plex Sans",Segoe UI,Roboto,sans-serif}
+header{padding:28px 32px 8px;border-bottom:1px solid var(--line)}
+h1{margin:0 0 4px;font-size:22px;letter-spacing:.2px}
+h1 .accent{color:var(--accent)}
+.sub{color:var(--dim);font-size:13px}
+/* Left sidebar (fixed). Body gets padding-left to make room. */
+.side{position:fixed;left:0;top:0;width:256px;height:100vh;overflow-y:auto;
+  background:var(--panel);border-right:1px solid var(--line);padding:18px 12px 40px}
+.side-brand{font-size:18px;font-weight:700;color:var(--accent);padding:4px 10px 14px}
+.side-group{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);
+  margin:16px 10px 6px;border-top:1px solid var(--line);padding-top:12px}
+.side a{display:block;color:var(--dim);text-decoration:none;padding:5px 10px;border-radius:7px;font-size:13px}
+.side a:hover{color:var(--txt);background:var(--panel2)}
+.side a.active{background:var(--accent);color:#fff}
+/* Collapsible toggle groups (items that have subpages). */
+.side-toggle{display:flex;align-items:center;gap:6px;width:100%;text-align:left;
+  background:none;border:0;color:var(--dim);font:inherit;font-size:11px;
+  text-transform:uppercase;letter-spacing:.5px;cursor:pointer;
+  margin:16px 0 6px;padding:12px 10px 0;border-top:1px solid var(--line)}
+.side-toggle:hover{color:var(--txt)}
+.side-toggle .caret{display:inline-block;transition:transform .15s;font-size:10px}
+.side-toggle.open .caret{transform:rotate(90deg)}
+.side-sub{display:flex;flex-direction:column}
+.side-sub[hidden]{display:none}  /* override .side-sub display so the hidden attr collapses it */
+.side-sub a{padding-left:20px}
+.content{min-width:0}
+@media(max-width:760px){
+  body{padding-left:0}
+  .side{position:static;width:auto;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+}
+main{max-width:1080px;margin:0 auto;padding:24px 32px 64px}
+section{margin:28px 0}
+h2{font-size:16px;border-left:3px solid var(--accent);padding-left:10px;margin:0 0 12px}
+h3{font-size:14px;color:var(--txt);margin:18px 0 8px}
+p{color:#cdd2d8}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.quote{background:var(--panel2);border-left:3px solid var(--dim);padding:12px 16px;border-radius:6px;color:#cdd2d8;font-style:italic}
+.diagram-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:22px;min-height:300px;display:flex;align-items:center;justify-content:center;overflow:auto}
+.caption{color:var(--dim);font-size:13px;margin-top:8px;text-align:center}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--panel2);color:var(--dim);font-weight:600}
+.yes{color:var(--ok);font-weight:600}
+.warn{color:var(--warn);font-weight:600}
+.no{color:var(--accent);font-weight:600}
+code{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:13px}
+.verdict{border:1px solid var(--warn);background:rgba(210,162,76,.08);border-radius:10px;padding:16px 18px}
+.verdict.v-ok{border-color:var(--ok);background:rgba(63,185,80,.08)}
+.verdict b{color:var(--warn)}
+.verdict.v-ok b{color:var(--ok)}
+ul{color:#cdd2d8}
+a{color:var(--accent)}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim);margin-left:6px}

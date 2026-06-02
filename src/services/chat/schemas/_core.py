@@ -95,6 +95,7 @@ class Model(BaseModel):
     cost: str
     speed: str
     ctx: str
+    recommended: bool = False
 
 
 class ModelProvider(BaseModel):

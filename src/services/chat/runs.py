@@ -71,6 +71,19 @@ def is_active(conv_id: str) -> bool:
     return run is not None and not run.done
 
 
+def cancel(conv_id: str) -> bool:
+    """Cancel an active run's driving task. Returns True if a live run was
+    cancelled, False when there is no run or it already finished.
+
+    The task's ``_drive`` ``finally`` marks the run done and notifies
+    subscribers, so callers need do nothing else.
+    """
+    run = _runs.get(conv_id)
+    if run is None or run.done or run.task is None:
+        return False
+    return run.task.cancel()
+
+
 def status(conv_id: str) -> dict:
     """Lightweight status for the resume handshake."""
     run = _runs.get(conv_id)

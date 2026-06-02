@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Q&A</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Q&amp;A</span> mode <span class="pill">multi-agent (4-node graph)</span></h1>
+  <div class="sub">Punctual, scoped Q&amp;A. Extracts the precise gap the question asks about (and what it assumes you already know), retrieves a small high-precision set, generates a terse grounded answer, then verifies that every claim is supported.</div>
+</header>
+<main>
+  <section>
+    <h2>What it serves</h2>
+    <div class="card"><p style="margin:0">Use for a specific, bounded question where you want a short, sourced answer fast — not a full tutorial. The verify node flags unsupported claims and reports a confidence.</p></div>
+  </section>
+  <section>
+    <h2>Pipeline</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart LR
+  Q[&quot;Question&quot;] --> SC[&quot;scope (nano)<br/>target_gap + assumed_known&quot;]
+  SC --> RET[&quot;retrieve (top 4, rerank)&quot;]
+  RET --> GEN[&quot;scoped generate&quot;]
+  GEN --> VF[&quot;verify grounding&quot;]
+  VF --> A[&quot;QAAnswer&quot;]
+  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart LR
+  Q["Question"] --> SC["scope (nano)<br/>target_gap + assumed_known"]
+  SC --> RET["retrieve (top 4, rerank)"]
+  RET --> GEN["scoped generate"]
+  GEN --> VF["verify grounding"]
+  VF --> A["QAAnswer"]
+  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
+    <p class="caption">Four nodes, run in order (agents/qa.py). One schema-repair retry on the generate node (ADR-005).</p>
+  </section>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Mode id</th><td><code>qa</code></td></tr>
+      <tr><th>Architecture</th><td>multi-agent (4-node graph)</td></tr>
+      <tr><th>Default model</th><td>nano (all four nodes; per-stage override via stageModels)</td></tr>
+      <tr><th>Output schema</th><td><code>QAAnswer</code></td></tr>
+      <tr><th>Tools</th><td>none (retrieval is a graph node, not a tool)</td></tr>
+      <tr><th>Retrieval</th><td>rerank=True, rerank_top_n=4 (narrow, high-precision)</td></tr>
+      <tr><th>Memory</th><td>off</td></tr>
+      <tr><th>Post-validators</th><td>none (grounding is a runtime verify node)</td></tr>
+      <tr><th>System prompt</th><td><code>prompts/qa.py — QA_GENERATE_PROMPT</code></td></tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/agents/qa.py:3, modes.py:170-186</code>.</p>
+  </section>
+  <section>
+    <h2>Output fields</h2>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td><code>text</code></td><td>Terse markdown with inline [n] citation markers.</td></tr>
+      <tr><td><code>scope</code></td><td>The resolved QAScope (target_gap, assumed_known, answer_form), echoed for transparency.</td></tr>
+      <tr><td><code>citations</code></td><td>Sources matching the [n] markers.</td></tr>
+      <tr><td><code>math_blocks</code></td><td>Rendered math, if any.</td></tr>
+      <tr><td><code>grounding</code></td><td>Verify verdict: {ok, unsupported[], confidence}.</td></tr>
+    </table>
+    <p class="caption">schemas/output.py:237-251.</p>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+</body>
+</html>

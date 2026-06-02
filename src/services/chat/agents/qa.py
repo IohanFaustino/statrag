@@ -16,6 +16,8 @@ from typing import AsyncIterator
 
 from src.core.config import settings
 from src.services.chat._fences import strip_fences
+from src.services.chat.agents._scope import maybe_clarify, resolve_book
+from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.prompts.qa import (
     QA_GENERATE_PROMPT,
@@ -30,6 +32,7 @@ logger = logging.getLogger(__name__)
 _QA_TOP_K = int(os.environ.get("QA_TOP_K", "4"))
 _QA_SCOPE = os.environ.get("QA_SCOPE", "1") == "1"
 _QA_VERIFY = os.environ.get("QA_VERIFY", "1") == "1"
+_QA_CLARIFY = os.environ.get("CHAPTER_CLARIFY", "1") == "1"
 
 # m1: module constant for chunk preview truncation
 _CHUNK_PREVIEW_CHARS = 1500
@@ -237,6 +240,19 @@ async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
         "latencyMs": int((time.time() - t0) * 1000),
         "model": req.model,
     }
+
+    # 0b. resolve book scope from the question (fuzzy) + confirm gate
+    catalog = parse_catalog()
+    res = await resolve_book(query, selected_slugs=book_slugs or [], catalog=catalog,
+                             model=_model_for("scope", req))
+    if _QA_CLARIFY:
+        clar = maybe_clarify(res, catalog)
+        if clar is not None:
+            yield clar
+            yield {"type": "done"}
+            return
+    if res.book_slug:
+        book_slugs = [res.book_slug]
 
     # 1. scope
     scope = (

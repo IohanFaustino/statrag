@@ -122,6 +122,12 @@ Workload: generate node ≈ 1800 input / 250 output tokens (short vs tutor's ~28
 
 ---
 
+## Book scope resolution (fuzzy book reference)
+
+Q&A resolves the book from the user's question via a catalog-in-prompt LLM call — the user does not need to supply an exact `book_slug`. If the reference is ambiguous or unrecognised, a `clarify` turn is emitted (chips + message) before any retrieval. A confident single match runs the pipeline immediately. See [`52-book-scope-resolve.md`](52-book-scope-resolve.md) for the full mechanism, `BookResolution` fields, confirm-gate rules, `clarify` SSE event shape, and env flags (`BOOK_CONFIRM_CUTOFF`, `CHAPTER_CLARIFY`).
+
+---
+
 ## SSE event sequence
 
 ```
@@ -143,10 +149,12 @@ Both paths emit the same event types ending in `done` — the frontend never nee
 | Component | Path | Role |
 |---|---|---|
 | `QAAnswerCard` | `web/src/components/QAAnswerCard.tsx` | Renders terse answer body + scope line ("Answering: *target_gap* · assuming you know: *assumed_known*") + grounding badge (✓ grounded / ⚠ partial) |
-| `QAPipeline` | `web/src/components/QAPipeline.tsx` | Read-only 4-node diagram for the Q&A (i) modal |
+| `QAPipelineDiagram` | `web/src/components/QAPipelineDiagram.tsx` | Editable 4-node diagram for the Q&A (i) modal (replaces removed `QAPipeline.tsx`) |
 | `qaPipeline` data | `web/src/data/qaPipeline.ts` | Static node/edge definitions (`QA_PIPELINE`) |
 | `MessageThread` | `web/src/components/MessageThread.tsx` | Render branch on `schema === "QAAnswer"` → `<QAAnswerCard>` |
 | `ModePicker` | `web/src/components/ModePicker.tsx` | Q&A chip beside the tutor chip |
+
+The mode's `(i)` modal is now **editable**: each LLM stage exposes a per-stage model/provider dropdown (writes `ChatRequest.stageModels[<stage>]`), mirroring the tutor's About-model modal. The data stage (retrieval / chapter fetch) shows a fixed label. Stage keys are disjoint across modes, so overrides share the single persisted `statrag.stageModels` dict.
 
 ---
 

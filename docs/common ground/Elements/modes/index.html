@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Modes</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1>statrag — <span class="accent">Modes</span></h1>
+  <div class="sub">The chat modes you can pick. Each is a registered ModeSpec with its own runner, diagram, default model, and output schema. <span class="pill">4 modes</span></div>
+</header>
+<main>
+  <section>
+    <h2>All modes</h2>
+    <table>
+      <tr><th>Mode</th><th>Architecture</th><th>Output schema</th><th>What it serves</th></tr>
+      <tr><td><a href="tutor.html">Tutor</a></td><td>single-agent (tool loop)</td><td><code>TutorAnswer / DeepTutorAnswer</code></td><td>The default, deepest mode. Answers a question with a multi-author, structured tutorial: TL;DR, definition, formal statement, worked example + intuition, applications, and further reading — with inline citations, figures, and rendered math.</td></tr>
+      <tr><td><a href="qa.html">Q&amp;A</a></td><td>multi-agent (4-node graph)</td><td><code>QAAnswer</code></td><td>Punctual, scoped Q&amp;A. Extracts the precise gap the question asks about (and what it assumes you already know), retrieves a small high-precision set, generates a terse grounded answer, then verifies that every claim is supported.</td></tr>
+      <tr><td><a href="facilitate.html">Facilitate</a></td><td>multi-agent (chapter pipeline)</td><td><code>ChapterDigest</code></td><td>An ordered, didactic walkthrough of a whole chapter. Fetches the chapter's sections in the book's own order and teaches each one (verbose map, ~250-400 tokens/section), streaming each block as it finishes so you watch the chapter build top to bottom.</td></tr>
+      <tr><td><a href="resume.html">Resume</a></td><td>multi-agent (chapter pipeline)</td><td><code>ChapterDigest</code></td><td>An ordered, compressed recap of a whole chapter. Same structural pipeline as Facilitate, but the map step is terse (~60-100 tokens/section) — a faithful condensed summary in reading order.</td></tr>
+    </table>
+    <p class="caption">Source of truth: <code>src/services/chat/modes.py</code> (register_all_modes). Click a mode for its diagram, spec, and output fields.</p>
+  </section>
+  <section>
+    <h2>Two families</h2>
+    <div class="card"><p style="margin:0"><b>Search modes</b> (Tutor, Q&amp;A) retrieve by relevance to a question. <b>Chapter modes</b> (Facilitate, Resume) do a <b>structural fetch</b> of a whole chapter and emit a <code>ChapterDigest</code> in the book's own section order — not a search.</p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+</body>
+</html>

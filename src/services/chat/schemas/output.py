@@ -312,8 +312,90 @@ class ChapterDigest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Scope resolver schemas (book catalog + resolution)
+# ---------------------------------------------------------------------------
+
+
+class CatalogBook(BaseModel):
+    slug: str
+    name: str
+    authors_short: str = ""
+    field: str = ""
+    chapters: list[str] = Field(default_factory=list)  # ordered chNN ids
+
+
+class BookResolution(BaseModel):
+    book_slug: str = ""
+    book_confidence: float = 0.0
+    book_candidates: list[str] = Field(default_factory=list)
+    chapter_id: str = ""
+    requested_subtopics: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Mode 3 — facilitate (concept-map digest)
+# ---------------------------------------------------------------------------
+
+
+class ConceptProvenance(BaseModel):
+    book_slug: str = ""
+    book_name: str = ""
+    authors_short: str = ""
+    section: str = ""
+    page_from: int = -1
+    page_to: int = -1
+    chunk_id: str = ""
+    same_author: bool = True
+    fallback: bool = False
+
+
+class ConceptAnchor(BaseModel):
+    id: str
+    term: str
+    kind: Literal["concept", "theorem", "formula"] = "concept"
+    explanation: str = ""
+    provenance: ConceptProvenance = Field(default_factory=ConceptProvenance)
+
+
+class FacilitateBlock(BaseModel):
+    h2_path: str
+    section_id: str
+    key_points: list[str] = Field(default_factory=list)
+    body: str = ""
+    concepts: list[ConceptAnchor] = Field(default_factory=list)
+    page_from: int = -1
+    page_to: int = -1
+
+
+class FacilitateDigest(BaseModel):
+    mode: Literal["facilitate"]
+    scope: ChapterScope
+    intro: str = ""
+    blocks: list[FacilitateBlock] = Field(default_factory=list)
+    outro: str = ""
+    math_blocks: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
 # Concept graph primitives (kept — kg.py depends on these)
 # ---------------------------------------------------------------------------
+
+
+class FacilitateMap(BaseModel):
+    """Shape of the facilitate MAP stage output."""
+
+    key_points: list[str] = Field(default_factory=list)
+    concepts: list[dict] = Field(default_factory=list)
+
+
+class FacilitateVerify(BaseModel):
+    """Shape of the facilitate VERIFY stage output."""
+
+    fixed_body: str = ""
+    ok: bool = False
+    unsupported: list[str] = Field(default_factory=list)
+    confidence: float = 0.5
 
 
 class ConceptNode(BaseModel):
@@ -330,5 +412,49 @@ class ConceptEdge(BaseModel):
     from_id: str
     to_id: str
     weight: float = 1.0
+
+
+# ---------------------------------------------------------------------------
+# Chapter pipeline stage schemas (facilitate / resume pipeline)
+# ---------------------------------------------------------------------------
+
+
+class ChapterParse(BaseModel):
+    """Shape of the chapter PARSE stage output (book/chapter scope)."""
+
+    book_slug: str = ""
+    book_confidence: float = 0.0
+    book_candidates: list[str] = Field(default_factory=list)
+    chapter_id: str = ""
+    requested_subtopics: list[str] = Field(default_factory=list)
+
+
+class ChapterResolveMatches(BaseModel):
+    """Shape of the chapter RESOLVE stage output (subtopic -> heading)."""
+
+    matches: list[dict] = Field(default_factory=list)
+
+
+class ChapterMapBlock(BaseModel):
+    """Shape of the chapter MAP stage output (one section block)."""
+
+    body: str = ""
+    citations: list[dict] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+
+
+class ChapterStitchOut(BaseModel):
+    """Shape of the chapter STITCH stage output (intro/outro)."""
+
+    intro: str = ""
+    outro: str = ""
+
+
+class ChapterGroundOut(BaseModel):
+    """Shape of the chapter GROUND stage output (grounding audit)."""
+
+    ok: bool = False
+    unsupported: list[str] = Field(default_factory=list)
+    confidence: float = 0.5
 
 

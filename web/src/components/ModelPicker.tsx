@@ -35,6 +35,22 @@ function ProviderIcon({ id, size = 16 }: { id: ProviderId | string; size?: numbe
       </svg>
     );
   }
+  if (id === "google") {
+    // Gemini — four-point spark (Google AI mark, simplified)
+    return (
+      <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+        <path d="M12 2c.4 4.6 3.4 7.6 8 8-4.6.4-7.6 3.4-8 8-.4-4.6-3.4-7.6-8-8 4.6-.4 7.6-3.4 8-8Z" />
+      </svg>
+    );
+  }
+  if (id === "alibaba") {
+    // Qwen / Alibaba — twin-peak mark (simplified)
+    return (
+      <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+        <path d="M7 3 3.2 13.2a1 1 0 0 0 .94 1.35H7.5L9.3 9.7l2.7 7.1a1 1 0 0 0 1.87 0l2.7-7.1 1.8 4.85h3.36a1 1 0 0 0 .94-1.35L19.36 3h-2.6l2.74 9H17.1l-2.2-5.9a1 1 0 0 0-1.87 0L10.83 12H8.34l2.74-9H7Z" />
+      </svg>
+    );
+  }
   // Fallback dot
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
@@ -156,7 +172,10 @@ export default function ModelPicker({ activeModel, providers, onChange }: ModelP
                           }}
                         >
                           <div className="mp-item__l">
-                            <div className="mp-item__name">{m.name}</div>
+                            <div className="mp-item__name">
+                              {m.name}
+                              {m.recommended && <span className="mp-row__rec" title="System-recommended">★</span>}
+                            </div>
                             <div className="mp-item__tag">{m.tagline}</div>
                           </div>
                           <div className="mp-item__r">

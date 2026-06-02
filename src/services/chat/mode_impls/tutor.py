@@ -17,12 +17,16 @@ Chinese-wall: imports only from ``src.core.*`` and sibling
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 from langchain.agents import create_agent
 
 from src.core.config import settings
 from src.services.chat.checkpointer import get_async_checkpointer
+from src.services.chat.llm.structured import JsonMode, json_mode_for, schema_hint
 from src.services.chat.prompts.tutor import TUTOR_INSTRUCTIONS
 from src.services.chat.schemas.output import TutorAnswer
 from src.services.chat.tools import retrieve
@@ -52,14 +56,32 @@ async def build_agent():
     async with _lock():
         if _AGENT is not None:
             return _AGENT
+        model_id = settings.openai_model_nano
+        system_prompt = TUTOR_INSTRUCTIONS
         kwargs: dict = {
-            "model": f"openai:{settings.openai_model_nano}",
+            "model": f"openai:{model_id}",
             "tools": [retrieve],
-            "system_prompt": TUTOR_INSTRUCTIONS,
             "checkpointer": await get_async_checkpointer(),
         }
         if not os.environ.get("TUTOR_FREE_TEXT"):
-            kwargs["response_format"] = TutorAnswer
+            mode = json_mode_for(model_id)
+            if mode is JsonMode.SCHEMA:
+                kwargs["response_format"] = TutorAnswer
+            else:
+                # OBJECT mode: native json_schema unsupported.
+                # LangChain create_agent's response_format expects a Pydantic
+                # schema class, NOT the raw OpenAI {"type":"json_object"} param,
+                # so we cannot pass json_object here; instead we steer output
+                # via a schema hint appended to the system prompt.
+                hint = schema_hint(TutorAnswer)
+                if hint:
+                    system_prompt = f"{system_prompt}\n\n{hint}"
+                else:
+                    logger.warning(
+                        "tutor: no schema hint for TutorAnswer; OBJECT-mode model "
+                        "will receive no structured-output guidance"
+                    )
+        kwargs["system_prompt"] = system_prompt
         _AGENT = create_agent(**kwargs)
         return _AGENT
 

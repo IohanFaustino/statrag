@@ -3,104 +3,122 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>statrag — implementation audit report</title>
-<style>
-  :root{--bg:#0b0c0e;--panel:#141619;--panel2:#1b1e22;--line:#2a2e34;--txt:#e6e8eb;--dim:#9aa1aa;--accent:#E5484D;--ok:#3fb950;--warn:#d2a24c}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.6 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif}
-  header{padding:26px 32px;border-bottom:1px solid var(--line)}
-  h1{margin:0 0 4px;font-size:21px}h1 .a{color:var(--accent)}
-  .sub{color:var(--dim);font-size:13px}
-  main{max-width:1060px;margin:0 auto;padding:22px 32px 64px}
-  h2{font-size:16px;border-left:3px solid var(--accent);padding-left:10px;margin:30px 0 12px}
-  p{color:#cdd2d8}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:10px 0}
-  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0}
-  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
-  th{background:var(--panel2);color:var(--dim)}
-  .ok{color:var(--ok);font-weight:600}.warn{color:var(--warn);font-weight:600}.bad{color:var(--accent);font-weight:600}
-  code{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
-  pre{background:#000;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;font-size:12.5px;color:#cdd2d8}
-  .verdict{border-radius:10px;padding:14px 18px;margin:10px 0}
-  .v-ok{border:1px solid var(--ok);background:rgba(63,185,80,.08)}
-  .v-warn{border:1px solid var(--warn);background:rgba(210,162,76,.08)}
-  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
-  ul{color:#cdd2d8}
-</style>
+<title>statrag — Verification</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
-<body>
+<body data-base="">
 <header>
-  <h1>statrag — <span class="a">implementation audit</span> report</h1>
-  <div class="sub">Triggered by "the modal is exactly the same." Full inspection: disk · runtime · services · browser. <span class="pill">2026-05-21</span></div>
+  <h1>statrag — <span class="accent">Verification</span></h1>
+  <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
 </header>
+<aside id="side" class="side"></aside>
 <main>
-
-  <h2>0 · Headline</h2>
-  <div class="verdict v-ok">
-    <b>Disk code matched the plan all along.</b> The "same modal" was a <b>runtime</b> problem (two dev servers + a stale tab), now fixed.
-    Crucially, log-monitoring (as you required) uncovered a <b>real silent bug</b>: the Planner had been <b>failing on every request</b> due to an OpenAI strict-schema violation, degrading gracefully so it was invisible. <b>Now fixed and proven end-to-end.</b>
-  </div>
-
-  <h2>1 · Plan ↔ implementation matrix</h2>
-  <table>
-    <tr><th>Plan element</th><th>Disk evidence</th><th>Status</th></tr>
-    <tr><td>Planner = merged Synthesis-plan + Orchestrator</td><td><code>tutorPipeline.ts</code> node <code>id:"plan"</code> label "Planner"; <code>SynthesisPlan.tasks</code>; orchestrator reads <code>plan.tasks</code> (no 2nd LLM call)</td><td class="ok">Implemented</td></tr>
-    <tr><td>Critique dropped from canonical DAG</td><td>No <code>critique</code> node; edge <code>draft → vision_explain</code>; critique code stays env opt-in (<code>TUTOR_DEEP_CRITIQUE</code>)</td><td class="ok">Implemented</td></tr>
-    <tr><td>Workflow-aware diagram (orchestrator morph)</td><td><code>PipelineDiagram</code> derives orchestrator/worker/synthesizer nodes when <code>tutorWorkflow==="orchestrator"</code></td><td class="ok">Implemented</td></tr>
-    <tr><td>Author-diversity (Auto), Vision-explain selectable, LaTeX repair</td><td>Present + tested (prior sessions)</td><td class="ok">Implemented</td></tr>
-    <tr><td>Planner actually produces a plan at runtime</td><td>Was 400-ing silently (see §3)</td><td class="warn">Broken → now fixed</td></tr>
+<section>
+  <h2>Headline</h2>
+  <div class="verdict v-ok"><b>Rebuilt 2026-06-01 from code inspection.</b> The prior single-page index.html (§1–§17, a dated change-log) was replaced by four current-state pages (Overview / Ingestion / Retrieval / Chat &amp; deep-tutor), a 16-model section (one page per model), and this audit. Every claim below was traced to a source file; drift rows mark where the old docs or modal card were wrong.</div>
+  <p>Matrix: <b>73</b> claims — <span class="yes">69 verified</span>, <span class="warn">4 drift</span>, <span class="no">0 removed</span>.</p>
+</section>
+<section>
+  <h2>Verification matrix</h2>
+  <p>Every non-trivial claim on the content pages, traced to its source with a verdict. Built during the 2026-06-01 rebuild by inspecting the code, not the prior docs.</p>
+  <table id="matrix">
+    <tr><th>Page</th><th>Claim</th><th>Source (file:line)</th><th>Verdict</th></tr>
+    <!-- Task 1: Overview page — verified 2026-06-01 -->
+    <tr><td>Overview</td><td>Embedding model = text-embedding-3-large</td><td><code>src/core/config.py:38</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Embedding dimension = 3072</td><td><code>src/core/qdrant_store.py:27</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Qdrant version = v1.12.4</td><td><code>ops/docker/docker-compose.yml:3</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Qdrant dashboard + REST port = 6333</td><td><code>ops/docker/docker-compose.yml:6</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Default chat LLM = gpt-5.4-nano-2026-03-17 (llm_model)</td><td><code>src/core/config.py:39</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Groq default model = meta-llama/llama-4-scout-17b-16e-instruct</td><td><code>src/core/config.py:64</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Ingestion-enrich LLM = deepseek-v4-flash (RAG_INGEST_DEEPSEEK_MODEL)</td><td><code>src/core/config.py:49</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Sparse = BM25 via Qdrant native fastembed (SPARSE_VECTOR = "bm25")</td><td><code>src/core/qdrant_store.py:29</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Chunking = 1 section = 1 chunk; split at 8000 tokens (TARGET_TOKENS=8000) using tiktoken cl100k_base</td><td><code>src/ingestion/build_documents.py:29,28</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Wall rule — Core: imports NOTHING in repo, only third-party</td><td><code>src/core/__init__.py:3-5</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Wall rule — Ingestion: imports only from src.core; other tasks/services never import from ingestion</td><td><code>src/ingestion/__init__.py:3-6</code></td><td class="yes">verified</td></tr>
+    <tr><td>Overview</td><td>Wall rule — Services/chat: imports only from src.core; never from other services or src.ingestion; reads ingestion artifacts as filesystem only</td><td><code>src/services/chat/__init__.py:3-7</code></td><td class="yes">verified</td></tr>
+    <!-- Task 2: Ingestion page — verified 2026-06-01 -->
+    <tr><td>Ingestion</td><td>Pipeline stage order: B regex_pass → C llm_enrich → D build_documents → E persist (embed + upsert) → F manifest register</td><td><code>src/ingestion/pipeline.py:3-9</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>No separate Preprocess stage inside run_chapter(); kobo_preproc is offline/one-time, not a pipeline stage</td><td><code>src/ingestion/pipeline.py:169-258</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Chunk split at 8000 tokens (TARGET_TOKENS=8000), tiktoken cl100k_base</td><td><code>src/ingestion/build_documents.py:28-29</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Overlap on split = 200 tokens (OVERLAP_TOKENS=200)</td><td><code>src/ingestion/build_documents.py:30</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Hard safety cap = 8190 tokens (HARD_MAX_TOKENS), one below 8191 embedding limit</td><td><code>src/ingestion/build_documents.py:31</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Field→collection naming: field_textbooks / field_images; auto-created on first ingest</td><td><code>src/core/qdrant_store.py:43-48</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Enrichment LLM default = deepseek (RAG_DEFAULT_PROVIDER=deepseek), model = deepseek-v4-flash (RAG_INGEST_DEEPSEEK_MODEL)</td><td><code>src/core/config.py:49,68</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>DeepSeek thinking disabled via extra_body={"thinking":{"type":"disabled"}} to prevent empty content from breaking JsonOutputParser</td><td><code>src/ingestion/llm_client.py:33-42</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Embeddings (text + images) = OpenAI text-embedding-3-large; image captions embedded as text (not vision)</td><td><code>src/ingestion/pipeline.py:95-102, 134-136</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Image-only path: ingest_images_only.py --book --md [--format vlm|epub|auto] [--dry-run]; upserts to field_images</td><td><code>src/ingestion/ingest_images_only.py:290-304</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Key text payload fields: text, chunk_id, book_slug, book_name, authors, theme, chapter_id, section_id, h1, h2_path, page_from, page_to, has_formula, has_image, has_table, n_formulas, synopsis, index_extended, chunk_index, n_chunks_in_section, token_count</td><td><code>src/ingestion/build_documents.py:61-79</code> · <code>src/ingestion/pipeline.py:108</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Key image payload fields: book_slug, book_name, authors, chapter_id, section (h1), subsection (h2_path), page, image_name, image_path, image_reference, theme</td><td><code>src/ingestion/schema.py:49-66</code> · <code>src/ingestion/pipeline.py:144</code></td><td class="yes">verified</td></tr>
+    <tr><td>Ingestion</td><td>Manifest skip rule: same book_slug+chapter_id AND chapter_hash unchanged AND status=success → skip; re-ingest if hash changed</td><td><code>src/ingestion/manifest.py:6-9</code></td><td class="yes">verified</td></tr>
+    <!-- Task 3: Retrieval page — verified 2026-06-01 -->
+    <tr><td>Retrieval</td><td>RRF fusion = Qdrant-native FusionQuery(Fusion.RRF) with two Prefetch arms; per-collection scores renormalised to 1/(60+rank) for cross-collection comparability</td><td><code>src/services/chat/retrieval.py:188-202,379-383</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Sparse model = "Qdrant/bm25" via fastembed SparseTextEmbedding; module-level singleton (~200 MB)</td><td><code>src/services/chat/retrieval.py:48,54-57</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Cross-encoder reranker model = BAAI/bge-reranker-v2-m3</td><td><code>src/core/config.py:72</code> · <code>src/services/chat/rerankers.py:33</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>rerank_top_n_out (default top_n after rerank) = 10</td><td><code>src/core/config.py:74</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>rerank_top_k_in (candidate pool fed to reranker) = 50</td><td><code>src/core/config.py:73</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>_TOP_SECTIONS default = 4 (TUTOR_DEEP_TOP_SECTIONS), _FINAL_TOP_N default = 8 (TUTOR_DEEP_FINAL_TOP_N)</td><td><code>src/services/chat/agents/deep_tutor.py:600-601</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>_DIVERSITY_MAX default = 6 (max(TUTOR_DIVERSITY_TARGET_AUTHORS=3, 6)); _DIVERSITY_ON default = True</td><td><code>src/services/chat/agents/deep_tutor.py:927-929</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Diversity default mode = "auto" (concept model suggests target, clamped to _DIVERSITY_MAX)</td><td><code>src/services/chat/agents/deep_tutor.py:931</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Sibling expansion: page-band ±25, max_lead=2, score=0.0005; rerank is the gate for survival (not a hard include)</td><td><code>src/services/chat/retrievers/density.py:113,115,164</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Adjacent-chunk expansion (_expand_adjacent): scrolls same-section chunks, appended at score 0.001; activated by adjacent_sections=True on hybrid_search</td><td><code>src/services/chat/retrieval.py:205-261</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Image retrieval path: dense-only (no BM25) against &lt;field&gt;_images collections; co-location boost = 0.15 for (book, chapter) match with top text sources; pool = 6</td><td><code>src/services/chat/retrievers/image_density.py:42,44,56</code> · <code>src/services/chat/retrieval.py:604-676</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Deep-tutor uses chat-side retrievers (src.services.chat.retrievers.*), NOT the standalone src.services.retrieval package</td><td><code>src/services/chat/agents/deep_tutor.py:67-84</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>Standalone retrieval service (src/services/retrieval/) is LangChain-based (BaseRetriever); CLI only; queries single qdrant_collection_text, no per-field iteration</td><td><code>src/services/retrieval/retrievers.py:36,56</code> · <code>src/services/retrieval/cli.py:15</code></td><td class="yes">verified</td></tr>
+    <tr><td>Retrieval</td><td>DRIFT: prior docs called adjacency "sibling prefilter + rerank-as-gate" — confirmed correct; but the page-band ±25 and max_lead=2 values were not documented</td><td><code>src/services/chat/retrievers/density.py:113,115</code></td><td class="warn">drift (values added)</td></tr>
+    <!-- Task 4: Chat + deep-tutor page — verified 2026-06-01 -->
+    <tr><td>Chat</td><td>Mode ids = tutor, qa, facilitate, resume (exactly 4 registered)</td><td><code>src/services/chat/modes.py:153-225</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>tutor: arch=single (tool-loop), output_schema=TutorAnswer, memory=auto, model=nano</td><td><code>src/services/chat/modes.py:153-166</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>qa: arch=multi (state-graph), output_schema=QAAnswer, memory=off, rerank_top_n=4</td><td><code>src/services/chat/modes.py:174-187</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>facilitate + resume: arch=multi, output_schema=ChapterDigest, memory=off, shared runner</td><td><code>src/services/chat/modes.py:192-225</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Deep-tutor stage order: query planner (parallel w/ raw pull) → multi-query RRF → density+rerank → author diversity → coverage check → figure judge + synthesis plan (parallel) → drafting workflow → vision explain → finalize</td><td><code>src/services/chat/agents/deep_tutor.py:2176-2566</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Drafting workflow option names: "single" (default), "orchestrator", "organize" — resolved from req.tutorWorkflow or TUTOR_WORKFLOW env</td><td><code>src/services/chat/agents/deep_tutor.py:899,909-915</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>TUTOR_WORKFLOW default = "single"; "orchestrator" = per-author workers + synthesizer; "organize" = deepseek-v4-pro long-context pool</td><td><code>src/services/chat/agents/deep_tutor.py:899</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>SSE route POST /api/chat — starts or attaches detached resumable run when conversationId present</td><td><code>src/services/chat/api.py:235-253</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>SSE route GET /api/chat/{conv_id}/stream?after= — replays events after seq; immediately closes when no run exists</td><td><code>src/services/chat/api.py:256-263</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>SSE route GET /api/chat/{conv_id}/status — resume handshake {exists, active, done, seq}</td><td><code>src/services/chat/api.py:266-269</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>At most 1 active run per conversation — start_run() returns existing in-flight run unchanged</td><td><code>src/services/chat/runs.py:135-151</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Detached run persists with zero subscribers — asyncio.Task drains to completion regardless</td><td><code>src/services/chat/runs.py:92-111</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Monotonic seq: 1-based, injected per event, SSE id = seq</td><td><code>src/services/chat/runs.py:98-105</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Run GC TTL = 300 seconds (RUN_TTL_SECONDS)</td><td><code>src/services/chat/runs.py:35</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Provider set: OpenAI (gpt-*), DeepSeek (prefix), Groq (GROQ_MODEL_IDS set), Gemini (prefix), Qwen (prefix)</td><td><code>src/services/chat/llm/router.py:239-261</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Groq membership routing: GROQ_MODEL_IDS = {meta-llama/llama-4-scout-17b-16e-instruct, llama-3.3-70b-versatile, openai/gpt-oss-120b, openai/gpt-oss-20b} — avoids "openai/" prefix collision with OpenAI</td><td><code>src/services/chat/llm/router.py:209-213</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Groq is chat-only; Gemini is chat-only; Qwen is chat-only; DeepSeek is also ingestion-enrich default</td><td><code>src/services/chat/llm/router.py:35-204</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>DeepTutorAnswer aspect fields (required): tldr, definition, formal_statement, example_intuition, applications, further_reading + citations + math_blocks + figures</td><td><code>src/services/chat/schemas/output.py:111-158</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>TutorAnswer fields: text, sections, citations, math_blocks, figures, aspects, quality</td><td><code>src/services/chat/schemas/output.py:82-108</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>ChapterDigest fields: mode, scope, intro, blocks, outro, citations, math_blocks, grounding</td><td><code>src/services/chat/schemas/output.py:296-311</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>DRIFT: tutorPipeline.ts vision_explain desc says "on by default" but code default is TUTOR_DEEP_VISION_EXPLAIN=lazy (off); "1" must be explicitly set</td><td><code>web/src/data/tutorPipeline.ts:122-126</code> vs <code>deep_tutor.py:818</code></td><td class="warn">drift (modal card wrong)</td></tr>
+    <tr><td>Chat</td><td>DRIFT: hint diagram had single "Multi-query retrieval" node; code actually launches query planner AND raw-query anchor pull in parallel before merging — two concurrent initial tasks</td><td><code>src/services/chat/agents/deep_tutor.py:2210-2215</code></td><td class="warn">drift (diagram simplified)</td></tr>
+    <tr><td>Chat</td><td>tutorPipeline.ts node list matches backend stages (input, expansion, retrieval, rerank, diversity, coverage, image_judge, plan, drafting, draft, vision_explain, output — 12 nodes)</td><td><code>web/src/data/tutorPipeline.ts:29-155</code></td><td class="yes">verified (with above drift noted)</td></tr>
+    <tr><td>Chat</td><td>Coverage check is skipped for simple questions (perspectives &lt;= 1 AND fewer than 4 facets AND no formula facet) — adaptive routing gate</td><td><code>src/services/chat/agents/deep_tutor.py:2289-2294</code></td><td class="yes">verified</td></tr>
+    <tr><td>Chat</td><td>Synthesis plan also skipped for simple-tier questions (TUTOR_ADAPTIVE_ROUTING=1, perspectives &lt;= 1)</td><td><code>src/services/chat/agents/deep_tutor.py:2316-2317</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>16 models across 5 providers (OpenAI 4 · DeepSeek 3 · Groq 4 · Google 2 · Alibaba 3)</td><td><code>src/services/chat/llm/router.py:35-204</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>Per-model USD/1M prices (in/out) shown on each model page</td><td><code>src/services/chat/cost.py:15-37</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>Routing: deepseek→prefix, groq→GROQ_MODEL_IDS membership, gemini/qwen→prefix, else→OpenAI</td><td><code>src/services/chat/llm/router.py:253-261</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>Draft default = qwen-plus via TUTOR_DRAFT_MODEL (.env); code fallback = openai full</td><td><code>deep_tutor.py:787</code>, <code>changelog.md:26-39</code></td><td class="yes">verified</td></tr>
+    <tr><td>Models</td><td>web modelMeta.ts lists only 7 models (missing all Groq/Google/Alibaba) — frontend "About model" modal is stale vs the 16-model registry</td><td><code>web/src/data/modelMeta.ts:31-130</code></td><td class="warn">drift</td></tr>
+    <tr><td>Modes</td><td>4 registered modes: tutor (single/TutorAnswer), qa (multi/QAAnswer), facilitate + resume (multi/ChapterDigest)</td><td><code>src/services/chat/modes.py:153-225</code></td><td class="yes">verified</td></tr>
+    <tr><td>Modes</td><td>qa runner = 4-node graph: scope → retrieve → scoped generate → verify; rerank_top_n=4</td><td><code>src/services/chat/agents/qa.py:3</code></td><td class="yes">verified</td></tr>
+    <tr><td>Modes</td><td>facilitate/resume = chapter pipeline (parse → fetch → resolve → map per-section in order → stitch → ground); structural fetch, not search</td><td><code>src/services/chat/agents/chapter.py:3-4</code></td><td class="yes">verified</td></tr>
+    <tr><td>Modes</td><td>Chapter knobs: CHAPTER_RESOLVE=1, CHAPTER_MAX_SECTIONS=30, CHAPTER_STITCH=1, CHAPTER_GROUND=1</td><td><code>src/services/chat/agents/chapter.py:45-48</code></td><td class="yes">verified</td></tr>
+    <!-- ROWS APPENDED PER TASK -->
   </table>
-
-  <h2>2 · The "modal is the same" cause (runtime, not code)</h2>
-  <div class="card">
-    Two dev Vite servers were running (<code>:5175</code> pid 201184 + <code>:5176</code> pid 398277) from repeated <code>./scripts/dev.sh</code> runs, plus a 19h-old prod Docker on <code>:5173</code>. HMR for the data-only <code>tutorPipeline.ts</code> change hadn't propagated to the tab you had open.
-    <br><b>Fix:</b> killed the duplicate dev processes, started <b>one</b> clean server (<code>:5175</code> + <code>:8766</code>), hard-reloaded. The modal then correctly showed <b>Planner</b> and <b>no Critique</b>.
-  </div>
-
-  <h2>3 · Real bug found by service monitoring</h2>
-  <div class="verdict v-warn"><b>Symptom (dev log):</b> every tutor request logged:</div>
-  <pre>build_synthesis_plan failed; proceeding without a plan
-openai.BadRequestError: 400 - Invalid schema for response_format 'SynthesisPlan':
-  ... Extra required key 'outline' supplied.</pre>
-  <p><b>Root cause:</b> <code>SynthesisPlan.outline: dict[str,str]</code> — OpenAI strict structured outputs forbid open-keyed objects. <code>build_synthesis_plan</code> 400'd, caught the error, returned <code>None</code> → no plan injected, orchestrator fell back to the per-author split instead of LLM-chosen tasks. It failed <i>gracefully</i>, so the answer still streamed and the bug stayed hidden. After removing the dict it then truncated (<code>LengthFinishReasonError</code>, 850-token cap).</p>
-  <p><b>Fix:</b> slimmed <code>SynthesisPlan</code> to exactly <code>{thesis, contrasts, tasks}</code> (removed the carried-over <code>outline</code>+<code>ledger</code> and their classes), trimmed the prompt, raised the cap to 1200. Added a regression guard test that rejects any open-keyed dict in a <code>response_format</code> model.</p>
-  <div class="card"><b>Proof — live API call</b> (4 sources):<pre>RESULT: OK
-thesis: True | contrasts: 2 | tasks: [
-  ('Goodfellow: general definition', [1]),
-  ('ISLP: regularization as shrinkage', [3]),
-  ('Murphy: Bayesian interpretation', [4]),
-  ('Atwan: concrete regularizers L1/L2', [2]) ]</pre>
-  The Planner now returns a thesis, contrasts, and <b>LLM-chosen worker tasks</b> with source ranks.</div>
-
-  <h2>4 · Tests</h2>
-  <table>
-    <tr><th>Suite</th><th>Result</th></tr>
-    <tr><td>Backend <code>src/services/chat/tests/</code> (full)</td><td class="ok">all pass</td></tr>
-    <tr><td>Frontend <code>tsc --noEmit</code></td><td class="ok">0 errors</td></tr>
-    <tr><td>Frontend <code>vitest</code> (incl. PipelineDiagram)</td><td class="ok">31 pass</td></tr>
-    <tr><td>New guard: strict-output models have no open dict</td><td class="ok">pass</td></tr>
-  </table>
-
-  <h2>5 · Service health / error audit</h2>
-  <div class="card">
-    One clean dev stack: Vite <code>:5175</code> + FastAPI <code>:8766</code> (<code>/api/health → {"status":"ok"}</code>). Prod Docker <code>:5173</code>/<code>:8765</code> left untouched (19h-old build — rebuild with <code>docker compose --profile prod up -d --build</code> to ship these changes there).
-    <br>After the fix, a live tutor query produced <b>0 <code>build_synthesis_plan failed</code></b> and <b>0 exceptions</b> in the backend log. Pre-fix occurrences are retained in older logs for traceability.
-  </div>
-
-  <h2>6 · Browser verification</h2>
-  <ul>
-    <li><b>Modal (single mode):</b> Question → Concept extraction ‖ Hybrid retrieval → Density+rerank → Author diversity → Figure judge → <b>Planner</b> → Drafting workflow → Draft/synthesis → Vision explain → Answer. <span class="ok">No Critique node.</span></li>
-    <li><b>Modal (orchestrator):</b> Drafting workflow = Orchestrator redraws Draft into <b>Orchestrator → Worker ×N → Synthesizer</b>.</li>
-    <li><b>Planner-driven answer:</b> "Compare how different authors define regularization" → coherent intro spanning 4 authors (Goodfellow / Atwan / Peters / Murphy), 0 errors.</li>
-  </ul>
-
-  <h2>7 · Honest residual notes</h2>
-  <ul>
-    <li>Prod <code>:5173</code> is stale until rebuilt — only dev <code>:5175</code> reflects current code.</li>
-    <li>Unused leftovers kept (harmless): <code>ORCHESTRATOR_PROMPT</code> / <code>OrchestratorPlan</code> (superseded by the Planner). Can be removed in a cleanup pass.</li>
-    <li>The Planner degrades gracefully to "no plan" on any future API error — by design — so monitor the <code>build_synthesis_plan failed</code> log line as the canary.</li>
-  </ul>
-
+  <p class="caption">Verdict legend: <span class="yes">verified</span> = matches code · <span class="warn">drift</span> = prior doc was wrong, corrected here · <span class="no">removed</span> = prior doc claimed something no longer in code.</p>
+</section>
 </main>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="sidebar.js"></script>
 </body>
 </html>

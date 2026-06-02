@@ -89,3 +89,49 @@ def test_no_outdated_numbered_hard_rules(mode):
     """Tutor prompt dropped the v1 'HARD RULES: 1. ... 7. ...' block."""
     text = _load(mode)
     assert "HARD RULES" not in text, f"{mode}: v1 'HARD RULES:' marker still present"
+
+
+_FACILITATE_PROMPTS = [
+    "FACILITATE_MAP_PROMPT",
+    "FACILITATE_INTRO_PROMPT",
+    "FACILITATE_EXPLAIN_PROMPT",
+    "FACILITATE_TEACH_PROMPT",
+    "FACILITATE_VERIFY_PROMPT",
+]
+
+
+@pytest.mark.parametrize("name", _FACILITATE_PROMPTS)
+def test_facilitate_prompt_has_xml_scaffold(name):
+    """Facilitate prompts use the <role>/<task>/<output_format> XML scaffold,
+    not the legacy 'ROLE:'/'TASK:'/'OUTPUT FORMAT:' label pattern."""
+    mod = importlib.import_module("src.services.chat.prompts.chapter")
+    text = getattr(mod, name)
+    assert "<role>" in text and "</role>" in text, f"{name}: missing <role> scaffold"
+    assert "<task>" in text and "</task>" in text, f"{name}: missing <task> scaffold"
+    assert "<output_format>" in text and "</output_format>" in text, (
+        f"{name}: missing <output_format> scaffold"
+    )
+    for legacy in ("ROLE:", "TASK:", "OUTPUT FORMAT"):
+        assert legacy not in text, f"{name}: legacy '{legacy}' label still present"
+
+
+_CHAPTER_PROMPTS = [
+    "CHAPTER_PARSE_PROMPT",
+    "CHAPTER_RESOLVE_PROMPT",
+    "CHAPTER_MAP_RESUME_PROMPT",
+    "CHAPTER_STITCH_PROMPT",
+    "CHAPTER_GROUND_PROMPT",
+]
+
+
+@pytest.mark.parametrize("name", _CHAPTER_PROMPTS)
+def test_chapter_prompt_has_xml_scaffold(name):
+    mod = importlib.import_module("src.services.chat.prompts.chapter")
+    text = getattr(mod, name)
+    assert "<role>" in text and "</role>" in text, f"{name}: missing <role>"
+    assert "<task>" in text and "</task>" in text, f"{name}: missing <task>"
+    assert "<output_format>" in text and "</output_format>" in text, (
+        f"{name}: missing <output_format>"
+    )
+    for legacy in ("ROLE:", "TASK:", "OUTPUT FORMAT"):
+        assert legacy not in text, f"{name}: legacy '{legacy}' label present"

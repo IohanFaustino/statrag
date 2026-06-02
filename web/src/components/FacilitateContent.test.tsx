@@ -1,0 +1,264 @@
+// @vitest-environment jsdom
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import FacilitateContent, { normalizeMath } from "./FacilitateContent";
+import type { ConceptAnchor } from "../types";
+
+// ─── normalizeMath ──────────────────────────────────────────────────────────
+
+describe("normalizeMath", () => {
+  it("converts \\(a\\) to $a$", () => {
+    expect(normalizeMath("\\(a\\)")).toBe("$a$");
+  });
+
+  it("converts \\[b\\] to $$b$$", () => {
+    expect(normalizeMath("\\[b\\]")).toBe("$$b$$");
+  });
+
+  it("leaves existing $...$ untouched", () => {
+    expect(normalizeMath("$x^2$")).toBe("$x^2$");
+  });
+
+  it("converts mixed delimiters in a longer string", () => {
+    const input = "See \\(x^2\\) and \\[E=mc^2\\] for details.";
+    const result = normalizeMath(input);
+    expect(result).toBe("See $x^2$ and $$E=mc^2$$ for details.");
+  });
+});
+
+// ─── Helper fixture ─────────────────────────────────────────────────────────
+
+const makeConcept = (id: string, term: string): ConceptAnchor => ({
+  id,
+  term,
+  kind: "concept",
+  explanation: `Explanation for ${term}`,
+  provenance: {
+    book_slug: "test", book_name: "Test Book", authors_short: "Author",
+    section: "1.1", page_from: 1, page_to: 1, chunk_id: "c1",
+    same_author: true, fallback: false,
+  },
+});
+
+// ─── Bullet list rendering ──────────────────────────────────────────────────
+
+describe("FacilitateContent — bullet list", () => {
+  it("renders two <li> elements for a two-item bullet list", () => {
+    const { container } = render(
+      <FacilitateContent text={"- one\n- two"} />,
+    );
+    const items = container.querySelectorAll("li");
+    expect(items).toHaveLength(2);
+    expect(items[0].textContent).toContain("one");
+    expect(items[1].textContent).toContain("two");
+  });
+});
+
+// ─── Paragraph + list are separate blocks ──────────────────────────────────
+
+describe("FacilitateContent — block separation", () => {
+  it("renders a paragraph and a list as separate blocks (not one run)", () => {
+    const { container } = render(
+      <FacilitateContent text={"Some intro text.\n\n- item one\n- item two"} />,
+    );
+    expect(container.querySelector("p")).not.toBeNull();
+    expect(container.querySelector("ul")).not.toBeNull();
+    // The list items should be in a <ul>, not inside the <p>
+    const p = container.querySelector("p")!;
+    expect(p.querySelectorAll("li")).toHaveLength(0);
+    const ul = container.querySelector("ul")!;
+    expect(ul.querySelectorAll("li")).toHaveLength(2);
+  });
+});
+
+// ─── [[cN]] concept anchor ──────────────────────────────────────────────────
+
+describe("FacilitateContent — concept anchors", () => {
+  it("renders a button for a matched concept anchor that calls onPick on click", () => {
+    const c1 = makeConcept("c1", "normality");
+    const onPick = vi.fn();
+    render(
+      <FacilitateContent
+        text="Relies on [[c1]] assumption."
+        concepts={[c1]}
+        onPick={onPick}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "normality" });
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(onPick).toHaveBeenCalledWith(c1);
+  });
+
+  it("drops unmatched [[c9]] silently — no raw literal in output, no crash", () => {
+    const { container } = render(
+      <FacilitateContent
+        text="Contains [[c9]] unknown anchor."
+        concepts={[]}
+      />,
+    );
+    // No button should exist
+    expect(screen.queryByRole("button")).toBeNull();
+    // The raw marker text must NOT appear anywhere in the output
+    expect(container.textContent).not.toContain("[[c9]]");
+  });
+});
+
+// ─── Concept anchor with math term ─────────────────────────────────────────
+
+describe("FacilitateContent — concept anchor math labels", () => {
+  it("renders a math-term anchor without raw $...$ literal visible, with .katex inside the button", () => {
+    const c1: ConceptAnchor = {
+      id: "c1",
+      term: "$n_\\delta$",
+      kind: "formula",
+      explanation: "delta neighbourhood index",
+      provenance: {
+        book_slug: "test", book_name: "Test Book", authors_short: "Author",
+        section: "1.1", page_from: 1, page_to: 1, chunk_id: "c1",
+        same_author: true, fallback: false,
+      },
+    };
+    const onPick = vi.fn();
+    const { container } = render(
+      <FacilitateContent
+        text="The index [[c1]] is used."
+        concepts={[c1]}
+        onPick={onPick}
+      />,
+    );
+    // Raw "$n_\delta$" string must NOT appear as visible text
+    expect(container.textContent).not.toContain("$n_\\delta$");
+    // A .katex element should be present inside the button
+    const btn = container.querySelector("button.concept-anchor");
+    expect(btn).not.toBeNull();
+    expect(btn!.querySelector(".katex")).not.toBeNull();
+    // Button is findable by aria-label (raw term) and clicking calls onPick
+    const btnByLabel = screen.getByRole("button", { name: "$n_\\delta$" });
+    expect(btnByLabel).toBeInTheDocument();
+    fireEvent.click(btnByLabel);
+    expect(onPick).toHaveBeenCalledWith(c1);
+  });
+
+  it("plain-term anchor still renders its text and is findable by name", () => {
+    const c2 = makeConcept("c2", "strong assumption of normality");
+    const onPick = vi.fn();
+    render(
+      <FacilitateContent
+        text="We rely on [[c2]] here."
+        concepts={[c2]}
+        onPick={onPick}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /strong assumption of normality/ });
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toContain("strong assumption of normality");
+    fireEvent.click(btn);
+    expect(onPick).toHaveBeenCalledWith(c2);
+  });
+});
+
+// ─── Math rendering ─────────────────────────────────────────────────────────
+
+describe("FacilitateContent — math rendering", () => {
+  it("renders $x^2$ via KaTeX (raw tex literal absent, .katex present)", () => {
+    const { container } = render(
+      <FacilitateContent text="The formula $x^2$ is quadratic." />,
+    );
+    // The raw dollar-delimited text should NOT appear verbatim
+    expect(screen.queryByText(/\$x\^2\$/)).toBeNull();
+    // KaTeX renders a .katex element
+    expect(container.querySelector(".katex")).not.toBeNull();
+  });
+
+  it("renders \\(y\\) (normalized to $y$) via KaTeX", () => {
+    const { container } = render(
+      <FacilitateContent text={"Value \\(y\\) is shown."} />,
+    );
+    // After normalization \(y\) → $y$, KaTeX should render it
+    expect(container.querySelector(".katex")).not.toBeNull();
+    // Raw escaped-paren literal should not be visible as text
+    expect(screen.queryByText(/\\\(y\\\)/)).toBeNull();
+  });
+});
+
+// ─── Bold / italic with math inside ────────────────────────────────────────
+
+describe("FacilitateContent — bold/italic with inner math", () => {
+  it("renders **$x^2$** as <strong> with KaTeX, no raw $x^2$ literal in textContent", () => {
+    const { container } = render(
+      <FacilitateContent text={"**$x^2$**"} />,
+    );
+    const strong = container.querySelector("strong");
+    expect(strong).not.toBeNull();
+    // Raw dollar-delimited literal must not appear
+    expect(container.textContent).not.toContain("$x^2$");
+    // KaTeX element must be present inside the <strong>
+    expect(strong!.querySelector(".katex")).not.toBeNull();
+  });
+
+  it("renders plain **bold** as <strong> with plain text content (no regression)", () => {
+    const { container } = render(
+      <FacilitateContent text={"**bold term**"} />,
+    );
+    const strong = container.querySelector("strong");
+    expect(strong).not.toBeNull();
+    expect(strong!.textContent).toContain("bold term");
+  });
+
+  it("renders plain *italic* as <em> with plain text content (no regression)", () => {
+    const { container } = render(
+      <FacilitateContent text={"*italic term*"} />,
+    );
+    const em = container.querySelector("em");
+    expect(em).not.toBeNull();
+    expect(em!.textContent).toContain("italic term");
+  });
+
+  it("renders *$y^2$* as <em> with KaTeX, no raw $y^2$ literal in textContent", () => {
+    const { container } = render(
+      <FacilitateContent text={"*$y^2$*"} />,
+    );
+    const em = container.querySelector("em");
+    expect(em).not.toBeNull();
+    expect(container.textContent).not.toContain("$y^2$");
+    expect(em!.querySelector(".katex")).not.toBeNull();
+  });
+});
+
+// ─── Blockquote rendering with concept anchors ──────────────────────────────
+
+describe("FacilitateContent — blockquote with concept anchors", () => {
+  it("renders a <blockquote> containing a clickable concept anchor and math, not raw [[cN]]", () => {
+    const c1 = makeConcept("c1", "limit of a sequence");
+    const onPick = vi.fn();
+    const { container } = render(
+      <FacilitateContent
+        text={"> **Def.** [[c1]] is the limit $a$ here."}
+        concepts={[c1]}
+        onPick={onPick}
+      />,
+    );
+
+    // Must emit a <blockquote> element
+    const bq = container.querySelector("blockquote");
+    expect(bq).not.toBeNull();
+
+    // Raw literal [[c1]] must NOT appear anywhere in the blockquote text
+    expect(bq!.textContent).not.toContain("[[c1]]");
+
+    // A button with the concept term as accessible name must be present
+    const btn = screen.getByRole("button", { name: "limit of a sequence" });
+    expect(btn).toBeInTheDocument();
+    // The button must be inside the blockquote
+    expect(bq!.contains(btn)).toBe(true);
+
+    // Clicking the button calls onPick with the correct anchor
+    fireEvent.click(btn);
+    expect(onPick).toHaveBeenCalledWith(c1);
+
+    // The $a$ math inside the blockquote must be rendered by KaTeX (no raw "$a$")
+    expect(bq!.textContent).not.toContain("$a$");
+    expect(bq!.querySelector(".katex")).not.toBeNull();
+  });
+});

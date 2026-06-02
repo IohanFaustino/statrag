@@ -1,4 +1,4 @@
-import type { AssistantMessage, TutorAnswer, QAAnswer } from "../types";
+import type { AssistantMessage, TutorAnswer, QAAnswer, FacilitateDigest } from "../types";
 
 type Structured = NonNullable<AssistantMessage["structuredOutput"]>;
 
@@ -44,11 +44,36 @@ function qa(d: QAAnswer): string {
   return parts.join("\n\n");
 }
 
+function facilitate(d: FacilitateDigest): string {
+  const parts: string[] = [];
+  if (d.intro && d.intro.trim()) parts.push(d.intro.trim());
+  const footnoteDefs: string[] = [];
+  for (let bi = 0; bi < d.blocks.length; bi++) {
+    const block = d.blocks[bi];
+    const blockParts: string[] = [`## ${block.h2_path}`];
+    if (block.key_points && block.key_points.length) {
+      blockParts.push(block.key_points.map((kp) => `- ${kp}`).join("\n"));
+    }
+    const body = block.body.replace(/\[\[(c\d+)\]\]/g, `[^b${bi}$1]`);
+    blockParts.push(body);
+    parts.push(blockParts.join("\n\n"));
+    for (const concept of block.concepts) {
+      const prov = concept.provenance;
+      const def = `[^b${bi}${concept.id}]: ${concept.term} — ${concept.explanation} (${prov.authors_short}, ${prov.section}, p.${prov.page_from})`;
+      footnoteDefs.push(def);
+    }
+  }
+  if (d.outro && d.outro.trim()) parts.push(d.outro.trim());
+  if (footnoteDefs.length) parts.push(footnoteDefs.join("\n"));
+  return parts.join("\n\n");
+}
+
 export function structuredToMarkdown(structured: Structured): string {
   const { schema, data } = structured;
   switch (schema) {
     case "TutorAnswer": return tutor(data as TutorAnswer);
     case "QAAnswer": return qa(data as QAAnswer);
+    case "FacilitateDigest": return facilitate(data as FacilitateDigest);
     default:
       return "```json\n" + JSON.stringify(data, null, 2) + "\n```";
   }

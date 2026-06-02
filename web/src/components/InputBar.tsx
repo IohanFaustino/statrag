@@ -9,8 +9,14 @@ interface InputBarProps {
   onModeChange(id: string): void;
   onModeAbout?(): void;
   onModeAboutQA?(): void;
+  onModeAboutFacilitate?(): void;
+  onModeAboutResume?(): void;
   onSend(text: string): void;
+  /** Disables the textarea + Send button. Does NOT affect the Stop button,
+   *  which is always clickable while streaming. */
   disabled?: boolean;
+  isStreaming?: boolean;
+  onStop?(): void;
 }
 
 export default function InputBar({
@@ -19,8 +25,12 @@ export default function InputBar({
   onModeChange,
   onModeAbout,
   onModeAboutQA,
+  onModeAboutFacilitate,
+  onModeAboutResume,
   onSend,
   disabled = false,
+  isStreaming = false,
+  onStop,
 }: InputBarProps) {
   const [value, setValue] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -42,7 +52,7 @@ export default function InputBar({
 
   function handleSend() {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || isStreaming) return;
     onSend(trimmed);
     setValue("");
     // Reset textarea height
@@ -76,15 +86,26 @@ export default function InputBar({
             aria-label="Message input"
             aria-multiline="true"
           />
-          <button
-            className={"input-bar__send" + (hasContent && !disabled ? " is-active" : "")}
-            type="button"
-            aria-label="Send message"
-            disabled={!hasContent || disabled}
-            onClick={handleSend}
-          >
-            <IconSend width={16} height={16} />
-          </button>
+          {isStreaming ? (
+            <button
+              className="input-bar__send input-bar__stop is-active"
+              type="button"
+              aria-label="Stop generating"
+              onClick={() => onStop?.()}
+            >
+              <span className="input-bar__stop-square" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              className={"input-bar__send" + (hasContent && !disabled ? " is-active" : "")}
+              type="button"
+              aria-label="Send message"
+              disabled={!hasContent || disabled}
+              onClick={handleSend}
+            >
+              <IconSend width={16} height={16} />
+            </button>
+          )}
         </div>
 
         <div className="input-bar__toolbar">
@@ -94,6 +115,8 @@ export default function InputBar({
             onChange={onModeChange}
             onAbout={onModeAbout}
             onAboutQA={onModeAboutQA}
+            onAboutFacilitate={onModeAboutFacilitate}
+            onAboutResume={onModeAboutResume}
           />
         </div>
       </div>

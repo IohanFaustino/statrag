@@ -118,10 +118,12 @@ Both paths emit the same event types ending in `done` — the frontend does not 
 | Component | Path | Role |
 |---|---|---|
 | `ChapterDigestCard` | `web/src/components/ChapterDigestCard.tsx` | Renders ordered `blocks[]` with section headings; teach vs compress visual distinction (expand vs compact layout); grounding badge |
-| `ChapterPipeline` | `web/src/components/ChapterPipeline.tsx` | Read-only 6-node diagram for the chapter-modes (i) modal |
+| `ChapterPipelineDiagram` | `web/src/components/ChapterPipelineDiagram.tsx` | Editable 6-node diagram for the facilitate/resume (i) modals; `mode` prop selects per-mode copy on the map node |
 | `chapterPipeline` data | `web/src/data/chapterPipeline.ts` | Static node/edge definitions (`CHAPTER_PIPELINE`) |
 | `MessageThread` | `web/src/components/MessageThread.tsx` | Render branch on `schema === "ChapterDigest"` → `<ChapterDigestCard>` |
 | `ModePicker` | `web/src/components/ModePicker.tsx` | Facilitate and Resume chips |
+
+The mode's `(i)` modal is now **editable**: each LLM stage exposes a per-stage model/provider dropdown (writes `ChatRequest.stageModels[<stage>]`), mirroring the tutor's About-model modal. The data stage (retrieval / chapter fetch) shows a fixed label. Stage keys are disjoint across modes, so overrides share the single persisted `statrag.stageModels` dict.
 
 ---
 

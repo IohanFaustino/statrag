@@ -2,7 +2,7 @@
 
 export type ModeId = "tutor" | "qa" | "facilitate" | "resume";
 
-export type ProviderId = "openai" | "deepseek" | "groq";
+export type ProviderId = "openai" | "deepseek" | "groq" | "google" | "alibaba";
 
 export interface Book {
   id: string;
@@ -65,6 +65,7 @@ export interface RetrievalMetadata {
 export interface Model {
   id: string; name: string; tagline: string;
   cost: string; speed: string; ctx: string;
+  recommended?: boolean;
 }
 
 export interface ModelProvider {
@@ -102,6 +103,7 @@ export interface AssistantMessage {
   structuredOutput?: { schema: string; data: unknown };
   status: "pending" | "streaming" | "complete" | "error";
   error?: { code: string; message: string };
+  stopped?: boolean;
 }
 
 export type Message = UserMessage | AssistantMessage;
@@ -191,10 +193,63 @@ export interface ChapterDigest {
   grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
 }
 
+export interface ConceptProvenance {
+  book_slug: string;
+  book_name: string;
+  authors_short: string;
+  section: string;
+  page_from: number;
+  page_to: number;
+  chunk_id: string;
+  same_author: boolean;
+  fallback: boolean;
+}
+export interface ConceptAnchor {
+  id: string;
+  term: string;
+  kind: "concept" | "theorem" | "formula";
+  explanation: string;
+  provenance: ConceptProvenance;
+}
+export interface FacilitateBlock {
+  h2_path: string;
+  section_id: string;
+  key_points: string[];
+  body: string;
+  concepts: ConceptAnchor[];
+  page_from: number;
+  page_to: number;
+}
+export interface FacilitateDigest {
+  mode: "facilitate";
+  scope: ChapterScope;
+  intro: string;
+  blocks: FacilitateBlock[];
+  outro: string;
+  math_blocks: string[];
+  grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
+}
+
+export interface ClarifyCandidate {
+  slug: string;
+  name: string;
+  authors_short: string;
+  chapters: string[];
+}
+export interface ClarifyData {
+  reason: "book_unknown" | "book_ambiguous" | "chapter_missing" | "sections_empty";
+  message: string;
+  candidates: ClarifyCandidate[];
+  chapter_guess: string;
+  sections_guess: string[];
+}
+
 export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
   | { type: "structured_output"; schema: "QAAnswer"; data: QAAnswer }
   | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
+  | { type: "structured_output"; schema: "FacilitateDigest"; data: FacilitateDigest }
+  | { type: "structured_output"; schema: "Clarify"; data: ClarifyData }
   | { type: "structured_output"; schema: string; data: unknown };
 
 // Every chat event carries a monotonic `seq` (§13) when it comes from a
@@ -222,4 +277,6 @@ export type ChatEventBody =
   | { type: "usage"; durationMs: number; promptChars: number; completionChars: number; estTokens: number }
   | { type: "done" }
   | { type: "error"; code: string; message: string }
+  | { type: "clarify"; reason: ClarifyData["reason"]; message: string;
+      candidates: ClarifyCandidate[]; chapter_guess: string; sections_guess: string[] }
   | StructuredOutputEvent;

@@ -3,396 +3,114 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Common ground — Orchestrator-Workers</title>
+<title>statrag — Overview</title>
+<link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-<style>
-  :root{
-    --bg:#0b0c0e; --panel:#141619; --panel2:#1b1e22; --line:#2a2e34;
-    --txt:#e6e8eb; --dim:#9aa1aa; --accent:#E5484D; --ok:#3fb950; --warn:#d2a24c;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);
-    font:15px/1.6 ui-sans-serif,system-ui,"IBM Plex Sans",Segoe UI,Roboto,sans-serif}
-  header{padding:28px 32px 8px;border-bottom:1px solid var(--line)}
-  h1{margin:0 0 4px;font-size:22px;letter-spacing:.2px}
-  h1 .accent{color:var(--accent)}
-  .sub{color:var(--dim);font-size:13px}
-  main{max-width:1080px;margin:0 auto;padding:24px 32px 64px}
-  section{margin:28px 0}
-  h2{font-size:16px;border-left:3px solid var(--accent);padding-left:10px;margin:0 0 12px}
-  p{color:#cdd2d8}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
-  .quote{background:var(--panel2);border-left:3px solid var(--dim);padding:12px 16px;border-radius:6px;color:#cdd2d8;font-style:italic}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-  .tab{background:var(--panel2);border:1px solid var(--line);color:var(--dim);
-    padding:8px 14px;border-radius:999px;cursor:pointer;font-size:13px;transition:.15s}
-  .tab:hover{color:var(--txt)}
-  .tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
-  .diagram-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:22px;min-height:340px;display:flex;align-items:center;justify-content:center;overflow:auto}
-  .caption{color:var(--dim);font-size:13px;margin-top:8px;text-align:center}
-  table{border-collapse:collapse;width:100%;font-size:13.5px}
-  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
-  th{background:var(--panel2);color:var(--dim);font-weight:600}
-  .yes{color:var(--ok);font-weight:600}
-  .warn{color:var(--warn);font-weight:600}
-  code{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:13px}
-  .verdict{border:1px solid var(--warn);background:rgba(210,162,76,.08);border-radius:10px;padding:16px 18px}
-  .verdict b{color:var(--warn)}
-  ul{color:#cdd2d8}
-  a{color:var(--accent)}
-  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim);margin-left:6px}
-</style>
 </head>
-<body>
+<body data-base="">
 <header>
-  <h1>Common ground — <span class="accent">Orchestrator-Workers</span> for statrag</h1>
-  <div class="sub">What the pattern is, what the project currently does, and the honest gap. <span class="pill">interactive · mermaid.js</span></div>
+  <h1>statrag — <span class="accent">Overview</span></h1>
+  <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
 </header>
-
+<aside id="side" class="side"></aside>
 <main>
+  <!-- PAGE BODY -->
   <section>
-    <h2>1 · What orchestrator-workers means</h2>
+    <h2>What it is</h2>
     <div class="card">
-      <p class="quote">"A central LLM dynamically breaks down tasks, delegates them to worker LLMs, and synthesizes their results. The key difference from simple parallelization is its flexibility — subtasks aren't pre-defined, but determined by the orchestrator." — Anthropic, <em>Building Effective Agents</em></p>
-      <p style="margin-bottom:0">Three roles: <b>Orchestrator (LLM)</b> decides the subtasks dynamically · <b>Workers (LLMs, parallel)</b> each solve one · <b>Synthesizer (LLM)</b> integrates. The defining trait is the <b>orchestrator choosing the decomposition</b>; a <em>fixed</em> split is a different pattern (parallelization / sectioning).</p>
+      <p>
+        <strong>statrag</strong> is a local-first, hybrid Retrieval-Augmented Generation system over OCR-processed statistics textbooks.
+        It combines <em>dense</em> vector search (OpenAI embeddings) with <em>sparse</em> BM25 search (Qdrant native fastembed) via
+        Reciprocal Rank Fusion, with optional cross-encoder reranking.
+      </p>
+      <p>
+        Collections follow a per-field naming scheme: <code>field_textbooks</code> for section chunks and
+        <code>field_images</code> for extracted figures. The <code>field</code> key comes from each book's YAML config;
+        collections are auto-created on first ingest.
+      </p>
     </div>
   </section>
 
   <section>
-    <h2>2 · The diagrams <span class="pill">click to switch</span></h2>
-    <div class="tabs">
-      <button class="tab active" data-d="canon">Canonical orchestrator-workers</button>
-      <button class="tab" data-d="current">statrag — current (audit)</button>
-      <button class="tab" data-d="proposed">statrag — proposed fix</button>
-      <button class="tab" data-d="revised">Full pipeline — revised (merged Planner)</button>
-      <button class="tab" data-d="coverage">Proposed — top orchestrator + coverage</button>
+    <h2>Stack</h2>
+    <table>
+      <tr><th>Component</th><th>Detail</th></tr>
+      <tr><td>Vector DB</td><td>Qdrant v1.12.4 — dashboard + REST on port 6333, gRPC on 6334</td></tr>
+      <tr><td>Embeddings</td><td><code>text-embedding-3-large</code> (OpenAI) · 3072 dimensions</td></tr>
+      <tr><td>Chat LLMs</td><td>
+        Default: <code>gpt-5.4-nano-2026-03-17</code> (OpenAI nano) ·
+        Full: <code>gpt-5.4-2026-03-05</code> ·
+        DeepSeek: <code>deepseek-v4-pro</code> (chat organizer) ·
+        Groq: <code>meta-llama/llama-4-scout-17b-16e-instruct</code> (chat-only)
+      </td></tr>
+      <tr><td>Ingestion-enrich LLM</td><td><code>deepseek-v4-flash</code> (non-thinking, cheap) via <code>RAG_INGEST_DEEPSEEK_MODEL</code></td></tr>
+      <tr><td>Sparse</td><td>Qdrant native BM25 via <code>fastembed</code></td></tr>
+      <tr><td>Chunking</td><td>1 section = 1 chunk; sections &gt; 8000 tokens split with overlap · tiktoken <code>cl100k_base</code></td></tr>
+      <tr><td>Language</td><td>Python 3.12 in <code>.venv</code></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Three-layer Chinese wall</h2>
+    <table>
+      <tr><th>Layer</th><th>Folder</th><th>Import rule (verified from __init__.py)</th></tr>
+      <tr>
+        <td><strong>Core</strong></td>
+        <td><code>src/core/</code></td>
+        <td>Depends on NOTHING in the repo — only third-party libs. Never imports from ingestion or services.</td>
+      </tr>
+      <tr>
+        <td><strong>Tasks</strong></td>
+        <td><code>src/ingestion/</code></td>
+        <td>Imports only from <code>src.core</code> and third-party libs. No imports from <code>services/</code>. Other tasks/services never import from ingestion.</td>
+      </tr>
+      <tr>
+        <td><strong>Services</strong></td>
+        <td><code>src/services/&lt;name&gt;/</code></td>
+        <td>Imports only from <code>src.core</code>. Never imports from other services or from <code>src.ingestion</code>. Reads ingestion artifacts (yaml, manifest.json) as filesystem only — no module import.</td>
+      </tr>
+    </table>
+    <p class="caption">Wall is encoded in each <code>__init__.py</code>: <code>src/core/__init__.py</code>, <code>src/ingestion/__init__.py</code>, <code>src/services/chat/__init__.py</code>.</p>
+  </section>
+
+  <section>
+    <h2>End-to-end flow</h2>
+    <div class="diagram-wrap">
+      <div class="mermaid" data-src="flowchart LR
+  B[&quot;Book (OCR md)&quot;] --&gt; ING[&quot;Ingestion task&lt;br/&gt;preprocess, enrich, embed&quot;]
+  ING --&gt; QD[&quot;Qdrant&lt;br/&gt;field_textbooks + field_images&quot;]
+  QD --&gt; RET[&quot;Retrieval service&lt;br/&gt;hybrid BM25+dense, RRF, rerank&quot;]
+  RET --&gt; CHAT[&quot;Chat service&lt;br/&gt;modes + deep-tutor&quot;]
+  CHAT --&gt; ANS[&quot;Answer (SSE stream)&quot;]">
+flowchart LR
+  B["Book (OCR md)"] --> ING["Ingestion task&lt;br/&gt;preprocess, enrich, embed"]
+  ING --> QD["Qdrant&lt;br/&gt;field_textbooks + field_images"]
+  QD --> RET["Retrieval service&lt;br/&gt;hybrid BM25+dense, RRF, rerank"]
+  RET --> CHAT["Chat service&lt;br/&gt;modes + deep-tutor"]
+  CHAT --> ANS["Answer (SSE stream)"]
+      </div>
     </div>
-    <div class="diagram-wrap"><div id="diagram" class="mermaid"></div></div>
-    <div class="caption" id="cap"></div>
-  </section>
-
-  <section>
-    <h2>3 · Honest audit — does the current build match?</h2>
-    <table>
-      <tr><th>Canonical role</th><th>statrag current</th><th>Faithful?</th></tr>
-      <tr><td>Workers — parallel worker LLMs, one per subtask</td><td>One LLM call per author, run with <code>asyncio.gather</code></td><td class="yes">Yes</td></tr>
-      <tr><td>Synthesizer — LLM integrates &amp; refines</td><td>Synthesizer LLM merges briefs → <code>DeepTutorAnswer</code>, compares authors</td><td class="yes">Yes</td></tr>
-      <tr><td><b>Orchestrator — LLM dynamically decides the subtasks</b></td><td><code>orchestrate()</code> (<code>ORCHESTRATOR_PROMPT</code>) → <code>OrchestratorPlan{tasks}</code>: an LLM chooses, per question, how many workers and each one's focus + source ranks. Per-author split kept as <b>fallback</b>.</td><td class="yes">Yes</td></tr>
-    </table>
-    <p style="margin-top:14px" class="verdict"><b>Verdict (updated 2026-05-21):</b> all three roles are now present — an <b>LLM orchestrator</b> decides the subtasks, <b>parallel worker LLMs</b> handle them, a <b>synthesizer</b> integrates. This is a faithful orchestrator-workers workflow (with a per-author fallback for robustness), and the modal diagram redraws to match. The earlier fixed <code>group_sources_by_author</code> split (parallelization, the ~⅔ version) is now the fallback, not the primary path.</p>
-  </section>
-
-  <section>
-    <h2>4 · What closes the gap</h2>
-    <div class="card">
-      <p>Promote the decomposition from a code rule to a real <b>orchestrator LLM step</b>:</p>
-      <ul>
-        <li><code>orchestrate(question, sources) → list[WorkerTask{focus, source_ranks}]</code> — an LLM that decides, <b>per question</b>, how many workers and what each covers (per author, per sub-topic, or merging thin authors).</li>
-        <li>Delegate the chosen tasks → existing parallel <b>workers</b> → existing <b>synthesizer</b>.</li>
-        <li>Keep the current per-author grouping as the <b>fallback</b> when the orchestrator declines to decompose.</li>
-        <li>Surface it on the same selectable <b>Drafting workflow</b> node.</li>
-      </ul>
-      <p style="margin-bottom:0">That makes the "statrag — proposed fix" diagram identical in shape to the canonical one in tab 1.</p>
-    </div>
-  </section>
-
-  <section>
-    <h2>6 · Re-evaluation of the full DAG — add / exclude / merge <span class="pill">✓ implemented 2026-05-21</span></h2>
-    <p>Critique of every node, not just the orchestrator. See the <b>"Full pipeline — revised"</b> diagram tab above.</p>
-    <table>
-      <tr><th>Node</th><th>Verdict</th><th>Why</th></tr>
-      <tr><td>Concept extraction (+ diversity budget)</td><td class="yes">Keep</td><td>Pre-retrieval; steers density scoring. Already merged the diversity-budget — the pattern we want.</td></tr>
-      <tr><td>Hybrid retrieval · Density + rerank</td><td class="yes">Keep</td><td>Locked infra, no LLM.</td></tr>
-      <tr><td>Author diversity</td><td class="yes">Keep</td><td>Retrieval-layer multi-author coverage; complements the orchestrator (draft-layer).</td></tr>
-      <tr><td>Figure judge</td><td class="yes">Keep</td><td>Cost-optimized caption-first gate; merging with vision-explain would run vision on all candidates (more cost).</td></tr>
-      <tr><td><b>Synthesis plan + Orchestrator</b></td><td class="warn">Merge → <b>Planner</b></td><td>Both reason post-retrieval over question+sources and produce the same decomposition (plan's <code>contrasts</code> ≈ orchestrator's <code>tasks</code>). Two calls = wasted latency + drift risk. One Planner returns <code>{thesis, contrasts, tasks}</code>; single-draft uses thesis+contrasts, orchestrator uses tasks.</td></tr>
-      <tr><td>Drafting workflow · Draft / Workers+Synthesizer</td><td class="yes">Keep</td><td>The selectable workflow + the two drafting paths.</td></tr>
-      <tr><td><b>Critique (optional)</b></td><td class="warn">Exclude from DAG</td><td>Gated <code>TUTOR_DEEP_CRITIQUE=0</code>, rarely fires, adds a retrieve+redraft loop. Demote to an opt-in side path; drop the standing node.</td></tr>
-      <tr><td>Vision explain</td><td class="yes">Keep (separate)</td><td>Merging with the judge would undo the caption-first cost optimization.</td></tr>
-    </table>
-    <p style="margin-top:14px" class="verdict"><b>Net change:</b> one unified <b>Planner-Orchestrator</b> agent replaces Synthesis-plan + Orchestrator (−1 LLM call, no decomposition drift); <b>Critique</b> leaves the canonical graph (still runnable via env). Everything else stays. <em>Implemented 2026-05-21: the <code>plan</code> node is now "Planner" and its one call returns <code>{thesis, contrasts, tasks}</code> (orchestrator reads <code>plan.tasks</code> — no second call); Critique node removed from the diagram.</em></p>
-  </section>
-
-  <section>
-    <h2>7 · Proposed structure — top orchestrator + coverage (Option 2) <span class="pill">✓ implemented 2026-05-21</span></h2>
-    <p>Problem observed: "What is the bias-variance tradeoff?" pulls loosely-related chunks and the draft gave the bias formula but not the variance formula. Two causes — retrieval coverage gap + synthesis asymmetry — both addressed here. See the <b>"Proposed — top orchestrator + coverage"</b> diagram tab.</p>
-    <table>
-      <tr><th>Stage</th><th>Where it lives</th><th>New?</th></tr>
-      <tr><td><b>① Query planner</b> — concepts + <code>queries[]</code> + <code>facets[]</code> (the answer's required coverage). This is the "top orchestrator that helps RAG".</td><td>fold into the existing nano <code>extract_concepts_ex</code> call</td><td class="warn">extend (no extra call)</td></tr>
-      <tr><td><b>② Multi-query retrieval + RRF</b> — one hybrid search per query in parallel, reciprocal-rank fused</td><td><code>_wide_candidates</code> → <code>_multi_query_candidates</code></td><td class="warn">new helper</td></tr>
-      <tr><td>③ Density + Author-diversity + rerank</td><td>unchanged</td><td class="ok">—</td></tr>
-      <tr><td><b>④ Coverage check + re-query</b> — grade selected sources vs <code>facets</code>; re-query any missing facet (cap 1). This self-heals the missing-variance-formula symptom.</td><td>new <code>coverage.py</code> (nano <code>assess_coverage</code> + <code>_fill_missing_facets</code>)</td><td class="warn">new</td></tr>
-      <tr><td>⑤ Planner → single synthesis draft (+ "give each named component its formula" nudge)</td><td>existing Planner + 1-line prompt tweak</td><td class="ok">tweak</td></tr>
-      <tr><td>Per-author workers (bottom orchestrator)</td><td>optional <b>Drafting workflow</b> mode</td><td class="ok">kept, demoted</td></tr>
-    </table>
-    <p class="verdict v-ok"><b>Why this shape:</b> the leverage for "wrong/missing pieces" is at the <b>top</b> (plan the queries) and in <b>verification</b> (check the facets were retrieved), not in the bottom worker fan-out. One orchestrator-brain governs retrieval; a single draft synthesizes; the worker mode stays available for deep author comparisons. Net new cost: query/facets are free (folded in); coverage-check ≈ +1 nano call + an occasional re-query.</p>
-    <p class="sub">Note: "one orchestrator" is two calls at two stages by necessity — the query planner runs <i>pre-retrieval</i> (no sources), the coverage check runs <i>post-retrieval</i> (needs sources).</p>
-  </section>
-
-  <section>
-    <h2>8 · Retrieval-recall upgrades <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-21)</span></h2>
-    <p>Three independent improvements to pull the *right* chunks (e.g. the variance formula in the subsection after bias). See the annotated "Density select + rerank" + coverage loop in the diagram tab above.</p>
-    <table>
-      <tr><th>Upgrade</th><th>What</th><th>Cost / risk</th></tr>
-      <tr><td><b>① Adjacent-section expansion</b></td><td>For each selected section, fetch the prev/next <b>sibling</b> section (same parent, via <code>section</code>/<code>page_from</code> ordering), add its lead chunk to the candidate pool, and let the <b>cross-encoder rerank + top_n cut be the gate</b> (no tuned threshold). The coverage check tries these neighbors <b>before</b> a corpus re-query.</td><td class="ok">cheap (Qdrant scroll, no LLM); reranker already runs</td></tr>
-      <tr><td><b>② Term-frequency / sparse weight</b></td><td>BM25 sparse + concept-density already use TF. Lever: raise the <b>sparse weight in the RRF fusion</b> and/or add a <b>term-coverage rerank feature</b> so component terms (variance, bias) pull their chunks harder. Avoid naive "max TF" (rewards boilerplate).</td><td class="warn">a knob; tune carefully (recall noise)</td></tr>
-      <tr><td><b>③ More than 3 authors</b></td><td>Not hardcoded — it's Auto (planner suggests, cap <code>TUTOR_DIVERSITY_MAX_AUTHORS</code>=4). Raise the cap, add 5/6 to the dropdown, nudge the planner to suggest more.</td><td class="warn">trivial; quality dilution + clutter + (orchestrator) +1 worker call each</td></tr>
-    </table>
-    <p class="verdict v-ok"><b>Gate decision:</b> adjacency uses a <b>sibling prefilter</b> (which neighbors to consider) + <b>rerank-as-gate</b> (whether they survive) + <b>coverage-first</b> (neighbors checked before re-query). No hand-tuned similarity threshold; reuses the existing cross-encoder + coverage step.</p>
-  </section>
-
-  <section>
-    <h2>9 · Author cap not honored (set 6 → got 3) <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ fixed (2026-05-21)</span></h2>
-    <p>User picked <b>6 authors</b>; answer used <b>3</b>. The diversity knob is real, but <b>three independent ceilings</b> all sit below 6 and the picked authors die at the relevance rerank cut.</p>
-    <table>
-      <tr><th>Ceiling</th><th>Where</th><th>Effect</th></tr>
-      <tr><td><b>① Hard cap clamps 6 → 5</b></td><td><code>_DIVERSITY_MAX = max(_DIVERSITY_TARGET, 5)</code> = 5; <code>_resolve_diversity</code> returns <code>min(req, 5)</code></td><td class="warn">dropdown offers 6, backend can never exceed 5</td></tr>
-      <tr><td><b>② Section budget = real ceiling</b></td><td><code>_TOP_SECTIONS=4</code>; <code>diversify_section_keys(…, target_authors, top_sections)</code> returns ≤ <code>top_sections</code> keys (one section per slot). Plan-B fill also bounded by <code>len(final_keys) &lt; top_sections</code></td><td class="warn">only 4 sections selected → max 4 distinct authors regardless of target. <b>Dominant cap.</b> target was wired to round-robin but never grows the slot count</td></tr>
-      <tr><td><b>③ Author-blind final rerank</b></td><td><code>rerank(query, sources, top_n=_FINAL_TOP_N=8)</code></td><td class="warn">4 sections × multi-chunk + neighbor expansion, trimmed to 8 by relevance only → collapses distinct authors to ~3</td></tr>
-    </table>
-    <p>Fix all three together (one is useless without the others):</p>
-    <table>
-      <tr><th>Fix</th><th>What</th></tr>
-      <tr><td><b>① Raise the cap</b></td><td><code>_DIVERSITY_MAX</code> default 5 → <b>6</b> so the dropdown's 6 is honorable; env still overrides</td></tr>
-      <tr><td><b>② Scale section budget with target</b></td><td>In <code>_density_select</code>, use <code>eff_sections = max(_TOP_SECTIONS, target_authors)</code> as both the diversify slot count and the Plan-B fill bound — you need ≥ N sections to surface N authors</td></tr>
-      <tr><td><b>③ Author-aware rerank floor</b></td><td>Raise the effective <code>top_n</code> to <code>max(_FINAL_TOP_N, target_authors)</code>, then if the trim left fewer distinct authors than the target, top up with the best dropped chunk of each missing author — budgeted to <code>target_authors − kept</code> so the floor never overshoots. Verified live (23 authors in pool): 4→4, 5→5, <b>6→6</b></td></tr>
-    </table>
-    <p class="verdict v-warn"><b>Honest caveat:</b> author count is still bounded by <b>distinct authors actually present in the candidate pool</b> for that question. If only 3 books cover the topic, 6 is unreachable — the fix removes the artificial ceilings, not the corpus limit. Log <code>distinct_authors_in_result</code> exposes which bound bit.</p>
-  </section>
-
-  <section>
-    <h2>10 · Answer coherence — per-section rewrite <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-22)</span></h2>
-    <p>Observed on "What is the bias-variance tradeoff?": the draft is correct but reads as seven disconnected mini-essays. <b>Definition</b> opens straight into bullets with no framing; <b>Formal statement</b> appears even when no numbered theorem exists in the sources; <b>Intuition</b> and <b>Examples</b> repeat each other; <b>Trade-offs and caveats</b> is generic instead of grounded use-cases; answers are short. Goal: coherent, build-up narrative with cross-references — and bigger, slightly more creative output. Shipped in three blocks, sign-off each.</p>
-    <table>
-      <tr><th>Block</th><th>Change</th><th>Artefacts</th><th>Risk</th></tr>
-      <tr><td><b>A · params</b></td><td>Raise draft size (<code>TUTOR_DEEP_MAX_TOKENS</code> 2800 → larger) and draft <code>temperature</code> 0.2 → ~0.4 (new <code>TUTOR_DEEP_TEMPERATURE</code> knob) to balance factuality with dot-connecting.</td><td><code>deep_tutor.py</code> draft calls + env table</td><td class="ok">low, isolated</td></tr>
-      <tr><td><b>B · prompt content</b></td><td>(b) <b>Definition</b>: open with one framing sentence ("we cover bias, then variance, then the tradeoff, then a graphical view"), order bias → variance → tradeoff (with formulas) → graphical example with its own lead-in. (c) <b>Formal statement</b>: emit ONLY when sources contain a numbered definition; write "Conforming to Definition&nbsp;X.Y.Z, …" + verbatim blockquote; else emit empty (heading skipped at render). (e) <b>Trade-offs</b> → <b>Applications</b>: real per-domain use-cases found in the corpus, grouped ("…in marketing", "…in quantitative finance").</td><td><code>prompts/deep_tutor.py</code>, <code>ASPECT_HEADINGS</code></td><td class="warn">medium, no schema break</td></tr>
-      <tr><td><b>C · structural schema</b></td><td>(c) Formal statement omitted-when-absent (render-side; field stays required = strict-safe). (d) Merge <code>intuition</code>+<code>examples</code> → single <code>example_intuition</code> field "Example &amp; Intuition": three cases → analyse the three → explicit "the intuition here is that …". (e) rename key <code>trade_offs</code> → <code>applications</code> everywhere.</td><td><code>schemas/output.py</code>, <code>image_judge.py</code>, <code>coverage.py</code>, quality audit, headings, modal card, ~14 files</td><td class="warn">high — strict structured-output 400 trap; full ripple</td></tr>
-    </table>
-    <p class="verdict v-warn"><b>Strict-output guard:</b> OpenAI strict mode requires every field in <code>required</code> — <code>formal_statement</code> cannot be made optional. Omission is render-side only: prompt emits <code>""</code> when no numbered definition exists; <code>assemble_markdown</code> already skips empty bodies. (a) Introduction and (f) Further reading unchanged.</p>
-  </section>
-
-  <section>
-    <h2>11 · Long-context organizer + targeted application cases <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-22)</span></h2>
-    <p>Follow-up to §10. Two residual gaps on "What is the bias-variance tradeoff?": (1) the Definition names bias/variance but gives <b>no formulas</b>, and never defines <b>MSE</b> even though the figure is built on the MSE decomposition; (2) Applications listed <b>generic domain labels</b>, not real cited cases. Root causes: §10 Block B told <code>definition</code> to defer formulas to <code>formal_statement</code>, but that field is now empty when no numbered theorem exists → formulas have no home; MSE is never a facet (it only appears via the figure, and coverage runs <i>before</i> the image judge); and no facet/query targets application <i>cases</i>.</p>
-    <p><b>Direction (user):</b> stop leaning on narrow per-facet draft; retrieve a <b>large pool</b> and let <b>DeepSeek V4-PRO</b> read it and organize the coherent pieces into the answer fields. <b>Augment, not replace</b> — keep density-rank for figure co-location + author-diversity; the organizer becomes the drafting brain.</p>
-    <table>
-      <tr><th>Block</th><th>Change</th><th>Artefacts</th><th>Risk</th></tr>
-      <tr><td><b>D · long-context organizer</b></td><td>New <code>organize</code> drafting workflow: pass the enlarged candidate pool (token-budgeted knob <code>TUTOR_ORGANIZE_MAX_TOKENS</code>, safe-truncate + log actual tokens) to <b>deepseek-v4-pro</b>, which distills formulas, the central decomposition (MSE), and cited cases into the 6 aspect fields. Keeps density-rank (top-8 for figures/diversity) AND hands the wider pool to the organizer. Coverage stays but optional. <b>Also fixes the §10 regression</b>: <code>definition</code> must write component formulas + the decomposition inline whenever <code>formal_statement</code> is empty.</td><td><code>deep_tutor.py</code> (pool plumbing + organizer draft path via router), <code>prompts/deep_tutor.py</code> (organizer + definition prompt), <code>tutorPipeline.ts</code> drafting node desc + <code>TUTOR_WORKFLOW=organize</code>, mermaid, env table, tests, rag-verify</td><td class="warn">high — workflow change; deepseek context limit unverified (token-budget guard); cost/latency of a large pool</td></tr>
-      <tr><td><b>E · application cases</b></td><td>Planner emits an "application / empirical case of &lt;concept&gt;" facet + query so the pool actually contains real cases for the organizer to find; prompt requires a <b>cited specific case</b> (book/study/dataset), honest "no applied case in corpus" fallback.</td><td><code>prompts/deep_tutor.py</code> (planner + applications), tests</td><td class="ok">medium</td></tr>
-    </table>
-    <p class="verdict v-warn"><b>Honesty guards:</b> deepseek-v4-pro's real context window is not verified in-repo — the pool is a token-budgeted knob that truncates safely and logs the actual tokens sent, never assumes 1M. The organizer is best-effort: on deepseek failure it falls back to the existing OpenAI structured draft. Author-diversity + figure co-location are preserved because density-rank still runs.</p>
-  </section>
-
-  <section>
-    <h2>12 · Subsection headers + citation hyperlinks + deepseek note <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-22)</span></h2>
-    <p>Three refinements after §11.</p>
-    <table>
-      <tr><th>Block</th><th>Change</th><th>Artefacts</th></tr>
-      <tr><td><b>F · citation hyperlinks</b></td><td>Inline <code>[N]</code> markers were not reliably connecting to the Sources panel (clicking the same marker twice fired no <code>hashchange</code>; deepseek/sloppy outputs emitted markers without a matching <code>citations</code> entry). Fix: server <code>_ensure_marker_citations</code> guarantees every inline <code>[N]</code> has a source-linked entry (synthesized from sources in marker order when the model under-cites); frontend pill gets an explicit <code>onClick</code> that opens + scrolls the Sources panel regardless of hash state.</td><td><code>deep_tutor.py</code>, <code>TutorView.tsx</code></td></tr>
-      <tr><td><b>G · subsection headers</b></td><td>Aspect bodies now use left-aligned <code>### </code> subsection headers (NO toggle, NO bullets). Each header is one perspective: e.g. Definition → <code>### Bias</code>, <code>### Variance</code>, <code>### MSE</code> (decomposition + how each affects the error term); Applications → one <code>### </code> per cited case. Prompt structure rewritten; <code>TutorView</code> renders <code>### </code> as a plain <code>&lt;h3&gt;</code> within the section body.</td><td><code>prompts/deep_tutor.py</code>, <code>TutorView.tsx</code></td></tr>
-      <tr><td><b>deepseek note</b></td><td>User switched the active model to deepseek-v4-pro. In THIS environment that id is unreachable (the draft stream returns empty / hangs), so the refinements were verified on the working OpenAI model. Provider-independent (prompt + frontend).</td><td>—</td></tr>
-    </table>
-    <p class="verdict v-ok"><b>Browser-verified on :5175:</b> Definition renders <code>### Bias / ### Variance / ### MSE</code> (with $\text{MSE}=\text{bias}^2+\text{variance}+\sigma^2$); Applications renders cited cases (Ridge vs. OLS, smoothing-spline, double descent); clicking a <code>[N]</code> marker opens the Sources panel and highlights the matching reference.</p>
-  </section>
-
-  <section>
-    <h2>13 · Detached, resumable streaming — runs survive conversation-switch <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-22)</span></h2>
-    <p><b>Symptom:</b> send a query, the answer is mid-stream, switch to another conversation → the stream <b>dies</b> and the answer is <b>lost entirely</b> (never persisted).</p>
-    <p><b>Root cause (two layers).</b> (1) Frontend holds <b>one</b> <code>useChat</code> reducer = one conversation in memory; switching calls <code>loadConversation</code> → <code>abortRef.current.abort()</code> (kills the <code>fetch</code>) and replaces state. (2) Backend <code>chat_event_gen</code> is driven by the SSE connection; the client abort makes <code>sse-starlette</code> see a disconnect and <b>cancel the generator task</b> — generation stops, and the assistant row is only persisted <i>after</i> the generator completes (<code>api.py:167</code>), so the partial answer vanishes.</p>
-    <p><b>Fix:</b> detach generation from the connection and make the stream replayable by sequence number. Generation runs as a server-side task writing to a per-conversation event buffer; the HTTP connection is just a <i>subscriber</i>. Disconnect (switch / refresh / tab-close / network drop) no longer cancels generation; reconnecting replays missed events.</p>
-    <table>
-      <tr><th>Block</th><th>Change</th><th>Artefacts</th></tr>
-      <tr><td><b>A · run manager</b></td><td>New generic, Chinese-wall-clean module. <code>_runs: dict[conv_id, _Run]</code>; each <code>_Run</code> = buffered events (monotonic <code>seq</code>), live subscriber queues, <code>done</code>/<code>finished_at</code>, driving <code>asyncio.Task</code>. <code>start_run(conv_id, source_factory)</code> spawns a detached task that drains the source into the buffer + fans out to subscribers (returns the existing run if one is already active — no duplicate turn). <code>subscribe(conv_id, after_seq)</code> replays buffered <code>seq &gt; after_seq</code> then streams live to a done sentinel, dedup overlap by <code>seq</code>. TTL-GC ~300s after completion.</td><td><code>src/services/chat/runs.py</code> (new)</td></tr>
-      <tr><td><b>B · API surface</b></td><td><code>chat_event_gen</code> yields raw event dicts (persistence side-effect unchanged); SSE <code>event/id/data</code> formatting moves to a thin wrapper. <code>POST /api/chat</code> with a <code>conversationId</code> → <code>start_run</code> + subscribe-stream from <code>after=0</code> (without one: current direct-stream, unchanged). New <code>GET /api/chat/{conv_id}/stream?after=&lt;seq&gt;</code> (resume/replay) and <code>GET /api/chat/{conv_id}/status</code> → <code>{exists, active, done, seq}</code>.</td><td><code>src/services/chat/api.py</code></td></tr>
-      <tr><td><b>C · multi-conversation store</b></td><td>Frontend reducer → store keyed by convId (<code>byConv</code>, <code>active</code>); each slice keeps its own messages + <code>lastSeq</code>; <code>abortRef</code> → per-conv map. <b>Switching no longer aborts</b> — the background <code>fetch</code> keeps reading into its hidden slice and persists on finish. <code>selectConversation</code>: if a slice is already streaming locally, just show it; else load persisted, <code>GET status</code>, and if server-active append a placeholder + open the resume stream from <code>after=lastSeq</code> (handles refresh/reopen).</td><td><code>web/src/state/chat.ts</code>, <code>web/src/App.tsx</code>, <code>web/src/types.ts</code></td></tr>
-      <tr><td><b>D · streaming indicator</b></td><td>Sidebar shows a small streaming dot on conversation items whose run is still active.</td><td><code>web/src/components/Sidebar.tsx</code></td></tr>
-    </table>
-    <p><b>SSE contract change:</b> every event now carries a monotonic <code>seq</code> (and SSE <code>id:</code>). New invariant: ≤1 active run per conversation; a detached run persists on completion even with <b>zero</b> subscribers. Runs are process-local — a backend restart loses an in-flight run (persisted turns survive).</p>
-    <p class="verdict v-ok"><b>Browser-verified on :5175 (2026-05-22):</b> sent in conv A, switched to a new conversation mid-stream — A's run kept advancing in the background (backend <code>seq</code> 942→1211→1457) with a pulsing "still generating" dot on its sidebar item; switched back → full answer present and persisted. Reloading the page on an active conv fired exactly <b>one</b> <code>/status</code> + <b>one</b> <code>/stream?after=0</code> (no render loop) and replayed the in-flight answer ("RESUMETEST clt", DONE 49.5s, 8 sources). Backend resume contract checked via curl: <code>after=0</code> replays from seq 1 (monotonic); <code>after=N</code> tails from seq N+1. Post-reload console clean.</p>
-  </section>
-
-  <section>
-    <h2>14 · Denser subsections — explain the problem + where it fits <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-22)</span></h2>
-    <p>After §12 added <code>### </code> subsections, each landed at ~40-60 words: the fixed per-aspect word budgets (definition 150-220, example_intuition 220-320, applications 150-220) were now split across 3-4 headers, and the structure rule capped each at "1-4 sentences" — so cases/applications read as one-liners that stated a fact without explaining the problem or where the concept fits.</p>
-    <p>Prompt-only fix (no schema/frontend change): raised the per-aspect budgets (definition <b>280-380</b>, example_intuition <b>340-480</b>, applications <b>260-360</b>), changed the per-subsection cap to a SUBSTANTIVE <b>3-5 sentences</b>, and added a global <b>"DEPTH OVER BREVITY"</b> directive — every subsection must explain (a) the problem it addresses, (b) the mechanism, (c) WHERE IT FITS in the concept/theory/practice. Each application + example case is now a <code>### </code> subsection following Problem/setting → method → where the concept fits. Raised <code>TUTOR_DEEP_MAX_TOKENS</code> 4000 → <b>6000</b> so the denser answer is not truncated (≈ +latency).</p>
-    <p class="verdict v-ok"><b>Verified (bias-variance):</b> definition 272 w / example_intuition 759 w / applications 338 w (was ~200 w each); application cases now read "Problem/setting: Wooldridge considers… The method is to compare two estimators of $\beta_1$… if $\beta_2\neq 0$, omitting $x_2$ induces bias" — problem + mechanism + fit, with formulas + citations.</p>
-  </section>
-
-  <section>
-    <h2>15 · Groq as third chat-LLM provider (chat-only) <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-25)</span></h2>
-    <p>Expand the model picker to include Groq alongside OpenAI + DeepSeek. Groq exposes an OpenAI-compatible Chat Completions endpoint at <code>https://api.groq.com/openai/v1</code>, so the new <code>GroqChat</code> client reuses the <code>openai</code> SDK with a redirected <code>base_url</code> (same pattern as DeepSeek). Models exposed: <code>meta-llama/llama-4-scout-17b-16e-instruct</code> (Groq default), <code>llama-3.3-70b-versatile</code>, <code>openai/gpt-oss-120b</code>, <code>openai/gpt-oss-20b</code>. Scope is <b>chat-only</b> — ingestion (<code>src/ingestion/llm_client.py</code>) is intentionally untouched.</p>
-    <table>
-      <tr><th>Concern</th><th>Detail</th><th>Files</th></tr>
-      <tr><td><b>Router membership, not prefix</b></td><td>Groq exposes <code>openai/gpt-oss-*</code> IDs that collide with the OpenAI prefix. Routing uses an explicit <code>GROQ_MODEL_IDS: set[str]</code>, kept in sync with the <code>ModelProvider</code> registry by a contract test.</td><td><code>src/services/chat/llm/router.py</code>, <code>test_groq_model_ids_match_provider_registry</code></td></tr>
-      <tr><td><b>Trust native JSON</b></td><td>Groq supports <code>response_format={"type":"json_object"}</code> and <code>json_schema</code>. The client passes <code>response_format</code> through verbatim (no DeepSeek-style coercion to nano in <code>orchestrator_workers.py</code>). Verified live on Llama 4 Scout + Llama 3.3 70B; <code>openai/gpt-oss-20b</code> xfails (reasoning prefix tokens trip the validator) — orchestrator repair loop is the safety net.</td><td><code>src/services/chat/llm/groq_client.py</code>, <code>test_groq_json.py</code></td></tr>
-      <tr><td><b>Frontend</b></td><td><code>ProviderId</code> Literal extended in both Pydantic + TS schemas. New Groq icon (<code>#F55036</code> rounded square w/ "G") in <code>ModelPicker</code> + <code>NodeModelDropdown</code>.</td><td><code>schemas/_core.py</code>, <code>web/src/types.ts</code>, <code>ModelPicker.tsx</code>, <code>NodeModelDropdown.tsx</code></td></tr>
-      <tr><td><b>Cost</b></td><td>Conservative per-1M Groq prices added to <code>cost.py</code>.</td><td><code>src/services/chat/cost.py</code></td></tr>
-    </table>
-    <p class="verdict v-ok"><b>Verified:</b> backend pytest green (576 pass incl. 8 new router/Groq cases); tsc clean; vitest 53 pass; live JSON test passes on llama-4-scout and llama-3.3-70b. New invariant <b>#26</b>.</p>
-  </section>
-
-  <section>
-    <h2>16 · Prompt-schema invariant (Zeroth law) + LaTeX polish stage for Groq <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-25)</span></h2>
-    <p>Surfaced by an orchestrator-mode A/B run between OpenAI nano and Llama 4 Scout. Two structural gaps drove the divergence: (1) mode prompts had partial XML structure but no <code>&lt;context&gt;</code>, and the 9 deep-tutor stage prompts had no XML at all; (2) Llama drops backslashes inside JSON strings, so KaTeX rendered <code>mathbbE</code> as literal text. Earlier prompt-only mitigation reduced but did not eliminate it.</p>
-    <table>
-      <tr><th>Layer</th><th>Action</th><th>Files</th></tr>
-      <tr><td><b>Zeroth law</b></td><td>Every system prompt anywhere in <code>src/services/chat/</code> MUST use <code>&lt;role&gt;</code> + <code>&lt;context&gt;</code> + <code>&lt;task&gt;</code> at minimum, plus function-specific tags (<code>&lt;rules&gt;</code>/<code>&lt;examples&gt;</code>/<code>&lt;output&gt;</code>/<code>&lt;structure&gt;</code>/<code>&lt;failure_mode&gt;</code>). Addenda use <code>&lt;*_addendum&gt;</code>. 25 prompts rewritten.</td><td><code>prompts/*.py</code>, <code>agents/deep_tutor.py</code>, <code>agents/image_judge.py</code>, <code>feature_Agent.md</code></td></tr>
-      <tr><td><b>CI guard</b></td><td>Pytest scans every <code>*PROMPT*</code>/<code>*INSTRUCTIONS*</code>/<code>*PREAMBLE*</code>/<code>*ADDENDUM*</code> constant, asserts the three required tags. Prevents recurrence.</td><td><code>tests/test_prompt_schema.py</code></td></tr>
-      <tr><td><b>LaTeX polish</b></td><td>When <code>m_draft ∈ GROQ_MODEL_IDS</code>, each aspect body is passed through OpenAI nano with a deterministic repair prompt that adds missing backslashes inside <code>$...$</code> / <code>$$...$$</code> regions and changes nothing else. Polished aspects mirror back onto the <code>DeepTutorAnswer</code> before render.</td><td><code>_polish_latex_via_llm</code> + call in <code>_stream_draft</code></td></tr>
-      <tr><td><b>Cap clamp</b></td><td>Groq Llama models cap <code>max_completion_tokens</code> at 8192. <code>_cap_max_tokens(model_id)</code> clamps automatically across stream/parse/json_object tiers.</td><td><code>agents/deep_tutor.py</code></td></tr>
-    </table>
-    <p class="verdict v-ok"><b>Verified end-to-end:</b> orchestrator workflow + Llama 4 Scout on "Define variance with formula and MSE decomposition. Compare authors." → 6 math_blocks, all LaTeX symbols render (σ², 𝔼, Var(X), f̂, Bias, ε), MSE in dedicated math box, 20.2s / 827 tok. No literal <code>mathbbE</code> in the DOM. Backend 568 pytest + 1 new schema test pass. New invariant <b>#28</b>.</p>
-  </section>
-
-  <section>
-    <h2>17 · Export chat to Markdown <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-29)</span></h2>
-    <p>Export chat content as <code>.md</code> at two granularities, <b>frontend-only</b> — the transcript already lives in the client store, so no backend route, no SSE/schema change, Chinese wall untouched (no <code>src/</code> change). The Topbar download icon (left of the theme toggle) exports the <b>active conversation</b> to <code>statrag-&lt;slug&gt;.md</code>; a small download icon at the end of each completed answer exports <b>that single answer</b> to <code>statrag-&lt;slug&gt;-a&lt;NN&gt;.md</code>.</p>
-    <table>
-      <tr><th>Layer</th><th>Action</th><th>Files</th></tr>
-      <tr><td><b>Serializer (pure)</b></td><td>Block prose → <code>$$math$$</code>, figures (image kept inside the blockquote), source chips; conversation header (<code># title</code> + date) + per-turn headings (<code>## You</code> / <code>## &lt;MODE&gt; · &lt;model&gt;</code>); in-flight/errored turns skipped from full exports; <code>downloadMarkdown</code> Blob helper (best-effort, mirrors <code>persist.ts</code>).</td><td><code>web/src/lib/exportMarkdown.ts</code></td></tr>
-      <tr><td><b>Structured schemas</b></td><td>Faithful per-schema markdown for all 8 structured outputs (TutorAnswer citations list, lettered Quiz options via <code>String.fromCharCode</code>, NavigationList/StudyPlan tables, DAG nodes+edges, Report claims, Roadmap scenes, AnnotatedReading) + a <code>json</code>-fence fallback for unknown schemas.</td><td><code>web/src/lib/exportStructured.ts</code></td></tr>
-      <tr><td><b>UI wiring</b></td><td><code>IconDownload</code>; Topbar button (<code>onExportConversation</code>/<code>exportDisabled</code>); per-answer icon (<code>onExportMessage</code>, only on complete messages); App handlers (title sanitized to one line, answer ordinal among assistant messages).</td><td><code>Icons.tsx</code>, <code>Topbar.tsx</code>, <code>MessageThread.tsx</code>, <code>App.tsx</code></td></tr>
-      <tr><td><b>Tests</b></td><td>18 vitest cases across the two lib test files (blocks, math, figure-in-blockquote, sources, TutorAnswer/Quiz/StudyPlan/DAG/NavigationList, unknown fallback, full-conversation ordering, skip-in-flight). <code>tsc --noEmit</code> clean; suite 71 green.</td><td><code>exportMarkdown.test.ts</code>, <code>exportStructured.test.ts</code></td></tr>
-    </table>
-    <p class="verdict v-ok"><b>Verified end-to-end:</b> browser on :5175, tutor "Define variance in one sentence." (Groq llama-4-scout, 8 sources). Per-answer export → <code>statrag-define-variance-in-one-sentence-a01.md</code> with faithful TutorAnswer prose sections + numbered citations (author · book · chapter · section · quote) + figures, <b>no JSON leakage</b>. Topbar export → <code>statrag-define-variance-in-one-sentence.md</code> with header + <code>## You</code> + <code>## TUTOR · &lt;model&gt;</code> turns in order. Console clean.</p>
-    <h3 style="margin-top:14px">17b · Upgrade to Zip (Markdown + images) <span class="pill" style="color:var(--ok);border-color:var(--ok)">✓ implemented (2026-05-29)</span></h3>
-    <p>Both buttons now download a <code>.zip</code> (Markdown + bundled figure images) instead of a bare <code>.md</code>, still frontend-only. New <code>web/src/lib/exportZip.ts</code>: <code>extractImageUrls</code> (find <code>![](…)</code> image links, dedup, tolerate title attrs) + <code>imageFilename</code> (deterministic <code>&lt;basename&gt;-&lt;hash&gt;.&lt;ext&gt;</code>, reads the <code>?path=</code> basename) + <code>buildZipBlob</code> (fetch each unique image as ArrayBuffer, store under <code>images/</code>, rewrite <b>markdown-link-anchored</b> occurrences to relative paths so a prefix URL can't corrupt a longer one, return <code>{blob, missing}</code>). Added <code>jszip</code>; generalized <code>downloadMarkdown</code> → <code>downloadBlob</code>; App handlers async + try/catch. Failed image fetches keep their link (non-fatal).</p>
-    <p class="verdict v-ok"><b>Verified end-to-end:</b> :5175, reopened the same tutor conversation (2 figures). Per-answer zip → <code>…-a01.md</code> + <code>images/image_rsrcD3R-….jpg</code> + <code>image_rsrcD3S-….jpg</code> (real JPEG bytes), links rewritten to <code>images/…</code>, zero <code>/api/</code> links left; full-conversation zip carries the same deduped images. 14 new vitest cases, suite 85 green, <code>tsc</code> clean, console clean.</p>
-  </section>
-
-  <section class="sub">
-    Sources:
-    <a href="https://www.anthropic.com/research/building-effective-agents">Anthropic — Building Effective Agents</a> ·
-    <a href="https://github.com/anthropics/anthropic-cookbook/blob/main/patterns/agents/orchestrator_workers.ipynb">Orchestrator-workers cookbook</a> ·
-    <a href="https://console.groq.com/docs/api-reference">Groq API reference</a>
+    <p class="caption">
+      See also:
+      <a href="ingestion.html">Ingestion</a> ·
+      <a href="retrieval.html">Retrieval</a> ·
+      <a href="chat.html">Chat &amp; deep-tutor</a>
+    </p>
   </section>
 </main>
-
 <script>
   mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
     themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
       primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
-
-  const DIAGRAMS = {
-    canon: {
-      cap: "Canonical: an LLM orchestrator dynamically chooses the subtasks, then workers + synthesizer.",
-      src: `flowchart TD
-  Q["User request / complex task"] --> O["🧠 Orchestrator (LLM)<br/>plan + DYNAMICALLY decide subtasks"]
-  O -. "subtask 1" .-> W1["Worker LLM"]
-  O -. "subtask 2" .-> W2["Worker LLM"]
-  O -. "subtask N" .-> W3["Worker LLM"]
-  W1 --> S["🧩 Synthesizer (LLM)<br/>integrate & refine"]
-  W2 --> S
-  W3 --> S
-  S --> A["Final answer / report"]
-  style O fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style S fill:#241a33,stroke:#9b6bd6,color:#fff`
-    },
-    current: {
-      cap: "Current statrag (2026-05-21): an LLM orchestrator decides the subtasks → parallel workers → synthesizer. Faithful; per-author split is the fallback.",
-      src: `flowchart TD
-  Q["Question"] --> R["retrieve + author-diversity select"]
-  R --> P["Synthesis plan (LLM)<br/>thesis + contrasts"]
-  P --> O["🧠 Orchestrator (LLM)<br/>orchestrate() → tasks (dynamic)"]
-  O -. "task A" .-> W1["Worker LLM"]
-  O -. "task B" .-> W2["Worker LLM"]
-  O -. "task N" .-> Wn["Worker LLM"]
-  O -. "declines → fallback" .-> FB["group by author (code)"]
-  W1 --> SY["🧩 Synthesizer (LLM)<br/>integrate & compare → DeepTutorAnswer"]
-  W2 --> SY
-  Wn --> SY
-  FB -.-> SY
-  SY --> ANS["Answer"]
-  style O fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SY fill:#241a33,stroke:#9b6bd6,color:#fff`
-    },
-    proposed: {
-      cap: "Proposed: replace the code rule with an orchestrator LLM that decides the subtasks per question. Matches the canonical shape.",
-      src: `flowchart TD
-  Q["Question"] --> R["retrieve + author-diversity select"]
-  R --> O["🧠 Orchestrator (LLM)<br/>orchestrate(question, sources)<br/>→ list[WorkerTask] (dynamic)"]
-  O -. "task 1" .-> W1["Worker LLM"]
-  O -. "task 2" .-> W2["Worker LLM"]
-  O -. "task N" .-> Wn["Worker LLM"]
-  O -. "decline → fallback" .-> FB["group by author (code)"]
-  W1 --> SY["🧩 Synthesizer (LLM)<br/>integrate & compare → DeepTutorAnswer"]
-  W2 --> SY
-  Wn --> SY
-  FB -.-> SY
-  SY --> ANS["Answer"]
-  style O fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SY fill:#241a33,stroke:#9b6bd6,color:#fff`
-    },
-    revised: {
-      cap: "Revised full pipeline: Synthesis-plan + Orchestrator merged into ONE Planner; Critique demoted to an opt-in side path. Figure judge + Vision explain stay separate (cost).",
-      src: `flowchart TD
-  Q["Question"] --> CE["Concept extraction<br/>(+ diversity budget)"]
-  Q --> HR["Hybrid retrieval"]
-  CE --> DR["Density select + rerank"]
-  HR --> DR
-  DR --> AD["Author diversity"]
-  AD --> FJ["Figure judge (caption-first)"]
-  FJ --> PL["🧠 Planner-Orchestrator (LLM)<br/>thesis + contrasts + tasks<br/>(was: Synthesis plan + Orchestrator)"]
-  PL --> WF{"Drafting workflow"}
-  WF -->|single| DFT["Draft<br/>uses thesis + contrasts"]
-  WF -->|orchestrator| WK["Workers ‖<br/>one per task"]
-  WK --> SY["🧩 Synthesizer<br/>uses tasks"]
-  DFT --> VE["Vision explain"]
-  SY --> VE
-  VE --> ANS["Answer"]
-  DFT -. "opt-in" .-> CR["Critique<br/>(TUTOR_DEEP_CRITIQUE=1)"]
-  CR -. "redraft" .-> VE
-  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SY fill:#241a33,stroke:#9b6bd6,color:#fff
-  style CR fill:#26282c,stroke:#6b7280,color:#9aa1aa,stroke-dasharray:5 4`
-    },
-    coverage: {
-      cap: "Proposed (Option 2): a top orchestrator plans queries + facets; coverage-check re-queries any missing facet before drafting. Single synthesis draft; per-author workers optional.",
-      src: `flowchart TD
-  Q["Question"] --> OP["🧠 Query planner (nano)<br/>concepts + queries[] + facets[]<br/>(folds into extract_concepts_ex)"]
-  OP -. "queries ‖" .-> HR["Hybrid retrieval ×N → RRF merge"]
-  HR --> DR["Density select + rerank<br/>+ adjacent-section expansion (sibling, rerank-gated)"]
-  DR --> AD["Author diversity"]
-  AD --> CC{"✅ Coverage check (nano)<br/>all facets supported?"}
-  CC -. "missing facet → try neighbors, then re-query (cap 1)" .-> HR
-  CC -->|ok| FJ["Figure judge"]
-  FJ --> PL["Planner<br/>thesis + contrasts + tasks"]
-  PL --> WF{"Drafting workflow"}
-  WF -->|single default| DFT["Draft / synthesis<br/>+ 'give each named component its formula'"]
-  WF -->|orchestrator opt| WK["Workers ‖ → Synthesizer"]
-  DFT --> VE["Vision explain"]
-  WK --> VE
-  VE --> ANS["Answer"]
-  style OP fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style CC fill:#1f2a1a,stroke:#3fb950,color:#fff
-  style WK fill:#26282c,stroke:#6b7280,color:#9aa1aa,stroke-dasharray:5 4`
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
     }
-  };
-
-  const el = document.getElementById("diagram");
-  const cap = document.getElementById("cap");
-  let seq = 0;
-  async function render(key){
-    const d = DIAGRAMS[key];
-    cap.textContent = d.cap;
-    const id = "m" + (seq++);
-    try {
-      const { svg } = await mermaid.render(id, d.src);
-      el.innerHTML = svg;
-    } catch (e) {
-      el.innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>";
-    }
-  }
-  document.querySelectorAll(".tab").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
-      render(btn.dataset.d);
-    });
-  });
-  render("canon");
+  })();
 </script>
+<script src="sidebar.js"></script>
 </body>
 </html>

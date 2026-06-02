@@ -1,8 +1,13 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    globals: true,
+    setupFiles: ["./src/test-setup.ts"],
+  },
   server: {
     // Dev runs on 5175 so it coexists with the prod statrag-web container
     // (which serves on 5173). See CLAUDE.md + docs/services/chat.md.

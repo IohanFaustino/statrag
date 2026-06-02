@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import type { Book, Source, ModelProvider, Figure, RetrievalMetadata } from "./types";
+import type { Book, Source, ModelProvider } from "./types";
+import { mapConversationMessages } from "./lib/mapConversationMessages";
+import { pickOpenedMode } from "./lib/pickOpenedMode";
+import { lastTurnMode } from "./lib/lastTurnMode";
 import { useTweaks, THEME_ACCENT_DEFAULTS } from "./state/tweaks";
 import { useChat } from "./state/chat";
 import { fetchProviders, createConversation } from "./api/client";
@@ -9,15 +12,18 @@ import type { ConvDigest } from "./components/Sidebar";
 import ContextPanel from "./components/ContextPanel";
 import MessageThread from "./components/MessageThread";
 import InputBar from "./components/InputBar";
-import type { ModeMeta } from "./components/ModePicker";
 import TempChat from "./components/TempChat";
+import { STATRAG_MODES } from "./lib/modes";
 import BookModal from "./components/modals/BookModal";
 import SourceModal from "./components/modals/SourceModal";
 import AboutModelModal from "./components/modals/AboutModelModal";
 import QAModeModal from "./components/modals/QAModeModal";
+import ChapterFacilitateModal from "./components/modals/ChapterFacilitateModal";
+import ChapterResumeModal from "./components/modals/ChapterResumeModal";
 import type { StageKey } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
+import { RECOMMENDED_MODEL_ID, recommendedModelId } from "./data/recommended";
 import { conversationToMarkdown, assistantMessageToMarkdown, slugify, downloadBlob } from "./lib/exportMarkdown";
 import { buildZipBlob } from "./lib/exportZip";
 
@@ -29,15 +35,6 @@ const DEFAULT_STAGE_MODELS: Record<string, string> = {
   plan: "deepseek-v4-pro",
   draft: "deepseek-v4-pro",
 };
-
-// ─── Static mode list (from STATRAG_MODES in data.js) ────────────────────────
-
-const STATRAG_MODES: ModeMeta[] = [
-  { id: "tutor", label: "Tutor", glyph: "T" },
-  { id: "qa", label: "Q&A", glyph: "?" },
-  { id: "facilitate", label: "Facilitate", glyph: "F" },
-  { id: "resume", label: "Resume", glyph: "R" },
-];
 
 // ─── Fallback providers (used when /api/models fails) ────────────────────────
 
@@ -167,15 +164,24 @@ export default function App() {
   const [tempChatOpen, setTempChatOpen] = useState(false);
   const [tempSeed, setTempSeed] = useState<number | null>(null);
 
+  // Tracks the last conversation whose picker mode we synced. Re-opening the
+  // SAME conversation (popstate / re-select / re-render) is a no-op, so a mode
+  // the user changed mid-conversation is preserved. Switching to a DIFFERENT
+  // conversation and back DOES re-sync to that conversation's last-turn mode
+  // (intended: the picker reflects where you left that conversation).
+  const lastSyncedConvRef = React.useRef<string | null>(null);
+
   // Active mode / model — persisted across sessions so tutor configuration
   // survives a backend restart or a browser reload.
   const [activeMode, setActiveMode] = usePersistentState<string>("statrag.activeMode", "tutor");
-  const [activeModel, setActiveModel] = usePersistentState<string>("statrag.activeModel", "gpt-4o");
+  const [activeModel, setActiveModel] = usePersistentState<string>("statrag.activeModel", RECOMMENDED_MODEL_ID);
 
   // About-model modal (ephemeral) + per-stage model overrides (persisted).
   const [aboutModelId, setAboutModelId] = useState<string | null>(null);
   // Q&A mode info modal (ephemeral).
   const [qaModalOpen, setQaModalOpen] = useState(false);
+  const [facilitateModalOpen, setFacilitateModalOpen] = useState(false);
+  const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [stageModels, setStageModels] = usePersistentState<Record<string, string>>(
     "statrag.stageModels",
     DEFAULT_STAGE_MODELS,
@@ -192,6 +198,9 @@ export default function App() {
     "statrag.tutorWorkflow",
     "single",
   );
+
+  // Derive recommended model id from the live registry (used by modals in Task 4).
+  const recommendedModel = recommendedModelId(providers);
 
   // Derive bookFilter from selected books
   const selectedBooks = books.filter((b) => b.selected && b.indexed !== false);
@@ -225,6 +234,7 @@ export default function App() {
     streamingPhase,
     usage,
     streamingIds,
+    stopStream,
   } = useChat({
     mode: activeMode,
     model: activeModel,
@@ -259,7 +269,7 @@ export default function App() {
 
   // Wrapped send: lazily create conversation on first message
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, bookFilterOverride?: string[] | "ALL") => {
       let activeConvId = conversationId;
       if (!activeConvId) {
         try {
@@ -285,7 +295,7 @@ export default function App() {
           // proceed without persistence
         }
       }
-      sendMessage(text, activeConvId);
+      sendMessage(text, activeConvId, bookFilterOverride);
     },
     [conversationId, activeMode, activeModel, bookFilter, sendMessage, setConversationId],
   );
@@ -326,7 +336,8 @@ export default function App() {
           // Set default model to first model of first provider if current is unknown
           const allIds = data.flatMap((p) => p.models.map((m) => m.id));
           if (!allIds.includes(activeModel) && allIds.length > 0) {
-            setActiveModel(allIds[0]);
+            const rec = recommendedModelId(data);
+            setActiveModel(allIds.includes(rec) ? rec : allIds[0]);
           }
         }
       })
@@ -373,6 +384,22 @@ export default function App() {
     );
   }, []);
 
+  // Handle clarify card pick: select only the chosen book and re-send the
+  // original user question (not a mode-id stub) so QA and other modes preserve
+  // the actual question text. chapter/_sections are accepted but unused here —
+  // book selection alone drives scoping on the re-send (confidence 1.0).
+  const handleClarifyPick = useCallback(
+    (slug: string, _chapter: string, _sections: string[]) => {
+      setBooks((prev) => prev.map((b) => ({ ...b, selected: b.id === slug })));
+      const lastUser = [...messages].reverse().find((m) => m.role === "user");
+      // Pass the picked book explicitly: setBooks is async, so the re-send
+      // would otherwise carry the stale (pre-pick) bookFilter and the backend
+      // would re-clarify instead of advancing.
+      if (lastUser?.text) handleSend(lastUser.text, [slug]);
+    },
+    [setBooks, messages, handleSend],
+  );
+
   // Fork to temp chat
   const handleFork = useCallback((idx: number) => {
     setTempSeed(idx);
@@ -385,122 +412,18 @@ export default function App() {
       const r = await fetch(`/api/conversations/${id}`);
       if (!r.ok) return;
       const data = await r.json();
-      const rawMsgs: Array<{
-        id: string;
-        role: string;
-        content: unknown;
-        timestamp: string;
-        sources?: unknown;
-        figures?: unknown;
-        metadata?: unknown;
-      }> = data.messages ?? [];
-      const toTime = (iso: string) => {
-        try {
-          return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        } catch {
-          return "";
-        }
-      };
-      // Some assistant messages were stored as JSON-stringified payloads by
-      // earlier deep-tutor versions; try to revive them so reload renders the
-      // structured TutorAnswer view instead of the raw JSON.
-      // Map of DeepTutorAnswer aspect key -> rendered H2 heading. Mirrors
-      // ASPECT_HEADINGS in src/services/chat/prompts/deep_tutor.py.
-      const ASPECT_HEADINGS: Array<[string, string]> = [
-        ["tldr", "Introduction"],
-        ["definition", "Definition"],
-        ["formal_statement", "Formal statement"],
-        ["example_intuition", "Example & Intuition"],
-        ["applications", "Applications"],
-        ["further_reading", "Further reading"],
-      ];
-      const assembleFromAspects = (obj: Record<string, unknown>): string => {
-        const parts: string[] = [];
-        for (const [key, heading] of ASPECT_HEADINGS) {
-          const body = obj[key];
-          if (typeof body === "string" && body.trim()) {
-            parts.push(`## ${heading}\n\n${body.trim()}`);
-          }
-        }
-        if (parts.length) return parts.join("\n\n");
-        const a = (obj as { aspects?: Record<string, string> }).aspects;
-        if (a && typeof a === "object") {
-          for (const [key, heading] of ASPECT_HEADINGS) {
-            const body = a[key];
-            if (typeof body === "string" && body.trim()) {
-              parts.push(`## ${heading}\n\n${body.trim()}`);
-            }
-          }
-        }
-        return parts.join("\n\n");
-      };
-
-      const reviveContent = (raw: unknown): { text: string; structured: Record<string, unknown> | null } => {
-        const fromObject = (obj: Record<string, unknown>): { text: string; structured: Record<string, unknown> } => {
-          let text = typeof obj.text === "string" ? (obj.text as string) : "";
-          if (!text.trim()) text = assembleFromAspects(obj);
-          // Persist the assembled text back into the structured payload so
-          // TutorView (which reads data.text) renders the body.
-          const out = { ...obj, text };
-          return { text, structured: out };
-        };
-        if (raw && typeof raw === "object") return fromObject(raw as Record<string, unknown>);
-        if (typeof raw === "string") {
-          const s = raw.trim();
-          if (s.startsWith("{") && s.endsWith("}")) {
-            try {
-              const obj = JSON.parse(s);
-              if (obj && typeof obj === "object" && ("text" in obj || "aspects" in obj || "tldr" in obj)) {
-                return fromObject(obj as Record<string, unknown>);
-              }
-            } catch {
-              // not JSON — fall through
-            }
-          }
-          return { text: s, structured: null };
-        }
-        return { text: "", structured: null };
-      };
-
-      const msgs = rawMsgs.map((m) => {
-        const { text, structured } = reviveContent(m.content);
-        if (m.role === "user") {
-          return {
-            role: "user" as const,
-            id: m.id,
-            time: toTime(m.timestamp),
-            timestamp: m.timestamp,
-            text,
-          };
-        }
-        const schema = (structured && typeof structured._schema === "string"
-                          ? (structured._schema as string)
-                          : "TutorAnswer");
-        const base = {
-          role: "assistant" as const,
-          id: m.id,
-          time: toTime(m.timestamp),
-          timestamp: m.timestamp,
-          mode: "tutor" as const,
-          model: "",
-          books: [],
-          sourceCount: Array.isArray(m.sources) ? (m.sources as unknown[]).length : 0,
-          latencyMs: 0,
-          blocks: [{ type: "p" as const, text }],
-          sources: (m.sources as unknown as Source[]) ?? undefined,
-          figures: (m.figures as unknown as Figure[]) ?? undefined,
-          retrievalMetadata: (m.metadata as unknown as RetrievalMetadata) ?? undefined,
-          status: "complete" as const,
-        };
-        if (structured) {
-          // Drop our private _schema marker before handing the payload to the
-          // renderer so it matches the live shape.
-          const clone: Record<string, unknown> = { ...structured };
-          delete clone._schema;
-          return { ...base, structuredOutput: { schema, data: clone } };
-        }
-        return base;
-      });
+      // mapConversationMessages reads data.mode (the conversation-level mode,
+      // e.g. "facilitate", "resume") and stamps it on every assistant message.
+      // Previously this hardcoded "tutor", causing the wrong badge on reload.
+      const msgs = mapConversationMessages(data);
+      // Sync the picker once per conversation switch to its last-turn mode.
+      // Re-selecting the same conversation (popstate / sidebar click) is a
+      // no-op so a mid-conversation mode change by the user is never clobbered.
+      if (lastSyncedConvRef.current !== id) {
+        lastSyncedConvRef.current = id;
+        const desiredMode = lastTurnMode(msgs, data.mode);
+        setActiveMode((cur) => pickOpenedMode(desiredMode, STATRAG_MODES, cur));
+      }
       loadConversation(id, msgs);
       // Update the URL so the conversation can be re-opened or shared
       // with a permalink like ``http://localhost:5175/c/<id>``.
@@ -515,7 +438,7 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, [loadConversation]);
+  }, [loadConversation, setActiveMode]);
 
   // Delete a conversation: hit the API, prune local state, reset thread if
   // the deleted conv was active, and clear the deep-link URL when needed.
@@ -665,6 +588,7 @@ export default function App() {
               thread={messages}
               conversationLoaded={!!conversationId}
               bubble={tweaks.userStyle === "bubble"}
+              onClarifyPick={handleClarifyPick}
               onSourceClick={(chip) => {
                 // Chip section is "chapter §section" concatenated (per orchestrator);
                 // Source has chapter + section separate. Match by trying both.
@@ -691,8 +615,11 @@ export default function App() {
               onModeChange={(id) => setActiveMode(id)}
               onModeAbout={() => setAboutModelId(activeModel)}
               onModeAboutQA={() => setQaModalOpen(true)}
+              onModeAboutFacilitate={() => setFacilitateModalOpen(true)}
+              onModeAboutResume={() => setResumeModalOpen(true)}
               onSend={handleSend}
-              disabled={isStreaming}
+              isStreaming={isStreaming}
+              onStop={() => stopStream()}
             />
           </div>
 
@@ -739,6 +666,7 @@ export default function App() {
         modelId={aboutModelId}
         providers={providers}
         pickerModel={activeModel}
+        recommendedModel={recommendedModel}
         stageModels={stageModels as Partial<Record<StageKey, string>>}
         diversityAuthors={diversityAuthors}
         tutorWorkflow={tutorWorkflow}
@@ -752,7 +680,29 @@ export default function App() {
 
       <QAModeModal
         open={qaModalOpen}
+        providers={providers}
+        stageModels={stageModels}
+        recommendedModel={recommendedModel}
+        onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setQaModalOpen(false)}
+      />
+
+      <ChapterFacilitateModal
+        open={facilitateModalOpen}
+        providers={providers}
+        stageModels={stageModels}
+        recommendedModel={recommendedModel}
+        onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
+        onClose={() => setFacilitateModalOpen(false)}
+      />
+
+      <ChapterResumeModal
+        open={resumeModalOpen}
+        providers={providers}
+        stageModels={stageModels}
+        recommendedModel={recommendedModel}
+        onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
+        onClose={() => setResumeModalOpen(false)}
       />
 
       {/* T21: settings moved into InputBar toolbar via SettingsPicker. */}

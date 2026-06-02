@@ -182,6 +182,7 @@ _PROVIDERS: list[ModelProvider] = [
                 cost="$",
                 speed="fast",
                 ctx="1M",
+                recommended=True,
             ),
             Model(
                 id="qwen-max",

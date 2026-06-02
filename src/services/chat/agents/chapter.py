@@ -20,10 +20,12 @@ from typing import AsyncIterator
 
 from src.core.config import settings
 from src.services.chat._fences import strip_fences
+from src.services.chat.agents._scope import maybe_clarify, resolve_book
+from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
+from src.services.chat.llm.structured import apply_structured_output
 from src.services.chat.prompts.chapter import (
     CHAPTER_GROUND_PROMPT,
-    CHAPTER_MAP_FACILITATE_PROMPT,
     CHAPTER_MAP_RESUME_PROMPT,
     CHAPTER_PARSE_PROMPT,
     CHAPTER_RESOLVE_PROMPT,
@@ -31,9 +33,15 @@ from src.services.chat.prompts.chapter import (
 )
 from src.services.chat.retrieval import fetch_chapter_sections
 from src.services.chat.schemas import (
+    BookResolution,
+    CatalogBook,
     ChapterBlock,
     ChapterDigest,
+    ChapterGroundOut,
+    ChapterMapBlock,
+    ChapterResolveMatches,
     ChapterScope,
+    ChapterStitchOut,
     ChatRequest,
     ResolvedSubtopic,
     Source,
@@ -46,6 +54,7 @@ _CHAPTER_RESOLVE = os.environ.get("CHAPTER_RESOLVE", "1") == "1"
 _CHAPTER_MAX_SECTIONS = int(os.environ.get("CHAPTER_MAX_SECTIONS", "30"))
 _CHAPTER_STITCH = os.environ.get("CHAPTER_STITCH", "1") == "1"
 _CHAPTER_GROUND = os.environ.get("CHAPTER_GROUND", "1") == "1"
+_CHAPTER_CLARIFY = os.environ.get("CHAPTER_CLARIFY", "1") == "1"
 _CHUNK_PREVIEW_CHARS = 1500
 
 
@@ -58,15 +67,20 @@ def _model_for(stage: str, req: ChatRequest | None) -> str:
     return env or settings.openai_model_nano
 
 
-async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
-    """Single LLM seam. Returns the raw assistant content string."""
+async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
+    """Single LLM seam. Returns the raw assistant content string.
+
+    Intentionally duplicated per module (not extracted): tests monkeypatch each module's ``_chat`` independently, so a shared helper would collapse those seams.
+    """
     oa = aclient_for(model)
-    resp = await oa.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_completion_tokens=max_tokens,
-    )
+    messages, response_format = apply_structured_output(messages, model, schema)
+    kwargs: dict = {
+        "model": model, "messages": messages,
+        "temperature": temperature, "max_completion_tokens": max_tokens,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    resp = await oa.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -75,35 +89,17 @@ async def parse_scope(
     *,
     book_slugs: list[str] | None,
     model: str | None = None,
+    catalog: list[CatalogBook] | None = None,
 ) -> ChapterScope:
-    """Extract {book_slug, chapter_id, requested_subtopics} from the message.
-
-    Fail-open: a single selected book becomes book_slug; chapter "" and empty
-    subtopics (whole chapter) on any parse error.
-    """
-    default_book = book_slugs[0] if book_slugs and len(book_slugs) == 1 else ""
-    fallback = ChapterScope(book_slug=default_book, chapter_id="", requested_subtopics=[])
-    chosen = model or settings.openai_model_nano
-    try:
-        raw = await _chat(
-            [
-                {"role": "system", "content": CHAPTER_PARSE_PROMPT},
-                {"role": "user", "content": f"selected_books: {json.dumps(book_slugs or [])}\n\nmessage: {message}"},
-            ],
-            model=chosen,
-            max_tokens=200,
-        )
-        data = json.loads(strip_fences(raw))
-        return ChapterScope(
-            book_slug=str(data.get("book_slug") or default_book).strip(),
-            chapter_id=str(data.get("chapter_id") or "").strip(),
-            requested_subtopics=[
-                str(x).strip() for x in (data.get("requested_subtopics") or []) if str(x).strip()
-            ],
-        )
-    except Exception:  # noqa: BLE001
-        logger.exception("chapter.parse_scope failed; using fail-open scope")
-        return fallback
+    """Resolve scope via the shared catalog-in-prompt resolver (thin wrapper)."""
+    cat = catalog if catalog is not None else parse_catalog()
+    res: BookResolution = await resolve_book(
+        message, selected_slugs=book_slugs, catalog=cat, model=model)
+    return ChapterScope(
+        book_slug=res.book_slug,
+        chapter_id=res.chapter_id,
+        requested_subtopics=res.requested_subtopics,
+    )
 
 
 def _section_index(sections: list[Source]) -> dict[str, Source]:
@@ -152,6 +148,7 @@ async def resolve_subtopics(
                 ],
                 model=model or settings.openai_model_nano,
                 max_tokens=400,
+                schema=ChapterResolveMatches,
             )
             data = json.loads(strip_fences(raw))
             for m in data.get("matches", []):
@@ -211,7 +208,7 @@ async def map_sections(
 
     Returns a 3-tuple: (blocks, citations, math_blocks).
     """
-    sys_prompt = CHAPTER_MAP_FACILITATE_PROMPT if mode == "facilitate" else CHAPTER_MAP_RESUME_PROMPT
+    sys_prompt = CHAPTER_MAP_RESUME_PROMPT
     chosen = model or settings.openai_model_nano
     blocks: list[ChapterBlock] = []
     all_citations: list[TutorCitation] = []
@@ -230,6 +227,7 @@ async def map_sections(
                 [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user}],
                 model=chosen,
                 max_tokens=900,
+                schema=ChapterMapBlock,
             )
             data = json.loads(strip_fences(raw))
             body = str(data.get("body", "")).strip() or (s.excerpt or "")
@@ -272,6 +270,7 @@ async def stitch(blocks: list[ChapterBlock], *, model: str | None = None) -> tup
             ],
             model=model or settings.openai_model_nano,
             max_tokens=200,
+            schema=ChapterStitchOut,
         )
         data = json.loads(strip_fences(raw))
         return str(data.get("intro", "")).strip(), str(data.get("outro", "")).strip()
@@ -296,6 +295,7 @@ async def ground(
             ],
             model=model or settings.openai_model_nano,
             max_tokens=500,
+            schema=ChapterGroundOut,
         )
         data = json.loads(strip_fences(raw))
         return {
@@ -321,9 +321,25 @@ async def run_chapter(req: ChatRequest) -> AsyncIterator[dict]:
         "sourceCount": 0, "latencyMs": int((time.time() - t0) * 1000), "model": req.model,
     }
 
-    # 1. parse scope
-    yield {"type": "stage", "stage": "parse", "label": "Parse scope"}
-    scope = await parse_scope(message, book_slugs=book_slugs, model=_model_for("parse", req))
+    # 1. parse + resolve scope (catalog-in-prompt)
+    yield {"type": "stage", "stage": "parse", "label": "Parse + resolve scope"}
+    catalog = parse_catalog()
+    res = await resolve_book(
+        message, selected_slugs=book_slugs, catalog=catalog,
+        model=_model_for("parse", req))
+    scope = ChapterScope(
+        book_slug=res.book_slug, chapter_id=res.chapter_id,
+        requested_subtopics=res.requested_subtopics)
+
+    # confirm gate — fire clarify only on ambiguity/miss
+    if _CHAPTER_CLARIFY:
+        clar = maybe_clarify(res, catalog)
+        if clar is not None:
+            yield clar
+            yield {"type": "usage", "durationMs": int((time.time() - t0) * 1000),
+                   "promptChars": len(message), "completionChars": 0, "estTokens": 0}
+            yield {"type": "done"}
+            return
 
     # 2. fetch chapter (structural, ordered)
     yield {"type": "stage", "stage": "fetch", "label": "Fetch chapter"}

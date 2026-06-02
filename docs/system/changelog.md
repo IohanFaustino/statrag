@@ -2,6 +2,23 @@
 
 Append-only. Latest at top.
 
+## 2026-06-01 — Facilitate concept-map redesign (feature 53)
+
+Redesigned `facilitate` mode to teach by **clarifying, not expanding**. The new pipeline in `src/services/chat/agents/facilitate.py` runs: parse+resolve → fetch (ordered by `page_from`) → per-section [map → adaptive sub-retrieval → teach → verify] → `FacilitateDigest`. The map node extracts key points and flags each concept as `"explained"` (inline) or `"referenced"` (needs sub-retrieval). Adaptive sub-retrieval (`fetch_concept_support`) escalates: same-author prior section (formal-statement boost) → same-author anywhere → other authors, stopping when score ≥ `CONCEPT_MIN_SCORE` (0.30). The teach node writes short paragraphs + bullet key-points + `[[cN]]` concept anchors (formula anchors use the same `[[cN]]` marker with `kind="formula"`; no separate `[[fN]]` namespace) (body must be shorter than source); `prior_context` is threaded forward. New schemas: `ConceptProvenance`, `ConceptAnchor`, `FacilitateBlock`, `FacilitateDigest` (in `schemas/output.py`). SSE emits `structured_output{schema:"FacilitateDigest"}` with stage keys `map`/`retrieve`/`teach`/`verify`. Frontend: `FacilitateDigestCard` + `ConceptModal` (KaTeX derivations for formula anchors); export flattens anchors to Markdown footnotes. Eval harness: `src/services/chat/eval/facilitate_eval.py` (`-m facilitate_eval`); ranked table at `docs/superpowers/eval/2026-06-01-facilitate-variants.md`. New env flags: `FACILITATE_MAX_CONCEPTS=5`, `FACILITATE_MAX_KEYPOINTS=6`, `CONCEPT_MIN_SCORE=0.30`, `FACILITATE_SUBRETRIEVAL=1`. `resume` is unchanged (still emits `ChapterDigest`). Invariant 32 added. See [`docs/services/chat-features/53-facilitate-concept-map.md`](../services/chat-features/53-facilitate-concept-map.md).
+
+## 2026-06-01 — Book scope resolve + clarify (feature 52)
+
+Added fuzzy book-reference resolution to `facilitate`, `resume`, and `qa` modes. A compact book catalog (slug · name · authors_short · field · chapter ids), built by `parse_catalog()` in `src/services/chat/books.py`, is injected into the parse-scope LLM prompt (`CHAPTER_PARSE_PROMPT`). The shared resolver `resolve_book()` in `src/services/chat/agents/_scope.py` returns `BookResolution{book_slug, book_confidence, book_candidates, chapter_id, requested_subtopics}`. Numeric section refs ("7.2 up to 7.4") are expanded deterministically by `expand_section_refs`. A confirm gate `maybe_clarify(res, catalog)` emits a new terminal SSE event `clarify` only on ambiguity or miss (`book_unknown`, `book_ambiguous`, `chapter_missing`); a confident single match runs the pipeline with no extra turn. A book selected explicitly by the user is always `book_confidence=1.0`. Kill-switch: `CHAPTER_CLARIFY=0`. New env flags: `BOOK_CONFIRM_CUTOFF=0.6`, `CHAPTER_CLARIFY=1`. Invariant 31 added. See [`docs/services/chat-features/52-book-scope-resolve.md`](../services/chat-features/52-book-scope-resolve.md).
+
+## 2026-06-01 — Editable mode modals (qa / facilitate / resume)
+
+Q&A, Facilitate, and Resume modes now have an editable `(i)` modal with a
+per-stage model/provider switch (new `QAPipelineDiagram` + `ChapterPipelineDiagram`
+components; `QAModeModal` remade; new `ChapterFacilitateModal` + `ChapterResumeModal`).
+Overrides write the shared `stageModels` dict (disjoint stage keys; backend
+`_model_for` already supported per-stage overrides). Added Gemini (`google`) and
+Alibaba (`alibaba`) provider icons + `ProviderId` members. Frontend-only.
+
 ## 2026-05-31 — Added chapter modes (facilitate / resume)
 
 Added `facilitate` and `resume` as two structural chat modes. Both traverse a chapter's sections in **chapter reading order** (`page_from`, then `section_id`) rather than by search relevance. Pipeline: parse-scope (extract book + chapter + subtopic names; fail-open to whole chapter) → fetch-chapter (Qdrant scroll, sorted structurally — no embeddings) → resolve-subtopics (substring then nano fuzzy match; empty = whole chapter) → map (per-section LLM call in order, threads `prior_context` forward) → stitch (connective intro/outro, never reorders) → ground (advisory grounding verdict). `facilitate` teaches each section in sequence; `resume` compresses it into a dense summary. Emits a `ChapterDigest` with an ordered `blocks[]` list. **Order-preservation is an enforced invariant** (invariant 30): blocks in `ChapterDigest` equal the fetched-section order and are never re-sorted downstream. All LLM nodes default to `gpt-5.4-nano-2026-03-17`; map dominates cost (one call per section); per-node override via `stageModels` / `CHAPTER_*_MODEL`. See [`docs/services/chat-features/52-chapter-modes.md`](../services/chat-features/52-chapter-modes.md).

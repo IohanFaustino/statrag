@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Chat &amp; deep-tutor</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="">
+<header>
+  <h1>statrag — <span class="accent">Chat &amp; deep-tutor</span></h1>
+  <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
+</header>
+<aside id="side" class="side"></aside>
+<main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §1  MODES
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="modes">
+    <h2>Modes</h2>
+    <p>Registered in <code>src/services/chat/modes.py</code> via <code>register_all_modes()</code> (idempotent; auto-called on import). Four modes currently live in <code>ModeRegistry</code>.</p>
+    <table>
+      <tr><th>Mode id</th><th>arch</th><th>Output schema</th><th>Model tier</th><th>Memory</th><th>Purpose</th></tr>
+      <tr>
+        <td><code>tutor</code></td>
+        <td>single (tool-loop)</td>
+        <td><code>TutorAnswer</code></td>
+        <td>nano</td>
+        <td>auto</td>
+        <td>Deep-tutor pipeline — multi-aspect structured explanation with citations, math, and figures. Default mode.</td>
+      </tr>
+      <tr>
+        <td><code>qa</code></td>
+        <td>multi (state-graph)</td>
+        <td><code>QAAnswer</code></td>
+        <td>nano</td>
+        <td>off</td>
+        <td>Punctual Q&amp;A — scope→retrieve→generate→verify graph. Lean answer, no aspect cards.</td>
+      </tr>
+      <tr>
+        <td><code>facilitate</code></td>
+        <td>multi (state-graph)</td>
+        <td><code>FacilitateDigest</code></td>
+        <td>nano</td>
+        <td>off</td>
+        <td>Concept-map mode — clarify-not-expand; map→retrieve→teach→verify per section; [[cN]] concept anchors + [[fN]] formula anchors (KaTeX); body always shorter than source.</td>
+      </tr>
+      <tr>
+        <td><code>resume</code></td>
+        <td>multi (state-graph)</td>
+        <td><code>ChapterDigest</code></td>
+        <td>nano</td>
+        <td>off</td>
+        <td>Chapter resume mode — same runner as facilitate, different prompt; continues from a checkpoint.</td>
+      </tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/modes.py:153–225</code></p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §2  DEEP-TUTOR PIPELINE  (mermaid diagram)
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="pipeline">
+    <h2>Deep-tutor pipeline</h2>
+    <p>Verified from <code>src/services/chat/agents/deep_tutor.py::run_deep_tutor</code> (lines 2176–2566). Stage order below reflects the actual coroutine execution order, not docs.</p>
+
+    <div class="diagram-wrap">
+      <div class="mermaid" data-src="flowchart TD
+  Q[Question] --> QP[Query planner - nano - concepts + queries + facets]
+  QP -->|parallel| MQ[Multi-query retrieval xN - RRF]
+  QP -->|parallel| RW[Raw-query wide pull]
+  MQ --> RRFM[RRF merge]
+  RW --> RRFM
+  RRFM --> DS[Density select + rerank + adjacent sections]
+  DS --> AD[Author diversity - round-robin by author group]
+  AD --> CC{Coverage check - nano - facets supported?}
+  CC -. missing facets - re-query cap 1 .-> RRFM
+  CC -->|ok| FJ[Figure judge - T1 caption nano - T2 vision borderline]
+  CC -->|ok| PL[Planner - synthesis plan - thesis + contrasts + tasks]
+  FJ --> WF{Drafting workflow}
+  PL --> WF
+  WF -->|single| DFT[Single draft - streaming structured output]
+  WF -->|orchestrator| WK[Workers per author in parallel - Synthesizer]
+  WF -->|organize| ORG[Long-context organizer - deepseek-v4-pro]
+  DFT --> VE[Vision explain - gpt-4o-mini default]
+  WK --> VE
+  ORG --> VE
+  VE --> ANS[Answer - SSE]
+  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style CC fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style WF fill:#1a1e2a,stroke:#4D6BFE,color:#fff">flowchart TD
+  Q[Question] --> QP[Query planner - nano - concepts + queries + facets]
+  QP -->|parallel| MQ[Multi-query retrieval xN - RRF]
+  QP -->|parallel| RW[Raw-query wide pull]
+  MQ --> RRFM[RRF merge]
+  RW --> RRFM
+  RRFM --> DS[Density select + rerank + adjacent sections]
+  DS --> AD[Author diversity - round-robin by author group]
+  AD --> CC{Coverage check - nano - facets supported?}
+  CC -. missing facets - re-query cap 1 .-> RRFM
+  CC -->|ok| FJ[Figure judge - T1 caption nano - T2 vision borderline]
+  CC -->|ok| PL[Planner - synthesis plan - thesis + contrasts + tasks]
+  FJ --> WF{Drafting workflow}
+  PL --> WF
+  WF -->|single| DFT[Single draft - streaming structured output]
+  WF -->|orchestrator| WK[Workers per author in parallel - Synthesizer]
+  WF -->|organize| ORG[Long-context organizer - deepseek-v4-pro]
+  DFT --> VE[Vision explain - gpt-4o-mini default]
+  WK --> VE
+  ORG --> VE
+  VE --> ANS[Answer - SSE]
+  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style CC fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style WF fill:#1a1e2a,stroke:#4D6BFE,color:#fff</div>
+    </div>
+
+    <p class="caption">
+      <strong>Drift notes vs hint diagram:</strong>
+      (1) The hint diagram showed a single "Multi-query retrieval" node. The code runs two parallel tasks: <code>extract_concepts_ex</code> (query planner) and <code>_wide_candidates</code> (raw-query anchor) — both launch simultaneously before the planner result is known. (2) Hint showed one Coverage loop-back edge; the code skips coverage for "simple" questions (perspectives &lt;= 1, &lt; 4 facets, no formula facet) — so the loop has an implicit gate. (3) The hint labelled "Planner-Orchestrator" as one node; the code separates the <em>synthesis plan</em> step (which feeds all workflows) from the per-workflow drafting. (4) tutorPipeline.ts says vision_explain is "on by default" but code default is "lazy" (TUTOR_DEEP_VISION_EXPLAIN=lazy) — off unless explicitly set to "1". This is a drift between the modal card label and the actual default.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §3  STAGES
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="stages">
+    <h2>Stages</h2>
+    <table>
+      <tr><th>Stage</th><th>File : lines (approx)</th><th>Purpose</th></tr>
+      <tr>
+        <td>Query planner (expansion)</td>
+        <td><code>deep_tutor.py:1059–1104</code></td>
+        <td>One nano LLM call: extracts concepts, targeted retrieval queries (up to 4), facets the answer must cover (up to 6), and a perspectives budget for author diversity. Falls back to keyword heuristic on failure.</td>
+      </tr>
+      <tr>
+        <td>Raw-query wide pull (parallel)</td>
+        <td><code>deep_tutor.py:1112–1122</code></td>
+        <td>asyncio task launched in parallel with the query planner. Wide RRF pull (pool=30 default) against all matching book collections, no rerank.</td>
+      </tr>
+      <tr>
+        <td>Multi-query retrieval + RRF merge</td>
+        <td><code>deep_tutor.py:1153–1166, 1125–1137</code></td>
+        <td>Fan-out the planner's queries in parallel; each produces a ranked pool. Pools are RRF-fused (k=60) and merged with the raw-query anchor pool. Simple-tier questions drop the "related-framings" query (last in list).</td>
+      </tr>
+      <tr>
+        <td>Density select + rerank + adjacent sections</td>
+        <td><code>deep_tutor.py:1211–1420</code></td>
+        <td>Score candidates by concept TF (alpha=0.6), select top sections (default 4), expand each section's chunks + fetch sibling sections. Cross-encoder reranker trims to final_top_n=8. Author-diversity round-robin applied here.</td>
+      </tr>
+      <tr>
+        <td>Author diversity</td>
+        <td><code>deep_tutor.py:1278–1418</code> + <code>retrievers/diversity.py</code></td>
+        <td>Round-robin selection by author group (year-spread tiebreak); stratified fill for under-represented authors; section-parent (chapter) diversity tiebreak as secondary.</td>
+      </tr>
+      <tr>
+        <td>Coverage check (CRAG-lite)</td>
+        <td><code>agents/coverage.py:29–120</code></td>
+        <td>Grades selected sources against planner facets via nano LLM. Re-queries missing facets (cap 1 round). Skipped for "simple" questions (perspectives &lt;= 1, &lt; 4 facets, no formula facet). Gate: TUTOR_COVERAGE_CHECK=1.</td>
+      </tr>
+      <tr>
+        <td>Figure judge (T1 + T2)</td>
+        <td><code>agents/image_judge.py:1–300</code></td>
+        <td>T1: caption-only nano LLM judges include/role/confidence/aspect_hint. T2: vision LLM (gpt-4o-mini) for borderline confidence (0.4–0.7). Max 3 approved figures. Controlled by TUTOR_DEEP_IMAGES=1.</td>
+      </tr>
+      <tr>
+        <td>Planner — synthesis plan</td>
+        <td><code>deep_tutor.py:1492–1558</code></td>
+        <td>One structured LLM call: builds SynthesisPlan (thesis + author contrasts + worker tasks). Runs concurrently with image judge. Skipped for simple-tier questions. Gate: TUTOR_SYNTHESIS_PLAN=1.</td>
+      </tr>
+      <tr>
+        <td>Drafting workflow — single</td>
+        <td><code>deep_tutor.py:1616–1651</code></td>
+        <td>Default. One streaming structured LLM call → DeepTutorAnswer. OpenAI path uses structured streaming API; non-OpenAI uses JSON-mode text stream + tolerant parse.</td>
+      </tr>
+      <tr>
+        <td>Drafting workflow — orchestrator</td>
+        <td><code>agents/orchestrator_workers.py</code></td>
+        <td>Sources grouped by author. One worker LLM per author (parallel) produces AuthorBrief. A synthesizer integrates briefs into DeepTutorAnswer, comparing authors explicitly. Falls back to single if fewer than 2 authors.</td>
+      </tr>
+      <tr>
+        <td>Drafting workflow — organize</td>
+        <td><code>deep_tutor.py:1654–1688, 2425–2440</code></td>
+        <td>Builds enlarged token-budgeted pool (up to TUTOR_ORGANIZE_POOL=60 chunks, budget 120k tokens). Passes it to deepseek-v4-pro (TUTOR_ORGANIZE_MODEL) to organize formulas + central decompositions into aspect fields.</td>
+      </tr>
+      <tr>
+        <td>Optional critique + refine</td>
+        <td><code>deep_tutor.py:1806–1848, 2458–2480</code></td>
+        <td>Off by default (TUTOR_DEEP_CRITIQUE=0). Critiques draft for missing concepts; re-retrieves and re-drafts up to TUTOR_DEEP_MAX_REFINE=1 extra times.</td>
+      </tr>
+      <tr>
+        <td>Vision explain</td>
+        <td><code>deep_tutor.py:1918–1975</code></td>
+        <td>Reads each placed figure with a vision model. Tri-state: "1" = explain top figure only; "lazy" (default) = skip, fall back to caption+judge_reason; "0" = off. Model: TUTOR_DEEP_VISION_MODEL=gpt-4o-mini.</td>
+      </tr>
+      <tr>
+        <td>Finalize / convert</td>
+        <td><code>deep_tutor.py:1978–2104</code></td>
+        <td>_convert_to_tutor_answer: LaTeX repair (post-repair + wrap-bare-math), figure placement (token-overlap scoring), citation reconciliation + marker gap-fill, math-block lift fallback, Groq LaTeX polish pass.</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §4  KNOBS  (TUTOR_* env vars)
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="knobs">
+    <h2>Knobs — TUTOR_* env vars</h2>
+    <p>All from <code>src/services/chat/agents/deep_tutor.py</code> and <code>agents/coverage.py</code> and <code>agents/image_judge.py</code>. All read at module import time.</p>
+    <table>
+      <tr><th>Variable</th><th>Default</th><th>File:line</th><th>Effect</th></tr>
+      <tr><td><code>TUTOR_DEEP_CRITIQUE</code></td><td><code>0</code></td><td><code>deep_tutor.py:598</code></td><td>Enable optional critique+refine loop after draft.</td></tr>
+      <tr><td><code>TUTOR_DEEP_MAX_REFINE</code></td><td><code>1</code></td><td><code>deep_tutor.py:599</code></td><td>Max extra refine iterations when critique finds gaps.</td></tr>
+      <tr><td><code>TUTOR_DEEP_TOP_SECTIONS</code></td><td><code>4</code></td><td><code>deep_tutor.py:600</code></td><td>Max top-density sections to expand for chunk retrieval.</td></tr>
+      <tr><td><code>TUTOR_DEEP_FINAL_TOP_N</code></td><td><code>8</code></td><td><code>deep_tutor.py:601</code></td><td>Max chunks passed to the draft after rerank trim.</td></tr>
+      <tr><td><code>TUTOR_DEEP_MAX_CHUNKS_PER_SECTION</code></td><td><code>6</code></td><td><code>deep_tutor.py:602</code></td><td>Max extra chunks fetched per section during expansion.</td></tr>
+      <tr><td><code>TUTOR_DEEP_MAX_TOKENS</code></td><td><code>16000</code></td><td><code>deep_tutor.py:603</code></td><td>max_completion_tokens for draft (clamped to 8192 for Groq).</td></tr>
+      <tr><td><code>TUTOR_DEEP_TEMPERATURE</code></td><td><code>0.4</code></td><td><code>deep_tutor.py:781</code></td><td>Draft temperature (deterministic plan/judge/coverage calls stay at 0.0).</td></tr>
+      <tr><td><code>TUTOR_DRAFT_MODEL</code></td><td>openai_model_full</td><td><code>deep_tutor.py:788</code></td><td>Override draft model (default = full OpenAI model, not nano).</td></tr>
+      <tr><td><code>TUTOR_DEEP_POOL</code></td><td><code>30</code></td><td><code>deep_tutor.py:808</code></td><td>Wide candidate pool size for each retrieval query.</td></tr>
+      <tr><td><code>TUTOR_DEEP_IMAGES</code></td><td><code>1</code></td><td><code>deep_tutor.py:809</code></td><td>Enable/disable figure judge and image branch entirely.</td></tr>
+      <tr><td><code>TUTOR_DEEP_VISION_EXPLAIN</code></td><td><code>lazy</code></td><td><code>deep_tutor.py:818</code></td><td>Tri-state: "1" = vision-explain top figure; "lazy" = skip (caption fallback); "0" = off.</td></tr>
+      <tr><td><code>TUTOR_DEEP_VISION_MODEL</code></td><td><code>gpt-4o-mini</code></td><td><code>deep_tutor.py:867</code></td><td>Vision model for vision-explain stage and T2 image judge.</td></tr>
+      <tr><td><code>TUTOR_SYNTHESIS_PLAN</code></td><td><code>1</code></td><td><code>deep_tutor.py:881</code></td><td>Enable planner / synthesis-plan stage (thesis + contrasts + tasks).</td></tr>
+      <tr><td><code>TUTOR_WORKFLOW</code></td><td><code>single</code></td><td><code>deep_tutor.py:899</code></td><td>Drafting workflow: "single", "orchestrator", or "organize".</td></tr>
+      <tr><td><code>TUTOR_WORKER_MODEL</code></td><td>nano</td><td><code>deep_tutor.py:900</code></td><td>Model for orchestrator-workers (orchestrator + per-author workers).</td></tr>
+      <tr><td><code>TUTOR_ORGANIZE_MODEL</code></td><td>deepseek_model</td><td><code>deep_tutor.py:904</code></td><td>Model for long-context organizer workflow.</td></tr>
+      <tr><td><code>TUTOR_ORGANIZE_MAX_TOKENS</code></td><td><code>120000</code></td><td><code>deep_tutor.py:905</code></td><td>Token budget (chars/4) for organize pool construction.</td></tr>
+      <tr><td><code>TUTOR_ORGANIZE_POOL</code></td><td><code>60</code></td><td><code>deep_tutor.py:906</code></td><td>Max chunks in the organizer source pool before token trim.</td></tr>
+      <tr><td><code>TUTOR_DEEP_IMAGE_POOL</code></td><td><code>6</code></td><td><code>deep_tutor.py:918</code></td><td>Number of image candidates fetched for the figure judge.</td></tr>
+      <tr><td><code>TUTOR_DIVERSITY</code></td><td><code>1</code></td><td><code>deep_tutor.py:927</code></td><td>Enable author diversity globally.</td></tr>
+      <tr><td><code>TUTOR_DIVERSITY_TARGET_AUTHORS</code></td><td><code>3</code></td><td><code>deep_tutor.py:928</code></td><td>Legacy fallback cap for distinct authors (kept for compat).</td></tr>
+      <tr><td><code>TUTOR_DIVERSITY_MAX_AUTHORS</code></td><td><code>6</code></td><td><code>deep_tutor.py:929</code></td><td>Hard ceiling for distinct authors (max of target, 6).</td></tr>
+      <tr><td><code>TUTOR_DIVERSITY_DEFAULT</code></td><td><code>auto</code></td><td><code>deep_tutor.py:931</code></td><td>Default diversity mode: "auto" (concept model suggests count), "off", or fixed int.</td></tr>
+      <tr><td><code>TUTOR_DEEP_WARM</code></td><td><code>0</code></td><td><code>deep_tutor.py:963</code></td><td>Pre-warm reranker in background thread on import (off by default; avoids meta-tensor race).</td></tr>
+      <tr><td><code>TUTOR_MULTI_QUERY</code></td><td><code>1</code></td><td><code>deep_tutor.py:1141</code></td><td>Enable multi-query fan-out from planner queries + RRF merge.</td></tr>
+      <tr><td><code>TUTOR_ADAPTIVE_ROUTING</code></td><td><code>1</code></td><td><code>deep_tutor.py:1145</code></td><td>Skip synthesis plan + related-framings query for simple questions (perspectives &lt;= 1).</td></tr>
+      <tr><td><code>TUTOR_DENSITY_ALPHA</code></td><td><code>0.6</code></td><td><code>deep_tutor.py:1148</code></td><td>Weight of concept TF vs RRF score in section scoring (alpha in _section_score).</td></tr>
+      <tr><td><code>TUTOR_NEIGHBOR_EXPAND</code></td><td><code>1</code></td><td><code>deep_tutor.py:1150</code></td><td>Enable adjacent-section (sibling) expansion; rerank is the survival gate.</td></tr>
+      <tr><td><code>TUTOR_COVERAGE_CHECK</code></td><td><code>1</code></td><td><code>coverage.py:29</code></td><td>Enable coverage check + targeted re-query stage.</td></tr>
+      <tr><td><code>TUTOR_DEEP_IMAGES_MAX</code></td><td><code>3</code></td><td><code>image_judge.py:40</code></td><td>Max approved figures returned by the judge.</td></tr>
+      <tr><td><code>TUTOR_DEEP_VISION_MAX</code></td><td><code>2</code></td><td><code>image_judge.py:41</code></td><td>Max T2 vision LLM calls per query.</td></tr>
+      <tr><td><code>TUTOR_DEEP_VISION_DISABLE</code></td><td><code>0</code></td><td><code>image_judge.py:42</code></td><td>Set to "1" to disable T2 vision judge entirely.</td></tr>
+      <tr><td><code>TUTOR_DEEP_TIER1_INCLUDE</code></td><td><code>0.7</code></td><td><code>image_judge.py:43</code></td><td>T1 confidence threshold to auto-include a figure without T2.</td></tr>
+      <tr><td><code>TUTOR_DEEP_TIER1_EXCLUDE</code></td><td><code>0.4</code></td><td><code>image_judge.py:44</code></td><td>T1 confidence threshold to auto-exclude (below = reject immediately).</td></tr>
+      <tr><td><code>TUTOR_FREE_TEXT</code></td><td>unset</td><td><code>mode_impls/tutor.py:61</code></td><td>If set, skip book-filter validation in the legacy tutor tool-loop.</td></tr>
+      <tr><td><code>TUTOR_DEEP_MODE</code></td><td><code>1</code></td><td><code>router.py:244</code></td><td>Route tutor mode through deep_tutor pipeline (set to "0" to use legacy single-agent path).</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §5  PROVIDERS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="providers">
+    <h2>Providers</h2>
+    <p>Routing logic in <code>src/services/chat/llm/router.py:239–261</code>. All non-OpenAI providers are chat-only; embeddings and image captioning always use OpenAI.</p>
+    <table>
+      <tr><th>Provider</th><th>Client</th><th>Routing rule</th><th>Chat</th><th>Ingest-enrich</th><th>Models (registered)</th><th>Notes</th></tr>
+      <tr>
+        <td>OpenAI</td>
+        <td><code>OpenAIChat</code></td>
+        <td>prefix "gpt-*" or unknown</td>
+        <td>yes</td>
+        <td>yes (embeddings always OAI)</td>
+        <td>gpt-4o, gpt-4o-mini, gpt-5.4-nano-2026-03-17, gpt-5.4-2026-03-05</td>
+        <td>Supports structured streaming API (DeepTutorAnswer). Draft default = gpt-5.4-nano or full model.</td>
+      </tr>
+      <tr>
+        <td>DeepSeek</td>
+        <td><code>DeepSeekChat</code></td>
+        <td>prefix "deepseek"</td>
+        <td>yes</td>
+        <td>yes (ingestion enrichment default)</td>
+        <td>deepseek-chat, deepseek-reasoner, deepseek-v4-pro</td>
+        <td>Chat path uses JSON-mode text stream + tolerant parse (no structured output). Organize workflow uses deepseek-v4-pro by default.</td>
+      </tr>
+      <tr>
+        <td>Groq</td>
+        <td><code>GroqChat</code></td>
+        <td>membership in GROQ_MODEL_IDS set</td>
+        <td>yes</td>
+        <td>no</td>
+        <td>meta-llama/llama-4-scout-17b-16e-instruct, llama-3.3-70b-versatile, openai/gpt-oss-120b, openai/gpt-oss-20b</td>
+        <td>Membership routing avoids prefix collision: "openai/gpt-oss-*" would match OpenAI by prefix. Max completion tokens capped at 8192. Groq draft triggers LaTeX polish pass via OpenAI nano.</td>
+      </tr>
+      <tr>
+        <td>Google (Gemini)</td>
+        <td><code>GeminiChat</code></td>
+        <td>prefix "gemini"</td>
+        <td>yes</td>
+        <td>no</td>
+        <td>gemini-2.5-flash, gemini-2.5-pro</td>
+        <td>Chat-only. 1M context window. Uses OpenAI-compatible API via gemini_base_url.</td>
+      </tr>
+      <tr>
+        <td>Alibaba (Qwen)</td>
+        <td><code>QwenChat</code></td>
+        <td>prefix "qwen"</td>
+        <td>yes</td>
+        <td>no</td>
+        <td>qwen-plus, qwen-max, qwen-turbo</td>
+        <td>Chat-only. 1M context window on plus/turbo. Uses OpenAI-compatible API via qwen_base_url.</td>
+      </tr>
+    </table>
+    <p class="caption">Source: <code>src/services/chat/llm/router.py:35–261</code></p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §6  STREAMING — SSE + RESUMABLE RUNS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="streaming">
+    <h2>Streaming — SSE &amp; resumable runs</h2>
+    <p>SSE endpoints in <code>src/services/chat/api.py</code>. Run manager in <code>src/services/chat/runs.py</code>.</p>
+
+    <table>
+      <tr><th>Route</th><th>Method</th><th>Purpose</th></tr>
+      <tr>
+        <td><code>/api/chat</code></td>
+        <td>POST</td>
+        <td>Start (or attach to) a chat turn. With <code>conversationId</code>: launches a detached resumable run via <code>runs.start_run()</code>; generation survives client disconnect. Without <code>conversationId</code>: ephemeral connection-bound stream (legacy path).</td>
+      </tr>
+      <tr>
+        <td><code>/api/chat/{conv_id}/stream</code></td>
+        <td>GET</td>
+        <td>Resume an in-flight or finished run, replaying events after <code>?after=N</code> (monotonic seq). Returns an immediately-closing stream when no run exists for the conversation.</td>
+      </tr>
+      <tr>
+        <td><code>/api/chat/{conv_id}/status</code></td>
+        <td>GET</td>
+        <td>Resume handshake: returns <code>{exists, active, done, seq}</code>. Used by the client before subscribing to decide whether to replay or fetch persisted transcript.</td>
+      </tr>
+      <tr>
+        <td><code>/api/models</code></td>
+        <td>GET</td>
+        <td>Returns full provider/model registry (list of ModelProvider). Used by the picker UI.</td>
+      </tr>
+      <tr>
+        <td><code>/api/health</code></td>
+        <td>GET</td>
+        <td>Liveness probe — always 200 if process is up.</td>
+      </tr>
+      <tr>
+        <td><code>/api/figures</code></td>
+        <td>GET</td>
+        <td>Serve a figure image. Path must resolve under a whitelisted root and have an image extension. Prevents path traversal.</td>
+      </tr>
+    </table>
+
+    <h3>Resumable run invariants</h3>
+    <ul>
+      <li><strong>Monotonic seq:</strong> every buffered event gets a strictly increasing integer <code>seq</code> (1-based), injected by the run driver. The SSE <code>id</code> field is set to <code>seq</code> for native EventSource reconnection. (<code>runs.py:99–105</code>)</li>
+      <li><strong>At most 1 active run / conversation:</strong> <code>start_run()</code> returns the in-flight run if one already exists — never starts a duplicate. (<code>runs.py:145–151</code>)</li>
+      <li><strong>Run persists with zero subscribers:</strong> the background asyncio.Task drains to completion regardless of subscriber count; the assistant row is persisted on completion. (<code>runs.py:92–111</code>)</li>
+      <li><strong>TTL GC:</strong> finished runs are garbage-collected after 300 s (RUN_TTL_SECONDS). Late subscribers within that window still get full replay. (<code>runs.py:35</code>)</li>
+      <li><strong>Restart loss:</strong> runs are process-local (in-memory); a backend restart loses an in-flight run. Persisted turns (SQLite) survive. (<code>runs.py:19–20</code>)</li>
+    </ul>
+
+    <h3>SSE event types (in order)</h3>
+    <p>Emitted by <code>run_deep_tutor</code> in this order: <code>meta</code>, <code>token</code> (streaming, repeated), <code>structured_output</code> (schema=TutorAnswer), <code>sources_full</code>, <code>figures_full</code>, <code>figures_meta</code>, <code>retrieval_meta</code>, <code>usage</code>, <code>done</code>. On error: <code>error</code> + <code>done</code>.</p>
+    <h3>clarify event — book scope resolve (facilitate / resume / qa)</h3>
+    <p>Before any retrieval, <code>facilitate</code>, <code>resume</code>, and <code>qa</code> modes run <strong>parse + resolve scope</strong> (<code>_scope.py::resolve_book</code>): a catalog-in-prompt LLM call that maps the user's natural-language book reference to a slug + chapter. A compact catalog (slug · name · authors_short · field · chapters) is injected into <code>CHAPTER_PARSE_PROMPT</code>; numeric section refs are expanded deterministically.</p>
+    <p>When the match is ambiguous or absent, <code>maybe_clarify()</code> emits a terminal <code>clarify</code> event — followed only by <code>done</code>, no <code>structured_output</code>:</p>
+    <table>
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td><code>reason</code></td><td><code>book_unknown</code> / <code>book_ambiguous</code> / <code>chapter_missing</code></td></tr>
+      <tr><td><code>message</code></td><td>Human-readable clarification prompt rendered as a card with candidate chips</td></tr>
+      <tr><td><code>candidates</code></td><td>Up to 3 books: <code>{slug, name, authors_short, chapters}</code>. Clicking a chip re-sends with <code>book_confidence=1.0</code></td></tr>
+      <tr><td><code>chapter_guess</code></td><td>Inferred chapter id (may be null)</td></tr>
+      <tr><td><code>sections_guess</code></td><td>Expanded numeric section ids (may be empty)</td></tr>
+    </table>
+    <p>A confident single match (<code>book_confidence ≥ BOOK_CONFIRM_CUTOFF=0.6</code>, one candidate) runs the pipeline immediately. A user-selected book is always <code>book_confidence=1.0</code>. Kill-switch: <code>CHAPTER_CLARIFY=0</code>. See <a href="../../services/chat-features/52-book-scope-resolve.md">feature 52</a>.</p>
+
+    <h3>Facilitate concept-map pipeline (feature 53)</h3>
+    <p><code>facilitate</code> now teaches by <strong>clarifying, not expanding</strong>. The body of each block is shorter than its source section; extra detail lives in concept anchors (<code>[[cN]]</code> modal) and formula anchors (<code>[[fN]]</code> KaTeX modal). SSE emits <code>structured_output{schema:"FacilitateDigest"}</code>. Stage keys: <code>map</code>, <code>retrieve</code>, <code>teach</code>, <code>verify</code>. <code>resume</code> is unchanged (emits <code>ChapterDigest</code>).</p>
+    <div class="diagram-wrap">
+      <div class="mermaid" data-src="flowchart TD
+  U[user message] --> PR[parse + resolve scope]
+  PR --> FE[fetch — ordered sections page_from]
+  FE --> MAP[map — concept-map + key points]
+  MAP -->|explained concepts| TCH[teach — short paragraphs + cN fN anchors]
+  MAP -->|referenced concepts| RTV[retrieve — adaptive sub-retrieval]
+  RTV --> TCH
+  TCH --> VRF[verify — grounding verdict]
+  VRF --> FD[FacilitateDigest — SSE structured_output]
+  style MAP fill:#1a1e2a,stroke:#4D6BFE,color:#fff
+  style RTV fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#3a1d1f,stroke:#E5484D,color:#fff">flowchart TD
+  U[user message] --> PR[parse + resolve scope]
+  PR --> FE[fetch — ordered sections page_from]
+  FE --> MAP[map — concept-map + key points]
+  MAP -->|explained concepts| TCH[teach — short paragraphs + cN fN anchors]
+  MAP -->|referenced concepts| RTV[retrieve — adaptive sub-retrieval]
+  RTV --> TCH
+  TCH --> VRF[verify — grounding verdict]
+  VRF --> FD[FacilitateDigest — SSE structured_output]
+  style MAP fill:#1a1e2a,stroke:#4D6BFE,color:#fff
+  style RTV fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#3a1d1f,stroke:#E5484D,color:#fff</div>
+    </div>
+    <p>Adaptive sub-retrieval escalation (per referenced concept): (1) same author + nearest prior section, formal-statement boost → (2) same author anywhere → (3) other authors. Escalates only when score &lt; <code>CONCEPT_MIN_SCORE=0.30</code>. See <a href="../../services/chat-features/53-facilitate-concept-map.md">feature 53</a>.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       §7  OUTPUT SCHEMAS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="schemas">
+    <h2>Output schemas</h2>
+    <p>Defined in <code>src/services/chat/schemas/output.py</code>.</p>
+
+    <h3>DeepTutorAnswer (LLM response_format for draft pass)</h3>
+    <p>Six required aspect fields + citation list + math_blocks + figures. The orchestrator converts this to <code>TutorAnswer</code> for the frontend.</p>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>tldr</code></td><td>str (required)</td><td>2-3 sentence direct answer + one-sentence roadmap of sections. Always populated.</td></tr>
+      <tr><td><code>definition</code></td><td>str (required)</td><td>Markdown paragraph defining the concept.</td></tr>
+      <tr><td><code>formal_statement</code></td><td>str (required)</td><td>Verbatim theorem/definition from sources (blockquote); or empty string (heading dropped when empty).</td></tr>
+      <tr><td><code>example_intuition</code></td><td>str (required)</td><td>Three cases analysed, then explicit "the intuition here is that …".</td></tr>
+      <tr><td><code>applications</code></td><td>str (required)</td><td>Corpus-grounded use-cases grouped by domain.</td></tr>
+      <tr><td><code>further_reading</code></td><td>str (required)</td><td>Related topics with citations + 2-3 open research questions.</td></tr>
+      <tr><td><code>citations</code></td><td>list[TutorCitation]</td><td>Per-claim inline citation spans (index, chunkId, authors_short, year, book_name, chapter, section, page_from, page_to, quote).</td></tr>
+      <tr><td><code>math_blocks</code></td><td>list[str]</td><td>Display-math strings ($$…$$) lifted for the formula box UI. Fallback: lifted from inline math when empty.</td></tr>
+      <tr><td><code>figures</code></td><td>list[FigureRef]</td><td>Approved figures (ref, book, chapter, caption, url, vision_used, vision_answer, aspect_hint, figure_role, judge_confidence, judge_reason).</td></tr>
+    </table>
+
+    <h3>TutorAnswer (frontend-facing, produced by _convert_to_tutor_answer)</h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>text</code></td><td>str</td><td>Assembled markdown (all aspects joined with headings).</td></tr>
+      <tr><td><code>sections</code></td><td>list[str]</td><td>H2 headings chosen (for table-of-contents).</td></tr>
+      <tr><td><code>citations</code></td><td>list[TutorCitation]</td><td>Reconciled, marker-gap-filled citation list.</td></tr>
+      <tr><td><code>math_blocks</code></td><td>list[str]</td><td>Display-math strings for formula box; lifted from inline if needed.</td></tr>
+      <tr><td><code>figures</code></td><td>list[FigureRef]</td><td>Approved figures (from judge, not LLM hallucination).</td></tr>
+      <tr><td><code>aspects</code></td><td>dict[str, str]</td><td>Raw per-aspect strings (tldr, definition, formal_statement, example_intuition, applications, further_reading).</td></tr>
+      <tr><td><code>quality</code></td><td>dict[str, float]</td><td>Audit signals: example_relevance (lexical or embedding cosine), formal_verbatim_match.</td></tr>
+    </table>
+
+    <h3>ChapterDigest (facilitate + resume modes)</h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>mode</code></td><td>Literal["facilitate","resume"]</td><td>Which chapter mode produced this digest.</td></tr>
+      <tr><td><code>scope</code></td><td>ChapterScope</td><td>Resolved book_slug, chapter_id, requested subtopics, closest-match mapping.</td></tr>
+      <tr><td><code>intro</code></td><td>str</td><td>Chapter-level intro paragraph.</td></tr>
+      <tr><td><code>blocks</code></td><td>list[ChapterBlock]</td><td>Ordered subtopic blocks (h2_path, section_id, body, page_from, page_to). List order IS chapter order.</td></tr>
+      <tr><td><code>outro</code></td><td>str</td><td>Closing summary paragraph.</td></tr>
+      <tr><td><code>citations</code></td><td>list[TutorCitation]</td><td>Reuses TutorCitation so citation cards render unchanged.</td></tr>
+      <tr><td><code>math_blocks</code></td><td>list[str]</td><td>Display-math strings.</td></tr>
+      <tr><td><code>grounding</code></td><td>dict</td><td>Verify-node verdict.</td></tr>
+    </table>
+
+    <h3>FacilitateDigest (facilitate mode — concept-map redesign)</h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>mode</code></td><td>Literal["facilitate"]</td><td>Always "facilitate".</td></tr>
+      <tr><td><code>scope</code></td><td>ChapterScope</td><td>Resolved book_slug, chapter_id, subtopics.</td></tr>
+      <tr><td><code>blocks</code></td><td>list[FacilitateBlock]</td><td>Ordered blocks (page_from order, never re-sorted). Each has body (short), key_points, anchors, citations.</td></tr>
+      <tr><td><code>citations</code></td><td>list[TutorCitation]</td><td>Global flattened citation list.</td></tr>
+      <tr><td><code>math_blocks</code></td><td>list[str]</td><td>Display-math strings.</td></tr>
+      <tr><td><code>grounding</code></td><td>dict</td><td>Verify-node verdict (advisory).</td></tr>
+    </table>
+    <p>Each <code>FacilitateBlock</code> embeds <code>anchors: list[ConceptAnchor]</code>. A <code>ConceptAnchor</code> has <code>id</code> ("c1"/"f1"), <code>kind</code> ("concept"|"formula"), <code>provenance: list[ConceptProvenance]</code>, and <code>derivation</code> (KaTeX, non-empty for formula anchors). Export to Markdown replaces <code>[[cN]]</code>/<code>[[fN]]</code> with footnotes.</p>
+
+    <p class="caption">Source: <code>src/services/chat/schemas/output.py:1–335</code></p>
+  </section>
+</main>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="sidebar.js"></script>
+</body>
+</html>

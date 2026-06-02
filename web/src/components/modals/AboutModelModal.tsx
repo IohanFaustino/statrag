@@ -16,6 +16,7 @@ interface AboutModelModalProps {
   modelId: string | null;
   providers: ModelProvider[];
   pickerModel: string;
+  recommendedModel: string;
   // Currently-applied config (the modal seeds its editable draft from this).
   stageModels: Partial<Record<StageKey, string>>;
   diversityAuthors: number | "auto";
@@ -30,6 +31,7 @@ export default function AboutModelModal({
   modelId,
   providers,
   pickerModel,
+  recommendedModel,
   stageModels,
   diversityAuthors,
   tutorWorkflow,
@@ -53,6 +55,16 @@ export default function AboutModelModal({
   }, [open]);
 
   if (!open || !modelId) return null;
+
+  const setDefaults = () =>
+    setDraftStageModels((prev) => ({
+      ...prev,
+      expansion: recommendedModel,
+      image_judge: recommendedModel,
+      plan: recommendedModel,
+      draft: recommendedModel,
+      vision_explain: recommendedModel,
+    }));
 
   const dirty =
     JSON.stringify(draftStageModels) !== JSON.stringify(stageModels) ||
@@ -129,6 +141,7 @@ export default function AboutModelModal({
             {dirty ? "Unsaved pipeline changes" : "No changes"}
           </span>
           <div className="about-model__footer-actions">
+            <button type="button" className="about-model__btn about-model__btn--ghost" onClick={setDefaults}>Default</button>
             <button type="button" className="about-model__btn about-model__btn--ghost" onClick={onClose}>
               Cancel
             </button>

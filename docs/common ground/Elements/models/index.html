@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Models</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1>statrag — <span class="accent">Models</span></h1>
+  <div class="sub">Every selectable LLM in the chat layer, from the backend registry. <span class="pill">16 models · 5 providers</span></div>
+</header>
+<main>
+  <section>
+    <h2>All models</h2>
+    <table>
+      <tr><th>Model</th><th>Provider</th><th>Id</th><th>Context</th><th>$ in /1M</th><th>$ out /1M</th><th>Cost tier</th></tr>
+      <tr><td><a href="gpt-4o.html">GPT-4o</a></td><td><span style="color:#10A37F">OpenAI</span></td><td><code>gpt-4o</code></td><td>128k</td><td>$2.50</td><td>$10.00</td><td>$$$</td></tr>
+      <tr><td><a href="gpt-4o-mini.html">GPT-4o mini</a></td><td><span style="color:#10A37F">OpenAI</span></td><td><code>gpt-4o-mini</code></td><td>128k</td><td>$0.15</td><td>$0.60</td><td>$</td></tr>
+      <tr><td><a href="gpt-5.4-nano-2026-03-17.html">GPT-5.4 nano</a></td><td><span style="color:#10A37F">OpenAI</span></td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>200k</td><td>$0.10</td><td>$0.40</td><td>$</td></tr>
+      <tr><td><a href="gpt-5.4-2026-03-05.html">GPT-5.4</a></td><td><span style="color:#10A37F">OpenAI</span></td><td><code>gpt-5.4-2026-03-05</code></td><td>400k</td><td>$5.00</td><td>$15.00</td><td>$$$$</td></tr>
+      <tr><td><a href="deepseek-chat.html">DeepSeek Chat</a></td><td><span style="color:#4D6BFE">DeepSeek</span></td><td><code>deepseek-chat</code></td><td>128k</td><td>$0.27</td><td>$1.10</td><td>$</td></tr>
+      <tr><td><a href="deepseek-reasoner.html">DeepSeek Reasoner</a></td><td><span style="color:#4D6BFE">DeepSeek</span></td><td><code>deepseek-reasoner</code></td><td>128k</td><td>$0.55</td><td>$2.20</td><td>$$</td></tr>
+      <tr><td><a href="deepseek-v4-pro.html">DeepSeek V4 Pro</a></td><td><span style="color:#4D6BFE">DeepSeek</span></td><td><code>deepseek-v4-pro</code></td><td>128k</td><td>$0.55</td><td>$2.20</td><td>$$</td></tr>
+      <tr><td><a href="meta-llama-llama-4-scout-17b-16e-instruct.html">Llama 4 Scout 17B</a></td><td><span style="color:#F55036">Groq</span></td><td><code>meta-llama/llama-4-scout-17b-16e-instruct</code></td><td>128k</td><td>$0.11</td><td>$0.34</td><td>$</td></tr>
+      <tr><td><a href="llama-3.3-70b-versatile.html">Llama 3.3 70B</a></td><td><span style="color:#F55036">Groq</span></td><td><code>llama-3.3-70b-versatile</code></td><td>128k</td><td>$0.59</td><td>$0.79</td><td>$</td></tr>
+      <tr><td><a href="openai-gpt-oss-120b.html">GPT-OSS 120B</a></td><td><span style="color:#F55036">Groq</span></td><td><code>openai/gpt-oss-120b</code></td><td>128k</td><td>$0.15</td><td>$0.75</td><td>$$</td></tr>
+      <tr><td><a href="openai-gpt-oss-20b.html">GPT-OSS 20B</a></td><td><span style="color:#F55036">Groq</span></td><td><code>openai/gpt-oss-20b</code></td><td>128k</td><td>$0.10</td><td>$0.50</td><td>$</td></tr>
+      <tr><td><a href="gemini-2.5-flash.html">Gemini 2.5 Flash</a></td><td><span style="color:#4285F4">Google</span></td><td><code>gemini-2.5-flash</code></td><td>1M</td><td>$0.15</td><td>$0.60</td><td>$</td></tr>
+      <tr><td><a href="gemini-2.5-pro.html">Gemini 2.5 Pro</a></td><td><span style="color:#4285F4">Google</span></td><td><code>gemini-2.5-pro</code></td><td>1M</td><td>$1.25</td><td>$10.00</td><td>$$$</td></tr>
+      <tr><td><a href="qwen-plus.html">Qwen Plus</a></td><td><span style="color:#615CED">Alibaba</span></td><td><code>qwen-plus</code></td><td>1M</td><td>$0.40</td><td>$1.20</td><td>$</td></tr>
+      <tr><td><a href="qwen-max.html">Qwen Max</a></td><td><span style="color:#615CED">Alibaba</span></td><td><code>qwen-max</code></td><td>32k</td><td>$1.60</td><td>$6.40</td><td>$$$</td></tr>
+      <tr><td><a href="qwen-turbo.html">Qwen Turbo</a></td><td><span style="color:#615CED">Alibaba</span></td><td><code>qwen-turbo</code></td><td>1M</td><td>$0.05</td><td>$0.20</td><td>$</td></tr>
+    </table>
+    <p class="caption">Source of truth: <code>src/services/chat/llm/router.py</code> (_PROVIDERS) + <code>cost.py</code>. Click a model for routing, pricing, and pipeline role.</p>
+  </section>
+  <section>
+    <h2>Draft-model battle (2026-05-31)</h2>
+    <div class="verdict v-ok"><b>Winner: qwen-plus</b> — set as <code>TUTOR_DRAFT_MODEL=qwen-plus</code> in <code>.env</code>; ~7.7× cheaper than gpt-5.4 while holding consistency + clean LaTeX. <code>deepseek-v4-pro</code> is the strong #2 / fallback; <code>gpt-5.4</code> (full) is the code-default fallback. See <code>docs/system/changelog.md</code> (2026-05-31).</div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

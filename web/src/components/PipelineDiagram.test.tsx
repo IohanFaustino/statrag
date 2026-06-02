@@ -40,6 +40,9 @@ describe("PipelineDiagram", () => {
     expect(html).not.toContain("<select");
     // draft toggle shows the active picker model name
     expect(html).toContain("GPT-4o");
+    // nodes now show an in-box description line (parity with qa/chapter modals)
+    expect(html).toContain("pipe2__node-desc");
+    expect(html).toContain("Interprets the question");
   });
 
   it("shows the override value once a stage model is set", () => {
@@ -112,8 +115,9 @@ describe("PipelineDiagram", () => {
         onWorkflowChange={() => {}}
       />,
     );
-    // Sublabel annotation must be present on the plan node
-    expect(html).toContain("skipped when simple");
+    // The plan node's skip condition is conveyed via its in-box description
+    // (the old inline sublabel was folded into the desc for layout parity).
+    expect(html).toContain("Skipped when the planner rates the question simple");
     expect(html).toContain("perspectives");
   });
 
@@ -380,6 +384,7 @@ describe("AboutModelModal", () => {
         modelId={null}
         providers={PROVIDERS}
         pickerModel="gpt-4o"
+        recommendedModel="qwen-plus"
         stageModels={{}}
         diversityAuthors={3}
         tutorWorkflow="single"
@@ -397,6 +402,7 @@ describe("AboutModelModal", () => {
         modelId="gpt-4o"
         providers={PROVIDERS}
         pickerModel="gpt-4o"
+        recommendedModel="qwen-plus"
         stageModels={{}}
         diversityAuthors={3}
         tutorWorkflow="single"

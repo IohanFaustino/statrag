@@ -7,10 +7,15 @@ import src.services.chat.retrieval as retrieval
 
 
 class _FakePoint:
+    # __slots__ without `score` makes attribute assignment raise, faithfully
+    # mimicking the real immutable Qdrant `Record` returned by scroll() (a
+    # frozen pydantic model with no `score` field). A plain mutable fake hid the
+    # production crash where the code did `p.score = 0.0`.
+    __slots__ = ("id", "payload")
+
     def __init__(self, pid, payload):
         self.id = pid
         self.payload = payload
-        # deliberately no .score — mimics real Qdrant Record from scroll()
 
 
 def _payload(section_id, h2, page):
@@ -61,12 +66,18 @@ import pytest
 @pytest.mark.asyncio
 async def test_parse_scope_extracts_chapter_and_subtopics(monkeypatch):
     from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import BookResolution, CatalogBook
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
-        return ('{"book_slug":"islp","chapter_id":"ch02",'
-                '"requested_subtopics":["the tradeoff"]}')
+    async def fake_resolve(message, *, selected_slugs, catalog, model=None):
+        return BookResolution(book_slug="islp", book_confidence=1.0,
+                              book_candidates=["islp"], chapter_id="ch02",
+                              requested_subtopics=["the tradeoff"])
 
-    monkeypatch.setattr(ch, "_chat", fake_chat)
+    monkeypatch.setattr(ch, "resolve_book", fake_resolve)
+    monkeypatch.setattr(ch, "parse_catalog",
+                        lambda: [CatalogBook(slug="islp", name="ISLP",
+                                             authors_short="James et al.",
+                                             field="ml_dp", chapters=["ch02"])])
     scope = await ch.parse_scope("explain the tradeoff in ch2", book_slugs=["islp"])
     assert scope.book_slug == "islp"
     assert scope.chapter_id == "ch02"
@@ -76,11 +87,27 @@ async def test_parse_scope_extracts_chapter_and_subtopics(monkeypatch):
 @pytest.mark.asyncio
 async def test_parse_scope_fail_open(monkeypatch):
     from src.services.chat.agents import chapter as ch
+    from src.services.chat.schemas import BookResolution, CatalogBook
 
-    async def boom(messages, *, model, max_tokens, temperature=0.0):
+    # resolve_book itself fail-opens on LLM error; simulate that path
+    async def fake_resolve_boom(message, *, selected_slugs, catalog, model=None):
         raise RuntimeError("llm down")
 
-    monkeypatch.setattr(ch, "_chat", boom)
+    monkeypatch.setattr(ch, "resolve_book", fake_resolve_boom)
+    monkeypatch.setattr(ch, "parse_catalog",
+                        lambda: [CatalogBook(slug="islp", name="ISLP",
+                                             authors_short="James et al.",
+                                             field="ml_dp", chapters=["ch02"])])
+    # parse_scope wraps resolve_book; if resolve_book raises, the scope should still be returned
+    # but since parse_scope is a thin wrapper, exceptions propagate. Test the real fallback:
+    # Use a failing _scope._chat to exercise resolve_book's own fail-open path.
+    import src.services.chat.agents._scope as _scope
+
+    async def boom_chat(messages, *, model, max_tokens, temperature=0.0):
+        raise RuntimeError("llm down")
+
+    monkeypatch.setattr(_scope, "_chat", boom_chat)
+    monkeypatch.setattr(ch, "resolve_book", _scope.resolve_book)
     scope = await ch.parse_scope("ch2 please", book_slugs=["islp"])
     # fail-open: single selected book used, no chapter, whole-chapter intent
     assert scope.book_slug == "islp"
@@ -122,7 +149,7 @@ async def test_resolve_substring_match_no_llm(monkeypatch):
 async def test_resolve_fuzzy_falls_back_to_llm(monkeypatch):
     from src.services.chat.agents import chapter as ch
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return ('{"matches":[{"asked":"the tradeoff","section_id":"2.1",'
                 '"matched_h2":"2.1 | Bias-Variance Trade-Off","score":0.78}]}')
 
@@ -135,21 +162,23 @@ async def test_resolve_fuzzy_falls_back_to_llm(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_map_sections_preserves_order_and_uses_mode_prompt(monkeypatch):
+async def test_map_sections_preserves_order_and_uses_resume_prompt(monkeypatch):
     from src.services.chat.agents import chapter as ch
 
     seen_prompts = []
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         seen_prompts.append(messages[0]["content"])
         return '{"body":"explained","citations":[],"math_blocks":["x^2"]}'
 
     monkeypatch.setattr(ch, "_chat", fake_chat)
     sections = [_src("2.1", "2.1 | A"), _src("2.2", "2.2 | B")]
 
+    # map_sections now always uses CHAPTER_MAP_RESUME_PROMPT (facilitate was removed
+    # from chapter.py; facilitate mode is handled by run_facilitate in facilitate.py).
     blocks_fac, _cites, math = await ch.map_sections(sections, mode="facilitate")
     assert [b.section_id for b in blocks_fac] == ["2.1", "2.2"]  # order preserved
-    assert all("TEACH" in p for p in seen_prompts)
+    assert all("COMPRESS" in p for p in seen_prompts)  # always resume prompt now
     assert "x^2" in math  # math_blocks are threaded through
 
     seen_prompts.clear()
@@ -176,7 +205,7 @@ async def test_stitch_returns_intro_outro(monkeypatch):
     from src.services.chat.agents import chapter as ch
     from src.services.chat.schemas import ChapterBlock
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return '{"intro":"Covers A then B.","outro":"Together they explain X."}'
 
     monkeypatch.setattr(ch, "_chat", fake_chat)
@@ -202,15 +231,26 @@ async def test_ground_fail_open(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_chapter_emits_ordered_digest(monkeypatch):
     from src.services.chat.agents import chapter as ch
-    from src.services.chat.schemas import ChatRequest
+    from src.services.chat.schemas import BookResolution, CatalogBook, ChatRequest
 
     sections = [_src("2.1", "2.1 | A"), _src("2.2", "2.2 | B")]
     monkeypatch.setattr(ch, "fetch_chapter_sections", lambda b, c, **k: sections)
 
+    # resolve_book returns a clean scope — bypasses _scope._chat entirely
+    async def fake_resolve(*a, **k):
+        return BookResolution(book_slug="islp", book_confidence=1.0,
+                              book_candidates=["islp"], chapter_id="ch02",
+                              requested_subtopics=[])
+
+    monkeypatch.setattr(ch, "resolve_book", fake_resolve)
+    # catalog must include ch02 so maybe_clarify doesn't fire the chapter_missing gate
+    monkeypatch.setattr(ch, "parse_catalog",
+                        lambda: [CatalogBook(slug="islp", name="ISLP",
+                                             authors_short="James et al.",
+                                             field="ml_dp", chapters=["ch02"])])
+
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
         sys = messages[0]["content"]
-        if "extract the chapter scope" in sys:
-            return '{"book_slug":"islp","chapter_id":"ch02","requested_subtopics":[]}'
         if "TEACH" in sys or "COMPRESS" in sys:
             return '{"body":"b","citations":[],"math_blocks":[]}'
         if "intro" in sys:
@@ -234,14 +274,23 @@ async def test_run_chapter_emits_ordered_digest(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_chapter_unknown_chapter_is_honest(monkeypatch):
     from src.services.chat.agents import chapter as ch
-    from src.services.chat.schemas import ChatRequest
+    from src.services.chat.schemas import BookResolution, CatalogBook, ChatRequest
 
     monkeypatch.setattr(ch, "fetch_chapter_sections", lambda b, c, **k: [])
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
-        return '{"book_slug":"islp","chapter_id":"ch99","requested_subtopics":[]}'
+    # resolve_book returns ch99 which IS in the catalog — so clarify gate is bypassed,
+    # and the "Chapter not found" safety net fires because fetch returns [].
+    async def fake_resolve(*a, **k):
+        return BookResolution(book_slug="islp", book_confidence=1.0,
+                              book_candidates=["islp"], chapter_id="ch99",
+                              requested_subtopics=[])
 
-    monkeypatch.setattr(ch, "_chat", fake_chat)
+    monkeypatch.setattr(ch, "resolve_book", fake_resolve)
+    # Include ch99 in catalog so chapter_missing gate does NOT fire
+    monkeypatch.setattr(ch, "parse_catalog",
+                        lambda: [CatalogBook(slug="islp", name="ISLP",
+                                             authors_short="James et al.",
+                                             field="ml_dp", chapters=["ch02", "ch99"])])
     req = ChatRequest(message="resume ch99", mode="resume", bookFilter=["islp"])
     events = [e async for e in ch.run_chapter(req)]
     so = next(e for e in events if e["type"] == "structured_output")

@@ -1,10 +1,12 @@
 import React from "react";
-import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, ChapterDigest } from "../types";
+import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, ChapterDigest, ClarifyData, FacilitateDigest } from "../types";
 import { MathBlock, MathInline } from "./Math";
 import { normalizeMathDelimiters } from "./views/TutorView";
 import TutorView from "./views/TutorView";
 import QAAnswerCard from "./QAAnswerCard";
 import ChapterDigestCard from "./ChapterDigestCard";
+import FacilitateDigestCard from "./FacilitateDigestCard";
+import ClarifyCard from "./ClarifyCard";
 import { IconBook, IconDownload } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
@@ -212,6 +214,7 @@ interface AssistantMessageViewProps {
   onExport?: (idx: number) => void;
   streamingPhase?: "idle" | "thinking" | "writing";
   isLast?: boolean;
+  onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
 }
 
 const STRUCTURED_MODES = new Set(["tutor", "qa", "facilitate", "resume"]);
@@ -225,6 +228,7 @@ function AssistantMessageView({
   onExport,
   streamingPhase,
   isLast,
+  onClarifyPick,
 }: AssistantMessageViewProps) {
   const ModeIcon = MODE_ICONS[msg.mode];
   const modeLabel = MODE_LABELS[msg.mode] ?? msg.mode;
@@ -345,8 +349,19 @@ function AssistantMessageView({
             {msg.structuredOutput.schema === "ChapterDigest" && (
               <ChapterDigestCard digest={msg.structuredOutput.data as ChapterDigest} />
             )}
+            {msg.structuredOutput.schema === "FacilitateDigest" && (
+              <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
+            )}
+            {msg.structuredOutput.schema === "Clarify" && (
+              <ClarifyCard
+                data={msg.structuredOutput.data as ClarifyData}
+                onPick={onClarifyPick ?? (() => {})}
+              />
+            )}
           </div>
         )}
+
+        {msg.stopped && <div className="msg__stopped" role="status">Stopped</div>}
       </div>
 
       {onExport && msg.status === "complete" && (
@@ -397,6 +412,7 @@ export interface MessageThreadProps {
   isStreaming?: boolean;
   streamingPhase?: "idle" | "thinking" | "writing";
   conversationLoaded?: boolean;
+  onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
 }
 
 function getDayLabel(): string {
@@ -420,6 +436,7 @@ export default function MessageThread({
   isStreaming = false,
   streamingPhase = "idle",
   conversationLoaded = false,
+  onClarifyPick,
 }: MessageThreadProps) {
   const dayLabel = getDayLabel();
 
@@ -473,6 +490,7 @@ export default function MessageThread({
               forkDisabled={forkDisabled}
               streamingPhase={streamingPhase}
               isLast={i === thread.length - 1}
+              onClarifyPick={onClarifyPick}
             />
           ),
         )}

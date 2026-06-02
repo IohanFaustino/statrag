@@ -1,19 +1,47 @@
 import { describe, it, expect } from "vitest";
-import { CHAPTER_PIPELINE } from "./chapterPipeline";
+import { CHAPTER_PIPELINE, FACILITATE_PIPELINE } from "./chapterPipeline";
 
 describe("CHAPTER_PIPELINE", () => {
-  it("has six ordered nodes ending at ground", () => {
+  it("has the main pipeline nodes in order ending at ground", () => {
     const ids = CHAPTER_PIPELINE.nodes.map((n) => n.id);
-    expect(ids).toEqual(["parse", "fetch", "resolve", "map", "stitch", "ground"]);
+    expect(ids).toContain("parse");
+    expect(ids).toContain("fetch");
+    expect(ids).toContain("resolve");
+    expect(ids).toContain("map");
+    expect(ids).toContain("stitch");
+    expect(ids).toContain("ground");
+    // main chain order
+    const mainIds = ids.filter((id) => id !== "clarify");
+    expect(mainIds).toEqual(["parse", "fetch", "resolve", "map", "stitch", "ground"]);
   });
 
-  it("edges form a single chain through every node", () => {
-    expect(CHAPTER_PIPELINE.edges).toEqual([
-      { from: "parse", to: "fetch" },
-      { from: "fetch", to: "resolve" },
-      { from: "resolve", to: "map" },
-      { from: "map", to: "stitch" },
-      { from: "stitch", to: "ground" },
-    ]);
+  it("edges include the main chain through every node", () => {
+    expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "parse", to: "fetch" });
+    expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "fetch", to: "resolve" });
+    expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "resolve", to: "map" });
+    expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "map", to: "stitch" });
+    expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "stitch", to: "ground" });
   });
+
+  it("parse node is relabeled to parse + resolve scope", () => {
+    const parse = CHAPTER_PIPELINE.nodes.find((n) => n.id === "parse")!;
+    expect(parse.label.toLowerCase()).toContain("resolve");
+  });
+
+  it("has a clarify node reachable from parse", () => {
+    const clarify = CHAPTER_PIPELINE.nodes.find((n) => n.id === "clarify");
+    expect(clarify).toBeTruthy();
+    expect(CHAPTER_PIPELINE.edges).toContainEqual({ from: "parse", to: "clarify" });
+  });
+});
+
+it("facilitate pipeline has map, retrieve, teach, verify nodes", () => {
+  const ids = FACILITATE_PIPELINE.nodes.map((n) => n.id);
+  expect(ids).toEqual(expect.arrayContaining(["parse", "fetch", "map", "retrieve", "teach", "verify"]));
+});
+
+it("facilitate retrieve node is a data node about same-author sub-retrieval", () => {
+  const r = FACILITATE_PIPELINE.nodes.find((n) => n.id === "retrieve")!;
+  expect(r.kind).toBe("data");
+  expect(r.desc.toLowerCase()).toContain("author");
 });

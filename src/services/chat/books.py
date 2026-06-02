@@ -20,7 +20,7 @@ from typing import Any
 import yaml
 from fastapi import APIRouter, HTTPException
 
-from src.services.chat.schemas import Book
+from src.services.chat.schemas import Book, CatalogBook
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +253,30 @@ def collections_for_books(slugs: list[str]) -> dict[str, list[str]]:
         ``{"<field>_textbooks": [slug, ...], ...}``
     """
     return _registry().collections_for_books(slugs)
+
+
+def parse_catalog() -> list[CatalogBook]:
+    """Compact per-book catalog (slug, name, authors, field, chapter ids).
+
+    Names/authors from the yaml registry; chapter ids from the manifest grouped
+    by book_slug and sorted. Used by the scope resolver.
+    """
+    chapters_by_slug: dict[str, set[str]] = {}
+    for e in _load_manifest():
+        slug = e.get("book_slug") or ""
+        ch = e.get("chapter_id") or ""
+        if slug and ch:
+            chapters_by_slug.setdefault(slug, set()).add(ch)
+    out: list[CatalogBook] = []
+    for b in list_books():
+        out.append(CatalogBook(
+            slug=b.id,
+            name=b.title,
+            authors_short=b.authorsShort,
+            field=b.field or "",
+            chapters=sorted(chapters_by_slug.get(b.id, set())),
+        ))
+    return out
 
 
 # ---------------------------------------------------------------------------

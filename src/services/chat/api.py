@@ -6,6 +6,7 @@ Chinese-wall: imports only from ``src.services.chat.*``.  No ingestion imports.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import mimetypes
 from pathlib import Path
@@ -151,6 +152,35 @@ async def chat_event_gen(req: ChatRequest):
         structured_payload: dict | None = None
         structured_schema: str | None = None
 
+        def _persist_assistant(stopped: bool) -> None:
+            """Persist the accumulated assistant turn. Precondition: call only
+            after the streaming loop has run (reads buffer locals by reference)."""
+            if not (req.conversationId and (structured_payload or assistant_text_buf)):
+                return
+            if structured_payload is not None:
+                content = dict(structured_payload)
+                if structured_schema:
+                    content.setdefault("_schema", structured_schema)
+            else:
+                content = "".join(assistant_text_buf)
+            # turnMode = the mode pipeline that ran this turn (the dispatch key).
+            # Distinct from RetrievalMetadata.mode (a diagnostic string) which may
+            # already be present in collected_meta — do not clobber it.
+            metadata = {**(collected_meta or {}), "turnMode": req.mode}
+            if stopped:
+                metadata["stopped"] = True
+            try:
+                store.append_message(
+                    conversation_id=req.conversationId,
+                    role="assistant",
+                    content=content,
+                    sources=collected_sources,
+                    figures=collected_figures,
+                    metadata=metadata,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
         async for ev in stream_chat(req, history=history):
             ev_type = ev.get("type", "message")
             if ev_type == "token":
@@ -172,28 +202,10 @@ async def chat_event_gen(req: ChatRequest):
                 collected_meta = ev.get("meta")
             yield ev
 
-        if req.conversationId and (structured_payload or assistant_text_buf):
-            # Prefer the structured dict so the frontend can re-render aspect
-            # cards / citations on reload.  Fall back to the joined raw token
-            # stream when no structured payload was emitted (e.g. modes that
-            # do not use response_format).
-            if structured_payload is not None:
-                content: dict | str = dict(structured_payload)
-                if structured_schema:
-                    content.setdefault("_schema", structured_schema)
-            else:
-                content = "".join(assistant_text_buf)
-            try:
-                store.append_message(
-                    conversation_id=req.conversationId,
-                    role="assistant",
-                    content=content,
-                    sources=collected_sources,
-                    figures=collected_figures,
-                    metadata=collected_meta,
-                )
-            except Exception:  # noqa: BLE001
-                pass
+        _persist_assistant(stopped=False)
+    except asyncio.CancelledError:
+        _persist_assistant(stopped=True)
+        raise
     except Exception as exc:  # noqa: BLE001
         yield {
             "type": "error",
@@ -267,6 +279,13 @@ async def chat_resume(conv_id: str, after: int = 0) -> EventSourceResponse:
 async def chat_status(conv_id: str) -> dict:
     """Resume handshake: ``{exists, active, done, seq}`` for the run (§13)."""
     return runs.status(conv_id)
+
+
+@app.post("/api/chat/{conv_id}/cancel")
+async def chat_cancel(conv_id: str) -> dict:
+    """Stop an in-flight detached run (§13). Idempotent — returns
+    ``{"cancelled": false}`` when no active run exists."""
+    return {"cancelled": runs.cancel(conv_id)}
 
 
 # ---------------------------------------------------------------------------
