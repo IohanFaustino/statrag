@@ -56,3 +56,10 @@ def test_resolve_object_model_uses_json_object_plus_hint():
 def test_resolve_none_schema_returns_nothing():
     payload, hint = resolve_response_format("deepseek-v4-pro", None)
     assert payload is None and hint is None
+
+
+def test_resolve_non_pydantic_schema_returns_nothing():
+    class Dummy:  # no model_json_schema
+        pass
+    payload, hint = resolve_response_format("gpt-4o", Dummy)
+    assert payload is None and hint is None
