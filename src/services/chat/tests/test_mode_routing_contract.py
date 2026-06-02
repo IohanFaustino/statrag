@@ -18,3 +18,51 @@ def test_every_modeid_has_a_v2_dispatch_entry():
         f"ModeId/_V2_DISPATCH mismatch — declared-only={declared - routed}, "
         f"routed-only={routed - declared}"
     )
+
+
+def _make_request(mode: str):
+    from src.services.chat.schemas._core import ChatRequest
+    return ChatRequest(message="hi", mode=mode, model="gpt-4o")
+
+
+async def _collect(agen):
+    return [ev async for ev in agen]
+
+
+_MODE_TO_PATCH = {
+    "tutor": ("src.services.chat.agents.deep_tutor", "run_deep_tutor"),
+    "qa": ("src.services.chat.agents.qa", "run_qa"),
+    "facilitate": ("src.services.chat.agents.facilitate", "run_facilitate"),
+    "resume": ("src.services.chat.agents.chapter", "run_chapter"),
+}
+
+
+@pytest.mark.parametrize("mode", list(get_args(ModeId)))
+@pytest.mark.asyncio
+async def test_mode_routes_to_its_own_agent(mode, monkeypatch):
+    """Each mode must invoke ONLY its own agent runner — no cross-wiring."""
+    import importlib
+
+    from src.services.chat import router as r
+
+    called: list[str] = []
+
+    for m, (modpath, fname) in _MODE_TO_PATCH.items():
+        agent_mod = importlib.import_module(modpath)
+
+        def _make_sentinel(tag):
+            async def _sentinel(req):
+                called.append(tag)
+                yield {"type": "meta", "mode": req.mode}
+            return _sentinel
+
+        monkeypatch.setattr(agent_mod, fname, _make_sentinel(m))
+
+    monkeypatch.setenv("TUTOR_DEEP_MODE", "1")
+    monkeypatch.setattr(r, "_v2_enabled_for", lambda _m: True)
+
+    events = await _collect(r.stream_chat(_make_request(mode), history=None))
+
+    assert called == [mode], f"mode={mode} routed to {called}, expected [{mode!r}]"
+    metas = [e for e in events if e.get("type") == "meta"]
+    assert metas and metas[0]["mode"] == mode
