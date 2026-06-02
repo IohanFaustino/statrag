@@ -23,6 +23,7 @@ from src.services.chat._fences import strip_fences
 from src.services.chat.agents._scope import maybe_clarify, resolve_book
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
+from src.services.chat.llm.structured import apply_structured_output
 from src.services.chat.prompts.chapter import (
     CHAPTER_GROUND_PROMPT,
     CHAPTER_MAP_RESUME_PROMPT,
@@ -36,7 +37,11 @@ from src.services.chat.schemas import (
     CatalogBook,
     ChapterBlock,
     ChapterDigest,
+    ChapterGroundOut,
+    ChapterMapBlock,
+    ChapterResolveMatches,
     ChapterScope,
+    ChapterStitchOut,
     ChatRequest,
     ResolvedSubtopic,
     Source,
@@ -62,15 +67,17 @@ def _model_for(stage: str, req: ChatRequest | None) -> str:
     return env or settings.openai_model_nano
 
 
-async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
+async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
     """Single LLM seam. Returns the raw assistant content string."""
     oa = aclient_for(model)
-    resp = await oa.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_completion_tokens=max_tokens,
-    )
+    messages, response_format = apply_structured_output(messages, model, schema)
+    kwargs: dict = {
+        "model": model, "messages": messages,
+        "temperature": temperature, "max_completion_tokens": max_tokens,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    resp = await oa.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -138,6 +145,7 @@ async def resolve_subtopics(
                 ],
                 model=model or settings.openai_model_nano,
                 max_tokens=400,
+                schema=ChapterResolveMatches,
             )
             data = json.loads(strip_fences(raw))
             for m in data.get("matches", []):
@@ -216,6 +224,7 @@ async def map_sections(
                 [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user}],
                 model=chosen,
                 max_tokens=900,
+                schema=ChapterMapBlock,
             )
             data = json.loads(strip_fences(raw))
             body = str(data.get("body", "")).strip() or (s.excerpt or "")
@@ -258,6 +267,7 @@ async def stitch(blocks: list[ChapterBlock], *, model: str | None = None) -> tup
             ],
             model=model or settings.openai_model_nano,
             max_tokens=200,
+            schema=ChapterStitchOut,
         )
         data = json.loads(strip_fences(raw))
         return str(data.get("intro", "")).strip(), str(data.get("outro", "")).strip()
@@ -282,6 +292,7 @@ async def ground(
             ],
             model=model or settings.openai_model_nano,
             max_tokens=500,
+            schema=ChapterGroundOut,
         )
         data = json.loads(strip_fences(raw))
         return {

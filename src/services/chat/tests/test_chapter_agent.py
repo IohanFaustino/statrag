@@ -149,7 +149,7 @@ async def test_resolve_substring_match_no_llm(monkeypatch):
 async def test_resolve_fuzzy_falls_back_to_llm(monkeypatch):
     from src.services.chat.agents import chapter as ch
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return ('{"matches":[{"asked":"the tradeoff","section_id":"2.1",'
                 '"matched_h2":"2.1 | Bias-Variance Trade-Off","score":0.78}]}')
 
@@ -167,7 +167,7 @@ async def test_map_sections_preserves_order_and_uses_resume_prompt(monkeypatch):
 
     seen_prompts = []
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         seen_prompts.append(messages[0]["content"])
         return '{"body":"explained","citations":[],"math_blocks":["x^2"]}'
 
@@ -205,7 +205,7 @@ async def test_stitch_returns_intro_outro(monkeypatch):
     from src.services.chat.agents import chapter as ch
     from src.services.chat.schemas import ChapterBlock
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return '{"intro":"Covers A then B.","outro":"Together they explain X."}'
 
     monkeypatch.setattr(ch, "_chat", fake_chat)
