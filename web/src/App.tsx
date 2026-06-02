@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { Book, Source, ModelProvider } from "./types";
 import { mapConversationMessages } from "./lib/mapConversationMessages";
+import { pickOpenedMode } from "./lib/pickOpenedMode";
 import { useTweaks, THEME_ACCENT_DEFAULTS } from "./state/tweaks";
 import { useChat } from "./state/chat";
 import { fetchProviders, createConversation } from "./api/client";
@@ -412,6 +413,10 @@ export default function App() {
       // e.g. "facilitate", "resume") and stamps it on every assistant message.
       // Previously this hardcoded "tutor", causing the wrong badge on reload.
       const msgs = mapConversationMessages(data);
+      // Reconcile the global mode picker with the conversation we're opening,
+      // so continued turns are sent with THIS conversation's mode rather than
+      // whatever mode was last globally selected.
+      setActiveMode((cur) => pickOpenedMode(data.mode, STATRAG_MODES, cur));
       loadConversation(id, msgs);
       // Update the URL so the conversation can be re-opened or shared
       // with a permalink like ``http://localhost:5175/c/<id>``.
@@ -426,7 +431,7 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, [loadConversation]);
+  }, [loadConversation, setActiveMode]);
 
   // Delete a conversation: hit the API, prune local state, reset thread if
   // the deleted conv was active, and clear the deep-link URL when needed.
