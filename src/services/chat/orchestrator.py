@@ -217,6 +217,7 @@ async def stream_chat(
                 "code": "MODE_NOT_REGISTERED",
                 "message": f"Mode '{req.mode}' has no registered ModeSpec.",
             }
+            yield {"type": "done"}
             return
 
         # ------------------------------------------------------------------

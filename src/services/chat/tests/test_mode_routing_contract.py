@@ -102,3 +102,7 @@ async def test_v1_orchestrator_unknown_mode_emits_error(monkeypatch):
         e.get("type") == "error" and e.get("code") == "MODE_NOT_REGISTERED"
         for e in events
     ), events
+    assert any(e.get("type") == "done" for e in events), events
+    # error precedes done
+    types = [e.get("type") for e in events]
+    assert types.index("error") < types.index("done")
