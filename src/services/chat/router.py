@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 from src.core.config import settings
 from src.services.chat.schemas import ChatRequest
@@ -219,6 +219,46 @@ async def _tutor_v2(req: ChatRequest, history: list[dict] | None):
     yield {"type": "done"}
 
 
+async def _run_tutor(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    """Tutor runner: deep-tutor by default, v2 LangChain agent when TUTOR_DEEP_MODE=0."""
+    if os.environ.get("TUTOR_DEEP_MODE", "1") != "0":
+        from src.services.chat.agents.deep_tutor import run_deep_tutor  # noqa: PLC0415
+        async for event in run_deep_tutor(req):
+            yield event
+        return
+    async for event in _tutor_v2(req, history):
+        yield event
+
+
+async def _run_qa(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    from src.services.chat.agents.qa import run_qa  # noqa: PLC0415
+    async for event in run_qa(req):
+        yield event
+
+
+async def _run_facilitate(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    from src.services.chat.agents.facilitate import run_facilitate  # noqa: PLC0415
+    async for event in run_facilitate(req):
+        yield event
+
+
+async def _run_resume(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    from src.services.chat.agents.chapter import run_chapter  # noqa: PLC0415
+    async for event in run_chapter(req):
+        yield event
+
+
+# Explicit mode -> v2 runner table. Every ModeId MUST appear here; the
+# exhaustiveness test (test_mode_routing_contract.py) fails otherwise, so a new
+# mode cannot ship unrouted.
+_V2_DISPATCH: dict[str, Callable[["ChatRequest", "list[dict] | None"], AsyncIterator[dict]]] = {
+    "tutor": _run_tutor,
+    "qa": _run_qa,
+    "facilitate": _run_facilitate,
+    "resume": _run_resume,
+}
+
+
 async def stream_chat(
     req: ChatRequest,
     history: list[dict] | None = None,
@@ -240,35 +280,16 @@ async def stream_chat(
             yield event
         return
 
-    if req.mode == "tutor":
-        if os.environ.get("TUTOR_DEEP_MODE", "1") != "0":
-            from src.services.chat.agents.deep_tutor import (  # noqa: PLC0415
-                run_deep_tutor,
-            )
-            async for event in run_deep_tutor(req):
-                yield event
-            return
-        async for event in _tutor_v2(req, history):
-            yield event
+    runner = _V2_DISPATCH.get(req.mode)
+    if runner is None:
+        # ModeId is a Literal, so Pydantic rejects unknown modes at the API
+        # boundary; reaching here means a declared mode lacks a runner — fail
+        # loud rather than silently running the wrong pipeline.
+        yield {
+            "type": "error",
+            "code": "MODE_NOT_ROUTED",
+            "message": f"No v2 runner registered for mode '{req.mode}'.",
+        }
         return
-
-    if req.mode == "qa":
-        from src.services.chat.agents.qa import run_qa  # noqa: PLC0415
-        async for event in run_qa(req):
-            yield event
-        return
-
-    if req.mode == "facilitate":
-        from src.services.chat.agents.facilitate import run_facilitate  # noqa: PLC0415
-        async for event in run_facilitate(req):
-            yield event
-        return
-    if req.mode == "resume":
-        from src.services.chat.agents.chapter import run_chapter  # noqa: PLC0415
-        async for event in run_chapter(req):
-            yield event
-        return
-
-    # Unknown mode — fall through.
-    async for event in _v1_passthrough(req, history):
+    async for event in runner(req, history):
         yield event
