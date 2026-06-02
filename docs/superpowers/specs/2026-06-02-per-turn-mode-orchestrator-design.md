@@ -99,15 +99,16 @@ open conv: picker synced once to last-turn mode; user may switch freely thereaft
 
 > **Status:** code complete + green at every layer (backend 583 / frontend 183 / tsc clean). The items below are deferred to the user.
 
-- [ ] **Live functional verification on :5175** — the automated proof is the
-  mocked `test_per_turn_mode.py` (one conversation, tutor→facilitate→qa→resume,
-  each persisted with its own `turnMode`). The **live browser click-through was
-  NOT run** this session because the Claude-in-Chrome extension was disconnected
-  (`mcp__claude-in-chrome__tabs_context_mcp` → "extension not connected").
-  To finish: reconnect the extension (or run a real 2–4 turn `/api/chat`
-  sequence in one conversation with any provider — kimi/ollama), and confirm in
-  the UI that switching the picker mid-conversation runs the new mode and that
-  reloading the conversation renders each turn with its own pipeline/card.
+- [x] **Live functional verification on :5175** — DONE 2026-06-02 via
+  Claude-in-Chrome. One conversation
+  (`/c/8b3690d4e48f476598944bdb746e8cc1`) held four turns with the picker
+  switched mid-conversation each turn: tutor (multi-aspect card) → facilitate
+  (hansen ch07 §7.2 section teach) → qa (compact cited answer) → resume (ordered
+  §7.2–7.5 recap). Each turn ran the picked mode live. After a full page reload +
+  reopening the conversation, every turn re-rendered with its own mode
+  card/pipeline from `metadata.turnMode`, and the picker synced to the last
+  turn's mode (resume). The cancel ("Stopped" marker) and clarify-pick-re-sends-
+  to-chosen-book fixes were also exercised and confirmed during this run.
 - [ ] **Branch wrap-up** — `feat/facilitate-concept-map` carries 6 features
   (structured-output gate, resume scaffold+gate, mode-orchestration hardening,
   mode-sync fix, cancel button, per-turn modes) + the clarify-pick fix. Decide:
