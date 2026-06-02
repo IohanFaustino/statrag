@@ -77,3 +77,62 @@ def test_schema_hint_public_helper():
     class Dummy:
         pass
     assert schema_hint(Dummy) is None
+
+
+def test_schema_hint_wrapped_in_response_format_token():
+    from src.services.chat.llm.structured import schema_hint
+
+    class _S(pydantic.BaseModel):
+        a: int
+        b: str
+    h = schema_hint(_S)
+    assert h is not None
+    assert h.strip().startswith("<response_format>")
+    assert h.strip().endswith("</response_format>")
+    assert "json" in h.lower() and "a" in h and "b" in h
+
+
+def test_apply_structured_output_object_model_injects_token():
+    from src.services.chat.llm.structured import apply_structured_output
+
+    class _S(pydantic.BaseModel):
+        a: int
+    msgs = [{"role": "system", "content": "BASE"},
+            {"role": "user", "content": "u"}]
+    out_msgs, rf = apply_structured_output(msgs, "deepseek-v4-pro", _S)
+    assert rf == {"type": "json_object"}
+    assert "BASE" in out_msgs[0]["content"]
+    assert "<response_format>" in out_msgs[0]["content"]
+    assert msgs[0]["content"] == "BASE"  # original not mutated
+
+
+def test_apply_structured_output_schema_model_untouched():
+    from src.services.chat.llm.structured import apply_structured_output
+
+    class _S(pydantic.BaseModel):
+        a: int
+    msgs = [{"role": "system", "content": "BASE"}]
+    out_msgs, rf = apply_structured_output(msgs, "gpt-4o", _S)
+    assert rf["type"] == "json_schema"
+    assert out_msgs[0]["content"] == "BASE"
+
+
+def test_apply_structured_output_no_system_message_prepends():
+    from src.services.chat.llm.structured import apply_structured_output
+
+    class _S(pydantic.BaseModel):
+        a: int
+    msgs = [{"role": "user", "content": "u"}]
+    out_msgs, rf = apply_structured_output(msgs, "deepseek-v4-pro", _S)
+    assert out_msgs[0]["role"] == "system"
+    assert "<response_format>" in out_msgs[0]["content"]
+    assert out_msgs[-1]["role"] == "user"
+
+
+def test_apply_structured_output_no_schema_noop():
+    from src.services.chat.llm.structured import apply_structured_output
+
+    msgs = [{"role": "system", "content": "BASE"}]
+    out_msgs, rf = apply_structured_output(msgs, "gpt-4o", None)
+    assert rf is None
+    assert out_msgs[0]["content"] == "BASE"

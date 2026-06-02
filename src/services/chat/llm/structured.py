@@ -107,11 +107,12 @@ def _schema_hint(js: dict) -> str:
     props = list((js.get("properties") or {}).keys())
     required = js.get("required") or props
     shape = json.dumps({k: "..." for k in props})
-    return (
+    body = (
         "Return ONLY a valid json object with exactly these keys: "
         f"{', '.join(props)} (required: {', '.join(required)}). "
         f"Shape: {shape}"
     )
+    return f"<response_format>\n{body}\n</response_format>"
 
 
 def schema_hint(schema: type) -> str | None:
@@ -162,3 +163,37 @@ def resolve_response_format(
         return _schema_payload(name, js), None
     # JsonMode.OBJECT
     return {"type": "json_object"}, _schema_hint(js)
+
+
+def apply_structured_output(
+    messages: list[dict],
+    model_id: str | None,
+    schema: type | None,
+) -> tuple[list[dict], dict | None]:
+    """Resolve the response_format and inject the fallback hint token.
+
+    Centralizes the gate for every ``chat.completions.create`` call site. When
+    the model lacks native ``json_schema``, the ``<response_format>`` hint is
+    appended to the first system message (a system message is prepended when
+    none exists). The input list is never mutated.
+
+    Args:
+        messages: OpenAI-style message dicts.
+        model_id: Model that will receive the request.
+        schema: Pydantic output schema, or ``None`` for free-text calls.
+
+    Returns:
+        ``(messages, response_format_payload)`` — *messages* is the original
+        list when no injection happened, otherwise a new list.
+    """
+    response_format, hint = resolve_response_format(model_id, schema)
+    if not hint:
+        return messages, response_format
+    new_messages = [dict(m) for m in messages]
+    for m in new_messages:
+        if m.get("role") == "system":
+            m["content"] = f"{m['content']}\n\n{hint}"
+            break
+    else:
+        new_messages.insert(0, {"role": "system", "content": hint})
+    return new_messages, response_format
