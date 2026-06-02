@@ -99,7 +99,7 @@ async def test_chat_event_gen_persists_partial_on_cancel(monkeypatch):
     row = appended[-1]
     assert row["role"] == "assistant"
     assert row["content"] == "partial"
-    assert row["metadata"]["mode"] == "tutor"
+    assert row["metadata"]["turnMode"] == "tutor"
     assert row["metadata"]["stopped"] is True
 
 
@@ -126,4 +126,26 @@ async def test_chat_event_gen_persists_turn_mode(monkeypatch):
         pass
 
     assert appended, "assistant row not persisted"
-    assert appended[-1]["metadata"]["mode"] == "facilitate"
+    assert appended[-1]["metadata"]["turnMode"] == "facilitate"
+
+
+@pytest.mark.asyncio
+async def test_turn_mode_does_not_clobber_retrieval_meta_mode(monkeypatch):
+    from src.services.chat import api as chat_api
+    from src.services.chat.schemas._core import ChatRequest
+
+    appended: list[dict] = []
+    monkeypatch.setattr(chat_api.store, "append_message", lambda **kw: appended.append(kw))
+    monkeypatch.setattr(chat_api.store, "get_messages", lambda _c: [])
+
+    async def _fake_stream(req, history=None):
+        yield {"type": "retrieval_meta", "meta": {"mode": "hybrid | deep_tutor v2"}}
+        yield {"type": "token", "text": "hi"}
+
+    monkeypatch.setattr(chat_api, "stream_chat", _fake_stream)
+    req = ChatRequest(message="q", mode="tutor", model="gpt-4o", conversationId="c1")
+    async for _ in chat_api.chat_event_gen(req):
+        pass
+    md = appended[-1]["metadata"]
+    assert md["turnMode"] == "tutor"
+    assert md["mode"] == "hybrid | deep_tutor v2"   # diagnostic preserved

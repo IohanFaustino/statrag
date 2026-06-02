@@ -163,7 +163,10 @@ async def chat_event_gen(req: ChatRequest):
                     content.setdefault("_schema", structured_schema)
             else:
                 content = "".join(assistant_text_buf)
-            metadata = {**(collected_meta or {}), "mode": req.mode}
+            # turnMode = the mode pipeline that ran this turn (the dispatch key).
+            # Distinct from RetrievalMetadata.mode (a diagnostic string) which may
+            # already be present in collected_meta — do not clobber it.
+            metadata = {**(collected_meta or {}), "turnMode": req.mode}
             if stopped:
                 metadata["stopped"] = True
             try:
