@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import type { Book, Source, ModelProvider } from "./types";
 import { mapConversationMessages } from "./lib/mapConversationMessages";
 import { pickOpenedMode } from "./lib/pickOpenedMode";
+import { lastTurnMode } from "./lib/lastTurnMode";
 import { useTweaks, THEME_ACCENT_DEFAULTS } from "./state/tweaks";
 import { useChat } from "./state/chat";
 import { fetchProviders, createConversation } from "./api/client";
@@ -162,6 +163,11 @@ export default function App() {
   const [openSource, setOpenSource] = useState<Source | null>(null);
   const [tempChatOpen, setTempChatOpen] = useState(false);
   const [tempSeed, setTempSeed] = useState<number | null>(null);
+
+  // Tracks the last conversation whose picker mode we synced, so opening the
+  // SAME conversation again (popstate / re-select) never clobbers a mode the
+  // user changed mid-conversation.
+  const lastSyncedConvRef = React.useRef<string | null>(null);
 
   // Active mode / model — persisted across sessions so tutor configuration
   // survives a backend restart or a browser reload.
@@ -408,10 +414,14 @@ export default function App() {
       // e.g. "facilitate", "resume") and stamps it on every assistant message.
       // Previously this hardcoded "tutor", causing the wrong badge on reload.
       const msgs = mapConversationMessages(data);
-      // Reconcile the global mode picker with the conversation we're opening,
-      // so continued turns are sent with THIS conversation's mode rather than
-      // whatever mode was last globally selected.
-      setActiveMode((cur) => pickOpenedMode(data.mode, STATRAG_MODES, cur));
+      // Sync the picker once per conversation switch to its last-turn mode.
+      // Re-selecting the same conversation (popstate / sidebar click) is a
+      // no-op so a mid-conversation mode change by the user is never clobbered.
+      if (lastSyncedConvRef.current !== id) {
+        lastSyncedConvRef.current = id;
+        const desiredMode = lastTurnMode(msgs, data.mode);
+        setActiveMode((cur) => pickOpenedMode(desiredMode, STATRAG_MODES, cur));
+      }
       loadConversation(id, msgs);
       // Update the URL so the conversation can be re-opened or shared
       // with a permalink like ``http://localhost:5175/c/<id>``.
