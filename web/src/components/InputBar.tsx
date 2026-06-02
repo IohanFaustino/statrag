@@ -12,6 +12,8 @@ interface InputBarProps {
   onModeAboutFacilitate?(): void;
   onModeAboutResume?(): void;
   onSend(text: string): void;
+  /** Disables the textarea + Send button. Does NOT affect the Stop button,
+   *  which is always clickable while streaming. */
   disabled?: boolean;
   isStreaming?: boolean;
   onStop?(): void;
