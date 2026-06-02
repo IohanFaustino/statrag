@@ -110,9 +110,16 @@ Return ONLY a JSON object:
 Do not rewrite the digest. Only report.
 """
 
-FACILITATE_MAP_PROMPT = """ROLE: You analyse one textbook section for a tutor.
-TASK: Identify the section's essential teaching content.
-OUTPUT FORMAT — return ONLY a JSON object:
+FACILITATE_MAP_PROMPT = """<role>
+You analyse one textbook section for a tutor.
+</role>
+
+<task>
+Identify the section's essential teaching content.
+</task>
+
+<output_format>
+Return ONLY a JSON object:
   "key_points": 3-6 short strings, the most important ideas (plain English).
   "concepts": array of {"term","kind","status"}; kind in
       "concept"|"theorem"|"formula"; status "explained" (defined in THIS section)
@@ -120,33 +127,60 @@ OUTPUT FORMAT — return ONLY a JSON object:
       concept ONLY when it has real derivation steps worth its own modal — NOT
       the section's central definition formula (it already appears in the
       definition) and NOT a bare inline expression. At most 5 concepts.
-RULES: English only — never copy garbled or non-English/OCR characters. For any
+</output_format>
+
+<rules>
+English only — never copy garbled or non-English/OCR characters. For any
 math use $...$ (inline) or $$...$$ (display); never \\( \\) or \\[ \\]. Do not invent terms.
-  Merge near-duplicate concepts into ONE (do not list a concept and its mere notation, or a term and its restatement, separately).
+Merge near-duplicate concepts into ONE (do not list a concept and its mere notation, or a term and its restatement, separately).
+</rules>
 """
 
-FACILITATE_INTRO_PROMPT = """ROLE: You orient a learner before they read.
-TASK: In 1-2 sentences, say WHY these sections matter and what the reader will be
+FACILITATE_INTRO_PROMPT = """<role>
+You orient a learner before they read.
+</role>
+
+<task>
+In 1-2 sentences, say WHY these sections matter and what the reader will be
 able to do after reading — the motivation, not a summary of the contents.
-OUTPUT FORMAT: plain prose, English only, no math, no lists, no headings.
+</task>
+
+<output_format>
+Plain prose, English only, no math, no lists, no headings.
 You are given the chapter id and the ordered section headings. Return ONLY the text.
+</output_format>
 """
 
-FACILITATE_EXPLAIN_PROMPT = """ROLE: You explain one term to a learner.
-TASK: Explain the term in 1-3 plain sentences using ONLY the provided passage.
+FACILITATE_EXPLAIN_PROMPT = """<role>
+You explain one term to a learner.
+</role>
+
+<task>
+Explain the term in 1-3 plain sentences using ONLY the provided passage.
 If it is a formula with steps, give the short derivation.
-OUTPUT FORMAT: prose (a short bullet list only if the derivation has genuine
+</task>
+
+<output_format>
+Prose (a short bullet list only if the derivation has genuine
 sequential steps). English only — never copy garbled/non-English/OCR characters.
 For ALL math use $...$ inline and $$...$$ display; never \\( \\) or \\[ \\].
 No padding, no restating the question. Return ONLY the explanation text.
+</output_format>
 """
 
-FACILITATE_TEACH_PROMPT = """ROLE: You are a teacher preparing THIS section as a short lesson for your class. You facilitate understanding; you never dump information.
-TASK: Teach the section as a sequence of SHORT, well-formed paragraphs that flow as a lesson:
+FACILITATE_TEACH_PROMPT = """<role>
+You are a teacher preparing THIS section as a short lesson for your class. You facilitate understanding; you never dump information.
+</role>
+
+<task>
+Teach the section as a sequence of SHORT, well-formed paragraphs that flow as a lesson:
   - OPEN with one paragraph that hooks the idea — why it matters / what it lets you do.
   - Then ONE paragraph per DISTINCT core idea (keep each short — 2-4 sentences).
   - Put each EXAMPLE under its own subheading line `### Example` (or `### Example: <short label>`), followed by the example in its own paragraph.
   - CLOSE with a short paragraph that ties it together / the takeaway.
+</task>
+
+<rules>
 NO REPETITION: cover each idea exactly ONCE. Never restate the same point in different
   words across paragraphs. If two concepts are the same idea or a concept and its mere
   notation, treat them as one — do not give them separate paragraphs or boxes.
@@ -168,17 +202,25 @@ CONCEPT ANCHORS (important — this is how the reader opens concept explanations
     the formula and opens its steps. NEVER also write that same formula as inline $…$ math.
     A formula must never appear twice (once as math and once as a pill), and a formula and
     its anchor must never sit adjacent.
-OUTPUT FORMAT (markdown body only):
+</rules>
+
+<output_format>
+Markdown body only:
   - Prose paragraphs separated by blank lines. Use a "- " bullet list ONLY for a genuine
     enumeration of sibling items; NEVER bullet single ideas, transitions, or one concept.
   - Math: $...$ inline, $$...$$ display. NEVER \\( \\) or \\[ \\].
   - English only. Never copy garbled or non-English/OCR characters.
   - Concise — a lesson, not a transcript. Do NOT add the section title as a heading (the app adds it); `###` sub-subheadings like Example are allowed.
 Return ONLY the markdown body.
+</output_format>
 """
 
-FACILITATE_VERIFY_PROMPT = """ROLE: You are a meticulous teacher proofreading a lesson before class.
-TASK: Given the SOURCE section text and a rewritten BODY (markdown with $...$ math,
+FACILITATE_VERIFY_PROMPT = """<role>
+You are a meticulous teacher proofreading a lesson before class.
+</role>
+
+<task>
+Given the SOURCE section text and a rewritten BODY (markdown with $...$ math,
 [[cN]] concept markers, and `>` definition blockquotes):
   1) FIX residual LaTeX/markdown errors in the body WITHOUT changing meaning:
      - convert any \\( \\) to $...$ and \\[ \\] to $$...$$;
@@ -186,8 +228,12 @@ TASK: Given the SOURCE section text and a rewritten BODY (markdown with $...$ ma
      - balance unmatched $; fix obviously broken commands.
      - DO NOT remove or renumber [[cN]] markers; DO NOT alter the `>` definition lines' meaning.
   2) JUDGE grounding: does the body assert anything the SOURCE does not support?
-OUTPUT FORMAT — return ONLY JSON:
+</task>
+
+<output_format>
+Return ONLY JSON:
   {"fixed_body": "<the corrected markdown body>",
    "ok": bool, "unsupported": [string], "confidence": 0..1}
 ok=false when the body states something the source text does not support.
+</output_format>
 """
