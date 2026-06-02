@@ -163,7 +163,9 @@ async def chat_event_gen(req: ChatRequest):
                     content.setdefault("_schema", structured_schema)
             else:
                 content = "".join(assistant_text_buf)
-            metadata = {**(collected_meta or {}), "stopped": True} if stopped else collected_meta
+            metadata = {**(collected_meta or {}), "mode": req.mode}
+            if stopped:
+                metadata["stopped"] = True
             try:
                 store.append_message(
                     conversation_id=req.conversationId,

@@ -99,4 +99,31 @@ async def test_chat_event_gen_persists_partial_on_cancel(monkeypatch):
     row = appended[-1]
     assert row["role"] == "assistant"
     assert row["content"] == "partial"
-    assert row["metadata"] == {"stopped": True}
+    assert row["metadata"]["mode"] == "tutor"
+    assert row["metadata"]["stopped"] is True
+
+
+@pytest.mark.asyncio
+async def test_chat_event_gen_persists_turn_mode(monkeypatch):
+    """A normal turn persists metadata.mode == req.mode."""
+    import asyncio as _asyncio
+
+    from src.services.chat import api as chat_api
+    from src.services.chat.schemas._core import ChatRequest
+
+    appended: list[dict] = []
+    monkeypatch.setattr(chat_api.store, "append_message", lambda **kw: appended.append(kw))
+    monkeypatch.setattr(chat_api.store, "get_messages", lambda _c: [])
+
+    async def _fake_stream(req, history=None):
+        yield {"type": "token", "text": "hi"}
+
+    monkeypatch.setattr(chat_api, "stream_chat", _fake_stream)
+
+    req = ChatRequest(message="q", mode="facilitate", model="gpt-4o",
+                      conversationId="conv-z")
+    async for _ in chat_api.chat_event_gen(req):
+        pass
+
+    assert appended, "assistant row not persisted"
+    assert appended[-1]["metadata"]["mode"] == "facilitate"
