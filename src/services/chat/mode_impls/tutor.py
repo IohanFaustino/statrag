@@ -17,7 +17,10 @@ Chinese-wall: imports only from ``src.core.*`` and sibling
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 from langchain.agents import create_agent
 
@@ -65,12 +68,19 @@ async def build_agent():
             if mode is JsonMode.SCHEMA:
                 kwargs["response_format"] = TutorAnswer
             else:
-                # OBJECT mode: native json_schema unsupported — append a compact
-                # schema hint to the system prompt so the model still returns the
-                # expected structure.
+                # OBJECT mode: native json_schema unsupported.
+                # LangChain create_agent's response_format expects a Pydantic
+                # schema class, NOT the raw OpenAI {"type":"json_object"} param,
+                # so we cannot pass json_object here; instead we steer output
+                # via a schema hint appended to the system prompt.
                 hint = schema_hint(TutorAnswer)
                 if hint:
                     system_prompt = f"{system_prompt}\n\n{hint}"
+                else:
+                    logger.warning(
+                        "tutor: no schema hint for TutorAnswer; OBJECT-mode model "
+                        "will receive no structured-output guidance"
+                    )
         kwargs["system_prompt"] = system_prompt
         _AGENT = create_agent(**kwargs)
         return _AGENT

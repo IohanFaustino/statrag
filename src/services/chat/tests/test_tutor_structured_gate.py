@@ -28,7 +28,8 @@ async def test_schema_model_passes_response_format(monkeypatch):
          patch.object(t, "get_async_checkpointer", _fake_ckpt):
         await t.build_agent()
     assert captured.get("response_format") is TutorAnswer
-    assert captured["system_prompt"]
+    from src.services.chat.prompts.tutor import TUTOR_INSTRUCTIONS
+    assert captured["system_prompt"] == TUTOR_INSTRUCTIONS
 
 
 @pytest.mark.asyncio

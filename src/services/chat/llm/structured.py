@@ -115,9 +115,17 @@ def _schema_hint(js: dict) -> str:
 
 
 def schema_hint(schema: type) -> str | None:
-    """Public: compact 'return only json with these keys' instruction for a
-    schema, or None if the class isn't introspectable. Safe to append to a
-    system message in json_object / fallback mode."""
+    """Build a compact "return only json with these keys" instruction.
+
+    Safe to append to a system message in json_object / fallback mode so a
+    model without native json_schema still aims at the right shape.
+
+    Args:
+        schema: Pydantic model class describing the desired output.
+
+    Returns:
+        The hint string, or ``None`` if *schema* is not introspectable.
+    """
     js = _get_json_schema(schema)
     if js is None:
         return None
