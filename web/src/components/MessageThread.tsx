@@ -360,6 +360,8 @@ function AssistantMessageView({
             )}
           </div>
         )}
+
+        {msg.stopped && <div className="msg__stopped">Stopped</div>}
       </div>
 
       {onExport && msg.status === "complete" && (

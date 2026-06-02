@@ -226,6 +226,7 @@ export default function App() {
     streamingPhase,
     usage,
     streamingIds,
+    stopStream,
   } = useChat({
     mode: activeMode,
     model: activeModel,
@@ -603,6 +604,8 @@ export default function App() {
               onModeAboutResume={() => setResumeModalOpen(true)}
               onSend={handleSend}
               disabled={isStreaming}
+              isStreaming={isStreaming}
+              onStop={() => stopStream()}
             />
           </div>
 
