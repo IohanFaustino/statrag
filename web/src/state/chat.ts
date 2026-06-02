@@ -563,7 +563,11 @@ export function useChat({ mode, model, bookFilter, settings, stageModels, divers
   );
 
   const sendMessage = useCallback(
-    async (text: string, convIdOverride?: string | null) => {
+    async (
+      text: string,
+      convIdOverride?: string | null,
+      bookFilterOverride?: string[] | "ALL",
+    ) => {
       const convId = convIdOverride ?? (active === DRAFT_KEY ? null : active);
       const convKey = convId ?? DRAFT_KEY;
 
@@ -579,7 +583,7 @@ export function useChat({ mode, model, bookFilter, settings, stageModels, divers
         message: text,
         mode,
         model,
-        bookFilter,
+        bookFilter: bookFilterOverride ?? bookFilter,
         temperature: settings?.temperature ?? null,
         top_k: settings?.top_k ?? null,
         rerank: settings?.rerank ?? null,

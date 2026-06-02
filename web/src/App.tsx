@@ -261,7 +261,7 @@ export default function App() {
 
   // Wrapped send: lazily create conversation on first message
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, bookFilterOverride?: string[] | "ALL") => {
       let activeConvId = conversationId;
       if (!activeConvId) {
         try {
@@ -287,7 +287,7 @@ export default function App() {
           // proceed without persistence
         }
       }
-      sendMessage(text, activeConvId);
+      sendMessage(text, activeConvId, bookFilterOverride);
     },
     [conversationId, activeMode, activeModel, bookFilter, sendMessage, setConversationId],
   );
@@ -384,7 +384,10 @@ export default function App() {
     (slug: string, _chapter: string, _sections: string[]) => {
       setBooks((prev) => prev.map((b) => ({ ...b, selected: b.id === slug })));
       const lastUser = [...messages].reverse().find((m) => m.role === "user");
-      if (lastUser?.text) handleSend(lastUser.text);
+      // Pass the picked book explicitly: setBooks is async, so the re-send
+      // would otherwise carry the stale (pre-pick) bookFilter and the backend
+      // would re-clarify instead of advancing.
+      if (lastUser?.text) handleSend(lastUser.text, [slug]);
     },
     [setBooks, messages, handleSend],
   );
