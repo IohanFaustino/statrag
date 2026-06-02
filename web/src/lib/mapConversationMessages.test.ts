@@ -166,6 +166,25 @@ describe("mapConversationMessages — structured content", () => {
     expect(assistant.stopped).toBe(true);
   });
 
+  it("leaves stopped undefined when metadata has no stopped flag", () => {
+    const data: RawConversationResponse = {
+      id: "conv-not-stopped",
+      mode: "tutor",
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          content: { text: "Full answer." },
+          timestamp: "2024-01-01T12:00:00Z",
+          metadata: {},
+        },
+      ],
+    };
+    const out = mapConversationMessages(data);
+    const assistant = out.find((m) => m.role === "assistant") as AssistantMessage;
+    expect(assistant.stopped).toBeUndefined();
+  });
+
   it("assistant message with object content gets structuredOutput", () => {
     const data: RawConversationResponse = {
       id: "conv8",

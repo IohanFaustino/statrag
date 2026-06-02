@@ -432,11 +432,12 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
         ...state,
         status: "idle",
         streamingPhase: "idle",
-        messages: updateLastAssistant(state.messages, (msg) => ({
-          ...msg,
-          status: "complete",
-          stopped: true,
-        })),
+        messages: updateLastAssistant(state.messages, (msg) => {
+          const blocks = msg.blocks.filter(
+            (b) => !(b.type === "p" && b.text.trim() === ""),
+          );
+          return { ...msg, status: "complete", stopped: true, blocks };
+        }),
       };
 
     default:
