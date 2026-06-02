@@ -164,9 +164,11 @@ export default function App() {
   const [tempChatOpen, setTempChatOpen] = useState(false);
   const [tempSeed, setTempSeed] = useState<number | null>(null);
 
-  // Tracks the last conversation whose picker mode we synced, so opening the
-  // SAME conversation again (popstate / re-select) never clobbers a mode the
-  // user changed mid-conversation.
+  // Tracks the last conversation whose picker mode we synced. Re-opening the
+  // SAME conversation (popstate / re-select / re-render) is a no-op, so a mode
+  // the user changed mid-conversation is preserved. Switching to a DIFFERENT
+  // conversation and back DOES re-sync to that conversation's last-turn mode
+  // (intended: the picker reflects where you left that conversation).
   const lastSyncedConvRef = React.useRef<string | null>(null);
 
   // Active mode / model — persisted across sessions so tutor configuration
