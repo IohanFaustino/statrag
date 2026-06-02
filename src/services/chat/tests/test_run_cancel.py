@@ -31,7 +31,11 @@ async def test_cancel_active_run_stops_it():
     assert runs.is_active("c1") is True
     assert runs.cancel("c1") is True
 
-    await asyncio.sleep(0.05)
+    # Poll until the run's _drive finally has run (bounded, ~0.5s max).
+    for _ in range(50):
+        if not runs.is_active("c1"):
+            break
+        await asyncio.sleep(0.01)
     assert runs.is_active("c1") is False
 
 

@@ -81,8 +81,7 @@ def cancel(conv_id: str) -> bool:
     run = _runs.get(conv_id)
     if run is None or run.done or run.task is None:
         return False
-    run.task.cancel()
-    return True
+    return run.task.cancel()
 
 
 def status(conv_id: str) -> dict:
