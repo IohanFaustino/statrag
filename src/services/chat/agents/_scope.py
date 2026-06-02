@@ -61,7 +61,10 @@ from src.services.chat.schemas import ChapterParse  # noqa: E402
 
 
 async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
-    """Single LLM seam (tests monkeypatch this)."""
+    """Single LLM seam (tests monkeypatch this).
+
+    Intentionally duplicated per module (not extracted): tests monkeypatch each module's ``_chat`` independently, so a shared helper would collapse those seams.
+    """
     oa = aclient_for(model)
     messages, response_format = apply_structured_output(messages, model, schema)
     kwargs: dict = {

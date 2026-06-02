@@ -67,6 +67,10 @@ def _model_for(stage: str, req) -> str:
 
 
 async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
+    """Single LLM seam. Returns the raw assistant content string.
+
+    Intentionally duplicated per module (not extracted): tests monkeypatch each module's ``_chat`` independently, so a shared helper would collapse those seams.
+    """
     oa = aclient_for(model)
     messages, response_format = apply_structured_output(messages, model, schema)
     kwargs: dict = {

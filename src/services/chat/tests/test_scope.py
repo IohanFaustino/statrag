@@ -96,7 +96,7 @@ def test_maybe_clarify_caps_candidates():
 async def test_resolve_book_single_selection_failopen(monkeypatch):
     async def boom(*a, **k):
         raise RuntimeError("llm down")
-    monkeypatch.setattr(_scope, "_chat", boom)  # noqa: already accepts **k
+    monkeypatch.setattr(_scope, "_chat", boom)  # accepts any kwargs
     r = await _scope.resolve_book("teach ch02", selected_slugs=["islp"], catalog=_CAT)
     assert r.book_slug == "islp"
     assert r.book_confidence == 1.0
