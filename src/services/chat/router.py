@@ -293,6 +293,7 @@ async def stream_chat(
             "code": "MODE_NOT_ROUTED",
             "message": f"No v2 runner registered for mode '{req.mode}'.",
         }
+        yield {"type": "done"}
         return
     async for event in runner(req, history):
         yield event

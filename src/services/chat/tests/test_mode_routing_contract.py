@@ -106,3 +106,23 @@ async def test_v1_orchestrator_unknown_mode_emits_error(monkeypatch):
     # error precedes done
     types = [e.get("type") for e in events]
     assert types.index("error") < types.index("done")
+
+
+@pytest.mark.asyncio
+async def test_router_unrouted_mode_emits_error_then_done(monkeypatch):
+    """A declared-but-unrouted mode must emit error then done (no hang)."""
+    from src.services.chat import router as r
+
+    # v2 enabled so we reach the dispatch lookup.
+    monkeypatch.setattr(r, "_v2_enabled_for", lambda _m: True)
+    # Empty the dispatch table so the requested mode has no runner.
+    monkeypatch.setattr(r, "_V2_DISPATCH", {})
+
+    req = _make_request("tutor")
+    events = [ev async for ev in r.stream_chat(req, history=None)]
+
+    types = [e.get("type") for e in events]
+    assert "error" in types and "done" in types
+    assert types.index("error") < types.index("done")
+    err = next(e for e in events if e.get("type") == "error")
+    assert err.get("code") == "MODE_NOT_ROUTED"
