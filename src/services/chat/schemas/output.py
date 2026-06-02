@@ -414,3 +414,47 @@ class ConceptEdge(BaseModel):
     weight: float = 1.0
 
 
+# ---------------------------------------------------------------------------
+# Chapter pipeline stage schemas (facilitate / resume pipeline)
+# ---------------------------------------------------------------------------
+
+
+class ChapterParse(BaseModel):
+    """Shape of the chapter PARSE stage output (book/chapter scope)."""
+
+    book_slug: str = ""
+    book_confidence: float = 0.0
+    book_candidates: list[str] = Field(default_factory=list)
+    chapter_id: str = ""
+    requested_subtopics: list[str] = Field(default_factory=list)
+
+
+class ChapterResolveMatches(BaseModel):
+    """Shape of the chapter RESOLVE stage output (subtopic -> heading)."""
+
+    matches: list[dict] = Field(default_factory=list)
+
+
+class ChapterMapBlock(BaseModel):
+    """Shape of the chapter MAP stage output (one section block)."""
+
+    body: str = ""
+    citations: list[dict] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+
+
+class ChapterStitchOut(BaseModel):
+    """Shape of the chapter STITCH stage output (intro/outro)."""
+
+    intro: str = ""
+    outro: str = ""
+
+
+class ChapterGroundOut(BaseModel):
+    """Shape of the chapter GROUND stage output (grounding audit)."""
+
+    ok: bool = False
+    unsupported: list[str] = Field(default_factory=list)
+    confidence: float = 0.5
+
+

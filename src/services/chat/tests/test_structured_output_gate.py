@@ -136,3 +136,15 @@ def test_apply_structured_output_no_schema_noop():
     out_msgs, rf = apply_structured_output(msgs, "gpt-4o", None)
     assert rf is None
     assert out_msgs[0]["content"] == "BASE"
+
+
+def test_chapter_schemas_importable_from_package():
+    from src.services.chat.schemas import (
+        ChapterParse, ChapterResolveMatches, ChapterMapBlock,
+        ChapterStitchOut, ChapterGroundOut,
+    )
+    assert ChapterParse().book_slug == ""
+    assert ChapterResolveMatches().matches == []
+    assert ChapterMapBlock().math_blocks == []
+    assert ChapterStitchOut().intro == ""
+    assert ChapterGroundOut().confidence == 0.5

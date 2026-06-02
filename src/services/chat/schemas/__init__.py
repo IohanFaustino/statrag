@@ -51,6 +51,11 @@ from src.services.chat.schemas.output import (  # noqa: F401
     FacilitateDigest,
     FacilitateMap,
     FacilitateVerify,
+    ChapterParse,
+    ChapterResolveMatches,
+    ChapterMapBlock,
+    ChapterStitchOut,
+    ChapterGroundOut,
 )
 
 __all__ = [
@@ -94,4 +99,9 @@ __all__ = [
     "FacilitateDigest",
     "FacilitateMap",
     "FacilitateVerify",
+    "ChapterParse",
+    "ChapterResolveMatches",
+    "ChapterMapBlock",
+    "ChapterStitchOut",
+    "ChapterGroundOut",
 ]
