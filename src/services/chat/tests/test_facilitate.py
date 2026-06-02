@@ -1,3 +1,7 @@
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from src.services.chat.schemas import (
     ChapterScope, ConceptAnchor, ConceptProvenance, FacilitateBlock, FacilitateDigest,
 )
@@ -82,7 +86,7 @@ async def test_run_facilitate_builds_digest_with_anchor(monkeypatch):
     monkeypatch.setattr(fac, "fetch_chapter_sections",
                         lambda b, c, **k: [_secf("7.1 INTRODUCTION", "s1",
                                                  "Assumes a strong assumption of normality.")])
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         sysmsg = messages[0]["content"]
         if "orient a learner before they read" in sysmsg:
             return "We will cover Chebyshev's inequality and why it bounds tail probabilities."
@@ -128,7 +132,7 @@ def _stub_run_facilitate(monkeypatch, map_return):
                                                  "Some section text.")])
     monkeypatch.setattr(fac, "_section_order_in_book", lambda slug: {})
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         sysmsg = messages[0]["content"]
         if "analyse one textbook section" in sysmsg:
             return map_return
@@ -214,7 +218,7 @@ async def test_run_facilitate_sets_intro(monkeypatch):
                                                  "Assumes a strong assumption of normality.")])
     monkeypatch.setattr(fac, "_section_order_in_book", lambda slug: {})
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         sysmsg = messages[0]["content"]
         if "orient a learner before they read" in sysmsg:
             return _EXPECTED_INTRO
@@ -242,3 +246,61 @@ async def test_run_facilitate_sets_intro(monkeypatch):
     # Existing anchor assertions still hold (no concepts here, but blocks are built)
     assert len(so["data"]["blocks"]) == 1
     assert evs[-1]["type"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_chat_object_model_injects_hint_and_json_object():
+    captured = {}
+
+    class _Resp:
+        class _Choice:
+            class _Msg:
+                content = '{"key_points": [], "concepts": []}'
+            message = _Msg()
+        choices = [_Choice()]
+
+    async def _create(**kwargs):
+        captured.update(kwargs)
+        return _Resp()
+
+    client = AsyncMock()
+    client.chat.completions.create = _create
+    with patch.object(fac, "aclient_for", return_value=client):
+        await fac._chat(
+            [{"role": "system", "content": "BASE"},
+             {"role": "user", "content": "u"}],
+            model="deepseek-v4-pro", max_tokens=100,
+            schema=fac.FacilitateMap,
+        )
+    assert captured["response_format"] == {"type": "json_object"}
+    sys_msg = captured["messages"][0]["content"]
+    assert "BASE" in sys_msg and "json" in sys_msg.lower()
+    assert "key_points" in sys_msg
+
+
+@pytest.mark.asyncio
+async def test_chat_schema_model_leaves_system_untouched():
+    captured = {}
+
+    class _Resp:
+        class _Choice:
+            class _Msg:
+                content = "{}"
+            message = _Msg()
+        choices = [_Choice()]
+
+    async def _create(**kwargs):
+        captured.update(kwargs)
+        return _Resp()
+
+    client = AsyncMock()
+    client.chat.completions.create = _create
+    with patch.object(fac, "aclient_for", return_value=client):
+        await fac._chat(
+            [{"role": "system", "content": "BASE"},
+             {"role": "user", "content": "u"}],
+            model="gpt-4o", max_tokens=100,
+            schema=fac.FacilitateMap,
+        )
+    assert captured["response_format"]["type"] == "json_schema"
+    assert captured["messages"][0]["content"] == "BASE"

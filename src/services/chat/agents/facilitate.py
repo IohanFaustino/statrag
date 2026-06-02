@@ -21,6 +21,8 @@ from src.services.chat._fences import strip_fences
 from src.services.chat.agents._scope import maybe_clarify, resolve_book
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
+from src.services.chat.llm.structured import resolve_response_format
+from src.services.chat.schemas.output import FacilitateMap, FacilitateVerify
 from src.services.chat.prompts.chapter import (
     FACILITATE_EXPLAIN_PROMPT,
     FACILITATE_INTRO_PROMPT,
@@ -64,11 +66,22 @@ def _model_for(stage: str, req) -> str:
     return "qwen-plus" if stage == "teach" else settings.openai_model_nano
 
 
-async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
+async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
     oa = aclient_for(model)
-    resp = await oa.chat.completions.create(
-        model=model, messages=messages, temperature=temperature,
-        max_completion_tokens=max_tokens)
+    response_format, hint = resolve_response_format(model, schema)
+    if hint:
+        messages = [dict(m) for m in messages]
+        for m in messages:
+            if m.get("role") == "system":
+                m["content"] = f"{m['content']}\n\n{hint}"
+                break
+    kwargs: dict = {
+        "model": model, "messages": messages,
+        "temperature": temperature, "max_completion_tokens": max_tokens,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    resp = await oa.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -76,7 +89,8 @@ async def _map_section(s: Source, *, model: str) -> tuple[list[str], list[dict]]
     user = f"heading: {s.title}\n\nsection text:\n{(s.chunk or s.excerpt or '')[:_PREVIEW]}"
     try:
         raw = await _chat([{"role": "system", "content": FACILITATE_MAP_PROMPT},
-                           {"role": "user", "content": user}], model=model, max_tokens=500)
+                           {"role": "user", "content": user}], model=model, max_tokens=500,
+                          schema=FacilitateMap)
         data = json.loads(strip_fences(raw))
         kps = [str(x).strip() for x in (data.get("key_points") or []) if str(x).strip()][:_MAX_KEYPOINTS]
         concepts = []
@@ -157,7 +171,7 @@ async def _verify(body: str, section_text: str, *, model: str) -> tuple[str, dic
     try:
         raw = await _chat([{"role": "system", "content": FACILITATE_VERIFY_PROMPT},
                            {"role": "user", "content": f"SOURCE:\n{section_text[:_PREVIEW]}\n\nBODY:\n{body}"}],
-                          model=model, max_tokens=1100)
+                          model=model, max_tokens=1100, schema=FacilitateVerify)
         d = json.loads(strip_fences(raw))
         fixed = str(d.get("fixed_body") or "").strip() or body
         grounding = {"ok": bool(d.get("ok", False)),

@@ -382,6 +382,22 @@ class FacilitateDigest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class FacilitateMap(BaseModel):
+    """Shape of the facilitate MAP stage output."""
+
+    key_points: list[str] = Field(default_factory=list)
+    concepts: list[dict] = Field(default_factory=list)
+
+
+class FacilitateVerify(BaseModel):
+    """Shape of the facilitate VERIFY stage output."""
+
+    fixed_body: str = ""
+    ok: bool = False
+    unsupported: list[str] = Field(default_factory=list)
+    confidence: float = 0.5
+
+
 class ConceptNode(BaseModel):
     """A concept node in the prerequisite DAG."""
 
