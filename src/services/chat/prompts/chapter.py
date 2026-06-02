@@ -8,9 +8,11 @@ Chinese-wall: pure string constants, no imports from src.*.
 """
 from __future__ import annotations
 
-CHAPTER_PARSE_PROMPT = """You extract the study scope from a request and match
-it to a known book.
+CHAPTER_PARSE_PROMPT = """<role>
+You extract the study scope from a request and match it to a known book.
+</role>
 
+<task>
 You are given:
   "catalog": array of {"slug","name","authors_short","field","chapters"} —
       the ONLY books available. "chapters" are valid chapter ids like "ch07".
@@ -20,7 +22,9 @@ You are given:
 Match the book the user means even when the title is paraphrased, partial, or
 only the author is named (e.g. "Hansen's intro to probability"). Use meaning,
 author surname, and field — not exact strings.
+</task>
 
+<output_format>
 Return ONLY a JSON object with these keys:
   "book_slug": the single best slug, or "" if no catalog book is a plausible match.
   "book_confidence": 0..1 — how sure you are of book_slug.
@@ -32,23 +36,31 @@ Return ONLY a JSON object with these keys:
 
 If exactly one slug is in selected_slugs, prefer it with high confidence.
 Never invent a slug or chapter id that is not in the catalog.
+</output_format>
 """
 
-CHAPTER_RESOLVE_PROMPT = """You map a user's requested subtopics to a chapter's
-real section headings (closest-match).
+CHAPTER_RESOLVE_PROMPT = """<role>
+You map a user's requested subtopics to a chapter's real section headings
+(closest-match).
+</role>
 
+<task>
 You are given:
   "requested": array of the phrases the user asked for.
   "headings": array of {"section_id": "...", "h2_path": "..."} — the chapter's
       actual sections, in order.
 
-For EACH requested phrase, pick the single closest heading by meaning. Return
-ONLY a JSON object:
+For EACH requested phrase, pick the single closest heading by meaning.
+</task>
+
+<output_format>
+Return ONLY a JSON object:
   "matches": array of {"asked": "...", "section_id": "...",
       "matched_h2": "...", "score": 0..1} — score is your match confidence.
       If nothing is a reasonable match, set section_id="" matched_h2="" score=0.
 
 Never invent a section_id that is not in "headings".
+</output_format>
 """
 
 CHAPTER_MAP_FACILITATE_PROMPT = """You TEACH one subtopic of a textbook chapter,
@@ -71,11 +83,16 @@ Return ONLY a JSON object:
 Stay strictly within this section's content. Preserve the author's order of ideas.
 """
 
-CHAPTER_MAP_RESUME_PROMPT = """You COMPRESS one subtopic of a textbook chapter
-into a terse recap, grounded ONLY in the provided section text.
+CHAPTER_MAP_RESUME_PROMPT = """<role>
+You COMPRESS one subtopic of a textbook chapter into a terse recap, grounded
+ONLY in the provided section text.
+</role>
 
+<task>
 You are given the section text, its heading, and a short "prior_context".
+</task>
 
+<output_format>
 Return ONLY a JSON object:
   "body": markdown — a tight summary (roughly 40-100 words): the key
       definition(s), result(s), and any formula, as compact bullets or one
@@ -87,27 +104,42 @@ Return ONLY a JSON object:
   "math_blocks": array of LaTeX strings (may be empty).
 
 Stay strictly within this section's content. Preserve order.
+</output_format>
 """
 
-CHAPTER_STITCH_PROMPT = """You write a short intro and outro for an ordered
-chapter digest. You are given the ordered list of subtopic headings covered.
+CHAPTER_STITCH_PROMPT = """<role>
+You write a short intro and outro for an ordered chapter digest.
+</role>
 
+<task>
+You are given the ordered list of subtopic headings covered.
+</task>
+
+<output_format>
 Return ONLY a JSON object:
   "intro": one or two sentences naming what this digest covers, in order.
   "outro": one sentence on how the pieces fit together.
 
 Do not add new facts or reorder anything. Keep both very short.
+</output_format>
 """
 
-CHAPTER_GROUND_PROMPT = """You audit an assembled chapter digest against its
-sources. You are given the concatenated body text and the numbered sources.
+CHAPTER_GROUND_PROMPT = """<role>
+You audit an assembled chapter digest against its sources.
+</role>
 
+<task>
+You are given the concatenated body text and the numbered sources.
+</task>
+
+<output_format>
 Return ONLY a JSON object:
   "ok": boolean — true if every claim is supported by some source.
   "unsupported": array of strings — claims not found in the sources.
   "confidence": number 0..1 — confidence the digest is fully grounded.
 
 Do not rewrite the digest. Only report.
+</output_format>
 """
 
 FACILITATE_MAP_PROMPT = """<role>
