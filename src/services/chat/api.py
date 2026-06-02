@@ -269,6 +269,13 @@ async def chat_status(conv_id: str) -> dict:
     return runs.status(conv_id)
 
 
+@app.post("/api/chat/{conv_id}/cancel")
+async def chat_cancel(conv_id: str) -> dict:
+    """Stop an in-flight detached run (§13). Idempotent — returns
+    ``{"cancelled": false}`` when no active run exists."""
+    return {"cancelled": runs.cancel(conv_id)}
+
+
 # ---------------------------------------------------------------------------
 # Dev entry point
 # ---------------------------------------------------------------------------
