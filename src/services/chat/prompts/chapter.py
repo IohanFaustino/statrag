@@ -1,8 +1,12 @@
-"""Prompts for the chapter modes (facilitate + resume).
+"""Prompts for the chapter modes (facilitate + resume) and the facilitate agent.
 
-Six single-purpose system prompts: parse-scope, resolve-subtopics, two map
-prompts (teach vs compress), stitch, and ground. Both modes share everything
-except which MAP prompt the agent picks.
+Chapter-mode prompts: parse-scope, resolve-subtopics, two map prompts (teach vs
+compress), stitch, and ground. Both chapter modes share everything except which
+MAP prompt the agent picks. The FACILITATE_* prompts drive the facilitate
+agent's map/intro/explain/teach/verify stages.
+
+All are XML-scaffolded (<role>/<task>/<output_format>[/<rules>]) single-purpose
+system prompts.
 
 Chinese-wall: pure string constants, no imports from src.*.
 """
