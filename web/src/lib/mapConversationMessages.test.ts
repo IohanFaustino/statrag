@@ -206,4 +206,19 @@ describe("mapConversationMessages — structured content", () => {
     // _schema marker should be stripped from the data payload
     expect(msg.structuredOutput.data._schema).toBeUndefined();
   });
+
+  it("uses per-message metadata.turnMode, falling back to the conversation mode", () => {
+    const out = mapConversationMessages({
+      mode: "tutor",
+      messages: [
+        { role: "user", content: "q" },
+        { role: "assistant", content: "digest", metadata: { turnMode: "facilitate" } },
+        { role: "user", content: "q2" },
+        { role: "assistant", content: "ans" }, // legacy: no turnMode
+      ],
+    } as never);
+    const assistants = out.filter((m) => m.role === "assistant") as AssistantMessage[];
+    expect(assistants[0].mode).toBe("facilitate"); // from metadata.turnMode
+    expect(assistants[1].mode).toBe("tutor");      // fallback to convMode
+  });
 });

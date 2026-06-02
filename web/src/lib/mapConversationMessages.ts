@@ -4,11 +4,12 @@
  *
  * Extracted so it can be unit-tested independently of the React component.
  *
- * Key correctness invariant: every assistant message receives the
- * conversation-level mode (e.g. "facilitate", "resume") rather than a
- * hardcoded "tutor" default.  Per-message mode is not persisted in the
- * messages table; the conversation digest carries the single mode for the
- * whole conversation.
+ * Key correctness invariant: every assistant message receives the mode that
+ * actually ran that turn, read from `metadata.turnMode` (persisted by the
+ * backend since per-turn-mode was introduced).  For legacy rows that predate
+ * that field the conversation-level mode (e.g. "facilitate", "resume") is
+ * used as a fallback so that the whole conversation still shows a coherent
+ * mode rather than a hardcoded "tutor" default.
  */
 import type { ModeId, Source, Figure, RetrievalMetadata, Message } from "../types";
 
@@ -149,7 +150,9 @@ export function mapConversationMessages(data: RawConversationResponse): Message[
       id: m.id,
       time: toTime(m.timestamp),
       timestamp: m.timestamp,
-      mode: convMode,
+      mode: ((m.metadata as { turnMode?: string } | null)?.turnMode
+        ? parseConvMode((m.metadata as { turnMode?: string }).turnMode)
+        : convMode),
       model: "",
       books: [],
       sourceCount: Array.isArray(m.sources) ? (m.sources as unknown[]).length : 0,
