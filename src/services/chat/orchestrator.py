@@ -206,12 +206,18 @@ async def stream_chat(
 
     try:
         # ------------------------------------------------------------------
-        # 0. Look up ModeSpec (fallback to tutor for unknown modes)
+        # 0. Look up ModeSpec (unknown mode → loud error, never silent tutor)
         # ------------------------------------------------------------------
         try:
             spec = ModeRegistry.get(req.mode)
         except KeyError:
-            spec = ModeRegistry.get("tutor")
+            # Do NOT silently run tutor — surface the mis-route so it is caught.
+            yield {
+                "type": "error",
+                "code": "MODE_NOT_REGISTERED",
+                "message": f"Mode '{req.mode}' has no registered ModeSpec.",
+            }
+            return
 
         # ------------------------------------------------------------------
         # 1. Query rewrite

@@ -76,3 +76,29 @@ def test_mode_to_patch_covers_every_modeid():
         f"missing={set(get_args(ModeId)) - set(_MODE_TO_PATCH)}, "
         f"extra={set(_MODE_TO_PATCH) - set(get_args(ModeId))}"
     )
+
+
+def test_v1_registry_get_unknown_mode_raises_not_silent_tutor():
+    """ModeRegistry.get must raise KeyError for an unknown mode (no silent tutor)."""
+    from src.services.chat.modes import ModeRegistry
+
+    with pytest.raises(KeyError):
+        ModeRegistry.get("definitely-not-a-mode")
+
+
+@pytest.mark.asyncio
+async def test_v1_orchestrator_unknown_mode_emits_error(monkeypatch):
+    from src.services.chat import orchestrator as o
+
+    req = _make_request("tutor")
+    # Force an unknown mode at runtime, bypassing the ModeId Literal validation.
+    try:
+        object.__setattr__(req, "mode", "ghost-mode")
+    except Exception:
+        pytest.skip("ChatRequest does not allow runtime mode mutation")
+
+    events = [ev async for ev in o.stream_chat(req, None)]
+    assert any(
+        e.get("type") == "error" and e.get("code") == "MODE_NOT_REGISTERED"
+        for e in events
+    ), events
