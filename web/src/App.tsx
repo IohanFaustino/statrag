@@ -603,7 +603,6 @@ export default function App() {
               onModeAboutFacilitate={() => setFacilitateModalOpen(true)}
               onModeAboutResume={() => setResumeModalOpen(true)}
               onSend={handleSend}
-              disabled={isStreaming}
               isStreaming={isStreaming}
               onStop={() => stopStream()}
             />
