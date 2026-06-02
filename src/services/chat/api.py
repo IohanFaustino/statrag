@@ -153,6 +153,8 @@ async def chat_event_gen(req: ChatRequest):
         structured_schema: str | None = None
 
         def _persist_assistant(stopped: bool) -> None:
+            """Persist the accumulated assistant turn. Precondition: call only
+            after the streaming loop has run (reads buffer locals by reference)."""
             if not (req.conversationId and (structured_payload or assistant_text_buf)):
                 return
             if structured_payload is not None:
