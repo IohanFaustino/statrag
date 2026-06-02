@@ -1,7 +1,6 @@
 """Structured-output gate wired into chapter.py stages."""
 from __future__ import annotations
 
-import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -96,14 +95,12 @@ async def test_stages_pass_their_schema():
         body="block body text",
     )
 
-    # Ensure resolve gate is on
-    with patch.dict(os.environ, {"CHAPTER_RESOLVE": "1"}):
-        with patch.object(ch, "_chat", _spy):
-            await ch.map_sections([src], mode="resume", model="gpt-4o")
-            await ch.stitch([blk], model="gpt-4o")
-            await ch.ground([blk], [src], model="gpt-4o")
-            # "zzz" does NOT substring-match "Alpha" -> LLM path fires
-            await ch.resolve_subtopics(["zzz"], [src], model="gpt-4o")
+    with patch.object(ch, "_CHAPTER_RESOLVE", True), patch.object(ch, "_chat", _spy):
+        await ch.map_sections([src], mode="resume", model="gpt-4o")
+        await ch.stitch([blk], model="gpt-4o")
+        await ch.ground([blk], [src], model="gpt-4o")
+        # "zzz" does NOT substring-match "Alpha" -> LLM path fires
+        await ch.resolve_subtopics(["zzz"], [src], model="gpt-4o")
 
     assert ChapterMapBlock in seen
     assert ChapterStitchOut in seen
