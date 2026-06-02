@@ -75,6 +75,8 @@ async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) ->
             if m.get("role") == "system":
                 m["content"] = f"{m['content']}\n\n{hint}"
                 break
+        else:
+            messages.insert(0, {"role": "system", "content": hint})
     kwargs: dict = {
         "model": model, "messages": messages,
         "temperature": temperature, "max_completion_tokens": max_tokens,

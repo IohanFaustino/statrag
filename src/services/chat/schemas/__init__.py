@@ -49,6 +49,8 @@ from src.services.chat.schemas.output import (  # noqa: F401
     ConceptAnchor,
     FacilitateBlock,
     FacilitateDigest,
+    FacilitateMap,
+    FacilitateVerify,
 )
 
 __all__ = [
@@ -90,4 +92,6 @@ __all__ = [
     "ConceptAnchor",
     "FacilitateBlock",
     "FacilitateDigest",
+    "FacilitateMap",
+    "FacilitateVerify",
 ]

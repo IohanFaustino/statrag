@@ -279,6 +279,33 @@ async def test_chat_object_model_injects_hint_and_json_object():
 
 
 @pytest.mark.asyncio
+async def test_chat_object_model_no_system_message_prepends_hint():
+    captured = {}
+
+    class _Resp:
+        class _Choice:
+            class _Msg:
+                content = "{}"
+            message = _Msg()
+        choices = [_Choice()]
+
+    async def _create(**kwargs):
+        captured.update(kwargs)
+        return _Resp()
+
+    client = AsyncMock()
+    client.chat.completions.create = _create
+    with patch.object(fac, "aclient_for", return_value=client):
+        await fac._chat(
+            [{"role": "user", "content": "u"}],
+            model="deepseek-v4-pro", max_tokens=50, schema=fac.FacilitateMap,
+        )
+    assert captured["messages"][0]["role"] == "system"
+    assert "json" in captured["messages"][0]["content"].lower()
+    assert captured["messages"][-1]["role"] == "user"
+
+
+@pytest.mark.asyncio
 async def test_chat_schema_model_leaves_system_untouched():
     captured = {}
 
