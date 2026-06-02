@@ -37,7 +37,7 @@ const DEFAULT_STAGE_MODELS: Record<string, string> = {
 
 // ─── Static mode list (from STATRAG_MODES in data.js) ────────────────────────
 
-const STATRAG_MODES: ModeMeta[] = [
+export const STATRAG_MODES: ModeMeta[] = [
   { id: "tutor", label: "Tutor", glyph: "T" },
   { id: "qa", label: "Q&A", glyph: "?" },
   { id: "facilitate", label: "Facilitate", glyph: "F" },
