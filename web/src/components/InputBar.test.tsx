@@ -22,4 +22,15 @@ describe("InputBar stop button", () => {
     expect(screen.getByRole("button", { name: /send message/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /stop/i })).toBeNull();
   });
+
+  it("does not send on Enter while streaming", () => {
+    const onSend = vi.fn();
+    render(
+      <InputBar {...baseProps} onSend={onSend} activeMode="tutor" isStreaming onStop={() => {}} />,
+    );
+    const ta = screen.getByLabelText(/message input/i);
+    fireEvent.change(ta, { target: { value: "hello" } });
+    fireEvent.keyDown(ta, { key: "Enter", shiftKey: false });
+    expect(onSend).not.toHaveBeenCalled();
+  });
 });

@@ -52,7 +52,7 @@ export default function InputBar({
 
   function handleSend() {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || isStreaming) return;
     onSend(trimmed);
     setValue("");
     // Reset textarea height
