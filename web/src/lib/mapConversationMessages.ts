@@ -145,14 +145,14 @@ export function mapConversationMessages(data: RawConversationResponse): Message[
         ? (structured._schema as string)
         : "TutorAnswer";
 
+    const turnMode = (m.metadata as { turnMode?: string } | null)?.turnMode;
+
     const base = {
       role: "assistant" as const,
       id: m.id,
       time: toTime(m.timestamp),
       timestamp: m.timestamp,
-      mode: ((m.metadata as { turnMode?: string } | null)?.turnMode
-        ? parseConvMode((m.metadata as { turnMode?: string }).turnMode)
-        : convMode),
+      mode: turnMode ? parseConvMode(turnMode) : convMode,
       model: "",
       books: [],
       sourceCount: Array.isArray(m.sources) ? (m.sources as unknown[]).length : 0,
