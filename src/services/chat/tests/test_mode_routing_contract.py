@@ -66,3 +66,13 @@ async def test_mode_routes_to_its_own_agent(mode, monkeypatch):
     assert called == [mode], f"mode={mode} routed to {called}, expected [{mode!r}]"
     metas = [e for e in events if e.get("type") == "meta"]
     assert metas and metas[0]["mode"] == mode
+
+
+def test_mode_to_patch_covers_every_modeid():
+    """_MODE_TO_PATCH must list every ModeId so the routing contract test stays
+    exhaustive when a new mode is added."""
+    assert set(_MODE_TO_PATCH) == set(get_args(ModeId)), (
+        f"_MODE_TO_PATCH out of sync with ModeId: "
+        f"missing={set(get_args(ModeId)) - set(_MODE_TO_PATCH)}, "
+        f"extra={set(_MODE_TO_PATCH) - set(get_args(ModeId))}"
+    )
