@@ -6,6 +6,7 @@ Chinese-wall: imports only from ``src.services.chat.*``.  No ingestion imports.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import mimetypes
 from pathlib import Path
@@ -151,6 +152,28 @@ async def chat_event_gen(req: ChatRequest):
         structured_payload: dict | None = None
         structured_schema: str | None = None
 
+        def _persist_assistant(stopped: bool) -> None:
+            if not (req.conversationId and (structured_payload or assistant_text_buf)):
+                return
+            if structured_payload is not None:
+                content = dict(structured_payload)
+                if structured_schema:
+                    content.setdefault("_schema", structured_schema)
+            else:
+                content = "".join(assistant_text_buf)
+            metadata = {**(collected_meta or {}), "stopped": True} if stopped else collected_meta
+            try:
+                store.append_message(
+                    conversation_id=req.conversationId,
+                    role="assistant",
+                    content=content,
+                    sources=collected_sources,
+                    figures=collected_figures,
+                    metadata=metadata,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
         async for ev in stream_chat(req, history=history):
             ev_type = ev.get("type", "message")
             if ev_type == "token":
@@ -172,28 +195,10 @@ async def chat_event_gen(req: ChatRequest):
                 collected_meta = ev.get("meta")
             yield ev
 
-        if req.conversationId and (structured_payload or assistant_text_buf):
-            # Prefer the structured dict so the frontend can re-render aspect
-            # cards / citations on reload.  Fall back to the joined raw token
-            # stream when no structured payload was emitted (e.g. modes that
-            # do not use response_format).
-            if structured_payload is not None:
-                content: dict | str = dict(structured_payload)
-                if structured_schema:
-                    content.setdefault("_schema", structured_schema)
-            else:
-                content = "".join(assistant_text_buf)
-            try:
-                store.append_message(
-                    conversation_id=req.conversationId,
-                    role="assistant",
-                    content=content,
-                    sources=collected_sources,
-                    figures=collected_figures,
-                    metadata=collected_meta,
-                )
-            except Exception:  # noqa: BLE001
-                pass
+        _persist_assistant(stopped=False)
+    except asyncio.CancelledError:
+        _persist_assistant(stopped=True)
+        raise
     except Exception as exc:  # noqa: BLE001
         yield {
             "type": "error",
