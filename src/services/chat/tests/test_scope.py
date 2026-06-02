@@ -46,7 +46,7 @@ _CAT = [
 
 @pytest.mark.asyncio
 async def test_resolve_book_confident(monkeypatch):
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return _json.dumps({
             "book_slug": "islp", "book_confidence": 0.92,
             "book_candidates": ["islp"], "chapter_id": "ch07",
@@ -61,7 +61,7 @@ async def test_resolve_book_confident(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_resolve_book_expands_sections(monkeypatch):
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return _json.dumps({
             "book_slug": "islp", "book_confidence": 0.9,
             "book_candidates": ["islp"], "chapter_id": "ch07",
@@ -96,7 +96,7 @@ def test_maybe_clarify_caps_candidates():
 async def test_resolve_book_single_selection_failopen(monkeypatch):
     async def boom(*a, **k):
         raise RuntimeError("llm down")
-    monkeypatch.setattr(_scope, "_chat", boom)
+    monkeypatch.setattr(_scope, "_chat", boom)  # noqa: already accepts **k
     r = await _scope.resolve_book("teach ch02", selected_slugs=["islp"], catalog=_CAT)
     assert r.book_slug == "islp"
     assert r.book_confidence == 1.0

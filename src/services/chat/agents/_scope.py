@@ -55,16 +55,22 @@ def expand_section_refs(text: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 from src.services.chat.llm.router import aclient_for  # noqa: E402
+from src.services.chat.llm.structured import apply_structured_output  # noqa: E402
 from src.services.chat.prompts.chapter import CHAPTER_PARSE_PROMPT  # noqa: E402
+from src.services.chat.schemas import ChapterParse  # noqa: E402
 
 
-async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
+async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
     """Single LLM seam (tests monkeypatch this)."""
     oa = aclient_for(model)
-    resp = await oa.chat.completions.create(
-        model=model, messages=messages,
-        temperature=temperature, max_completion_tokens=max_tokens,
-    )
+    messages, response_format = apply_structured_output(messages, model, schema)
+    kwargs: dict = {
+        "model": model, "messages": messages,
+        "temperature": temperature, "max_completion_tokens": max_tokens,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    resp = await oa.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -100,7 +106,7 @@ async def resolve_book(
                     "message": message,
                 })},
             ],
-            model=chosen, max_tokens=300,
+            model=chosen, max_tokens=300, schema=ChapterParse,
         )
         data = json.loads(strip_fences(raw))
         valid = {c.slug for c in catalog}

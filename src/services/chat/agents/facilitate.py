@@ -21,7 +21,7 @@ from src.services.chat._fences import strip_fences
 from src.services.chat.agents._scope import maybe_clarify, resolve_book
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
-from src.services.chat.llm.structured import resolve_response_format
+from src.services.chat.llm.structured import apply_structured_output
 from src.services.chat.schemas.output import FacilitateMap, FacilitateVerify
 from src.services.chat.prompts.chapter import (
     FACILITATE_EXPLAIN_PROMPT,
@@ -68,15 +68,7 @@ def _model_for(stage: str, req) -> str:
 
 async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
     oa = aclient_for(model)
-    response_format, hint = resolve_response_format(model, schema)
-    if hint:
-        messages = [dict(m) for m in messages]
-        for m in messages:
-            if m.get("role") == "system":
-                m["content"] = f"{m['content']}\n\n{hint}"
-                break
-        else:
-            messages.insert(0, {"role": "system", "content": hint})
+    messages, response_format = apply_structured_output(messages, model, schema)
     kwargs: dict = {
         "model": model, "messages": messages,
         "temperature": temperature, "max_completion_tokens": max_tokens,
