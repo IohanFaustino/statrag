@@ -158,6 +158,7 @@ export function mapConversationMessages(data: RawConversationResponse): Message[
       sources: (m.sources as unknown as Source[]) ?? undefined,
       figures: (m.figures as unknown as Figure[]) ?? undefined,
       retrievalMetadata: (m.metadata as unknown as RetrievalMetadata) ?? undefined,
+      stopped: ((m.metadata as { stopped?: boolean } | null)?.stopped) ?? undefined,
       status: "complete" as const,
     };
 

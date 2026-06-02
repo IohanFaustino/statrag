@@ -3,7 +3,7 @@ import type {
   Message, UserMessage, AssistantMessage, AssistantBlock,
   Source, Figure, RetrievalMetadata, ModeId, ChatEvent,
 } from "../types";
-import { streamChat, streamResume, fetchRunStatus } from "../api/sse";
+import { streamChat, streamResume, fetchRunStatus, cancelRun } from "../api/sse";
 import type { ChatRequestBody } from "../api/sse";
 
 // Sentinel slice key for the "no conversation yet" draft. Mapped back to
@@ -60,7 +60,8 @@ type SliceAction =
   | { type: "USER_SENT"; text: string; userId: string; assistantId: string; time: string }
   | { type: "EVENT"; ev: ChatEvent }
   | { type: "BEGIN_RESUME"; assistantId: string; time: string }
-  | { type: "LOAD_CONVERSATION"; id: string; messages: Message[] };
+  | { type: "LOAD_CONVERSATION"; id: string; messages: Message[] }
+  | { type: "STOP" };
 
 // Store-level actions carry a `convId` and route to the matching slice, or
 // manage which slice is active (§13 multi-conversation store).
@@ -426,6 +427,18 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
       };
     }
 
+    case "STOP":
+      return {
+        ...state,
+        status: "idle",
+        streamingPhase: "idle",
+        messages: updateLastAssistant(state.messages, (msg) => ({
+          ...msg,
+          status: "complete",
+          stopped: true,
+        })),
+      };
+
     default:
       return state;
   }
@@ -579,6 +592,17 @@ export function useChat({ mode, model, bookFilter, settings, stageModels, divers
     [active, mode, model, bookFilter, settings?.temperature, settings?.top_k, settings?.rerank, stageModels, diversityAuthors, tutorWorkflow, pump],
   );
 
+  const stopStream = useCallback(
+    (convIdOverride?: string | null) => {
+      const convId = convIdOverride ?? (active === DRAFT_KEY ? null : active);
+      const convKey = convId ?? DRAFT_KEY;
+      abortMap.current.get(convKey)?.abort();
+      if (convId) void cancelRun(convId);
+      dispatch({ type: "SLICE", convId: convKey, action: { type: "STOP" } });
+    },
+    [active],
+  );
+
   const resetThread = useCallback(() => {
     // Focus a fresh draft; leave other conversations' runs alive (§13).
     dispatch({ type: "RESET_DRAFT" });
@@ -650,6 +674,7 @@ export function useChat({ mode, model, bookFilter, settings, stageModels, divers
     conversationId: active === DRAFT_KEY ? null : active,
     streamingIds,
     sendMessage,
+    stopStream,
     resetThread,
     setConversationId,
     loadConversation,

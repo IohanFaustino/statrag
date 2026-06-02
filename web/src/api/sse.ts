@@ -97,6 +97,18 @@ export async function fetchRunStatus(convId: string): Promise<RunStatus> {
   return (await res.json()) as RunStatus;
 }
 
+// Stop an in-flight detached run (§13). Best-effort; resolves cancelled=false
+// on any non-OK response so the caller can still abort the client stream.
+export async function cancelRun(convId: string): Promise<{ cancelled: boolean }> {
+  try {
+    const res = await fetch(`/api/chat/${convId}/cancel`, { method: "POST" });
+    if (!res.ok) return { cancelled: false };
+    return (await res.json()) as { cancelled: boolean };
+  } catch {
+    return { cancelled: false };
+  }
+}
+
 // Resume / replay an in-flight (or just-finished) run, skipping events at or
 // before `after` (§13). Used after a page refresh or when reopening a conv
 // whose local stream was lost.

@@ -103,6 +103,7 @@ export interface AssistantMessage {
   structuredOutput?: { schema: string; data: unknown };
   status: "pending" | "streaming" | "complete" | "error";
   error?: { code: string; message: string };
+  stopped?: boolean;
 }
 
 export type Message = UserMessage | AssistantMessage;

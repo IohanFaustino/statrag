@@ -124,6 +124,20 @@ describe("storeReducer (§13 multi-conversation)", () => {
     expect(s.byConv["A"].status).toBe("idle");
   });
 
+  it("STOP marks the last assistant message stopped=true and idles the slice", () => {
+    // Build a slice with a streaming assistant message via USER_SENT
+    let s = run([send("A"), event("A", { type: "token", text: "partial", seq: 1 })]);
+    // Sanity: slice is streaming
+    expect(s.byConv["A"].status).toBe("streaming");
+
+    s = storeReducer(s, { type: "SLICE", convId: "A", action: { type: "STOP" } });
+
+    const last = s.byConv["A"].messages.at(-1) as any;
+    expect(last.stopped).toBe(true);
+    expect(last.status).toBe("complete");
+    expect(s.byConv["A"].status).toBe("idle");
+  });
+
   it("structured_output FacilitateDigest attaches schema and data to the last assistant message", () => {
     let s = run([send("A"), event("A", { type: "token", text: "loading", seq: 1 })]);
 

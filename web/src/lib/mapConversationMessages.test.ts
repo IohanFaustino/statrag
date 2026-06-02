@@ -4,6 +4,7 @@ import {
   parseConvMode,
 } from "./mapConversationMessages";
 import type { RawConversationResponse } from "./mapConversationMessages";
+import type { AssistantMessage } from "../types";
 
 // ---------------------------------------------------------------------------
 // parseConvMode
@@ -146,6 +147,25 @@ describe("mapConversationMessages — user messages", () => {
 // ---------------------------------------------------------------------------
 
 describe("mapConversationMessages — structured content", () => {
+  it("maps metadata.stopped onto the assistant message", () => {
+    const data: RawConversationResponse = {
+      id: "conv-stopped",
+      mode: "tutor",
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          content: { text: "Partial answer." },
+          timestamp: "2024-01-01T12:00:00Z",
+          metadata: { stopped: true },
+        },
+      ],
+    };
+    const out = mapConversationMessages(data);
+    const assistant = out.find((m) => m.role === "assistant") as AssistantMessage;
+    expect(assistant.stopped).toBe(true);
+  });
+
   it("assistant message with object content gets structuredOutput", () => {
     const data: RawConversationResponse = {
       id: "conv8",
