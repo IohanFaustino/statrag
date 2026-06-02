@@ -11,8 +11,8 @@ import type { ConvDigest } from "./components/Sidebar";
 import ContextPanel from "./components/ContextPanel";
 import MessageThread from "./components/MessageThread";
 import InputBar from "./components/InputBar";
-import type { ModeMeta } from "./components/ModePicker";
 import TempChat from "./components/TempChat";
+import { STATRAG_MODES } from "./lib/modes";
 import BookModal from "./components/modals/BookModal";
 import SourceModal from "./components/modals/SourceModal";
 import AboutModelModal from "./components/modals/AboutModelModal";
@@ -34,15 +34,6 @@ const DEFAULT_STAGE_MODELS: Record<string, string> = {
   plan: "deepseek-v4-pro",
   draft: "deepseek-v4-pro",
 };
-
-// ─── Static mode list (from STATRAG_MODES in data.js) ────────────────────────
-
-export const STATRAG_MODES: ModeMeta[] = [
-  { id: "tutor", label: "Tutor", glyph: "T" },
-  { id: "qa", label: "Q&A", glyph: "?" },
-  { id: "facilitate", label: "Facilitate", glyph: "F" },
-  { id: "resume", label: "Resume", glyph: "R" },
-];
 
 // ─── Fallback providers (used when /api/models fails) ────────────────────────
 

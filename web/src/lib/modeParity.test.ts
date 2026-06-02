@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { STATRAG_MODES } from "../App";
+import { STATRAG_MODES } from "./modes";
 
 // MUST stay in sync with CANONICAL_MODES in
 // src/services/chat/tests/test_mode_parity.py — both fail if the sets drift.
