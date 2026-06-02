@@ -17,14 +17,13 @@ Chinese-wall: imports only from ``src.core.*`` and sibling
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 
 from langchain.agents import create_agent
 
 from src.core.config import settings
 from src.services.chat.checkpointer import get_async_checkpointer
-from src.services.chat.llm.structured import JsonMode, json_mode_for, resolve_response_format
+from src.services.chat.llm.structured import JsonMode, json_mode_for, schema_hint
 from src.services.chat.prompts.tutor import TUTOR_INSTRUCTIONS
 from src.services.chat.schemas.output import TutorAnswer
 from src.services.chat.tools import retrieve
@@ -69,16 +68,9 @@ async def build_agent():
                 # OBJECT mode: native json_schema unsupported — append a compact
                 # schema hint to the system prompt so the model still returns the
                 # expected structure.
-                js = TutorAnswer.model_json_schema()
-                props = list((js.get("properties") or {}).keys())
-                required = js.get("required") or props
-                shape = json.dumps({k: "..." for k in props})
-                hint = (
-                    "Return ONLY a valid json object with exactly these keys: "
-                    f"{', '.join(props)} (required: {', '.join(required)}). "
-                    f"Shape: {shape}"
-                )
-                system_prompt = f"{system_prompt}\n\n{hint}"
+                hint = schema_hint(TutorAnswer)
+                if hint:
+                    system_prompt = f"{system_prompt}\n\n{hint}"
         kwargs["system_prompt"] = system_prompt
         _AGENT = create_agent(**kwargs)
         return _AGENT

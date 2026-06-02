@@ -114,6 +114,16 @@ def _schema_hint(js: dict) -> str:
     )
 
 
+def schema_hint(schema: type) -> str | None:
+    """Public: compact 'return only json with these keys' instruction for a
+    schema, or None if the class isn't introspectable. Safe to append to a
+    system message in json_object / fallback mode."""
+    js = _get_json_schema(schema)
+    if js is None:
+        return None
+    return _schema_hint(js)
+
+
 def resolve_response_format(
     model_id: str | None,
     schema: type | None,

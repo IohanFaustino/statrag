@@ -63,3 +63,17 @@ def test_resolve_non_pydantic_schema_returns_nothing():
         pass
     payload, hint = resolve_response_format("gpt-4o", Dummy)
     assert payload is None and hint is None
+
+
+def test_schema_hint_public_helper():
+    from src.services.chat.llm.structured import schema_hint
+
+    class _S(pydantic.BaseModel):
+        a: int
+        b: str
+    h = schema_hint(_S)
+    assert h and "json" in h.lower() and "a" in h and "b" in h
+
+    class Dummy:
+        pass
+    assert schema_hint(Dummy) is None
