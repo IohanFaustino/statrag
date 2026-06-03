@@ -2,7 +2,7 @@
 
 Three single-purpose system prompts: scope extraction, scoped generation, and
 grounding verification. All are XML-scaffolded
-(<role>/<task>/<output_format>/<rules>) — same convention as the tutor and
+(<role>/<task>/<output_format>[/<rules>]) — same convention as the tutor and
 chapter prompts. Kept terse: Q&A is a short, direct pipeline.
 
 Chinese-wall: pure string constants, no imports from src.*.
