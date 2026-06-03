@@ -61,3 +61,41 @@ def test_write_answer_roundtrip(tmp_path, monkeypatch):
     assert data["qwen-plus"]["answer"] == "A."
     assert data["qwen-plus"]["ok"] is True
     assert data["qwen-plus"]["out_tok"] == 5
+
+
+def test_parse_judge_ok_and_fallback():
+    good = '{"clarity":5,"faithfulness":4,"coverage":3,"conciseness":4}'
+    d = tc._parse_judge(good)
+    assert d == {"clarity": 5.0, "faithfulness": 4.0, "coverage": 3.0,
+                 "conciseness": 4.0, "overall": 4.0}
+    bad = tc._parse_judge("garbage")
+    assert bad["overall"] == 0.0
+    assert bad["clarity"] == 0.0
+
+
+def test_render_artifact_has_table_and_answers():
+    answers = {
+        "gpt-5.4-nano-2026-03-17": {
+            "contestant": "gpt-5.4-nano-2026-03-17", "model": "gpt-5.4-nano-2026-03-17",
+            "answer": "Trend, seasonal, cyclical, irregular.", "in_tok": 500,
+            "out_tok": 200, "ms": 1200, "ok": True, "err": "",
+        },
+        "sonnet": {
+            "contestant": "sonnet", "model": "claude-sonnet", "answer": "Four parts.",
+            "in_tok": 0, "out_tok": 0, "ms": 0, "ok": True, "err": "",
+        },
+    }
+    scores = {
+        "gpt-5.4-nano-2026-03-17": {"clarity": 5.0, "faithfulness": 5.0,
+                                    "coverage": 5.0, "conciseness": 4.0, "overall": 4.75},
+        "sonnet": {"clarity": 4.0, "faithfulness": 4.0, "coverage": 3.0,
+                   "conciseness": 5.0, "overall": 4.0},
+    }
+    md = tc._render_artifact(answers, scores)
+    assert "| contestant |" in md
+    assert "gpt-5.4-nano-2026-03-17" in md
+    assert "4.75" in md
+    assert "$" in md
+    assert "## Full answers" in md
+    assert "Trend, seasonal, cyclical, irregular." in md
+    assert "_(agent — no API cost)_" in md or "n/a" in md
