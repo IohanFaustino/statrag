@@ -19,13 +19,16 @@ from src.services.chat._fences import strip_fences
 from src.services.chat.agents._scope import maybe_clarify, resolve_book
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
+from src.services.chat.llm.structured import apply_structured_output
 from src.services.chat.prompts.qa import (
     QA_GENERATE_PROMPT,
     QA_SCOPE_PROMPT,
     QA_VERIFY_PROMPT,
 )
 from src.services.chat.retrieval import hybrid_search
-from src.services.chat.schemas import ChatRequest, QAAnswer, QAScope, Source, TutorCitation
+from src.services.chat.schemas import (
+    ChatRequest, QAAnswer, QAGenerateOut, QAScope, QAVerifyOut, Source, TutorCitation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +51,23 @@ def _model_for(stage: str, req: ChatRequest | None) -> str:
     return env or settings.openai_model_nano
 
 
-async def _chat(messages, *, model, max_tokens, temperature=0.0) -> str:
-    """Single LLM seam. Returns the raw assistant content string."""
+async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:
+    """Single LLM seam. Returns the raw assistant content string.
+
+    Routes through the per-model structured-output gate: json_schema when the
+    model supports it, else json_object + a <response_format> hint appended to
+    the system message. Parsing stays defensive downstream (strip_fences +
+    json.loads), so json_object-only providers are still handled.
+    """
     oa = aclient_for(model)
-    resp = await oa.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_completion_tokens=max_tokens,
-    )
+    messages, response_format = apply_structured_output(messages, model, schema)
+    kwargs: dict = {
+        "model": model, "messages": messages,
+        "temperature": temperature, "max_completion_tokens": max_tokens,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    resp = await oa.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -78,6 +89,7 @@ async def extract_scope(query: str, *, model: str | None = None) -> QAScope:
             ],
             model=chosen,
             max_tokens=200,
+            schema=QAScope,
         )
         data = json.loads(strip_fences(raw))
         return QAScope(
@@ -170,7 +182,7 @@ async def generate_scoped(
     ]
 
     async def _one() -> dict:
-        raw = await _chat(messages, model=chosen, max_tokens=900)
+        raw = await _chat(messages, model=chosen, max_tokens=900, schema=QAGenerateOut)
         return json.loads(strip_fences(raw))
 
     try:
@@ -208,6 +220,7 @@ async def verify_grounding(
             ],
             model=chosen,
             max_tokens=700,
+            schema=QAVerifyOut,
         )
         data = json.loads(strip_fences(raw))
         verified_text = str(data.get("text") or answer.text).strip()

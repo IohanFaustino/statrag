@@ -57,6 +57,12 @@ flowchart LR
 
 ---
 
+## Prompts and structured output
+
+The three QA prompts (`QA_SCOPE_PROMPT`, `QA_GENERATE_PROMPT`, `QA_VERIFY_PROMPT` in `src/services/chat/prompts/qa.py`) are XML-scaffolded with `<role>/<task>/<output_format>/<rules>` tags, matching the project's prompt-schema convention (invariant 28). Content and meaning are unchanged — formatting only. The three LLM calls (scope/generate/verify) route through `apply_structured_output(messages, model, schema)`, the per-model capability gate: capable models (gpt/gemini/qwen/kimi) receive native `json_schema` enforcement; others receive `json_object` plus a `<response_format>` schema hint appended to the system message. Per-call schemas: `QAScope` (scope node), `QAGenerateOut` (generate node), `QAVerifyOut` (verify node). The SSE contract and `QAAnswer` payload the frontend renders are unchanged; the existing `strip_fences`+`json.loads`+retry+fail-open paths remain as the safety net for `json_object`-only providers.
+
+---
+
 ## Schemas
 
 Defined in `src/services/chat/schemas/output.py`, re-exported from `schemas/__init__.py`.

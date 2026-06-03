@@ -251,6 +251,31 @@ class QAAnswer(BaseModel):
     grounding: dict = Field(default_factory=dict)
 
 
+class QAGenerateOut(BaseModel):
+    """Raw output of QA_GENERATE_PROMPT (the generate node).
+
+    Describes the shape for the structured-output gate; the agent still parses
+    defensively and maps the result into :class:`QAAnswer`.
+    """
+
+    text: str = ""
+    citations: list[TutorCitation] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+
+
+class QAVerifyOut(BaseModel):
+    """Raw output of QA_VERIFY_PROMPT (the advisory grounding audit).
+
+    ``text`` is the draft answer with unsupported claims removed or softened
+    (unchanged when ``ok``); the agent echoes it back into the final ``QAAnswer``.
+    """
+
+    ok: bool = False
+    unsupported: list[str] = Field(default_factory=list)
+    confidence: float = 0.5
+    text: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Mode 3/4 — chapter (facilitate + resume)
 # ---------------------------------------------------------------------------
