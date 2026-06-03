@@ -54,3 +54,6 @@ logs/
 
 # scratch key file (never commit)
 /tmp
+
+# superpowers brainstorm scratch
+.superpowers/
