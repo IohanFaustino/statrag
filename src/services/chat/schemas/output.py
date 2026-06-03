@@ -264,7 +264,11 @@ class QAGenerateOut(BaseModel):
 
 
 class QAVerifyOut(BaseModel):
-    """Raw output of QA_VERIFY_PROMPT (the advisory grounding audit)."""
+    """Raw output of QA_VERIFY_PROMPT (the advisory grounding audit).
+
+    ``text`` is the draft answer with unsupported claims removed or softened
+    (unchanged when ``ok``); the agent echoes it back into the final ``QAAnswer``.
+    """
 
     ok: bool = False
     unsupported: list[str] = Field(default_factory=list)
