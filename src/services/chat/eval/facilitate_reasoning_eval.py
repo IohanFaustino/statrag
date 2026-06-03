@@ -226,12 +226,18 @@ def test_facilitate_reasoning_ab():
 # =============================================================================
 
 _SWEEP_OUT = Path(__file__).resolve().parents[4] / "docs" / "superpowers" / "eval" / "2026-06-03-facilitate-reasoning-models.md"
-_SWEEP_MODELS = ("gpt-5.4-nano-2026-03-17", "qwen-plus", "deepseek-v4-pro")
-_SWEEP_RUNS = 2
+_SWEEP_MODELS = ("gpt-5.4-nano-2026-03-17", "qwen-plus",
+                 "llama-3.3-70b-versatile", "gemini-2.5-flash")
+_SWEEP_RUNS = 1  # 1 teach-run/section — deepseek latency is the bottleneck
 
 
 async def _chat_usage(messages, *, model, max_tokens, schema=None):
-    """Like fac._chat but also returns (in_tokens, out_tokens) for cost."""
+    """Like fac._chat but also returns (in_tokens, out_tokens) for cost.
+
+    NOTE: aclient_for() returns a RAW openai client for deepseek, bypassing the
+    DeepSeekChat wrapper that disables thinking. Without re-injecting that
+    extra_body here, deepseek-v4-pro would run with thinking ON (140-741s/call).
+    """
     from src.services.chat.llm.router import aclient_for
     from src.services.chat.llm.structured import apply_structured_output
     oa = aclient_for(model)
@@ -240,6 +246,8 @@ async def _chat_usage(messages, *, model, max_tokens, schema=None):
               "max_completion_tokens": max_tokens}
     if response_format is not None:
         kwargs["response_format"] = response_format
+    if model.startswith("deepseek"):
+        kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
     resp = await oa.chat.completions.create(**kwargs)
     u = getattr(resp, "usage", None)
     it = int(getattr(u, "prompt_tokens", 0) or 0)
@@ -282,21 +290,73 @@ async def _teach_reasoning_usage(s, key_points, anchors, *, model):
     return body, it, ot
 
 
+def _cheap_anchors(s, concept_dicts):
+    """Build ConceptAnchors WITHOUT any retrieval/LLM (eval speed). Explanation
+    is a short slice of the section text; only id+term+kind matter for teach."""
+    from src.services.chat.schemas import ConceptAnchor, ConceptProvenance
+    src = (s.chunk or s.excerpt or "")[:200]
+    out = []
+    for i, c in enumerate(concept_dicts, 1):
+        out.append(ConceptAnchor(
+            id=f"c{i}", term=c["term"], kind=c["kind"], explanation=src,
+            provenance=ConceptProvenance(
+                book_slug=s.book, book_name=s.book_name or s.book,
+                authors_short=s.authors_short or "", section=s.title,
+                page_from=s.page_from if s.page_from is not None else -1,
+                page_to=s.page_to if s.page_to is not None else -1,
+                chunk_id=s.chunkId, same_author=True, fallback=False)))
+    return out
+
+
 @pytest.mark.facilitate_reasoning
 def test_facilitate_reasoning_model_sweep():
     async def run():
+        import time
         from src.services.chat.cost import usd_est
-        judge_model = settings.openai_model_nano
+        judge_model = settings.openai_model_nano  # also fixed for the EXPLAIN stage
         secs = [s for s in fetch_chapter_sections("hansen", "ch07", max_sections=30)
                 if any(s.title.startswith(p) for p in _SECTION_PREFIXES)]
         assert secs, "fixture sections not found (is hansen ch07 ingested?)"
         dims_keys = ("clarity", "faithfulness", "keypoint_coverage", "non_expansion", "concept_id")
 
-        results = {}  # model -> {dims:..., usd:..., in_tok:..., out_tok:..., n_sec:..., latency:...}
+        results = {}  # model -> {means, usd, in, out, secs_per_call}
         samples = {}  # section -> {model: body}
+
+        def _emit():
+            """Write the report from whatever models have completed so far."""
+            lines = ["# Facilitate reasoning variant — produce-model sweep (quality + cost)", "",
+                     f"_hansen ch07 §7.2–7.5 · reasoning variant · {_SWEEP_RUNS} teach-run/section · "
+                     f"judge+explain={judge_model} (fixed) · only MAP+TEACH use the swept model_", "",
+                     "Cost = USD for the swept model's MAP+TEACH calls over these 4 sections "
+                     "(explain billed to nano, excluded). Prices from `src/services/chat/cost.py`.", "",
+                     "| produce model (map+teach) | overall | clarity | faith | keypt_cov | non_exp | "
+                     "concept_id | in_tok | out_tok | USD (4 sec) | USD/section | s/call |",
+                     "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+            for m in _SWEEP_MODELS:
+                if m not in results:
+                    continue
+                r = results[m]; mn = r["means"]; per = r["usd"] / max(len(secs), 1)
+                lines.append(f"| {m} | {mn['overall']} | {mn['clarity']} | {mn['faithfulness']} | "
+                             f"{mn['keypoint_coverage']} | {mn['non_expansion']} | {mn['concept_id']} | "
+                             f"{r['in']} | {r['out']} | ${r['usd']:.4f} | ${per:.4f} | {r['spc']:.1f} |")
+            lines += ["", "**Projection** (USD/section × 8-section chapter, map+teach only):"]
+            for m in _SWEEP_MODELS:
+                if m in results:
+                    per = results[m]["usd"] / max(len(secs), 1)
+                    lines.append(f"- {m}: ~${per * 8:.4f}/chapter")
+            lines += ["", "## Sample teach bodies (run 1)", ""]
+            for title, bym in samples.items():
+                lines.append(f"### {title}")
+                for m in _SWEEP_MODELS:
+                    if m in results or m in bym:
+                        lines += [f"**{m}:**", "", bym.get(m, "_(none)_"), ""]
+            _SWEEP_OUT.parent.mkdir(parents=True, exist_ok=True)
+            _SWEEP_OUT.write_text("\n".join(lines), encoding="utf-8")
+
         for model in _SWEEP_MODELS:
             dims = {k: [] for k in dims_keys}
-            tot_in = tot_out = 0
+            tot_in = tot_out = ncall = 0
+            t_model = time.time()
             for s in secs:
                 src = s.chunk or s.excerpt or ""
                 try:
@@ -304,15 +364,19 @@ def test_facilitate_reasoning_model_sweep():
                 except Exception as e:  # noqa: BLE001
                     print(f"[{model}] map FAILED on {s.title}: {e}")
                     kps, cdicts, mi, mo = [], [], 0, 0
-                tot_in += mi; tot_out += mo
-                anchors = await fac._build_concepts(s, cdicts, explain_model=model)
+                tot_in += mi; tot_out += mo; ncall += 1
+                # Cheap anchors: NO retrieval / NO explain calls. The teach stage
+                # only needs concept ids + terms; anchor explanations don't affect
+                # the judged body. Building real anchors re-scrolls the whole book
+                # per (section,model) and dominated runtime.
+                anchors = _cheap_anchors(s, cdicts)
                 for run_i in range(_SWEEP_RUNS):
                     try:
                         body, ti, to = await _teach_reasoning_usage(s, kps, anchors, model=model)
                     except Exception as e:  # noqa: BLE001
                         print(f"[{model}] teach FAILED on {s.title}: {e}")
                         body, ti, to = "", 0, 0
-                    tot_in += ti; tot_out += to
+                    tot_in += ti; tot_out += to; ncall += 1
                     sc = await _judge(src, body, judge_model)
                     for k, v in sc.items():
                         dims[k].append(v)
@@ -321,34 +385,11 @@ def test_facilitate_reasoning_model_sweep():
             means = {k: round(statistics.mean(v), 2) if v else 0.0 for k, v in dims.items()}
             means["overall"] = round(statistics.mean(list(means.values())), 2)
             usd = usd_est(model, input_tokens=tot_in, output_tokens=tot_out)
-            results[model] = {"means": means, "usd": usd, "in": tot_in, "out": tot_out}
+            spc = (time.time() - t_model) / max(ncall, 1)
+            results[model] = {"means": means, "usd": usd, "in": tot_in, "out": tot_out, "spc": spc}
+            _emit()  # persist after every model so partial results survive
+            print(f"[done] {model}: overall={means['overall']} usd=${usd:.4f} {spc:.1f}s/call")
 
-        lines = ["# Facilitate reasoning variant — produce-model sweep (quality + cost)", "",
-                 f"_hansen ch07 §7.2–7.5 · reasoning variant · {_SWEEP_RUNS} teach-runs/section · "
-                 f"judge={judge_model} (fixed)_", "",
-                 "Cost = total USD for the produce calls (map+teach+explain) over these 4 sections, "
-                 "this run. Per-call price from `src/services/chat/cost.py`.", "",
-                 "| produce model | overall | clarity | faith | keypt_cov | non_exp | concept_id | "
-                 "in_tok | out_tok | USD (4 sec) | USD/section |",
-                 "|---|---|---|---|---|---|---|---|---|---|---|"]
-        for m in _SWEEP_MODELS:
-            r = results[m]; mn = r["means"]; per = r["usd"] / max(len(secs), 1)
-            lines.append(f"| {m} | {mn['overall']} | {mn['clarity']} | {mn['faithfulness']} | "
-                         f"{mn['keypoint_coverage']} | {mn['non_expansion']} | {mn['concept_id']} | "
-                         f"{r['in']} | {r['out']} | ${r['usd']:.4f} | ${per:.4f} |")
-        # crude projection: a typical chapter ~ 8 sections
-        lines += ["", "**Projection** (USD/section × 8-section chapter):"]
-        for m in _SWEEP_MODELS:
-            per = results[m]["usd"] / max(len(secs), 1)
-            lines.append(f"- {m}: ~${per * 8:.4f}/chapter")
-        lines += ["", "## Sample teach bodies (run 1)", ""]
-        for title, bym in samples.items():
-            lines.append(f"### {title}")
-            for m in _SWEEP_MODELS:
-                lines += [f"**{m}:**", "", bym.get(m, "_(none)_"), ""]
-        _SWEEP_OUT.parent.mkdir(parents=True, exist_ok=True)
-        _SWEEP_OUT.write_text("\n".join(lines), encoding="utf-8")
-        print("\n".join(lines[:14]))
         print(f"\nwrote {_SWEEP_OUT}")
 
     asyncio.run(run())
