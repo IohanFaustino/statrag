@@ -57,3 +57,6 @@ logs/
 
 # superpowers brainstorm scratch
 .superpowers/
+
+# git worktrees
+.worktrees/
