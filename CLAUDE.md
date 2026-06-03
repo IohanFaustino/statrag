@@ -81,7 +81,7 @@ Wall is encoded in each `__init__.py`. Add new services as `src/services/<name>/
 | **Chat service ops** | [`docs/services/chat.md`](docs/services/chat.md) |
 | **Chat feature deep-dive** | [`docs/services/chat-features/`](docs/services/chat-features/README.md) — 39+ per-feature docs w/ graphs; recent: 36 deep-tutor, 39 image-judge, 42 author-diversity, 43 synthesis-plan, 44 orchestrator-workers, 45 query-planner-coverage, 46 adjacency-recall, 47 answer-coherence, 48 long-context-organizer, 49 subsections-and-citation-links, 50 groq-provider-and-prompt-schema, 51 qa-mode, 52 book-scope-resolve, 53 facilitate-concept-map |
 | **Image eval** | [`docs/eval/image_label_instructions.md`](docs/eval/image_label_instructions.md) — labeling guide + KPIs; live runner via `pytest -m quality_images` |
-| **Chat next step** | [`docs/services/chat.md#next-step--make-chat-work-in-browser`](docs/services/chat.md) — verify and harden in-browser flow |
+| **Chat next step** | **Resume mode** — (1) remake the resume digest layout (frontend rendering), (2) certify its structured-output JSON structure is implemented (resume runs via `chapter.py`, already routed through `apply_structured_output` — confirm the scaffolded prompts + per-call schemas hold end-to-end). See [`docs/services/chat-features/53-facilitate-concept-map.md`](docs/services/chat-features/) + chapter prompts in `src/services/chat/prompts/chapter.py`. |
 | **Architecture** | [`docs/system/architecture.md`](docs/system/architecture.md) |
 | **Invariants** | [`docs/system/invariants.md`](docs/system/invariants.md) |
 | **Changelog** | [`docs/system/changelog.md`](docs/system/changelog.md) |
