@@ -86,12 +86,14 @@ treatment:
 block `body` string (risks double-render when the model already embeds math; not
 testable in isolation).
 
-### 3. Export — `web/src/lib/exportStructured.ts`
+### 3. Export — out of scope
 
-`resume()` currently emits a trailing `### Math` section from card-level
-`d.math_blocks` (line ~40). Change it to emit each block's `math_blocks` as
-`$$…$$` **under that block's body**, matching the new in-section layout. Remove
-the trailing `### Math` pile.
+`exportStructured.ts` has **no** `ChapterDigest` formatter — resume export falls
+through to the `default` raw-JSON dump (`structuredToMarkdown`, line ~77). There
+is nothing to "move": the trailing `### Math` block belongs to `qa()`, not
+resume. A proper resume export formatter is net-new work unrelated to the visual
+remake, so it is **excluded** from this design (YAGNI). Resume export stays a raw
+JSON dump.
 
 ## Data flow
 
@@ -129,8 +131,6 @@ with its block, so math order follows section order for free.
   - resume card has **no** bordered `.chapter-block` box and **no** outer card
     border (assert the facilitate-style class wiring / computed absence);
   - no trailing card-level math pile element.
-- **Export** (`web/src/lib/exportMarkdown.test.ts` or sibling): resume export puts
-  `$$…$$` under its section, no trailing `### Math`.
 
 ## Lockstep artifacts touched
 
@@ -141,8 +141,7 @@ with its block, so math order follows section order for free.
 | Frontend type | `web/src/types.ts` |
 | Frontend render | `web/src/components/ChapterDigestCard.tsx` |
 | CSS | `web/src/styles/chapter.css` |
-| Export | `web/src/lib/exportStructured.ts` |
-| Tests | chapter backend test, `ChapterDigestCard.test.tsx`, export test |
+| Tests | chapter backend test, `ChapterDigestCard.test.tsx` |
 | Per-feature doc | `docs/services/chat-features/53-*.md` (note layout change) |
 
 Not touched: prompts, `tutorPipeline.ts`, `PipelineDiagram.tsx`, pipeline graph
