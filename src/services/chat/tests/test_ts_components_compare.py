@@ -26,3 +26,19 @@ def test_contestant_filename_map():
     assert tc.CONTESTANT_FILE["gpt-5.4-nano-2026-03-17"] == "nano.json"
     assert tc.CONTESTANT_FILE["sonnet"] == "sonnet.json"
     assert tc.CONTESTANT_FILE["opus"] == "opus.json"
+
+
+def test_format_context_renders_sources():
+    from src.services.chat.schemas import Source
+    s = Source(
+        rank=1, book="cerqueira", chapter="ch03", section="3.1",
+        title="Time Series Decomposition", excerpt="", score=0.9,
+        chunkId="x1", chunk="A time series has trend and seasonality.",
+        book_name="DL for Time Series", authors_short="Cerqueira",
+        page_from=40, page_to=42,
+    )
+    out = tc._format_context([s])
+    assert "[1]" in out
+    assert "Time Series Decomposition" in out
+    assert "trend and seasonality" in out
+    assert "Cerqueira" in out
