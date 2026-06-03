@@ -1,0 +1,10 @@
+{
+  "contestant": "qwen-plus",
+  "model": "qwen-plus",
+  "answer": "A time series is typically decomposed into four fundamental components: trend, seasonality, cyclical, and irregular (also called residual or remainder). The **trend** represents the long-term movement or direction in the data\u2014either upward (increasing level) or downward (decreasing level)\u2014and reflects persistent changes over extended periods, such as years or decades. It captures the underlying growth or decline not attributable to shorter-term fluctuations. The **seasonality** component captures regular, predictable patterns that repeat at fixed intervals\u2014such as daily, weekly, or yearly cycles\u2014driven by calendar-based or natural phenomena (e.g., higher solar radiation in summer, lower in winter). Unlike trend, seasonality has a constant period and amplitude in additive models. The **cyclical** component refers to longer-term, non-periodic fluctuations that are not tied to fixed calendar intervals; these arise from broader economic, political, or environmental forces (e.g., business cycles lasting several years) and differ from seasonality in that their duration and magnitude vary. Finally, the **irregular** (or residual/remainder) component encompasses all remaining variation after removing trend, seasonality, and cyclical effects\u2014it includes random noise, measurement errors, outliers, and unpredictable events. These components combine via either an additive model: $Y_i = Trend_i + Seasonality_i + Cyclical_i + Irregular_i$, or a multiplicative model: $Y_i = Trend_i \\times Seasonality_i \\times Cyclical_i \\times Irregular_i$. In practice, multiplicative structures are often converted to additive ones using logarithmic transformation to stabilize variance. Classical decomposition estimates trend via moving averages and seasonality via periodic averaging, while more advanced methods like STL use locally weighted regression (LOESS) for greater flexibility.",
+  "in_tok": 2861,
+  "out_tok": 564,
+  "ms": 12424,
+  "ok": true,
+  "err": ""
+}
