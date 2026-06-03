@@ -42,3 +42,22 @@ def test_format_context_renders_sources():
     assert "Time Series Decomposition" in out
     assert "trend and seasonality" in out
     assert "Cerqueira" in out
+
+
+def test_parse_answer_strips_fences_and_extracts():
+    raw = '```json\n{"reasoning":"r","answer":"Trend and seasonality."}\n```'
+    assert tc._parse_answer(raw) == "Trend and seasonality."
+
+
+def test_parse_answer_bad_json_returns_raw_stripped():
+    assert tc._parse_answer("not json at all") == "not json at all"
+
+
+def test_write_answer_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setattr(tc, "_ANSWERS", tmp_path)
+    tc._write_answer("qwen-plus", model="qwen-plus", answer="A.", in_tok=10,
+                     out_tok=5, ms=123, ok=True, err="")
+    data = tc._load_answers()
+    assert data["qwen-plus"]["answer"] == "A."
+    assert data["qwen-plus"]["ok"] is True
+    assert data["qwen-plus"]["out_tok"] == 5
