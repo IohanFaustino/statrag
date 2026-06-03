@@ -30,7 +30,7 @@ def test_generate_prompt_forbids_explaining_known():
 async def test_extract_scope_parses_bias_variance(monkeypatch):
     from src.services.chat.agents import qa
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return (
             '{"target_gap":"why bias and variance trade off",'
             '"assumed_known":["what bias is","what variance is"],'
@@ -49,7 +49,7 @@ async def test_extract_scope_parses_bias_variance(monkeypatch):
 async def test_extract_scope_fail_open(monkeypatch):
     from src.services.chat.agents import qa
 
-    async def boom(messages, *, model, max_tokens, temperature=0.0):
+    async def boom(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return "not json at all"
 
     monkeypatch.setattr(qa, "_chat", boom)
@@ -97,7 +97,7 @@ async def test_generate_scoped_builds_answer_and_passes_known(monkeypatch):
 
     seen = {}
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         seen["user"] = messages[-1]["content"]
         return (
             '{"text":"The tradeoff arises because lowering one raises the other [1].",'
@@ -122,7 +122,7 @@ async def test_generate_scoped_repairs_bad_json(monkeypatch):
     from src.services.chat.agents import qa
     calls = {"n": 0}
 
-    async def flaky(messages, *, model, max_tokens, temperature=0.0):
+    async def flaky(messages, *, model, max_tokens, temperature=0.0, schema=None):
         calls["n"] += 1
         if calls["n"] == 1:
             return "garbled not json"
@@ -139,7 +139,7 @@ async def test_generate_scoped_repairs_bad_json(monkeypatch):
 async def test_verify_flags_unsupported_and_softens(monkeypatch):
     from src.services.chat.agents import qa
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return (
             '{"ok":false,"unsupported":["claim about quantum tunnelling"],'
             '"confidence":0.4,"text":"The tradeoff arises because lowering one raises the other [1]."}'
@@ -159,7 +159,7 @@ async def test_verify_flags_unsupported_and_softens(monkeypatch):
 async def test_verify_fail_open_keeps_draft(monkeypatch):
     from src.services.chat.agents import qa
 
-    async def boom(messages, *, model, max_tokens, temperature=0.0):
+    async def boom(messages, *, model, max_tokens, temperature=0.0, schema=None):
         raise RuntimeError("verify provider down")
 
     monkeypatch.setattr(qa, "_chat", boom)
@@ -176,7 +176,7 @@ async def test_verify_fail_open_keeps_draft(monkeypatch):
 async def test_generate_scoped_handles_fenced_json(monkeypatch):
     from src.services.chat.agents import qa
 
-    async def fake_chat(messages, *, model, max_tokens, temperature=0.0):
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return '```json\n{"text":"x","citations":[],"math_blocks":[]}\n```'
 
     monkeypatch.setattr(qa, "_chat", fake_chat)
