@@ -63,7 +63,11 @@ def _model_for(stage: str, req) -> str:
     env = os.environ.get(f"FACILITATE_{stage.upper()}_MODEL", "").strip()
     if env:
         return env
-    return "qwen-plus" if stage == "teach" else settings.openai_model_nano
+    # All stages default to nano. The 2026-06-03 model sweep showed nano beats
+    # qwen-plus on the teach stage on BOTH quality and cost (qwen ran away to
+    # ~67k output tokens / 85s per call); see
+    # docs/superpowers/eval/2026-06-03-facilitate-reasoning-models.md.
+    return settings.openai_model_nano
 
 
 async def _chat(messages, *, model, max_tokens, temperature=0.0, schema=None) -> str:

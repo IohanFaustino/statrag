@@ -7,6 +7,23 @@ from src.services.chat.schemas import (
 )
 
 
+def test_facilitate_model_defaults_all_nano():
+    """All facilitate stages default to nano (teach moved off qwen-plus 2026-06-03)."""
+    from src.services.chat.agents import facilitate as fac
+    for stage in ("map", "explain", "teach", "verify"):
+        assert fac._model_for(stage, None) == fac.settings.openai_model_nano
+
+
+def test_facilitate_stage_model_override_wins():
+    """A per-stage stageModels override still takes precedence over the nano default."""
+    from src.services.chat.agents import facilitate as fac
+
+    class _Req:
+        stageModels = {"teach": "qwen-plus"}
+
+    assert fac._model_for("teach", _Req()) == "qwen-plus"
+
+
 def test_facilitate_schemas_construct():
     prov = ConceptProvenance(book_slug="hansen", authors_short="Hansen",
                              section="7.1 INTRODUCTION", page_from=176, page_to=176,

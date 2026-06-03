@@ -189,6 +189,7 @@ The teach node is prompted with explicit readability constraints:
 | `FACILITATE_MAX_KEYPOINTS` | `6` | Max bullet key-points per section block |
 | `CONCEPT_MIN_SCORE` | `0.30` | Retrieval score threshold for sub-retrieval escalation |
 | `FACILITATE_SUBRETRIEVAL` | `1` | `0` = disable adaptive sub-retrieval; all concepts inlined |
+| `FACILITATE_<STAGE>_MODEL` | nano (all stages) | Per-stage model override (`MAP`/`EXPLAIN`/`TEACH`/`VERIFY`). All default to `gpt-5.4-nano-2026-03-17`. **Teach moved off `qwen-plus` → nano on 2026-06-03** after the model sweep (nano beat qwen on quality *and* cost; qwen ran away to ~67k out-tok/85s per teach call). See [`docs/superpowers/eval/2026-06-03-facilitate-reasoning-models.md`](../../superpowers/eval/2026-06-03-facilitate-reasoning-models.md). |
 | `CHAPTER_CLARIFY` | `1` (shared) | Kill-switch for book-scope clarify gate (feature 52) |
 | `CHAPTER_GROUND` | `1` (shared) | `0` = skip grounding-verify node |
 
