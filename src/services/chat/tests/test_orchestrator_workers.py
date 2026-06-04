@@ -160,13 +160,13 @@ def test_deep_synth_routes_to_skill_then_schema_fill(monkeypatch):
 
     calls = {}
 
-    async def fake_skill(query, srcs, briefs, *, model=None):
+    async def fake_skill(query, srcs, briefs, *, model=None, figures=None):
         calls["skill"] = True
         return "DEEPAGENTS SYNTH", 10, 20
     import src.services.chat.agents.ow_deepagents as OWD
     monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
 
-    async def fake_fill(query, text, model, cb):
+    async def fake_fill(query, text, model, cb, figures=None):
         calls["fill_text"] = text
         return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
                                example_intuition="", applications="",
@@ -251,13 +251,13 @@ def test_env_level_5_triggers_skill_path(monkeypatch):
     monkeypatch.setattr(OW, "run_author_worker", fake_worker)
 
     calls = {}
-    async def fake_skill(query, srcs, briefs, *, model=None):
+    async def fake_skill(query, srcs, briefs, *, model=None, figures=None):
         calls["skill"] = True
         return "ENV SYNTH", 1, 2
     import src.services.chat.agents.ow_deepagents as OWD
     monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
 
-    async def fake_fill(query, text, model, cb):
+    async def fake_fill(query, text, model, cb, figures=None):
         calls["fill_text"] = text
         return DeepTutorAnswer(tldr="env-ok", definition=text, formal_statement="",
                                example_intuition="", applications="",
@@ -287,12 +287,12 @@ def test_deep_synth_model_passed_to_skill_and_fill(monkeypatch):
     captured = {}
     import src.services.chat.agents.ow_deepagents as OWD
 
-    async def fake_skill(query, srcs, briefs, *, model=None):
+    async def fake_skill(query, srcs, briefs, *, model=None, figures=None):
         captured["skill_model"] = model
         return "T", 1, 2
     monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
 
-    async def fake_fill(query, text, model, cb):
+    async def fake_fill(query, text, model, cb, figures=None):
         captured["fill_model"] = model
         return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
                                example_intuition="", applications="",
@@ -320,12 +320,12 @@ def test_deep_synth_model_coerces_non_openai_to_nano(monkeypatch):
     captured = {}
     import src.services.chat.agents.ow_deepagents as OWD
 
-    async def fake_skill(query, srcs, briefs, *, model=None):
+    async def fake_skill(query, srcs, briefs, *, model=None, figures=None):
         captured["skill_model"] = model
         return "T", 1, 2
     monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
 
-    async def fake_fill(query, text, model, cb):
+    async def fake_fill(query, text, model, cb, figures=None):
         captured["fill_model"] = model
         return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
                                example_intuition="", applications="",
@@ -357,12 +357,12 @@ def test_deep_synth_model_coerces_groq_openai_prefix_to_nano(monkeypatch):
     captured = {}
     import src.services.chat.agents.ow_deepagents as OWD
 
-    async def fake_skill(query, srcs, briefs, *, model=None):
+    async def fake_skill(query, srcs, briefs, *, model=None, figures=None):
         captured["skill_model"] = model
         return "T", 1, 2
     monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
 
-    async def fake_fill(query, text, model, cb):
+    async def fake_fill(query, text, model, cb, figures=None):
         captured["fill_model"] = model
         return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
                                example_intuition="", applications="",
