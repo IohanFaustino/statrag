@@ -99,3 +99,35 @@ def test_owc_render_artifact():
                         "fidelity": 4.0}}
     md = OWC._render_artifact(rows)
     assert "| level | question |" in md and "L0" in md and "4.5" in md and "fidelity" in md.lower()
+
+
+# ---------------------------------------------------------------------------
+# Task 1 — harness helpers
+# ---------------------------------------------------------------------------
+import json as _json
+
+
+def test_structured_briefs_block_is_json():
+    briefs = [AuthorBrief(author="Hansen", summary="s1", key_points=["k1"], source_ranks=[1])]
+    block = H.structured_briefs_block(briefs)
+    assert "<author_briefs_json>" in block and "</author_briefs_json>" in block
+    inner = block.split("<author_briefs_json>")[1].split("</author_briefs_json>")[0].strip()
+    data = _json.loads(inner)
+    assert data == [{"author": "Hansen", "summary": "s1", "key_points": ["k1"], "source_ranks": [1]}]
+
+
+def test_content_bearing_filters_no_info():
+    briefs = [
+        AuthorBrief(author="A", summary="The source does not discuss this.", key_points=[]),
+        AuthorBrief(author="B", summary="Real treatment.", key_points=["kp"]),
+        AuthorBrief(author="C", summary="", key_points=[]),
+    ]
+    kept = H.content_bearing(briefs)
+    assert [b.author for b in kept] == ["B"]
+
+
+def test_max_level_is_three(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "3")
+    assert H.ow_harness_level() == 3
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "4")
+    assert H.ow_harness_level() == 0
