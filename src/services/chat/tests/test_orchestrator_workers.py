@@ -228,6 +228,12 @@ def test_deep_synth_falls_back_to_L0_when_schema_fill_returns_none(monkeypatch):
     assert seen.get("L0") and deep.tldr == "L0"
 
 
+def test_request_accepts_orchestrator_deep_workflow():
+    from src.services.chat.schemas._core import ChatRequest
+    req = ChatRequest(message="hi", tutorWorkflow="orchestrator-deep")
+    assert req.tutorWorkflow == "orchestrator-deep"
+
+
 def test_env_level_5_triggers_skill_path(monkeypatch):
     monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     sources, plan = _two_author_inputs()
