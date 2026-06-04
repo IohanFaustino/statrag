@@ -164,6 +164,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_DIVERSITY_MAX_AUTHORS` | `6` | Hard cap / `auto` ceiling on distinct authors. Honored end-to-end: section budget scales to `max(TUTOR_DEEP_TOP_SECTIONS, target)` and the final rerank keeps ≥1 chunk per picked author (author-aware floor), so a chosen N is not silently clamped to ~3 by the relevance trim. Still bounded by distinct authors present in the candidate pool. |
 | `TUTOR_DIVERSITY_DEFAULT` | `auto` | Mode when request omits `diversityAuthors` (`auto`/`off`/int) |
 | `TUTOR_DIVERSITY_TARGET_AUTHORS` | `3` | Legacy fallback for the cap |
+| `TUTOR_PLANNER_CHAIN` | `0` | When `1`, the query planner runs the 3-step decompose→expand→consolidate chain (3 nano calls) instead of the single call; falls back to single-call on any chain error. |
 
 `diversityAuthors` (request): `"auto"` = concept-extraction model picks the count (clamped to the cap **and** to authors available in the pool); `0`/`1` = off; `N≥2` = hard cap. Effective count is always ≤ authors available, so a single-author topic yields one author.
 

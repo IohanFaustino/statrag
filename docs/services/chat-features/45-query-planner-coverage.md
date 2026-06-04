@@ -26,6 +26,13 @@ The **raw question is always retrieved** (anchor); multi-query only adds and
 RRF-fuses. The coverage check is the self-healer: the planner declares the
 `facets` the answer needs, and the system verifies they were actually retrieved.
 
+> **Chained variant (`TUTOR_PLANNER_CHAIN=1`):** the single `extract_concepts_ex`
+> call is replaced by `extract_concepts_chain` — decompose (question → atomic
+> sub-questions, incl. an application-case and a related-framings sub-question) →
+> expand (one {concept, query, facet} per sub-question) → consolidate (dedupe +
+> perspectives budget) → the same `QueryPlan`. Any step failure degrades to the
+> single call. See doc 54.
+
 ## Config
 
 | Knob | Where | Default | Meaning |

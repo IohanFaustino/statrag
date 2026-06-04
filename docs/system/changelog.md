@@ -2,6 +2,11 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Chained question-decomposition query planner
+Added flag-gated 3-step planner chain (decompose→expand→consolidate) behind
+`TUTOR_PLANNER_CHAIN` (default off), single-call planner as fallback. New prompts,
+doc 54, and a 3-model eval harness. Downstream QueryPlan unchanged.
+
 ## 2026-06-03 — Facilitate teach model → nano (was qwen-plus)
 
 Changed the facilitate **teach** stage default from `qwen-plus` to `gpt-5.4-nano-2026-03-17` in `_model_for` (`src/services/chat/agents/facilitate.py`); all facilitate stages now default to nano. Driven by a produce-model sweep on Hansen ch07 §7.2–7.5: nano won on **both** quality (LLM-judge overall 3.8 vs qwen 2.2) and cost — qwen-plus ran away to ~67k output tokens / ~85s per teach call (~30× nano cost) under the reasoning-variant prompt. groq `llama-3.3-70b` and `gemini-2.5-flash` were also low quality (≈1.95; gemini additionally free-tier 429'd). Per-stage `FACILITATE_<STAGE>_MODEL` / `stageModels` overrides still win. Reports: `docs/superpowers/eval/2026-06-03-facilitate-reasoning-models.md` (sweep), `…-v2.md` (reasoning A/B, +0.17). Tests: `test_facilitate_model_defaults_all_nano`, `test_facilitate_stage_model_override_wins`. The reasoning/CoT variant itself remains eval-only (not yet shipped); spec at `docs/superpowers/specs/2026-06-03-facilitate-reasoning-design.md`.
