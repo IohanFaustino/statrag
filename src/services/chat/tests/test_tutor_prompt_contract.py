@@ -35,22 +35,37 @@ def test_intro_heading_renamed():
 # --- #3 structure into left-aligned subsections (§12) ------------------
 def test_structure_requires_subsection_headers():
     assert "wall of text" in INSTR
-    # §12: aspects structured with ### subsection headers, NOT bullet lists
+    # ### H3 headers remain the backbone of each aspect body
     assert "left-aligned subsection headers" in INSTR
-    assert "not bullet lists" in INSTR
+    # C-style: inside each ### subsection, use bold-lead-in bullets, one per claim
+    assert "bold lead-in bullets" in INSTR
+    assert "one claim per line" in INSTR
+    # the old prose mandate is gone — no flat 3-5 sentence paragraph rule,
+    # no blanket bullet ban
+    assert "3-5 sentences" not in INSTR
+    assert "not bullet lists" not in INSTR
     # definition gets a ### per component and a ### for the central quantity
     assert "### bias" in INSTR
     assert "### mse" in INSTR
     # component/decomposition formulas must be CENTERED DISPLAY equations ($$)
     assert "centered display equations" in INSTR
     assert "not inline" in INSTR
-    # density: subsections must be substantive and explain where the concept fits
+    # density: bullets must stay substantive and explain where the concept fits
     assert "depth over brevity" in INSTR
     assert "where it fits" in INSTR
-    assert "3-5 sentences" in INSTR
     # draft is invited to be extensive — ranges are minimums, not caps
     assert "be extensive" in INSTR
     assert "minimums, not caps" in INSTR
+
+
+def test_math_and_figures_placed_in_subsection():
+    # display math is placed inside the ### subsection it belongs to,
+    # never piled at the end
+    assert "inside the" in INSTR and "subsection it belongs to" in INSTR
+    # each Example case states its formula and carries its figure marker
+    # within that case's subsection
+    assert "each example" in INSTR
+    assert "in that same subsection" in INSTR or "within that same subsection" in INSTR
 
 
 # --- #4 intro = summary + roadmap --------------------------------------
