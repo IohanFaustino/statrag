@@ -187,7 +187,7 @@ def test_deep_synth_falls_back_to_L0_on_skill_failure(monkeypatch):
                            key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
     monkeypatch.setattr(OW, "run_author_worker", fake_worker)
 
-    async def boom(query, srcs, briefs, *, model=None):
+    async def boom(query, srcs, briefs, *, model=None, figures=None):
         raise RuntimeError("pip install deepagents")
     import src.services.chat.agents.ow_deepagents as OWD
     monkeypatch.setattr(OWD, "synthesize_with_skill", boom)
@@ -214,12 +214,12 @@ def test_deep_synth_falls_back_to_L0_when_schema_fill_returns_none(monkeypatch):
                            key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
     monkeypatch.setattr(OW, "run_author_worker", fake_worker)
 
-    async def ok_skill(query, srcs, briefs, *, model=None):
+    async def ok_skill(query, srcs, briefs, *, model=None, figures=None):
         return "SYNTH", 10, 20
     import src.services.chat.agents.ow_deepagents as OWD
     monkeypatch.setattr(OWD, "synthesize_with_skill", ok_skill)
 
-    async def none_fill(query, text, model, cb):
+    async def none_fill(query, text, model, cb, figures=None):
         return None, {}
     monkeypatch.setattr(OW, "_schema_fill", none_fill)
 
