@@ -213,8 +213,12 @@ async def run_orchestrator_workers(
             from src.services.chat.agents import ow_deepagents
             text, _it, _ot = await ow_deepagents.synthesize_with_skill(query, sources, briefs)
             if text.strip():
+                # Schema-fill needs the OpenAI structured-output API; coerce any
+                # non-OpenAI draft model (deepseek/groq/gemini/qwen/…) to nano.
                 fill_model = synth_model or settings.openai_model_nano
-                if fill_model.startswith("deepseek"):
+                from src.services.chat.llm.router import GROQ_MODEL_IDS  # noqa: PLC0415
+                if (fill_model.startswith(("deepseek", "gemini", "qwen"))
+                        or fill_model in GROQ_MODEL_IDS):
                     fill_model = settings.openai_model_nano
                 deep_a, aspects_a = await _schema_fill(query, text, fill_model, on_aspect_delta)
                 if deep_a is not None:

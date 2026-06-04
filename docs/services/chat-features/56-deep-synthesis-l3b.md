@@ -97,7 +97,7 @@ The `synthesize_with_skill` call is a **blocking `agent.invoke`** — approximat
 Synthesizing across authors… (~45 s)
 ```
 
-This is a purely presentational label in `web/src/App.tsx`.
+`web/src/App.tsx` computes the label and passes it as the `thinkingLabel` prop; `web/src/components/MessageThread.tsx` renders it in the thinking indicator.
 
 ---
 
@@ -149,7 +149,7 @@ A logic change to the deep synthesis path is incomplete until **all** of these r
 | Dep | `requirements.txt` — `deepagents==0.6.8` |
 | Modal card data | `web/src/data/tutorPipeline.ts` — drafting-workflow node desc |
 | Modal card render | `web/src/components/PipelineDiagram.tsx` — `orchestrator-deep` option |
-| Progress copy | `web/src/App.tsx` — "Synthesizing across authors… (~45 s)" |
+| Progress copy | `web/src/App.tsx` — computes `thinkingLabel`; `web/src/components/MessageThread.tsx` — renders it in the thinking indicator |
 | Env table + graph | `docs/services/chat-features/36-deep-tutor.md` |
 | Ablation doc | `docs/services/chat-features/55-ow-harness-ablation.md` — L3b shipped note |
 | Invariants | `docs/system/invariants.md` — invariant 35 |

@@ -153,6 +153,17 @@ def test_deepagents_import_error_is_clear(monkeypatch):
         asyncio.run(DA.synthesize_with_deepagents("q", [], []))
 
 
+def test_synthesize_with_skill_import_error_is_clear(monkeypatch):
+    """Invariant 35: synthesize_with_skill must also raise a clear RuntimeError
+    (mentioning deepagents / pip install) when deepagents is absent."""
+    import sys
+    from src.services.chat.agents import ow_deepagents as DA
+    monkeypatch.setitem(sys.modules, "deepagents", None)
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError, match="deepagents"):
+        asyncio.run(DA.synthesize_with_skill("q", [], []))
+
+
 # ---------------------------------------------------------------------------
 # Task 3 — wire L2 + L3 into the workflow
 # ---------------------------------------------------------------------------
