@@ -1,18 +1,18 @@
-# Orchestrator-workers harness ablation — baseline (Plan A: L0)
+# Orchestrator-workers harness ablation — L0/L2/L3 (corrected fidelity metric)
 
 _frozen multi-author sources · judge=gpt-5.4-nano-2026-03-17 · model held constant (nano workers + synth) · quality + context-fidelity_
 
 | level | question | overall | faith | coverage | synthesis | coherence | fidelity | out_tok | ms | USD |
 |---|---|---|---|---|---|---|---|---|---|---|
-| L0 | Q0 | 2.25 | 2.0 | 3.0 | 2.0 | 2.0 | 2.0 | 2561 | 28042 | $0.0010 |
-| L0 | Q1 | 3.5 | 3.0 | 4.0 | 3.0 | 4.0 | 3.0 | 2907 | 30562 | $0.0012 |
-| L0 | Q2 | 3.0 | 3.0 | 3.0 | 2.0 | 4.0 | 3.0 | 2644 | 30056 | $0.0011 |
-| L2 | Q0 | 2.0 | 2.0 | 2.0 | 2.0 | 2.0 | 1.0 | 2573 | 26888 | $0.0010 |
-| L2 | Q1 | 4.25 | 4.0 | 5.0 | 4.0 | 4.0 | 4.0 | 2816 | 38992 | $0.0011 |
-| L2 | Q2 | 2.5 | 2.0 | 2.0 | 2.0 | 4.0 | 3.0 | 2733 | 28888 | $0.0011 |
-| L3 | Q0 | 3.5 | 3.0 | 3.0 | 4.0 | 4.0 | 1.0 | 1491 | 25295 | $0.0006 |
-| L3 | Q1 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 2.0 | 1338 | 16535 | $0.0005 |
-| L3 | Q2 | 2.5 | 2.0 | 3.0 | 2.0 | 3.0 | 3.0 | 1318 | 16050 | $0.0005 |
+| L0 | Q0 | 3.75 | 3.0 | 5.0 | 3.0 | 4.0 | 5.0 | 2561 | 28042 | $0.0010 |
+| L0 | Q1 | 4.25 | 4.0 | 5.0 | 4.0 | 4.0 | 5.0 | 2907 | 30562 | $0.0012 |
+| L0 | Q2 | 3.75 | 3.0 | 5.0 | 3.0 | 4.0 | 4.0 | 2644 | 30056 | $0.0011 |
+| L2 | Q0 | 3.75 | 3.0 | 5.0 | 3.0 | 4.0 | 5.0 | 2573 | 26888 | $0.0010 |
+| L2 | Q1 | 4.5 | 4.0 | 5.0 | 4.0 | 5.0 | 5.0 | 2816 | 38992 | $0.0011 |
+| L2 | Q2 | 4.0 | 3.0 | 5.0 | 4.0 | 4.0 | 4.0 | 2733 | 28888 | $0.0011 |
+| L3 | Q0 | 4.25 | 4.0 | 4.0 | 4.0 | 5.0 | 5.0 | 1491 | 25295 | $0.0006 |
+| L3 | Q1 | 4.5 | 4.0 | 5.0 | 4.0 | 5.0 | 5.0 | 1338 | 16535 | $0.0005 |
+| L3 | Q2 | 4.0 | 3.0 | 4.0 | 4.0 | 5.0 | 4.0 | 1318 | 16050 | $0.0005 |
 
 ## Questions
 
@@ -20,58 +20,52 @@ _frozen multi-author sources · judge=gpt-5.4-nano-2026-03-17 · model held cons
 - Q1: Contrast OLS and maximum likelihood estimation across the textbooks.
 - Q2: Compare frequentist and Bayesian treatments of estimation.
 
-## Opus verdict — Plan B 3-way A/B (re-baselined, scoped sources)
+## Verdict — the fidelity problem was a measurement bug (root-caused + fixed)
 
-**Averages (3 questions, 1 run, nano model + judge held constant):**
+**Root cause (systematic debugging).** The fidelity judge truncated its inputs:
+`briefs[:2500]` and `answer[:3000]` (quality judge: `answer[:4000]`). With the scoped
+multi-author setup the briefs run **9–12k chars (5–8 authors)** and answers **6–12k
+chars**, so the judge saw only **~1.5 authors of briefs** and **~30–50% of the answer**,
+then was asked "did the brief facts survive?" — facts that survived into the unseen
+remainder were scored as **dropped**. Minimal test (re-judge identical stored rows,
+truncated vs full): L0 Q0 2.0→**5.0**, L3 Q0 1.0→**5.0**, L0 Q1 3.0→**5.0**. Root cause
+confirmed: **measurement artifact, not context loss.** This truncation was present since
+Plan A, so the original "fidelity 1–2 / context-handling weakness" that motivated this
+whole ablation was **never real**.
 
-| level | quality (overall) | fidelity | answer size (out_tok) |
+**Fix.** `_JUDGE_CHARS = 12000` (full briefs + full answer to both judges), guard test
+`test_fidelity_input_not_truncated`. Re-judged the stored answers (no workflow re-run).
+
+**Corrected results (3 questions, 1 run, nano fixed):**
+
+| level | quality avg | fidelity avg | out_tok |
 |---|---|---|---|
-| L0 flat string | **2.92** | **2.67** | ~2700 |
-| L2 structured JSON | **2.92** | **2.67** | ~2700 |
-| L3 deepagents synth | **3.33** | **2.0** | ~1380 |
+| L0 flat string | 3.92 | **4.67** | ~2700 |
+| L2 structured | 4.08 | **4.67** | ~2700 |
+| L3 deepagents | 4.25 | **4.67** | ~1380 |
 
-**Structure effect (L2 − L0) ≈ 0.** Handing the synthesizer the briefs as a JSON block
-instead of a flattened string changed quality and fidelity by **nothing** on average
-(per-question it wobbled both ways — Q1 +0.75, Q0/Q2 −0.25/−0.5, i.e. noise). The
-structured handoff is free and harmless but **does not earn a default flip**. The
-"context handling" weakness is not the string format.
+**Conclusions (reversing the earlier, truncated verdict):**
+1. **No fidelity problem exists.** Every level retains worker-brief facts at ~4.67/5.
+   The orchestrator-workers synthesizer is faithful; there is nothing to "fix" here.
+2. **The earlier "L3 −0.67 fidelity" is retracted** — it was truncation misaligning the
+   visible answer window (L3 leads with different authors) against the visible brief
+   window. With full text L3 fidelity = L0 = L2.
+3. **Levels are close on quality** (L0 3.92 → L2 4.08 → L3 4.25), a monotone but small
+   rise inside the 3-question/1-run noise. L3 reaches it with **shorter** answers
+   (~1380 vs ~2700 out_tok) — tighter prose, equal fidelity. Still: L3 cost is
+   understated (uncaptured deepagents tool-call turns) and it is free-text only.
+4. **Recommendation unchanged on shipping, changed on reasoning:** keep L0 default; do
+   not adopt deepagents on a 3q/1-run +0.33 quality edge. But the *program premise* is
+   corrected — the next pilot should NOT chase a non-existent OW context-handling
+   weakness. The real lesson is methodological: **validate the metric before trusting
+   the result** (truncation caps quietly invalidated three eval runs).
 
-**deepagents effect (L3 − L2) = +0.41 quality but −0.67 fidelity.** The deepagents
-synthesizer produced **higher-rated but much shorter** answers (~1380 vs ~2700 out_tok)
-that **retained fewer worker-brief facts** (fidelity 2.0 vs 2.67). So deepagents traded
-**breadth/source-retention for tighter, better-reasoned prose** — not obviously a win
-for a *grounded* tutor where covering the authors' facts matters. The synthesis/coherence
-sub-scores drove the quality bump; faithfulness was flat-to-down.
-
-**Why this is NOT enough to ship deepagents:**
-1. **Tiny, noisy sample** — 3 questions, 1 run; Q1 carried every level, Q0/Q2 were weak
-   across the board. The +0.41 is inside the run-to-run variance we saw all session.
-2. **L3 cost/latency are unreliable** — the eval counts only the final answer length;
-   the deepagents agent's internal tool-call turns (read_file ×N, planning) are
-   **uncaptured**, so L3's "$0.0005 / 16–25 s" is a **floor, not the real cost**. The
-   real L3 cost is higher than L0, not lower.
-3. **L3 is free-text only** — no `DeepTutorAnswer` schema; shipping it needs schema
-   integration + adding `deepagents` to `requirements.txt`.
-4. **Fidelity regressed** — the one metric this whole program targets ("context handling
-   between models") got *worse* under deepagents here.
-
-**Recommendation: do NOT productionize deepagents on this evidence; keep L0 default.**
-The structured handoff (L2) is a no-op — leave it flag-available but off. If deepagents
-is worth another look, it needs: (a) a bigger multi-run question set, (b) real L3 token
-capture (instrument the deepagents callbacks / LangSmith), and (c) a look at *why* it
-drops brief facts (likely it doesn't read every `/briefs/*.md`). Level 4 (full
-subagent-per-author) is **not** justified — L3 already underwhelmed on fidelity.
-
-**Feasibility (from the spike) stands:** deepagents runs on our stack and drives nano;
-the blocker is value, not feasibility. Net program takeaway: the orchestrator-workers
-context-handling weakness is **not** fixed by reformatting the handoff or by a deepagents
-agent — it likely lives upstream (retrieval pulling thin/mixed authors; workers
-summarising lossily). The next pilot should target *that*, not more synthesizer harness.
+**Feasibility (spike) stands;** deepagents runs on our stack. The blocker remains value,
+now even weaker since the fidelity gap it was meant to close did not exist.
 
 ---
 
-_Run notes: scoped books (hansen/wooldridge/stock_watson/gujarati/baltagi/pesaran/islp/
-murphy), 5–8 authors/question · content-bearing fidelity · model = nano everywhere ·
-L3 = deepagents 0.6.8 StoreBackend synth (real run after fixing an api_key passthrough;
-the first run silently fell back to L0 on missing credentials). deepagents uninstalled
-post-run (no win); not added to requirements.txt._
+_Run notes: scoped books, 5–8 authors/q · model = nano everywhere · fidelity+quality
+judges fixed to full-text (`_JUDGE_CHARS=12000`) · L3 = deepagents 0.6.8 (uninstalled
+post-run) · single-run judge retains mild variance — multi-run averaging is a cheap
+future hardening._

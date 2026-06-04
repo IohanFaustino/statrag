@@ -87,6 +87,21 @@ def _answer_text(ans) -> str:
     return "\n\n".join(parts) or str(ans)
 
 
+# Judge input cap. Briefs (5-8 authors) and answers run ~9-12k chars; the old
+# 2500/3000 caps cut most authors out of the fidelity judge so retained facts were
+# scored as "dropped" (a measurement artifact, not real context loss). 12000 chars
+# (~3k tokens, well within nano's window) fits the full briefs + full answer.
+_JUDGE_CHARS = 12000
+
+
+def _quality_input(answer: str) -> str:
+    return f"SOURCES-BASED ANSWER:\n{answer[:_JUDGE_CHARS]}"
+
+
+def _fidelity_input(briefs: str, answer: str) -> str:
+    return f"WORKER BRIEFS:\n{briefs[:_JUDGE_CHARS]}\n\nFINAL ANSWER:\n{answer[:_JUDGE_CHARS]}"
+
+
 def _parse_scores(raw: str, dims) -> dict:
     try:
         d = json.loads(strip_fences(raw))
@@ -205,10 +220,8 @@ async def step_judge() -> None:
             r["quality"] = _parse_scores("", JUDGE_DIMS)
             r["fidelity"] = 0.0
             continue
-        qtxt = f"SOURCES-BASED ANSWER:\n{r['answer'][:4000]}"
-        r["quality"] = _parse_scores(await _judge(_QUALITY_PROMPT, qtxt), JUDGE_DIMS)
-        ftxt = f"WORKER BRIEFS:\n{r['briefs'][:2500]}\n\nFINAL ANSWER:\n{r['answer'][:3000]}"
-        fid = _parse_scores(await _judge(_FIDELITY_PROMPT, ftxt), ("fidelity",))
+        r["quality"] = _parse_scores(await _judge(_QUALITY_PROMPT, _quality_input(r["answer"])), JUDGE_DIMS)
+        fid = _parse_scores(await _judge(_FIDELITY_PROMPT, _fidelity_input(r["briefs"], r["answer"])), ("fidelity",))
         r["fidelity"] = fid.get("fidelity", 0.0)
     _save_results(results)
     _ARTIFACT.write_text(_render_artifact(results), encoding="utf-8")

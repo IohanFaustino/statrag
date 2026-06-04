@@ -215,3 +215,14 @@ def test_owc_render_three_levels():
             ("L3", 0): {**base, "level": "L3"}}
     md = OWC._render_artifact(rows)
     assert "L0" in md and "L2" in md and "L3" in md
+
+
+def test_fidelity_input_not_truncated():
+    """Regression: the fidelity judge must see full briefs + full answer (the
+    2500/3000 truncation cut most authors and falsely scored retained facts as
+    dropped)."""
+    big_briefs = "B" * 9000
+    big_answer = "A" * 11000
+    s = OWC._fidelity_input(big_briefs, big_answer)
+    assert big_briefs in s and big_answer in s
+    assert OWC._JUDGE_CHARS >= 12000

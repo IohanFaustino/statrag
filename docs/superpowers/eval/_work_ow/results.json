@@ -10,13 +10,13 @@
     "ms": 28042,
     "err": "",
     "quality": {
-      "faithfulness": 2.0,
-      "coverage": 3.0,
-      "synthesis": 2.0,
-      "coherence": 2.0,
-      "overall": 2.25
+      "faithfulness": 3.0,
+      "coverage": 5.0,
+      "synthesis": 3.0,
+      "coherence": 4.0,
+      "overall": 3.75
     },
-    "fidelity": 2.0
+    "fidelity": 5.0
   },
   {
     "level": "L0",
@@ -29,13 +29,13 @@
     "ms": 30562,
     "err": "",
     "quality": {
-      "faithfulness": 3.0,
-      "coverage": 4.0,
-      "synthesis": 3.0,
+      "faithfulness": 4.0,
+      "coverage": 5.0,
+      "synthesis": 4.0,
       "coherence": 4.0,
-      "overall": 3.5
+      "overall": 4.25
     },
-    "fidelity": 3.0
+    "fidelity": 5.0
   },
   {
     "level": "L0",
@@ -49,12 +49,12 @@
     "err": "",
     "quality": {
       "faithfulness": 3.0,
-      "coverage": 3.0,
-      "synthesis": 2.0,
+      "coverage": 5.0,
+      "synthesis": 3.0,
       "coherence": 4.0,
-      "overall": 3.0
+      "overall": 3.75
     },
-    "fidelity": 3.0
+    "fidelity": 4.0
   },
   {
     "level": "L2",
@@ -67,13 +67,13 @@
     "ms": 26888,
     "err": "",
     "quality": {
-      "faithfulness": 2.0,
-      "coverage": 2.0,
-      "synthesis": 2.0,
-      "coherence": 2.0,
-      "overall": 2.0
+      "faithfulness": 3.0,
+      "coverage": 5.0,
+      "synthesis": 3.0,
+      "coherence": 4.0,
+      "overall": 3.75
     },
-    "fidelity": 1.0
+    "fidelity": 5.0
   },
   {
     "level": "L2",
@@ -89,10 +89,10 @@
       "faithfulness": 4.0,
       "coverage": 5.0,
       "synthesis": 4.0,
-      "coherence": 4.0,
-      "overall": 4.25
+      "coherence": 5.0,
+      "overall": 4.5
     },
-    "fidelity": 4.0
+    "fidelity": 5.0
   },
   {
     "level": "L2",
@@ -105,13 +105,13 @@
     "ms": 28888,
     "err": "",
     "quality": {
-      "faithfulness": 2.0,
-      "coverage": 2.0,
-      "synthesis": 2.0,
+      "faithfulness": 3.0,
+      "coverage": 5.0,
+      "synthesis": 4.0,
       "coherence": 4.0,
-      "overall": 2.5
+      "overall": 4.0
     },
-    "fidelity": 3.0
+    "fidelity": 4.0
   },
   {
     "level": "L3",
@@ -124,13 +124,13 @@
     "ms": 25295,
     "err": "",
     "quality": {
-      "faithfulness": 3.0,
-      "coverage": 3.0,
+      "faithfulness": 4.0,
+      "coverage": 4.0,
       "synthesis": 4.0,
-      "coherence": 4.0,
-      "overall": 3.5
+      "coherence": 5.0,
+      "overall": 4.25
     },
-    "fidelity": 1.0
+    "fidelity": 5.0
   },
   {
     "level": "L3",
@@ -144,12 +144,12 @@
     "err": "",
     "quality": {
       "faithfulness": 4.0,
-      "coverage": 4.0,
+      "coverage": 5.0,
       "synthesis": 4.0,
-      "coherence": 4.0,
-      "overall": 4.0
+      "coherence": 5.0,
+      "overall": 4.5
     },
-    "fidelity": 2.0
+    "fidelity": 5.0
   },
   {
     "level": "L3",
@@ -162,12 +162,12 @@
     "ms": 16050,
     "err": "",
     "quality": {
-      "faithfulness": 2.0,
-      "coverage": 3.0,
-      "synthesis": 2.0,
-      "coherence": 3.0,
-      "overall": 2.5
+      "faithfulness": 3.0,
+      "coverage": 4.0,
+      "synthesis": 4.0,
+      "coherence": 5.0,
+      "overall": 4.0
     },
-    "fidelity": 3.0
+    "fidelity": 4.0
   }
 ]
