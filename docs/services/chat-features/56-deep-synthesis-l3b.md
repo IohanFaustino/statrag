@@ -81,9 +81,11 @@ flowchart TD
 ## L3b path in detail
 
 1. **Per-author workers** run in parallel, producing one `AuthorBrief` per author — same as the standard `orchestrator` workflow.
-2. **`synthesize_with_skill`** (`src/services/chat/agents/ow_deepagents.py`) launches a `deepagents` agent with `ow_skills/synthesis/SKILL.md` loaded. The agent reads the author briefs, applies the written synthesis skill, and returns **free text** — a cross-author synthesis that may cite `[N]` markers, include LaTeX, and compare perspectives directly. This is where the quality gain lives.
-3. **Nano schema-fill pass** (`_schema_fill` in `orchestrator_workers.py`): one additional nano call receives the free text + the original question and distributes the content across the `DeepTutorAnswer` fields (`tldr / definition / formal_statement / example_intuition / applications / further_reading`) without adding or removing claims. Reuses `_stream_structured` so the SSE delta stream is identical to the existing render path.
+2. **`synthesize_with_skill`** (`src/services/chat/agents/ow_deepagents.py`) launches a `deepagents` agent with `ow_skills/synthesis/SKILL.md` loaded. The agent reads the author briefs **and the approved figures bundle** (forwarded from the pipeline), applies the written synthesis skill, and returns **free text** — a cross-author synthesis that may cite `[N]` markers, include LaTeX, compare perspectives directly, and place `[Fn]` figure markers. The synthesis SKILL mandates **C-style subsection bodies**: each `### ` subsection keeps a short **bold** lead sentence + bold lead-in bullets (one claim per line, `[N]` at line end); display math `$$…$$` and any `[Fn]` figure marker are placed inside the subsection they belong to (each Example `### Case` carries its own formula + figure). This is where the quality gain lives.
+3. **Nano schema-fill pass** (`_schema_fill` in `orchestrator_workers.py`): one additional nano call receives the free text + the original question + the figures bundle and distributes the content across the `DeepTutorAnswer` fields (`tldr / definition / formal_statement / example_intuition / applications / further_reading`) without adding or removing claims. `_schema_fill` prepends `DEEP_TUTOR_INSTRUCTIONS` to its system prompt so the C-style body format is preserved through the schema re-express pass. Reuses `_stream_structured` so the SSE delta stream is identical to the existing render path.
 4. The result is a normal `DeepTutorAnswer` rendered by the existing frontend `TutorView`.
+
+**Note on figures forwarding (fix, 2026-06-04):** prior to this fix, the `figures` bundle approved by the image judge was dropped on the orchestrator-deep path — `synthesize_with_skill` and `_schema_fill` never received it, so `[Fn]` markers were never placed. Both calls now receive the full `figures` bundle.
 
 ---
 
@@ -173,4 +175,4 @@ A logic change to the deep synthesis path is incomplete until **all** of these r
 | Ablation doc | `docs/services/chat-features/55-ow-harness-ablation.md` — L3b shipped note |
 | Invariants | `docs/system/invariants.md` — invariant 35 |
 | Changelog | `docs/system/changelog.md` — 2026-06-04 Plan D entry |
-| Tests | `src/services/chat/tests/test_ow_harness.py`, `src/services/chat/tests/test_orchestrator_workers.py`, `web/src/components/PipelineDiagram.test.tsx` |
+| Tests | `src/services/chat/tests/test_ow_harness.py`, `src/services/chat/tests/test_orchestrator_workers.py` (`test_structure_requires_subsection_headers`, `test_math_and_figures_placed_in_subsection`, `test_synthesis_skill_requires_c_style_body`, `test_schema_fill_uses_draft_system_prompt`, `test_schema_fill_includes_figure_bundle`, `test_synthesize_with_skill_accepts_figures`), `web/src/components/PipelineDiagram.test.tsx` |

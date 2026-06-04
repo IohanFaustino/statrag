@@ -72,6 +72,10 @@ class DeepTutorAnswer(BaseModel):
 
 Target total: ~1000-1500 words.
 
+### Answer body format (C-style, 2026-06-04)
+
+Each aspect field uses `### ` (H3) SUBSECTION headers as the backbone; inside each subsection the body is C-style — a short **bold** lead sentence followed by **bold lead-in bullets** (one claim per line, `[N]` citation at line end). Display math `$$…$$` and `[Fn]` figure markers are placed in the subsection they belong to (each Example `### Case` carries its own formula + figure marker). This replaces the old "3-5 sentence paragraph, no bullets" mandate while keeping the `##`/`###` layout, schema fields, and frontend rendering unchanged. `TutorView.splitIntoBlocks` parses `### `→`h3` (kept inside the collapsible section body; only `## `/h2 opens a new collapsible).
+
 The pipeline converts it to a backward-compat ``TutorAnswer``:
 - ``text`` — assembled markdown with ``## H2`` per aspect (canonical order).
 - ``aspects`` — raw aspect strings (NEW field, default ``{}``) for aspect-aware UIs.

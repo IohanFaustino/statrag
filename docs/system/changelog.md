@@ -2,6 +2,14 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Tutor C-style subsection bodies + deep-path figure forwarding
+
+Draft/synth prompt (`prompts/deep_tutor.py`) and L3b synthesis SKILL (`ow_skills/synthesis/SKILL.md`) now emit scannable bodies: **bold lead sentence** + **bold lead-in bullets** per `### ` subsection (was a dense 3-5 sentence paragraph). Display math `$$…$$` and `[Fn]` figure markers are placed inside the pertinent subsection; each Example `### Case` carries its own `$$formula$$` + figure. No `##`/`###` layout, schema, or frontend change.
+
+Fix: the orchestrator-deep path now forwards the approved figures bundle into `synthesize_with_skill` + `_schema_fill` (previously dropped, so `[Fn]` markers were never placed on that path); `_schema_fill` now re-expresses via the draft C-style contract (`DEEP_TUTOR_INSTRUCTIONS`).
+
+**Artifacts:** `src/services/chat/prompts/deep_tutor.py` (C-style body mandate), `src/services/chat/agents/ow_skills/synthesis/SKILL.md` (same), `src/services/chat/agents/ow_deepagents.py` (`synthesize_with_skill` — figures param), `src/services/chat/agents/orchestrator_workers.py` (`_schema_fill` — `DEEP_TUTOR_INSTRUCTIONS` prepend + figures forwarding), `docs/system/invariants.md` (invariant 24 updated), `docs/services/chat-features/56-deep-synthesis-l3b.md`, `docs/services/chat-features/36-deep-tutor.md`. Tests: `test_structure_requires_subsection_headers` (rewritten), `test_math_and_figures_placed_in_subsection`, `test_synthesis_skill_requires_c_style_body`, `test_schema_fill_uses_draft_system_prompt`, `test_schema_fill_includes_figure_bundle`, `test_synthesize_with_skill_accepts_figures`.
+
 ## 2026-06-04 — Tutor draft default → nano + capability-based routing
 
 Changed the tutor draft default from `qwen-plus` to `gpt-5.4-nano-2026-03-17` (nano) across the full stack: `TUTOR_DRAFT_MODEL` env default, `_DRAFT_MODEL_DEFAULT` fallback in `deep_tutor.py`, `RECOMMENDED_MODEL_ID` constant in `web/src/data/recommended.ts`, and the `recommended: true` flag in `router.py`. **Root cause:** qwen-plus hung under strict `json_schema` structured output (`response_format=<PydanticModel>`), producing empty/timeout responses. Nano is the eval value-winner with full json_schema reliability.
