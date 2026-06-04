@@ -121,11 +121,17 @@ async def run_orchestrator_workers(
     synth_model: str | None = None,
     figures: list | None = None,
     on_aspect_delta=None,
+    on_briefs=None,
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
     """Orchestrator LLM (dynamic subtasks) → parallel workers → streaming
     synthesizer. Falls back to a per-author split when the orchestrator
     declines. Returns ``(None, {})`` to tell the caller to use the single
-    draft (too thin to orchestrate)."""
+    draft (too thin to orchestrate).
+
+    *on_briefs* — optional callable invoked with the list of worker
+    ``AuthorBrief`` objects just before synthesis. Intended for
+    eval/observability capture; any exception in the hook is swallowed so
+    it can never break drafting."""
     # 1. Subtasks come from the Planner (Planner + Orchestrator are one agent —
     # plan.tasks). No second LLM call. Fall back to a per-author split when the
     # plan didn't decompose.
@@ -152,6 +158,12 @@ async def run_orchestrator_workers(
     if len(briefs) < 2:
         logger.info("orchestrator: <2 usable worker briefs; falling back to single draft")
         return None, {}
+
+    if on_briefs is not None:
+        try:
+            on_briefs(briefs)
+        except Exception:  # noqa: BLE001  (a capture hook must never break drafting)
+            logger.exception("on_briefs hook failed; continuing")
 
     # Synthesizer: same DeepTutorAnswer schema + draft rules + briefs addendum.
     plan_block = _format_plan_block(plan)
