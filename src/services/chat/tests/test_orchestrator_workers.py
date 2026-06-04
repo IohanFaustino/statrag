@@ -404,3 +404,55 @@ def test_deep_tutor_resolves_synth_stage_default_nano(monkeypatch):
 
     # Override with an unknown model id -> falls back to nano
     assert DT._resolve_stage_model("synth", nano, {"synth": "not-a-real-model"}) == nano
+
+
+# ---------------------------------------------------------------------------
+# Plan D bugfix — L0 synthesizer routes non-OpenAI via json_object path
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_L0_synth_routes_non_openai_via_router(monkeypatch):
+    """L0 synthesizer should route qwen/groq/gemini/deepseek through
+    _stream_draft_via_router (json_object), and OpenAI models through
+    _stream_structured (json_schema)."""
+    from src.core.config import settings
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    _answer = DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                              example_intuition="", applications="", further_reading="")
+
+    calls: dict[str, list[str]] = {"router": [], "structured": []}
+
+    async def fake_router(model, messages, aspects, on_aspect_delta=None):
+        calls["router"].append(model)
+        return _answer, {}
+
+    async def fake_structured(messages, model, on_aspect_delta=None):
+        calls["structured"].append(model)
+        return _answer, {}
+
+    # Patch via the deep_tutor module (lazy import target inside OW)
+    import src.services.chat.agents.deep_tutor as DT
+    monkeypatch.setattr(DT, "_stream_draft_via_router", fake_router)
+    monkeypatch.setattr(OW, "_stream_structured", fake_structured)
+
+    # qwen-plus → json_object (router) path
+    await OW.run_orchestrator_workers("q", sources, plan, synth_model="qwen-plus")
+    assert calls["router"] == ["qwen-plus"], "qwen-plus must use _stream_draft_via_router"
+    assert calls["structured"] == []
+
+    calls["router"].clear()
+    calls["structured"].clear()
+
+    # OpenAI nano → json_schema (structured) path
+    nano = settings.openai_model_nano
+    await OW.run_orchestrator_workers("q", sources, plan, synth_model=nano)
+    assert calls["structured"] == [nano], "OpenAI nano must use _stream_structured"
+    assert calls["router"] == []

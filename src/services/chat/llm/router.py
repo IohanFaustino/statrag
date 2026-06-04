@@ -62,6 +62,7 @@ _PROVIDERS: list[ModelProvider] = [
                 cost="$",
                 speed="fast",
                 ctx="200k",
+                recommended=True,
             ),
             Model(
                 id="gpt-5.4-2026-03-05",
@@ -182,7 +183,6 @@ _PROVIDERS: list[ModelProvider] = [
                 cost="$",
                 speed="fast",
                 ctx="1M",
-                recommended=True,
             ),
             Model(
                 id="qwen-max",
@@ -310,6 +310,20 @@ def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
             base_url=settings.qwen_base_url,
         )
     return openai.AsyncOpenAI(api_key=settings.openai_api_key)
+
+
+def is_structured_output_capable(model_id: str | None) -> bool:
+    """True iff the model can run OpenAI strict json_schema structured output
+    (response_format=<PydanticModel>). Only OpenAI-family models qualify;
+    deepseek/groq/gemini/qwen must use the json_object path instead. None →
+    True (defaults to OpenAI)."""
+    if not model_id:
+        return True
+    if model_id.startswith("deepseek"):
+        return False
+    if model_id in GROQ_MODEL_IDS or model_id in GEMINI_MODEL_IDS or model_id in QWEN_MODEL_IDS:
+        return False
+    return True
 
 
 def list_providers() -> list[ModelProvider]:

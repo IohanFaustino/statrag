@@ -248,8 +248,12 @@ async def run_orchestrator_workers(
         {"role": "system", "content": DEEP_TUTOR_INSTRUCTIONS + SYNTHESIZER_ADDENDUM},
         {"role": "user", "content": user},
     ]
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
     synth = synth_model or settings.openai_model_nano
-    if synth.startswith("deepseek"):
-        # Synthesizer needs the OpenAI structured path; nano covers deepseek picks.
-        synth = settings.openai_model_nano
+    if not is_structured_output_capable(synth):
+        from src.services.chat.agents.deep_tutor import _stream_draft_via_router  # noqa: PLC0415
+        from src.services.chat.prompts.deep_tutor import ASPECT_HEADINGS  # noqa: PLC0415
+        return await _stream_draft_via_router(
+            synth, messages, {k: "" for k in ASPECT_HEADINGS}, on_aspect_delta
+        )
     return await _stream_structured(messages, synth, on_aspect_delta)

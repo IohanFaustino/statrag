@@ -782,13 +782,12 @@ def _lift_math_blocks_from_text(text: str, *, limit: int = 6) -> list[str]:
 # needed to connect concepts across sources. Plan/extract/judge/coverage calls
 # stay at 0.0 — they must be deterministic.
 _DRAFT_TEMPERATURE = float(os.environ.get("TUTOR_DEEP_TEMPERATURE", "0.4"))
-# Draft-model default — Phase 2: upgraded to the full OpenAI model for
-# steadier latency and stronger articulation. Revert via:
-#   TUTOR_DRAFT_MODEL=gpt-5.4-nano-2026-03-17
-# The lazy evaluation (lambda) defers settings access until first use so
-# config is fully loaded before the fallback is read.
+# Draft-model default — nano is the default (eval value-winner; structured-safe).
+# Override via TUTOR_DRAFT_MODEL env var or stageModels["draft"] in the request.
+# The lazy evaluation defers settings access until first use so config is fully
+# loaded before the fallback is read.
 _DRAFT_MODEL_DEFAULT: str = (
-    os.environ.get("TUTOR_DRAFT_MODEL", "") or settings.openai_model_full
+    os.environ.get("TUTOR_DRAFT_MODEL", "") or settings.openai_model_nano
 )
 
 
@@ -1760,8 +1759,9 @@ async def _stream_draft(
         {"role": "system", "content": sys_prompt},
         {"role": "user", "content": user},
     ]
-    # Non-OpenAI providers (deepseek, …) — best-effort text-stream + JSON parse.
-    if draft_model.startswith("deepseek"):
+    # Non-OpenAI providers (deepseek, groq, gemini, qwen, …) — best-effort text-stream + JSON parse.
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
+    if not is_structured_output_capable(draft_model):
         return await _stream_draft_via_router(
             draft_model, messages, {k: "" for k in ASPECT_HEADINGS}, on_aspect_delta
         )

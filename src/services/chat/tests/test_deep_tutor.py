@@ -872,26 +872,25 @@ def test_coverage_gate_runs_complex():
 # ---------------------------------------------------------------------------
 
 
-def test_draft_stage_resolves_to_full_model_by_default():
-    """Draft stage default is the full OpenAI model (Phase 2); other stages stay nano."""
+def test_draft_stage_resolves_to_nano_by_default():
+    """Draft stage default is now nano (eval value-winner; structured-safe); other stages also nano."""
     import src.services.chat.agents.deep_tutor as dt
     from src.core.config import settings
 
     # Exercise the REAL wiring: req.model carries the schema-default nano, which
-    # must NOT shadow the full draft default (regression guard for the bug where
-    # `req.model or _DRAFT_MODEL_DEFAULT` always picked nano).
+    # must fall through to the nano _DRAFT_MODEL_DEFAULT (both are nano now).
     base_default = dt._resolve_draft_default(settings.openai_model_nano)
-    assert base_default == settings.openai_model_full, (
-        f"schema-default nano must fall through to full; got {base_default!r}"
+    assert base_default == settings.openai_model_nano, (
+        f"schema-default nano must fall through to nano default; got {base_default!r}"
     )
-    assert dt._resolve_draft_default(None) == settings.openai_model_full
+    assert dt._resolve_draft_default(None) == settings.openai_model_nano
     # An explicit, different pick still wins (About-model feature).
     assert dt._resolve_draft_default("gpt-4o") == "gpt-4o"
 
-    # Given that base, draft resolves to full; other stages stay nano.
+    # Given that base, draft resolves to nano; other stages also stay nano.
     draft_model = dt._resolve_stage_model("draft", base_default, None)
-    assert draft_model == settings.openai_model_full, (
-        f"Expected draft default={settings.openai_model_full}, got {draft_model!r}"
+    assert draft_model == settings.openai_model_nano, (
+        f"Expected draft default={settings.openai_model_nano}, got {draft_model!r}"
     )
     assert dt._resolve_stage_model("expansion", base_default, None) == settings.openai_model_nano
     assert dt._resolve_stage_model("critique", base_default, None) == settings.openai_model_nano
@@ -1185,3 +1184,67 @@ def test_adaptive_routing_flag_off_always_standard(sample_sources):
     assert "variance in regularization and model selection" in calls["retrieval_queries"], (
         f"All queries must be retained when routing is off; got {calls['retrieval_queries']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan D bugfix — nano default + capability-based draft routing
+# ---------------------------------------------------------------------------
+
+
+def test_draft_default_is_nano(monkeypatch):
+    """_DRAFT_MODEL_DEFAULT must be nano (not full); _resolve_draft_default(None) == nano."""
+    import src.services.chat.agents.deep_tutor as DT
+    from src.core.config import settings
+
+    # Force _DRAFT_MODEL_DEFAULT to nano in case env overrides it.
+    monkeypatch.setattr(DT, "_DRAFT_MODEL_DEFAULT", settings.openai_model_nano)
+
+    assert DT._DRAFT_MODEL_DEFAULT == settings.openai_model_nano
+    # resolve with nano (schema default) → nano
+    assert DT._resolve_draft_default(settings.openai_model_nano) == settings.openai_model_nano
+    # resolve with None → nano
+    assert DT._resolve_draft_default(None) == settings.openai_model_nano
+
+
+@pytest.mark.asyncio
+async def test_stream_draft_routes_non_openai_via_router(monkeypatch):
+    """Non-OpenAI model (qwen-plus) must use _stream_draft_via_router;
+    OpenAI nano must use _stream_structured."""
+    import src.services.chat.agents.deep_tutor as DT
+    from src.core.config import settings
+    from src.services.chat.schemas import Source
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    _answer = DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                              example_intuition="", applications="", further_reading="")
+
+    calls: dict[str, list[str]] = {"router": [], "structured": []}
+
+    async def fake_router(model, messages, aspects, on_aspect_delta=None):
+        calls["router"].append(model)
+        return _answer, {}
+
+    async def fake_structured(messages, model, on_aspect_delta=None):
+        calls["structured"].append(model)
+        return _answer, {}
+
+    monkeypatch.setattr(DT, "_stream_draft_via_router", fake_router)
+    monkeypatch.setattr(DT, "_stream_structured", fake_structured)
+
+    src_ = Source(rank=1, chunkId="c1", title="t", excerpt="x", chunk="hello",
+                  book="b1", book_name="b1", authors="A Smith", authors_short="Smith",
+                  section="1", chapter="ch1", score=0.5)
+
+    # qwen-plus → router path
+    await DT._stream_draft("q", [src_], model="qwen-plus")
+    assert calls["router"] == ["qwen-plus"], "qwen-plus must use _stream_draft_via_router"
+    assert calls["structured"] == []
+
+    calls["router"].clear()
+    calls["structured"].clear()
+
+    # OpenAI nano → structured path
+    nano = settings.openai_model_nano
+    await DT._stream_draft("q", [src_], model=nano)
+    assert calls["structured"] == [nano], "OpenAI nano must use _stream_structured"
+    assert calls["router"] == []
