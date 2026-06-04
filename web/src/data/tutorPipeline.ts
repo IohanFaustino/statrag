@@ -6,7 +6,7 @@
 // to a picker chat model). Locked nodes use a fixed model class (embedding /
 // cross-encoder / vision) that a chat model cannot replace.
 
-export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan";
+export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan" | "synth";
 
 export interface PipelineNode {
   id: string;

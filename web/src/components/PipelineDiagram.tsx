@@ -157,10 +157,10 @@ const ORC_NODES: PipelineNode[] = [
   {
     id: "synthesizer",
     label: "Synthesizer",
-    desc: "Integrates & compares per-author drafts into the final answer. Under deep synthesis (orchestrator-deep) a deepagents agent reads the synthesis skill, integrates the briefs, then a nano schema-fill pass renders the DeepTutorAnswer.",
+    desc: "Integrates & compares per-author drafts into the final answer. Under deep synthesis this node's model (default nano) runs the deepagents synthesizer + schema-fill; the draft/orchestrator model only drives the per-author workers.",
     kind: "llm",
-    stage: null,
-    defaultModel: "__active__",
+    stage: "synth",
+    defaultModel: "gpt-5.4-nano-2026-03-17",
     locked: false,
   },
 ];
@@ -473,9 +473,10 @@ export default function PipelineDiagram({
           );
         }
 
-        // ── synthesizer node (static label, no separate model control) ──
+        // ── synthesizer node (selectable model, stage "synth") ──
         if (n.id === "synthesizer") {
           const deepSynth = tutorWorkflow === "orchestrator-deep";
+          const synthActive = stageModels["synth"] ?? n.defaultModel;
           return (
             <div
               key={n.id}
@@ -489,6 +490,11 @@ export default function PipelineDiagram({
                   {deepSynth ? "deepagents + skill → schema-fill" : "integrate & compare"}
                 </span>
               </div>
+              <NodeModelDropdown
+                value={synthActive}
+                providers={providers}
+                onChange={(id) => onStageModelChange("synth" as StageKey, id)}
+              />
             </div>
           );
         }

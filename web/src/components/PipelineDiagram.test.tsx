@@ -417,6 +417,46 @@ describe("PipelineDiagram", () => {
     expect(html).toContain("integrate &amp; compare");
     expect(html).not.toContain("deepagents + skill → schema-fill");
   });
+
+  it("synthesizer node renders a model dropdown defaulting to nano id when stageModels.synth is unset", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator-deep"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    // Synthesizer node must have a dropdown toggle (not static text only)
+    expect(html).toContain('data-node="synthesizer"');
+    expect(html).toContain("node-dd__toggle");
+    // nano id not in PROVIDERS fixture → rendered as raw id in toggle name span
+    expect(html).toContain("gpt-5.4-nano-2026-03-17");
+  });
+
+  it("synthesizer node shows override model name when stageModels.synth is set", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{ synth: "gpt-4o-mini" }}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    expect(html).toContain('data-node="synthesizer"');
+    // gpt-4o-mini is in PROVIDERS fixture → its display name should appear in the toggle
+    expect(html).toContain("GPT-4o mini");
+    // The synthesizer dropdown aria-label reflects the override, not nano
+    expect(html).toContain('aria-label="Model: GPT-4o mini. Click to change."');
+  });
 });
 
 describe("AboutModelModal", () => {
