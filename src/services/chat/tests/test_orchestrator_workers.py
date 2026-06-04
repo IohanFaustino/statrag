@@ -463,6 +463,43 @@ def test_deep_synth_model_coerces_groq_openai_prefix_to_nano(monkeypatch):
 # Plan D — Change 3: deep_tutor resolves synth stage model
 # ---------------------------------------------------------------------------
 
+def test_author_worker_retries_on_length_error(monkeypatch):
+    """First .parse raises LengthFinishReasonError; second returns a valid brief.
+    run_author_worker must return the brief (retry path, not None)."""
+    import asyncio
+    import openai
+    import src.services.chat.agents.orchestrator_workers as OW
+    from src.services.chat.schemas.output import AuthorBrief
+
+    sources, _ = _two_author_inputs()
+    calls = {"n": 0}
+
+    class _Msg:
+        def __init__(self, parsed):
+            self.message = type("M", (), {"parsed": parsed})()
+
+    class _Resp:
+        def __init__(self, parsed):
+            self.choices = [_Msg(parsed)]
+
+    class _Parse:
+        async def parse(self, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                # Construct without invoking __init__ (which requires a real ChatCompletion)
+                raise openai.LengthFinishReasonError.__new__(openai.LengthFinishReasonError)
+            return _Resp(AuthorBrief(author="Casella", summary="s", key_points=["$x=1$"], source_ranks=[1]))
+
+    class _Client:
+        chat = type("C", (), {"completions": _Parse()})()
+
+    monkeypatch.setattr(OW, "_async_client", lambda m: _Client())
+    out = asyncio.run(OW.run_author_worker("q", "thesis", "Casella", sources[:1]))
+    assert out is not None, "expected a brief, got None (retry path broken)"
+    assert out.author == "Casella"
+    assert calls["n"] == 2, f"expected 2 parse calls (1 fail + 1 retry), got {calls['n']}"
+
+
 def test_deep_tutor_resolves_synth_stage_default_nano(monkeypatch):
     """_resolve_stage_model('synth', nano, None) == nano; an override is honored
     only when the candidate is in the known-models registry."""

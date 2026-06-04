@@ -17,6 +17,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import openai
+
 from src.core.config import settings
 from src.services.chat.prompts.deep_tutor import (
     AUTHOR_WORKER_PROMPT,
@@ -80,7 +82,7 @@ async def run_author_worker(
         f"{format_source_bundle(srcs)}\n\n"
         f"Return this author's brief JSON now."
     )
-    try:
+    async def _parse_brief(mct: int) -> AuthorBrief | None:
         resp = await oa.chat.completions.parse(
             model=chosen_model,
             messages=[
@@ -89,9 +91,16 @@ async def run_author_worker(
             ],
             response_format=AuthorBrief,
             temperature=0.0,
-            max_completion_tokens=600,
+            max_completion_tokens=mct,
         )
-        brief = resp.choices[0].message.parsed
+        return resp.choices[0].message.parsed
+
+    try:
+        try:
+            brief = await _parse_brief(600)
+        except openai.LengthFinishReasonError:
+            logger.info("author worker %s hit length cap; retrying with larger budget", author)
+            brief = await _parse_brief(1100)
         if brief and not brief.author:
             brief.author = author
         return brief
