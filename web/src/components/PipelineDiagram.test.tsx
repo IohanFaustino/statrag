@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { stageDefaultModels } from "../data/recommended";
 import React from "react";
 import PipelineDiagram from "./PipelineDiagram";
 import AboutModelModal from "./modals/AboutModelModal";
@@ -569,5 +570,30 @@ describe("AboutModelModal", () => {
     expect(html).toContain("Features");
     expect(html).toContain("node-dd__toggle"); // diagram embedded w/ custom dropdown
     expect(html).toContain("Apply"); // Apply button present
+  });
+
+});
+
+describe("stageDefaultModels (Default button reset map)", () => {
+  it("restores true per-stage defaults: nano for non-draft text stages, gpt-4o-mini vision, recommended draft — NOT qwen-plus everywhere", () => {
+    const defaults = stageDefaultModels("qwen-plus");
+    expect(defaults).toEqual({
+      expansion: "gpt-5.4-nano-2026-03-17",
+      image_judge: "gpt-5.4-nano-2026-03-17",
+      plan: "gpt-5.4-nano-2026-03-17",
+      synth: "gpt-5.4-nano-2026-03-17",
+      draft: "qwen-plus",
+      vision_explain: "gpt-4o-mini",
+    });
+    // regression guard: the non-draft stages must NOT all be the recommended (qwen-plus)
+    expect(defaults.plan).not.toBe("qwen-plus");
+    expect(defaults.synth).not.toBe("qwen-plus");
+    expect(defaults.vision_explain).not.toBe("qwen-plus");
+  });
+
+  it("draft follows the supplied recommended/draft model so a custom draft pick is honored", () => {
+    expect(stageDefaultModels("gpt-5.4").draft).toBe("gpt-5.4");
+    // non-draft stages stay on their fixed defaults regardless of the draft pick
+    expect(stageDefaultModels("gpt-5.4").plan).toBe("gpt-5.4-nano-2026-03-17");
   });
 });
