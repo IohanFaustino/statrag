@@ -8,7 +8,7 @@ TUTOR_OW_HARNESS selects the level:
   4 = deepagents + subagents (rejected by Plan C; no branch → behaves as L0)
   5 = deepagents + synthesis SKILL.md  (Plan D — the shipped opt-in "deep synthesis")
 
-Levels 0-5 implemented (Plan D).
+Levels 0-5 accepted; 4 falls back to 0 (Plan D).
 """
 from __future__ import annotations
 
