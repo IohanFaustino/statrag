@@ -1,9 +1,12 @@
 """Tests for the orchestrator-workers harness scaffold + eval helpers."""
 import asyncio
 from unittest.mock import patch
+
 from src.services.chat.agents import orchestrator_workers as OW
-from src.services.chat.schemas.output import AuthorBrief
+from src.services.chat.agents import ow_harness as H
+from src.services.chat.eval import ow_harness_compare as OWC
 from src.services.chat.schemas import Source
+from src.services.chat.schemas.output import AuthorBrief
 
 
 def _src(rank, author):
@@ -34,9 +37,6 @@ def test_on_briefs_hook_receives_briefs():
             "q", srcs, None, on_briefs=lambda b: captured.setdefault("briefs", b)))
     assert "briefs" in captured
     assert {b.author for b in captured["briefs"]} == {"Hansen", "Wooldridge"}
-
-
-from src.services.chat.agents import ow_harness as H
 
 
 def test_level_parse_default_and_clamp(monkeypatch):
@@ -72,9 +72,6 @@ def test_maybe_traced_preserves_behavior_when_on(monkeypatch):
     assert wrapped(2) == 6
 
 
-from src.services.chat.eval import ow_harness_compare as OWC
-
-
 def test_owc_constants_and_helpers():
     assert OWC.JUDGE_MODEL == "gpt-5.4-nano-2026-03-17"
     assert len(OWC.QUESTIONS) == 3
@@ -82,8 +79,8 @@ def test_owc_constants_and_helpers():
 
 
 def test_owc_render_briefs_text():
-    from src.services.chat.schemas.output import AuthorBrief
-    txt = OWC._briefs_text([AuthorBrief(author="Hansen", summary="s", key_points=["k1"])])
+    from src.services.chat.schemas.output import AuthorBrief as AB
+    txt = OWC._briefs_text([AB(author="Hansen", summary="s", key_points=["k1"])])
     assert "Hansen" in txt and "k1" in txt
 
 

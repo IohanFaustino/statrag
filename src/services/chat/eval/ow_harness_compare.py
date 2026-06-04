@@ -184,7 +184,8 @@ async def step_judge() -> None:
 
     for key, r in results.items():
         if not r.get("ok"):
-            r["quality"] = _parse_scores("", JUDGE_DIMS); r["fidelity"] = 0.0
+            r["quality"] = _parse_scores("", JUDGE_DIMS)
+            r["fidelity"] = 0.0
             continue
         qtxt = f"SOURCES-BASED ANSWER:\n{r['answer'][:4000]}"
         r["quality"] = _parse_scores(await _judge(_QUALITY_PROMPT, qtxt), JUDGE_DIMS)

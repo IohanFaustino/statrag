@@ -20,7 +20,6 @@ import logging
 from src.core.config import settings
 from src.services.chat.prompts.deep_tutor import (
     AUTHOR_WORKER_PROMPT,
-    ASPECT_HEADINGS,
     DEEP_TUTOR_INSTRUCTIONS,
     SYNTHESIZER_ADDENDUM,
     format_source_bundle,
