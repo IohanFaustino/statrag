@@ -164,3 +164,26 @@ def test_synthesize_structured_returns_typed_answer(monkeypatch):
     assert out is sentinel
     assert captured.get("response_format") is not None
     assert captured.get("skills") == ["/skills/"]
+
+
+def test_synthesize_subagents_structured_builds_author_subagents(monkeypatch):
+    import asyncio
+    import src.services.chat.agents.ow_deepagents as owd
+    from src.services.chat.schemas.output import DeepTutorAnswer, AuthorBrief
+
+    sentinel = DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                               example_intuition="e", applications="a", further_reading="f")
+    class _Agent:
+        def invoke(self, payload, config=None):
+            return {"structured_response": sentinel, "messages": []}
+    captured = {}
+    monkeypatch.setattr(owd, "create_deep_agent", lambda **kw: (captured.update(kw) or _Agent()), raising=False)
+
+    briefs = [AuthorBrief(author="Das", summary="s", key_points=["k"], source_ranks=[1]),
+              AuthorBrief(author="Pesaran", summary="s2", key_points=["k2"], source_ranks=[2])]
+    out, it, ot = asyncio.run(owd.synthesize_subagents_structured("q", [], briefs, model="gpt-5.4-nano-2026-03-17"))
+    assert out is sentinel
+    subs = captured.get("subagents") or []
+    assert len(subs) == 2
+    assert all("response_format" in s for s in subs)
+    assert captured.get("response_format") is not None

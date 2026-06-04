@@ -213,6 +213,67 @@ async def synthesize_structured(
     return await _run_agent_structured(agent, user_content)
 
 
+async def synthesize_subagents_structured(
+    query: str, sources, briefs, *, model: str | None = None,
+    figures: list | None = None,
+) -> tuple:
+    """Approach B: ONE deep agent with one author-analyst subagent per author
+    (each returns a typed AuthorBrief), then emits a typed DeepTutorAnswer.
+    Returns (DeepTutorAnswer | None, in_tok, out_tok)."""
+    try:
+        import deepagents  # noqa: F401
+        from deepagents import create_deep_agent as _cda
+        from deepagents.backends import StoreBackend
+        from deepagents.backends.utils import create_file_data
+    except (ImportError, TypeError) as e:
+        raise RuntimeError("pip install deepagents to run subagent synthesis") from e
+    import sys
+    from langchain_openai import ChatOpenAI
+    from langchain.agents.structured_output import ToolStrategy
+    from pathlib import Path
+    from src.services.chat.schemas.output import DeepTutorAnswer, AuthorBrief
+    from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_INSTRUCTIONS
+    from src.services.chat.agents.deep_tutor import _format_figure_bundle
+
+    # Allow monkeypatching in tests: if the test has set owd.create_deep_agent on the
+    # module, use that; otherwise fall through to the lazily-imported _cda.
+    create_deep_agent = getattr(sys.modules[__name__], "create_deep_agent", None) or _cda
+
+    chosen = model or settings.openai_model_nano
+    store = _build_store(briefs)
+    skill_md = (Path(SYNTHESIS_SKILL_DIR) / "synthesis" / "SKILL.md").read_text(encoding="utf-8")
+    store.put(namespace=("filesystem",), key="/skills/synthesis/SKILL.md",
+              value=create_file_data(skill_md))
+    ref = Path(SYNTHESIS_SKILL_DIR) / "synthesis" / "references" / "formulas.md"
+    if ref.exists():
+        store.put(namespace=("filesystem",), key="/skills/synthesis/references/formulas.md",
+                  value=create_file_data(ref.read_text(encoding="utf-8")))
+
+    lc_model = ChatOpenAI(model=chosen, temperature=0.0, api_key=settings.openai_api_key)
+    subagents = [{
+        "name": f"author-{_slug(b.author)}",
+        "description": f"Analyze author {b.author}'s brief at /briefs/{_slug(b.author)}.md and report their key points.",
+        "system_prompt": f"Read /briefs/{_slug(b.author)}.md and return that author's faithful key points.",
+        "skills": ["/skills/"],
+        "response_format": AuthorBrief,
+    } for b in briefs]
+    agent = create_deep_agent(
+        model=lc_model, tools=[], subagents=subagents,
+        system_prompt=(
+            DEEP_TUTOR_INSTRUCTIONS
+            + "\n\nDelegate each author's analysis to its author-analyst subagent, then synthesize into the DeepTutorAnswer."
+        ),
+        backend=lambda rt: StoreBackend(rt), store=store, skills=["/skills/"],
+        response_format=ToolStrategy(DeepTutorAnswer, handle_errors=True))
+    fig_bundle = _format_figure_bundle(figures or [])
+    user_content = (
+        f"Question: {query}\n\n"
+        f"{fig_bundle}\n\n"
+        "Produce the comparative DeepTutorAnswer now."
+    )
+    return await _run_agent_structured(agent, user_content)
+
+
 async def synthesize_with_subagents(query: str, sources, briefs) -> tuple[str, int, int]:
     """L4: deepagents synthesizer that delegates each author's brief to an
     author-analyst subagent, then integrates. Returns (text, in_tok, out_tok)."""
