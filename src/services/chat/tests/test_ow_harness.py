@@ -127,10 +127,18 @@ def test_content_bearing_filters_no_info():
 
 
 def test_max_level_is_five(monkeypatch):
+    # Levels 5, 6, 7 are all valid now; this test just confirms 5 still works.
     monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     assert H.ow_harness_level() == 5
-    monkeypatch.setenv("TUTOR_OW_HARNESS", "6")
-    assert H.ow_harness_level() == 0
+
+
+def test_levels_6_and_7_accepted(monkeypatch):
+    import src.services.chat.agents.ow_harness as h
+    for lvl in ("6", "7"):
+        monkeypatch.setenv("TUTOR_OW_HARNESS", lvl)
+        assert h.ow_harness_level() == int(lvl)
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "8")
+    assert h.ow_harness_level() == 0
 
 
 # ---------------------------------------------------------------------------

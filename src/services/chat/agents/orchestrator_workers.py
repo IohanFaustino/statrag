@@ -48,6 +48,13 @@ from src.services.chat.agents.deep_tutor import (
 
 logger = logging.getLogger(__name__)
 
+_ASPECT_FIELDS = ("tldr", "definition", "formal_statement", "example_intuition", "applications", "further_reading")
+
+
+def _aspects_from_answer(ans) -> dict[str, str]:
+    """Build the aspect-text dict the caller expects from a finished answer."""
+    return {f: (getattr(ans, f, "") or "") for f in _ASPECT_FIELDS}
+
 
 def _group_sources_by_author(sources: list[Source]) -> dict[str, list[Source]]:
     """Group sources by normalized author identity, preserving first-seen order."""
@@ -210,6 +217,23 @@ async def run_orchestrator_workers(
             logger.info("ow level-3 deepagents returned empty; falling back to L0 synth")
         except Exception:  # noqa: BLE001
             logger.exception("ow level-3 deepagents failed; falling back to L0 synthesizer")
+
+    # L6 / L7: deepagents structured synthesizers — emit DeepTutorAnswer directly
+    # (no schema-fill pass). Any failure falls through to L0 below.
+    if level in (6, 7):
+        try:
+            from src.services.chat.agents import ow_deepagents
+            from src.services.chat.llm.router import GROQ_MODEL_IDS  # noqa: PLC0415
+            synth_oa = deep_synth_model or settings.openai_model_nano
+            if synth_oa.startswith(("deepseek", "gemini", "qwen")) or synth_oa in GROQ_MODEL_IDS:
+                synth_oa = settings.openai_model_nano
+            fn = ow_deepagents.synthesize_structured if level == 6 else ow_deepagents.synthesize_subagents_structured
+            deep_a, _it, _ot = await fn(query, sources, briefs, model=synth_oa, figures=figures)
+            if deep_a is not None:
+                return deep_a, _aspects_from_answer(deep_a)
+            logger.info("ow level-%d structured synth returned None; falling back to L0", level)
+        except Exception:  # noqa: BLE001
+            logger.exception("ow level-%d structured synth failed; falling back to L0", level)
 
     # L5 / per-request deep synthesis: deepagents + synthesis SKILL, then a nano
     # schema-fill pass renders it as a streamed DeepTutorAnswer. Any failure
