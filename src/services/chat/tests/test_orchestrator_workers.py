@@ -33,6 +33,13 @@ class TestResolveWorkflow:
             ChatRequest(message="q", tutorWorkflow="orchestrator")) == "orchestrator"
 
 
+def test_resolve_workflow_passes_orchestrator_deep():
+    from types import SimpleNamespace
+    import src.services.chat.agents.deep_tutor as DT
+    assert DT._resolve_workflow(SimpleNamespace(tutorWorkflow="orchestrator-deep")) == "orchestrator-deep"
+    assert DT._resolve_workflow(SimpleNamespace(tutorWorkflow="single")) == "single"
+
+
 @pytest.mark.asyncio
 async def test_worker_graceful_on_failure(monkeypatch):
     class _Boom:

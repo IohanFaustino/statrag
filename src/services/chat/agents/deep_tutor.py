@@ -910,10 +910,10 @@ _ORGANIZE_POOL = int(os.environ.get("TUTOR_ORGANIZE_POOL", "60"))
 
 
 def _resolve_workflow(req) -> str:
-    """``"single"``, ``"orchestrator"``, or ``"organize"`` — request field over
-    env default."""
+    """``"single"``, ``"orchestrator"``, ``"orchestrator-deep"``, or
+    ``"organize"`` — request field over env default."""
     val = str(getattr(req, "tutorWorkflow", None) or _WORKFLOW_DEFAULT).lower()
-    if val in ("orchestrator", "organize"):
+    if val in ("orchestrator", "orchestrator-deep", "organize"):
         return val
     return "single"
 
@@ -2522,7 +2522,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         # Orchestrator-workers: per-author workers → streaming synthesizer.
         # Returns (None, _) when it can't beat the single draft (<2 authors,
         # workers failed) — then fall back to the single-draft path.
-        if workflow == "orchestrator":
+        if workflow in ("orchestrator", "orchestrator-deep"):
             from src.services.chat.agents.orchestrator_workers import (
                 run_orchestrator_workers,
             )
@@ -2531,6 +2531,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                 orchestrator_model=_WORKER_MODEL, worker_model=_WORKER_MODEL,
                 synth_model=m_draft,
                 figures=approved_figures, on_aspect_delta=_emit_aspect_delta,
+                deep_synth=(workflow == "orchestrator-deep"),
             )
             if deep_o is not None:
                 return deep_o, aspects_o
