@@ -260,3 +260,14 @@ def test_synthesis_skill_requires_c_style_body():
     assert "bold lead-in bullets" in md
     assert "$$" in md          # display math allowed, not just inline
     assert "[fn]" in md or "figure marker" in md
+
+
+def test_synthesis_skill_demands_component_formulas():
+    from pathlib import Path
+    base = Path(__file__).resolve().parents[1] / "agents" / "ow_skills" / "synthesis"
+    md = (base / "SKILL.md").read_text(encoding="utf-8").lower()
+    assert "component" in md and "formula" in md
+    assert "$$" in md
+    assert "never use plain-text" in md or "never plain-text" in md
+    assert (base / "references" / "formulas.md").exists()
+    assert "formulas.md" in md
