@@ -61,3 +61,17 @@ briefs, re-baselines L0, then builds and A/B-tests L2.** See the artifact's verd
 deepagents L2 (synthesizer reads brief files from the virtual FS) then, if it wins, L3
 (subagent-per-author). Flag-gated, L0 fallback, model fixed at nano. API + path in the
 spike findings doc.
+
+## Plan C — powered deepagents skills+subagents comparison (2026-06-04)
+
+4 synthesizer arms (nano fixed), 6 questions × 3 runs = 72 runs, full-text judge, **real
+token capture** (`UsageMetadataCallbackHandler`): L0 current synth · L3a bare deepagents ·
+L3b deepagents + a written synthesis `SKILL.md` (`ow_skills/synthesis/`) · L4 deepagents +
+subagents-per-author. Harness `eval/ow_deepagents_compare.py`; arms in `ow_deepagents.py`
+(`synthesize_with_skill`, `synthesize_with_subagents`).
+
+**Verdict (`docs/superpowers/eval/2026-06-04-ow-deepagents-compare.md`):** **L3b wins** —
+beats L0 on all 6 questions (quality 4.39 vs 3.96, fidelity 4.50 vs 3.39) at ~$0.0046/answer;
+the SKILL is the active ingredient (L3b ≫ L3a bare). **L4 subagents rejected** (worse than
+L3b at 1.6× its cost, ~7× L0). L3b → adopt-candidate; productionizing (DeepTutorAnswer
+schema + deepagents dep + latency gate) is Plan D. deepagents stays out of `requirements.txt`.

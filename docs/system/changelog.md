@@ -2,6 +2,16 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — OW harness Plan C (powered deepagents skills+subagents)
+Powered 4-arm synthesizer comparison (72 runs: L0 / L3a bare deepagents / L3b
+deepagents+written-skill / L4 deepagents+subagents-per-author; 6 q × 3 runs, full-text
+judge, real `UsageMetadataCallbackHandler` token capture). **Result: L3b wins** — beats
+L0 on all 6 questions (quality 4.39 vs 3.96, fidelity 4.50 vs 3.39) at ~$0.0046/answer;
+the written synthesis SKILL is the active ingredient (L3b ≫ L3a). **L4 subagents rejected**
+(worse than L3b at 1.6× cost). L3b is an adopt-candidate → Plan D productionizes (schema
+integration + deepagents dep). deepagents not in requirements.txt. New: `ow_skills/synthesis/
+SKILL.md`, `ow_deepagents.synthesize_with_skill/_with_subagents`, `eval/ow_deepagents_compare.py`.
+
 ## 2026-06-04 — OW harness ablation Plan B (L2/L3 A/B)
 Re-baselined on scoped stats/econ sources + content-bearing fidelity. Added L2
 structured-JSON brief handoff (production-wired, flag-gated) and L3 deepagents
