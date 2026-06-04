@@ -355,3 +355,8 @@ def test_deep_tutor_instructions_within_token_budget():
 
 def test_definition_states_component_formulas():
     assert "defining formula" in INSTR
+
+
+def test_definition_prefers_verbatim_then_reconstructs_equations():
+    assert "copy it verbatim" in INSTR
+    assert "reconstruct" in INSTR

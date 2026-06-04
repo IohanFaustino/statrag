@@ -216,6 +216,9 @@ Per-field requirements (target lengths are minimums; longer is fine):
     reserved for a verbatim numbered theorem and is empty when none exists.
     Define any quantity you introduce. See ``<math_format>`` for
     display-equation syntax and JSON-escaping rules (``\\\\theta``).
+    SOURCE EACH EQUATION from the ``<source_bundle>``: if the source gives
+    it as LaTeX, copy it verbatim; otherwise reconstruct it from the prose or
+    image-placeholder description. NEVER omit a component's equation.
   - CLOSE WITH THE GRAPHICAL HAND-OFF. If a figure is attached to this
     aspect, end with a sentence that introduces it and says what it will
     show — e.g. "The graphical example in [F1] helps guide the intuition:
