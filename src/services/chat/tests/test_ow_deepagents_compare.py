@@ -139,3 +139,28 @@ def test_synthesize_with_skill_accepts_figures():
     import inspect
     from src.services.chat.agents.ow_deepagents import synthesize_with_skill
     assert "figures" in inspect.signature(synthesize_with_skill).parameters
+
+
+def test_synthesize_structured_returns_typed_answer(monkeypatch):
+    import asyncio
+    import src.services.chat.agents.ow_deepagents as owd
+    from src.services.chat.schemas.output import DeepTutorAnswer, AuthorBrief
+
+    sentinel = DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                               example_intuition="e", applications="a", further_reading="f")
+
+    class _Agent:
+        def invoke(self, payload, config=None):
+            return {"structured_response": sentinel, "messages": []}
+
+    captured = {}
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return _Agent()
+    monkeypatch.setattr(owd, "create_deep_agent", fake_create, raising=False)
+
+    briefs = [AuthorBrief(author="Das", summary="s", key_points=["k"], source_ranks=[1])]
+    out, it, ot = asyncio.run(owd.synthesize_structured("q", [], briefs, model="gpt-5.4-nano-2026-03-17"))
+    assert out is sentinel
+    assert captured.get("response_format") is not None
+    assert captured.get("skills") == ["/skills/"]
