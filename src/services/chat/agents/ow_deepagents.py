@@ -98,13 +98,16 @@ async def synthesize_with_deepagents(query: str, sources, briefs) -> str:
 
 
 async def synthesize_with_skill(
-    query: str, sources, briefs, *, model: str | None = None
+    query: str, sources, briefs, *, model: str | None = None,
+    figures: list | None = None,
 ) -> tuple[str, int, int]:
     """L3b: deepagents synthesizer + the written synthesis SKILL. Returns
     (text, in_tok, out_tok).
 
     *model* — OpenAI model id for the ChatOpenAI agent. Defaults to
-    ``settings.openai_model_nano`` when ``None`` or not provided."""
+    ``settings.openai_model_nano`` when ``None`` or not provided.
+    *figures* — approved figure objects; forwarded so the agent can place
+    ``[F<i>]`` markers in the synthesis text."""
     try:
         import deepagents  # noqa: F401
         from deepagents import create_deep_agent
@@ -114,6 +117,8 @@ async def synthesize_with_skill(
         raise RuntimeError("pip install deepagents to run harness level 3b") from e
     from langchain_openai import ChatOpenAI
     from pathlib import Path
+
+    from src.services.chat.agents.deep_tutor import _format_figure_bundle
 
     chosen = model or settings.openai_model_nano
 
@@ -129,7 +134,14 @@ async def synthesize_with_skill(
         model=lc_model, tools=[],
         system_prompt="Use the synthesis skill to synthesize the briefs in /briefs/.",
         backend=lambda rt: StoreBackend(rt), store=store, skills=["/skills/"])
-    return await _run_agent(agent, f"Question: {query}\nSynthesize the briefs now.")
+    fig_bundle = _format_figure_bundle(figures or [])
+    user_content = (
+        f"Question: {query}\n\n"
+        f"{fig_bundle}\n\n"
+        f"Synthesize the briefs now. Place any [F<i>] figure marker from the "
+        f"figures block inside the subtopic it belongs to."
+    )
+    return await _run_agent(agent, user_content)
 
 
 async def synthesize_with_subagents(query: str, sources, briefs) -> tuple[str, int, int]:

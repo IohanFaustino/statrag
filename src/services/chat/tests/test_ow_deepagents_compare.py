@@ -105,3 +105,37 @@ def test_schema_fill_uses_draft_system_prompt(monkeypatch):
         "DEEP_TUTOR_INSTRUCTIONS not found in schema-fill system prompt; "
         "C-style formatting contract will be lost on the L3b path."
     )
+
+
+def test_schema_fill_includes_figure_bundle(monkeypatch):
+    """_schema_fill must inject the approved figures so [F<i>] markers survive
+    the re-express on the deep path."""
+    import asyncio
+    import src.services.chat.agents.orchestrator_workers as ow
+
+    captured = {}
+
+    async def fake_stream(messages, *args, **kwargs):
+        captured["messages"] = messages
+        from src.services.chat.schemas.output import DeepTutorAnswer
+        return DeepTutorAnswer.model_construct(), {}
+
+    class _Fig:
+        aspect_hint = "example_intuition"
+        figure_role = "illustration"
+        ref = "fig1"
+        book = "ISL"
+        chapter = "2"
+        caption = "bias-variance curve"
+
+    monkeypatch.setattr(ow, "_stream_structured", fake_stream, raising=False)
+    asyncio.run(ow._schema_fill("q", "synthesis text", ow.settings.openai_model_nano,
+                                lambda *_: None, figures=[_Fig()]))
+    user_msg = next(m["content"] for m in captured["messages"] if m["role"] == "user")
+    assert "<figures>" in user_msg
+
+
+def test_synthesize_with_skill_accepts_figures():
+    import inspect
+    from src.services.chat.agents.ow_deepagents import synthesize_with_skill
+    assert "figures" in inspect.signature(synthesize_with_skill).parameters

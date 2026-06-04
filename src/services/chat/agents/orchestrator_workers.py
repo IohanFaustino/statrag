@@ -123,13 +123,18 @@ def _wrap_text_answer(text: str) -> DeepTutorAnswer:
 
 
 async def _schema_fill(
-    query: str, synthesis_text: str, fill_model: str, on_aspect_delta
+    query: str, synthesis_text: str, fill_model: str, on_aspect_delta,
+    figures: list | None = None,
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
     """Map an L3b free-text synthesis into a streamed DeepTutorAnswer via one
-    structured nano call. Streams the same _raw deltas the UI already renders."""
+    structured nano call. Streams the same _raw deltas the UI already renders.
+
+    *figures* — approved figure objects; injected so ``[F<i>]`` markers placed
+    by the synthesizer survive the re-express step."""
     user = (
         f"<question>\n{query}\n</question>\n\n"
         f"<synthesis>\n{synthesis_text}\n</synthesis>\n\n"
+        f"{_format_figure_bundle(figures or [])}\n\n"
         f"Re-express the synthesis into the DeepTutorAnswer schema now."
     )
     messages = [
@@ -221,9 +226,9 @@ async def run_orchestrator_workers(
                     or synth_oa in GROQ_MODEL_IDS):
                 synth_oa = settings.openai_model_nano
             text, _it, _ot = await ow_deepagents.synthesize_with_skill(
-                query, sources, briefs, model=synth_oa)
+                query, sources, briefs, model=synth_oa, figures=figures)
             if text.strip():
-                deep_a, aspects_a = await _schema_fill(query, text, synth_oa, on_aspect_delta)
+                deep_a, aspects_a = await _schema_fill(query, text, synth_oa, on_aspect_delta, figures=figures)
                 if deep_a is not None:
                     return deep_a, aspects_a
                 logger.info("ow L5 schema-fill returned None; falling back to L0 synth")
