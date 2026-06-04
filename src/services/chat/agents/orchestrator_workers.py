@@ -33,7 +33,9 @@ from src.services.chat.schemas.output import (
     WorkerTask,
 )
 
-from src.services.chat.agents.ow_harness import maybe_traced
+from src.services.chat.agents.ow_harness import (
+    maybe_traced, ow_harness_level, structured_briefs_block,
+)
 
 # Low-level helpers shared with the single-draft path.
 from src.services.chat.agents.deep_tutor import (
@@ -112,6 +114,13 @@ def _fallback_tasks(sources: list[Source]) -> list[WorkerTask]:
     ]
 
 
+def _wrap_text_answer(text: str) -> DeepTutorAnswer:
+    """Wrap a free-text synthesis (level 3 deepagents) into the answer schema so
+    existing callers keep working. The eval reads `.definition`."""
+    return DeepTutorAnswer(tldr="", definition=text, formal_statement="",
+                           example_intuition="", applications="", further_reading="")
+
+
 async def run_orchestrator_workers(
     query: str,
     sources: list[Source],
@@ -166,13 +175,24 @@ async def run_orchestrator_workers(
         except Exception:  # noqa: BLE001  (a capture hook must never break drafting)
             logger.exception("on_briefs hook failed; continuing")
 
+    level = ow_harness_level()
+    if level == 3:
+        try:
+            from src.services.chat.agents.ow_deepagents import synthesize_with_deepagents
+            text = await synthesize_with_deepagents(query, sources, briefs)
+            if text.strip():
+                return _wrap_text_answer(text), {}
+            logger.info("ow level-3 deepagents returned empty; falling back to L0 synth")
+        except Exception:  # noqa: BLE001
+            logger.exception("ow level-3 deepagents failed; falling back to L0 synthesizer")
+
     # Synthesizer: same DeepTutorAnswer schema + draft rules + briefs addendum.
     plan_block = _format_plan_block(plan)
     user = (
         f"<question>\n{query}\n</question>\n\n"
         f"{format_source_bundle(sources)}\n\n"
         f"{(plan_block + chr(10) + chr(10)) if plan_block else ''}"
-        f"{_format_author_briefs(briefs)}\n\n"
+        f"{structured_briefs_block(briefs) if level == 2 else _format_author_briefs(briefs)}\n\n"
         f"{_format_figure_bundle(figures or [])}\n\n"
         f"Synthesize the author briefs into the answer now. Fill every field of "
         f"the DeepTutorAnswer schema, integrate into one throughline, and compare "

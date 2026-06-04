@@ -151,3 +151,46 @@ def test_deepagents_import_error_is_clear(monkeypatch):
     import pytest as _pytest
     with _pytest.raises(RuntimeError, match="pip install deepagents"):
         asyncio.run(DA.synthesize_with_deepagents("q", [], []))
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — wire L2 + L3 into the workflow
+# ---------------------------------------------------------------------------
+
+def test_level2_uses_structured_block(monkeypatch):
+    from src.services.chat.agents import orchestrator_workers as OW
+    from src.services.chat.schemas.output import AuthorBrief, DeepTutorAnswer
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "2")
+    srcs = [_src(1, "Hansen"), _src(2, "Wooldridge")]
+    captured = {}
+
+    async def fake_worker(query, thesis, author, s, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum", key_points=["kp"], source_ranks=[s[0].rank])
+
+    async def fake_stream(messages, *a, **k):
+        captured["user"] = messages[1]["content"]
+        return DeepTutorAnswer(tldr="", definition="d", formal_statement="",
+                               example_intuition="", applications="", further_reading=""), {}
+
+    with patch.object(OW, "run_author_worker", side_effect=fake_worker), \
+         patch.object(OW, "_stream_structured", side_effect=fake_stream):
+        asyncio.run(OW.run_orchestrator_workers("q", srcs, None))
+    assert "<author_briefs_json>" in captured["user"]
+
+
+def test_level3_routes_to_deepagents(monkeypatch):
+    from src.services.chat.agents import orchestrator_workers as OW
+    from src.services.chat.schemas.output import AuthorBrief
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "3")
+    srcs = [_src(1, "Hansen"), _src(2, "Wooldridge")]
+
+    async def fake_worker(query, thesis, author, s, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum", key_points=["kp"], source_ranks=[s[0].rank])
+
+    async def fake_synth(query, sources, briefs):
+        return "DEEPAGENTS SYNTHESIS TEXT"
+
+    with patch.object(OW, "run_author_worker", side_effect=fake_worker), \
+         patch("src.services.chat.agents.ow_deepagents.synthesize_with_deepagents", side_effect=fake_synth):
+        ans, _ = asyncio.run(OW.run_orchestrator_workers("q", srcs, None))
+    assert ans is not None and "DEEPAGENTS SYNTHESIS TEXT" in ans.definition
