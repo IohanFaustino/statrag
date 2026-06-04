@@ -107,6 +107,23 @@ A fresh Claude session must:
 6. To verify state → invoke `rag-verify` skill.
 7. To understand prior decisions → read `docs/system/changelog.md`.
 
+### ⏳ Pending tasks (pick up next session)
+
+When the user says **"pending tasks"**, **"what's next"**, **"resume Plan D"**, or starts a
+fresh session asking what to do, read this list and the linked spec(s):
+
+| Pending | Status | Spec / pointer |
+|---|---|---|
+| **Plan D — productionize L3b** (deepagents + synthesis skill) into the live tutor at :5175 | ⏳ draft spec, awaiting review → then `writing-plans` → Sonnet build | [`docs/superpowers/specs/2026-06-04-ow-harness-pland-design.md`](docs/superpowers/specs/2026-06-04-ow-harness-pland-design.md) |
+
+**Plan D context:** Plan C proved **L3b wins** (deepagents + `ow_skills/synthesis/SKILL.md`
+beats the current orchestrator-workers synthesizer on all 6 questions: quality 4.39 vs 3.96,
+fidelity 4.50 vs 3.39, ~$0.0046/answer; L4 subagents rejected). The winning code is committed
+(`ow_deepagents.synthesize_with_skill`). Plan D wires it live: free-text → `DeepTutorAnswer`
+schema-fill, ~45 s latency UX (opt-in), `deepagents` dep, browser-verify :5175. Three open
+decisions are flagged at the bottom of the spec. Verdict: `docs/superpowers/eval/2026-06-04-ow-deepagents-compare.md`.
+**Branch housekeeping first:** merge the stacked `feat/ow-harness-planc` (carries planb) to main.
+
 ### Shortcut: `feature_Agent`
 
 When the user asks for a **`feature_Agent`** (or "be the feature agent" / "feature agent mode"), immediately **read `docs/common ground/Agents/feature_Agent.md` and transform yourself into it** — adopt its workflow, skills, and definition of "done". Use it for any feature that touches the deep-tutor pipeline (new/changed stage, knob, retrieval/diversity/coverage/draft behaviour). It enforces the interconnected-artifact rule below and the preview → execute → test → update-docs chain.
