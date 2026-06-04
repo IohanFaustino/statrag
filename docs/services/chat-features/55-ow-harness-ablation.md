@@ -16,12 +16,22 @@ measured delta is the harness, not the model. First pilot of a sequential progra
 |---|---|---|---|
 | L0 `0` | shipped (default) | none | `_format_author_briefs` → flat string |
 | L1 `1` | shipped | LangSmith tracing (behavior identical) | same string, now traced |
-| L2 `2` | **Plan B** | deepagents shared virtual filesystem | per-author brief *files* |
-| L3 `3` | **Plan B** | deepagents planning + subagent-per-author + memory | deepagents end-to-end |
+| L2 `2` | shipped (Plan B) | structured-JSON brief block (no deepagents) | `structured_briefs_block` |
+| L3 `3` | eval experiment (Plan B) | deepagents synthesizer agent reads brief files | deepagents virtual FS (`ow_deepagents.py`) |
+| L4 | deferred | full deepagents (subagent-per-author) | only if L3 wins (it didn't) |
 
-L0 is default and the fallback; any harness failure degrades to L0. L1 tracing never
-changes outputs. In Plan A, levels 2/3 parse through the flag but only enable tracing
-(no deepagents code yet); they ship in Plan B.
+L0 is default and the fallback; any level failure degrades to L0. L1 tracing never
+changes outputs. L3 lazy-imports `deepagents` (not a prod dependency).
+
+## Plan B A/B verdict (2026-06-04)
+
+3-way A/B on scoped stats/econ sources, nano fixed, content-bearing fidelity:
+**L2 ≈ L0** (structured handoff = no effect); **L3 deepagents = +0.41 quality but
+−0.67 fidelity** (shorter answers, fewer brief facts retained) on a tiny 3-question /
+1-run sample with unreliable L3 cost accounting. **Not shipped** — L0 stays default;
+deepagents not added to deps. Program takeaway: the OW context-handling weakness is not
+fixed by reformatting the handoff or a deepagents synth — it likely lives upstream
+(retrieval / lossy worker summaries). See `2026-06-04-ow-harness-ablation.md`.
 
 ## Plan A artifacts (this doc)
 

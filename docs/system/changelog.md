@@ -2,6 +2,13 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — OW harness ablation Plan B (L2/L3 A/B)
+Re-baselined on scoped stats/econ sources + content-bearing fidelity. Added L2
+structured-JSON brief handoff (production-wired, flag-gated) and L3 deepagents
+synthesizer agent (eval experiment, lazy import, not a prod dep). 3-way A/B verdict:
+L2 ≈ L0 (no effect); L3 +0.41 quality but −0.67 fidelity on a tiny sample → NOT shipped,
+L0 stays default. deepagents uninstalled (no win). Level 4 (full subagents) deferred.
+
 ## 2026-06-04 — Orchestrator-workers harness ablation (Plan A)
 Added `TUTOR_OW_HARNESS` (L0 baseline, L1 LangSmith tracing passthrough), an
 `on_briefs` capture hook, a context-fidelity eval, and the eval-flow methodology
