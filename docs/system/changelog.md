@@ -2,6 +2,14 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Reliable component equations in the definition
+
+**Symptom:** the `definition` aspect intermittently omitted the Bias/Variance defining equations (formula density varied wildly run-to-run, e.g. 18 vs 4 `$`), and never copied a source's equation verbatim.
+
+**Root cause (systematic debugging):** (1) crucial equations are often OCR'd as dropped image placeholders (`![art](…jpg)`) — the formula text is gone, only surrounding prose survives; (2) the orchestrator author-workers digested sources into prose `key_points` and **stripped the LaTeX** (420-token cap, no preserve-equations rule), so the synthesizer's spine carried no formulas and reconstructed them from memory inconsistently.
+
+**Fix (defense-in-depth):** synth directive in `DEEP_TUTOR_INSTRUCTIONS` — copy a source's equation **verbatim** when present as LaTeX, **reconstruct** it from prose/image-description when dropped, never omit; `AUTHOR_WORKER_PROMPT` now **preserves equations verbatim** in `key_points` (token cap 420→600); `run_author_worker` retries once on `openai.LengthFinishReasonError` so equation-bearing briefs aren't silently dropped. Verified: Bias + Variance formulas now reliably present across runs. Exact byte-verbatim remains best-effort where the source formula was OCR'd to an image (text genuinely absent → standard equation reconstructed + cited).
+
 ## 2026-06-04 — Lean structured deep synthesis
 
 **Eval verdict:** three synthesizer arms (C = live L0 structured synth, A = deepagents `synthesize_structured` level 6, B = deepagents subagents level 7) were compared on bias-variance and related questions after enriching the synthesis skill with a component-formula rule. All three tied on quality (clean math, Bias/Variance/MSE component formulas, C-style bullets). Arms A/B are ~5× slower (>280 s / ~259 s vs ~52–69 s) with zero quality gain; token capture returned 0 for deepagents (callback miss). Artifact: `docs/superpowers/eval/2026-06-04-structured-synth-compare.md`.
