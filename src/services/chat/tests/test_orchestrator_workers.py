@@ -339,6 +339,43 @@ def test_deep_synth_model_coerces_non_openai_to_nano(monkeypatch):
     assert captured["fill_model"] == nano, "qwen-plus should be coerced to nano for fill"
 
 
+def test_deep_synth_model_coerces_groq_openai_prefix_to_nano(monkeypatch):
+    """A Groq id whose prefix looks OpenAI-like (openai/gpt-oss-120b) must be
+    coerced to nano via the ``id in GROQ_MODEL_IDS`` branch, not startswith."""
+    from src.core.config import settings
+    from src.services.chat.llm.router import GROQ_MODEL_IDS
+    sources, plan = _two_author_inputs()
+
+    groq_id = "openai/gpt-oss-120b"
+    assert groq_id in GROQ_MODEL_IDS, "sanity: id must be in GROQ_MODEL_IDS"
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    captured = {}
+    import src.services.chat.agents.ow_deepagents as OWD
+
+    async def fake_skill(query, srcs, briefs, *, model=None):
+        captured["skill_model"] = model
+        return "T", 1, 2
+    monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
+
+    async def fake_fill(query, text, model, cb):
+        captured["fill_model"] = model
+        return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {}
+    monkeypatch.setattr(OW, "_schema_fill", fake_fill)
+
+    nano = settings.openai_model_nano
+    asyncio.run(OW.run_orchestrator_workers(
+        "q", sources, plan, deep_synth=True, deep_synth_model=groq_id))
+    assert captured["skill_model"] == nano, "openai/gpt-oss-120b (Groq) should be coerced to nano for skill"
+    assert captured["fill_model"] == nano, "openai/gpt-oss-120b (Groq) should be coerced to nano for fill"
+
+
 # ---------------------------------------------------------------------------
 # Plan D — Change 3: deep_tutor resolves synth stage model
 # ---------------------------------------------------------------------------
