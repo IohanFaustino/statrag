@@ -54,7 +54,10 @@ async def synthesize_with_deepagents(query: str, sources, briefs) -> str:
                   key=f"/briefs/{_slug(b.author)}.md",
                   value=create_file_data(_brief_md(b)))
 
-    model = ChatOpenAI(model=settings.openai_model_nano, temperature=0.0)
+    # api_key explicit: settings loads .env but does NOT export to os.environ, so
+    # ChatOpenAI's env-var lookup misses it (would raise "Missing credentials").
+    model = ChatOpenAI(model=settings.openai_model_nano, temperature=0.0,
+                       api_key=settings.openai_api_key)
     agent = create_deep_agent(
         model=model, tools=[], system_prompt=_SYNTH_INSTRUCTIONS,
         backend=lambda rt: StoreBackend(rt), store=store)
