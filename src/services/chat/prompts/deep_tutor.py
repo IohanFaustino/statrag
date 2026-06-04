@@ -850,6 +850,18 @@ English only. Ground everything in the inputs.
 """
 
 
+SCHEMA_FILL_PROMPT = (
+    "You are a formatter. You are given a finished, correct tutor synthesis written "
+    "as free prose, plus the original question. Re-express that synthesis into the "
+    "DeepTutorAnswer schema fields WITHOUT adding, removing, or changing any claim, "
+    "citation, author attribution, or formula. Preserve every author comparison and "
+    "every [n] citation marker exactly as written. Distribute the existing content "
+    "across the fields (tldr, definition, formal_statement, example_intuition, "
+    "applications, further_reading); leave a field empty only if the synthesis has "
+    "nothing for it. Keep all LaTeX math verbatim. Do NOT invent further_reading."
+)
+
+
 PLANNER_CONSOLIDATE_PROMPT: str = """\
 <role>
 You are step 3 (CONSOLIDATE) of the query planner. You compress the expanded items

@@ -102,3 +102,28 @@ def test_format_author_briefs():
         AuthorBrief(author="Smith", summary="S", key_points=["p1"], source_ranks=[1, 3]),
     ])
     assert "<author_briefs>" in txt and "author='Smith'" in txt and "#1, #3" in txt
+
+
+import asyncio
+
+from src.services.chat.schemas.output import DeepTutorAnswer
+
+
+def test_schema_fill_calls_stream_structured_with_synthesis_text(monkeypatch):
+    captured = {}
+
+    async def fake_stream(messages, model, on_aspect_delta):
+        captured["messages"] = messages
+        captured["model"] = model
+        return DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {"definition": "d"}
+
+    monkeypatch.setattr(ow, "_stream_structured", fake_stream)
+    deep, aspects = asyncio.run(
+        ow._schema_fill("What is variance?", "SYNTH TEXT", "nano", None)
+    )
+    assert deep is not None and deep.tldr == "t"
+    blob = "".join(m["content"] for m in captured["messages"])
+    assert "SYNTH TEXT" in blob and "What is variance?" in blob
+    assert captured["model"] == "nano"

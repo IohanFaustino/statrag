@@ -21,6 +21,7 @@ from src.core.config import settings
 from src.services.chat.prompts.deep_tutor import (
     AUTHOR_WORKER_PROMPT,
     DEEP_TUTOR_INSTRUCTIONS,
+    SCHEMA_FILL_PROMPT,
     SYNTHESIZER_ADDENDUM,
     format_source_bundle,
 )
@@ -119,6 +120,23 @@ def _wrap_text_answer(text: str) -> DeepTutorAnswer:
     existing callers keep working. The eval reads `.definition`."""
     return DeepTutorAnswer(tldr="", definition=text, formal_statement="",
                            example_intuition="", applications="", further_reading="")
+
+
+async def _schema_fill(
+    query: str, synthesis_text: str, fill_model: str, on_aspect_delta
+) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
+    """Map an L3b free-text synthesis into a streamed DeepTutorAnswer via one
+    structured nano call. Streams the same _raw deltas the UI already renders."""
+    user = (
+        f"<question>\n{query}\n</question>\n\n"
+        f"<synthesis>\n{synthesis_text}\n</synthesis>\n\n"
+        f"Re-express the synthesis into the DeepTutorAnswer schema now."
+    )
+    messages = [
+        {"role": "system", "content": SCHEMA_FILL_PROMPT},
+        {"role": "user", "content": user},
+    ]
+    return await _stream_structured(messages, fill_model, on_aspect_delta)
 
 
 async def run_orchestrator_workers(
