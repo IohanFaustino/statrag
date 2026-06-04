@@ -5,8 +5,10 @@ TUTOR_OW_HARNESS selects the level:
   1 = observability (LangSmith tracing; behavior identical)
   2 = structured context via deepagents shared FS   (Plan B)
   3 = full deepagents orchestration                 (Plan B)
+  4 = deepagents + subagents (rejected by Plan C; no branch → behaves as L0)
+  5 = deepagents + synthesis SKILL.md  (Plan D — the shipped opt-in "deep synthesis")
 
-Levels 0-3 implemented (Plan B); level 4 reserved.
+Levels 0-5 implemented (Plan D).
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from typing import Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
-_MAX_IMPLEMENTED_LEVEL = 3  # 0/1 shipped (Plan A); 2/3 degrade to 0 until Plan B
+_MAX_IMPLEMENTED_LEVEL = 5  # 0/1 (Plan A); 2/3 (Plan B); 5 = deepagents+skill (Plan D). 4 (subagents) rejected → falls through to L0.
 
 
 def ow_harness_level() -> int:

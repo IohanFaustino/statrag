@@ -126,10 +126,17 @@ def test_content_bearing_filters_no_info():
     assert [b.author for b in kept] == ["B"]
 
 
-def test_max_level_is_three(monkeypatch):
-    monkeypatch.setenv("TUTOR_OW_HARNESS", "3")
-    assert H.ow_harness_level() == 3
-    monkeypatch.setenv("TUTOR_OW_HARNESS", "4")
+def test_levels_in_range_pass_clamp_above(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
+    assert H.ow_harness_level() == 5
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "9")
+    assert H.ow_harness_level() == 0
+
+
+def test_max_level_is_five(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
+    assert H.ow_harness_level() == 5
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "6")
     assert H.ow_harness_level() == 0
 
 
