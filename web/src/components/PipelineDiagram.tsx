@@ -157,7 +157,7 @@ const ORC_NODES: PipelineNode[] = [
   {
     id: "synthesizer",
     label: "Synthesizer",
-    desc: "Integrates & compares per-author drafts into the final answer.",
+    desc: "Integrates & compares per-author drafts into the final answer. Under deep synthesis (orchestrator-deep) a deepagents agent reads the synthesis skill, integrates the briefs, then a nano schema-fill pass renders the DeepTutorAnswer.",
     kind: "llm",
     stage: null,
     defaultModel: "__active__",
@@ -475,6 +475,7 @@ export default function PipelineDiagram({
 
         // ── synthesizer node (static label, no separate model control) ──
         if (n.id === "synthesizer") {
+          const deepSynth = tutorWorkflow === "orchestrator-deep";
           return (
             <div
               key={n.id}
@@ -484,7 +485,9 @@ export default function PipelineDiagram({
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__node-sublabel">integrate &amp; compare</span>
+                <span className="pipe2__node-sublabel">
+                  {deepSynth ? "deepagents + skill → schema-fill" : "integrate & compare"}
+                </span>
               </div>
             </div>
           );

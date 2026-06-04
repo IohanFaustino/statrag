@@ -393,9 +393,29 @@ describe("PipelineDiagram", () => {
     expect(html).toContain('data-node="orchestrator"');
     expect(html).toContain('data-node="synthesizer"');
     expect(html).toContain("Worker · N");
+    // synthesizer node reflects the deepagents+skill->schema-fill path
+    expect(html).toContain("deepagents + skill → schema-fill");
+    expect(html).not.toContain("integrate &amp; compare");
     // single draft box must NOT be rendered in this mode
     expect(html).not.toContain("Draft / synthesis");
     expect(html).not.toContain('data-node="draft"');
+  });
+
+  it("orchestrator (non-deep) synthesizer keeps the integrate & compare sublabel", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    expect(html).toContain("integrate &amp; compare");
+    expect(html).not.toContain("deepagents + skill → schema-fill");
   });
 });
 
