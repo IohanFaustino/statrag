@@ -2,6 +2,14 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Orchestrator-workers harness ablation (Plan A)
+Added `TUTOR_OW_HARNESS` (L0 baseline, L1 LangSmith tracing passthrough), an
+`on_briefs` capture hook, a context-fidelity eval, and the eval-flow methodology
+playbook (`eval-methodology.md`, doc 55). deepagents feasibility spike → FEASIBLE
+(drives nano via ChatOpenAI; virtual filesystem works); L2/L3 deepagents conversion
+deferred to Plan B. L0 baseline mediocre + partly confounded by all-book retrieval
+pulling off-topic authors — Plan B scopes sources + refines the fidelity metric first.
+
 ## 2026-06-04 — Chained question-decomposition query planner
 Added flag-gated 3-step planner chain (decompose→expand→consolidate) behind
 `TUTOR_PLANNER_CHAIN` (default off), single-call planner as fallback. New prompts,

@@ -165,6 +165,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_DIVERSITY_DEFAULT` | `auto` | Mode when request omits `diversityAuthors` (`auto`/`off`/int) |
 | `TUTOR_DIVERSITY_TARGET_AUTHORS` | `3` | Legacy fallback for the cap |
 | `TUTOR_PLANNER_CHAIN` | `0` | When `1`, the query planner runs the 3-step decompose→expand→consolidate chain (3 nano calls) instead of the single call; falls back to single-call on any chain error. |
+| `TUTOR_OW_HARNESS` | `0` | Orchestrator-workers harness level (ablation pilot, doc 55): `0` baseline (current behavior); `1` LangSmith tracing (observability-only, behavior identical — needs `LANGSMITH_API_KEY`). `2`/`3` reserved for deepagents (Plan B) — in Plan A they parse through but only enable tracing. Values `>3` or non-numeric → `0`. Never changes the answer at L0/L1; any harness failure falls back to L0. |
 
 `diversityAuthors` (request): `"auto"` = concept-extraction model picks the count (clamped to the cap **and** to authors available in the pool); `0`/`1` = off; `N≥2` = hard cap. Effective count is always ≤ authors available, so a single-author topic yields one author.
 
