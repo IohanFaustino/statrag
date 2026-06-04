@@ -194,3 +194,24 @@ def test_level3_routes_to_deepagents(monkeypatch):
          patch("src.services.chat.agents.ow_deepagents.synthesize_with_deepagents", side_effect=fake_synth):
         ans, _ = asyncio.run(OW.run_orchestrator_workers("q", srcs, None))
     assert ans is not None and "DEEPAGENTS SYNTHESIS TEXT" in ans.definition
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — eval scoped + content-bearing + levels
+# ---------------------------------------------------------------------------
+
+def test_owc_scoped_books_and_levels():
+    assert OWC.BOOKS == ["hansen", "wooldridge", "stock_watson", "gujarati",
+                         "baltagi", "pesaran", "islp", "murphy"]
+    assert OWC.LEVELS == [0, 2, 3]
+
+
+def test_owc_render_three_levels():
+    base = {"qi": 0, "ok": True, "answer": "A", "briefs": "B", "in_tok": 1, "out_tok": 1,
+            "ms": 1, "quality": {"faithfulness":4,"coverage":4,"synthesis":4,"coherence":4,"overall":4.0},
+            "fidelity": 3.0}
+    rows = {("L0", 0): {**base, "level": "L0"},
+            ("L2", 0): {**base, "level": "L2"},
+            ("L3", 0): {**base, "level": "L3"}}
+    md = OWC._render_artifact(rows)
+    assert "L0" in md and "L2" in md and "L3" in md

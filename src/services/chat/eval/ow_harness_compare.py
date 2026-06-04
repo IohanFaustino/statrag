@@ -26,8 +26,11 @@ QUESTIONS = [
     "Contrast OLS and maximum likelihood estimation across the textbooks.",
     "Compare frequentist and Bayesian treatments of estimation.",
 ]
-BOOKS = None  # all books -> maximises author diversity (orchestrator needs >=2)
-TOP_K = 10
+BOOKS = ["hansen", "wooldridge", "stock_watson", "gujarati",
+         "baltagi", "pesaran", "islp", "murphy"]
+TOP_K = 12
+LEVELS = [0, 2, 3]  # 0 baseline, 2 structured handoff, 3 deepagents synth
+_LEVEL_LABEL = {0: "L0", 2: "L2", 3: "L3"}
 MAX_TOK = 700
 TIMEOUT_S = 90
 JUDGE_DIMS = ("faithfulness", "coverage", "synthesis", "coherence")
@@ -47,8 +50,10 @@ _QUALITY_PROMPT = (
 )
 _FIDELITY_PROMPT = (
     "You measure CONTEXT FIDELITY: how well the worker briefs' key facts survived "
-    "into the final answer. 1-5 (5 = every brief key-point is represented; "
-    "1 = most dropped).\n"
+    "into the final answer. IGNORE any brief that states the source does not discuss "
+    "the topic (no-info briefs) — score only content-bearing briefs. 1-5 (5 = every "
+    "content-bearing key-point is represented; 1 = most dropped). If there are no "
+    "content-bearing briefs, return 0.\n"
     'Return ONLY JSON: {"fidelity":n}.'
 )
 
@@ -143,36 +148,41 @@ def step_freeze() -> None:
 
 
 async def step_run() -> None:
+    import os
     from src.services.chat.agents.orchestrator_workers import run_orchestrator_workers
     from src.services.chat.schemas import Source
 
     assert _FROZEN.exists(), "run --step freeze first"
     frozen = json.loads(_FROZEN.read_text(encoding="utf-8"))
     results = _load_results()
-    for qi, q in enumerate(QUESTIONS):
-        sources = [Source.model_validate_json(j) for j in frozen[str(qi)]]
-        captured = {}
-        t0 = time.monotonic()
-        try:
-            ans, _aspects = await asyncio.wait_for(
-                run_orchestrator_workers(q, sources, None,
-                                         on_briefs=lambda b: captured.setdefault("briefs", b)),
-                timeout=TIMEOUT_S)
-            briefs = captured.get("briefs", [])
-            ok = ans is not None and len(briefs) >= 2
-            results[("L0", qi)] = {
-                "level": "L0", "qi": qi, "ok": ok,
-                "answer": _answer_text(ans), "briefs": _briefs_text(briefs),
-                "in_tok": 0, "out_tok": len(_answer_text(ans)) // 4,
-                "ms": int((time.monotonic()-t0)*1000),
-                "err": "" if ok else "no answer or <2 briefs (fell back to single draft)"}
-        except Exception as exc:  # noqa: BLE001
-            results[("L0", qi)] = {"level": "L0", "qi": qi, "ok": False, "answer": "",
-                                   "briefs": "", "in_tok": 0, "out_tok": 0,
-                                   "ms": int((time.monotonic()-t0)*1000),
-                                   "err": f"{type(exc).__name__}: {exc}"}
-        _save_results(results)
-        print(f"[L0 Q{qi}] {'ok' if results[('L0',qi)]['ok'] else 'FAILED: '+results[('L0',qi)]['err']}")
+    for level in LEVELS:
+        os.environ["TUTOR_OW_HARNESS"] = str(level)
+        label = _LEVEL_LABEL[level]
+        for qi, q in enumerate(QUESTIONS):
+            sources = [Source.model_validate_json(j) for j in frozen[str(qi)]]
+            captured = {}
+            t0 = time.monotonic()
+            try:
+                ans, _aspects = await asyncio.wait_for(
+                    run_orchestrator_workers(q, sources, None,
+                                             on_briefs=lambda b: captured.setdefault("briefs", b)),
+                    timeout=TIMEOUT_S)
+                briefs = captured.get("briefs", [])
+                ok = ans is not None and len(briefs) >= 2
+                results[(label, qi)] = {
+                    "level": label, "qi": qi, "ok": ok,
+                    "answer": _answer_text(ans), "briefs": _briefs_text(briefs),
+                    "in_tok": 0, "out_tok": len(_answer_text(ans)) // 4,
+                    "ms": int((time.monotonic()-t0)*1000),
+                    "err": "" if ok else "no answer or <2 briefs"}
+            except Exception as exc:  # noqa: BLE001
+                results[(label, qi)] = {"level": label, "qi": qi, "ok": False, "answer": "",
+                                        "briefs": "", "in_tok": 0, "out_tok": 0,
+                                        "ms": int((time.monotonic()-t0)*1000),
+                                        "err": f"{type(exc).__name__}: {exc}"}
+            _save_results(results)
+            print(f"[{label} Q{qi}] {'ok' if results[(label,qi)]['ok'] else 'FAILED: '+results[(label,qi)]['err']}")
+    os.environ["TUTOR_OW_HARNESS"] = "0"  # restore default
 
 
 async def step_judge() -> None:
