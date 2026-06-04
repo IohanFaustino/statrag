@@ -131,3 +131,23 @@ def test_max_level_is_three(monkeypatch):
     assert H.ow_harness_level() == 3
     monkeypatch.setenv("TUTOR_OW_HARNESS", "4")
     assert H.ow_harness_level() == 0
+
+
+# ---------------------------------------------------------------------------
+# Task 2 — deepagents experiment module
+# ---------------------------------------------------------------------------
+
+def test_brief_md_formats():
+    from src.services.chat.agents import ow_deepagents as DA
+    md = DA._brief_md(AuthorBrief(author="Hansen", summary="sum", key_points=["k1", "k2"]))
+    assert "Hansen" in md and "sum" in md and "k1" in md and "k2" in md
+
+
+def test_deepagents_import_error_is_clear(monkeypatch):
+    import sys
+    from src.services.chat.agents import ow_deepagents as DA
+    # Simulate deepagents missing.
+    monkeypatch.setitem(sys.modules, "deepagents", None)
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError, match="pip install deepagents"):
+        asyncio.run(DA.synthesize_with_deepagents("q", [], []))
