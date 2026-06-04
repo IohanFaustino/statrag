@@ -247,3 +247,16 @@ def test_fidelity_input_not_truncated():
     s = OWC._fidelity_input(big_briefs, big_answer)
     assert big_briefs in s and big_answer in s
     assert OWC._JUDGE_CHARS >= 12000
+
+
+# ---------------------------------------------------------------------------
+# Task 3 (Plan D) — synthesis SKILL.md encodes C-style body rules
+# ---------------------------------------------------------------------------
+
+def test_synthesis_skill_requires_c_style_body():
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "agents" / "ow_skills" / "synthesis" / "SKILL.md"
+    md = p.read_text(encoding="utf-8").lower()
+    assert "bold lead-in bullets" in md
+    assert "$$" in md          # display math allowed, not just inline
+    assert "[fn]" in md or "figure marker" in md
