@@ -34,6 +34,8 @@ from src.services.chat.schemas.output import (
     WorkerTask,
 )
 
+from src.services.chat.agents.ow_harness import maybe_traced
+
 # Low-level helpers shared with the single-draft path.
 from src.services.chat.agents.deep_tutor import (
     _async_client,
@@ -150,7 +152,7 @@ async def run_orchestrator_workers(
     # 3. Run the workers in parallel.
     thesis = plan.thesis if plan else ""
     results = await asyncio.gather(
-        *(run_author_worker(query, thesis, focus, srcs, model=worker_model)
+        *(maybe_traced(run_author_worker, name="ow.worker")(query, thesis, focus, srcs, model=worker_model)
           for focus, srcs in built),
         return_exceptions=True,
     )

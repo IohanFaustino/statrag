@@ -34,3 +34,39 @@ def test_on_briefs_hook_receives_briefs():
             "q", srcs, None, on_briefs=lambda b: captured.setdefault("briefs", b)))
     assert "briefs" in captured
     assert {b.author for b in captured["briefs"]} == {"Hansen", "Wooldridge"}
+
+
+from src.services.chat.agents import ow_harness as H
+
+
+def test_level_parse_default_and_clamp(monkeypatch):
+    monkeypatch.delenv("TUTOR_OW_HARNESS", raising=False)
+    assert H.ow_harness_level() == 0
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "2")
+    assert H.ow_harness_level() == 2
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "9")
+    assert H.ow_harness_level() == 0
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "junk")
+    assert H.ow_harness_level() == 0
+
+
+def test_maybe_traced_is_passthrough_when_off(monkeypatch):
+    monkeypatch.delenv("TUTOR_OW_HARNESS", raising=False)
+    monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+
+    def f(x):
+        return x + 1
+
+    wrapped = H.maybe_traced(f, name="f")
+    assert wrapped is f or wrapped(1) == 2
+
+
+def test_maybe_traced_preserves_behavior_when_on(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "1")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "fake")
+
+    def f(x):
+        return x * 3
+
+    wrapped = H.maybe_traced(f, name="f")
+    assert wrapped(2) == 6
