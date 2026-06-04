@@ -54,6 +54,9 @@ from src.services.chat.prompts.deep_tutor import (
     EXTRACT_CONCEPTS_BUDGET_PROMPT,
     EXTRACT_CONCEPTS_PROMPT,
     ORGANIZER_PREAMBLE,
+    PLANNER_CONSOLIDATE_PROMPT,
+    PLANNER_DECOMPOSE_PROMPT,
+    PLANNER_EXPAND_PROMPT,
     SYNTHESIS_PLAN_PROMPT,
     assemble_markdown,
     format_source_bundle,
@@ -1102,6 +1105,100 @@ async def extract_concepts_ex(
         logger.exception("extract_concepts_ex failed; degrading to keyword heuristic + neutral budget")
         concepts = await extract_concepts(query, model=model)
         return QueryPlan(concepts, min(2, max_authors), [], [])
+
+
+# ---------------------------------------------------------------------------
+# Chained question-decomposition planner (flag-gated; see TUTOR_PLANNER_CHAIN).
+# decompose -> expand -> consolidate, three nano calls. Output is a QueryPlan,
+# identical to the single-call planner. Any step failure raises and the
+# dispatcher (extract_concepts_ex) degrades to the single-call planner.
+# ---------------------------------------------------------------------------
+
+
+def _parse_decompose(raw: str) -> list[str]:
+    data = json.loads(strip_fences(raw or "{}"))
+    subs = [str(x).strip() for x in (data.get("sub_questions") or []) if str(x).strip()][:5]
+    if not subs:
+        raise ValueError("decompose produced no sub_questions")
+    return subs
+
+
+def _parse_expand(raw: str) -> list[dict]:
+    data = json.loads(strip_fences(raw or "{}"))
+    items = []
+    for it in (data.get("items") or []):
+        q = str(it.get("query", "")).strip()
+        f = str(it.get("facet", "")).strip()
+        if not q or not f:
+            continue
+        items.append({
+            "sub_question": str(it.get("sub_question", "")).strip(),
+            "concept": str(it.get("concept", "")).strip(),
+            "query": q,
+            "facet": f,
+        })
+    if not items:
+        raise ValueError("expand produced no usable items")
+    return items
+
+
+def _parse_consolidate(raw: str, max_authors: int) -> "QueryPlan":
+    data = json.loads(strip_fences(raw or "{}"))
+    concepts = [str(x).strip() for x in (data.get("concepts") or []) if str(x).strip()][:3]
+    n = int(data.get("perspectives", min(2, max_authors)))
+    n = max(1, min(max_authors, n))
+    facets = [str(x).strip() for x in (data.get("facets") or []) if str(x).strip()][:6]
+    queries = [str(x).strip() for x in (data.get("queries") or []) if str(x).strip()][:5]
+    if not queries or not facets:
+        raise ValueError("consolidate produced no queries/facets")
+    return QueryPlan(concepts, n, queries, facets)
+
+
+async def _planner_call(messages: list[dict], *, model: str) -> str:
+    oa = _async_client(model)
+    resp = await oa.chat.completions.create(
+        model=model, messages=messages, temperature=0.0, max_completion_tokens=300,
+    )
+    return resp.choices[0].message.content or "{}"
+
+
+async def _planner_decompose(query: str, *, model: str) -> list[str]:
+    raw = await _planner_call(
+        [{"role": "system", "content": PLANNER_DECOMPOSE_PROMPT},
+         {"role": "user", "content": query}], model=model)
+    return _parse_decompose(raw)
+
+
+async def _planner_expand(query: str, subqs: list[str], *, model: str) -> list[dict]:
+    numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(subqs, 1))
+    user = f"original question: {query}\n\nsub-questions:\n{numbered}"
+    raw = await _planner_call(
+        [{"role": "system", "content": PLANNER_EXPAND_PROMPT},
+         {"role": "user", "content": user}], model=model)
+    return _parse_expand(raw)
+
+
+async def _planner_consolidate(items: list[dict], *, model: str, max_authors: int) -> "QueryPlan":
+    lines = [f"- sub_question: {it['sub_question']}\n  concept: {it['concept']}\n"
+             f"  query: {it['query']}\n  facet: {it['facet']}" for it in items]
+    user = "expanded items:\n" + "\n".join(lines)
+    raw = await _planner_call(
+        [{"role": "system",
+          "content": PLANNER_CONSOLIDATE_PROMPT.format(max_authors=max_authors)},
+         {"role": "user", "content": user}], model=model)
+    return _parse_consolidate(raw, max_authors)
+
+
+async def extract_concepts_chain(
+    query: str, *, model: str | None = None, max_authors: int = 4
+) -> "QueryPlan":
+    """3-step chained planner: decompose -> expand -> consolidate. Raises on any
+    step failure so the dispatcher can degrade to the single-call planner."""
+    max_authors = max(1, int(max_authors))
+    chosen = model or settings.openai_model_nano
+    subqs = await _planner_decompose(query, model=chosen)
+    items = await _planner_expand(query, subqs, model=chosen)
+    return await _planner_consolidate(items, model=chosen, max_authors=max_authors)
 
 
 # ---------------------------------------------------------------------------
