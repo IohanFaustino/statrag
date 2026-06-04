@@ -71,3 +71,50 @@ def test_extract_concepts_chain_composes_steps(monkeypatch):
     monkeypatch.setattr(DT, "_planner_consolidate", fake_consolidate)
     plan = asyncio.run(DT.extract_concepts_chain("the question", model=None, max_authors=4))
     assert plan == DT.QueryPlan(["c"], 2, ["qq"], ["ff"])
+
+
+def test_dispatcher_flag_off_uses_single(monkeypatch):
+    async def fake_single(q, *, model, max_authors):
+        return DT.QueryPlan(["single"], 1, ["sq"], ["sf"])
+
+    async def boom_chain(q, *, model, max_authors):
+        raise AssertionError("chain must NOT run when flag off")
+
+    monkeypatch.setattr(DT, "_PLANNER_CHAIN_ON", False)
+    monkeypatch.setattr(DT, "_extract_concepts_single", fake_single)
+    monkeypatch.setattr(DT, "extract_concepts_chain", boom_chain)
+    plan = asyncio.run(DT.extract_concepts_ex("q", model=None, max_authors=4))
+    assert plan.concepts == ["single"]
+
+
+def test_dispatcher_flag_on_uses_chain(monkeypatch):
+    async def fake_single(q, *, model, max_authors):
+        return DT.QueryPlan(["single"], 1, ["sq"], ["sf"])
+
+    async def fake_chain(q, *, model, max_authors):
+        return DT.QueryPlan(["chain"], 2, ["cq"], ["cf"])
+
+    monkeypatch.setattr(DT, "_PLANNER_CHAIN_ON", True)
+    monkeypatch.setattr(DT, "_extract_concepts_single", fake_single)
+    monkeypatch.setattr(DT, "extract_concepts_chain", fake_chain)
+    plan = asyncio.run(DT.extract_concepts_ex("q", model=None, max_authors=4))
+    assert plan.concepts == ["chain"]
+
+
+def test_dispatcher_chain_failure_falls_back_to_single(monkeypatch):
+    async def fake_single(q, *, model, max_authors):
+        return DT.QueryPlan(["single"], 1, ["sq"], ["sf"])
+
+    async def fail_chain(q, *, model, max_authors):
+        raise RuntimeError("chain blew up")
+
+    monkeypatch.setattr(DT, "_PLANNER_CHAIN_ON", True)
+    monkeypatch.setattr(DT, "_extract_concepts_single", fake_single)
+    monkeypatch.setattr(DT, "extract_concepts_chain", fail_chain)
+    plan = asyncio.run(DT.extract_concepts_ex("q", model=None, max_authors=4))
+    assert plan.concepts == ["single"]
+
+
+def test_dispatcher_empty_query_short_circuits():
+    plan = asyncio.run(DT.extract_concepts_ex("   ", model=None, max_authors=4))
+    assert plan == DT.QueryPlan([], 1, [], [])

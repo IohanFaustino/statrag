@@ -1068,18 +1068,15 @@ class QueryPlan(NamedTuple):
     facets: list[str]
 
 
-async def extract_concepts_ex(
+async def _extract_concepts_single(
     query: str, *, model: str | None = None, max_authors: int = 4
 ) -> QueryPlan:
-    """Query planner (top orchestrator) in ONE LLM call: concepts, the
+    """Single-call planner (legacy). One LLM call: concepts, the
     author-perspective budget, targeted retrieval ``queries`` and the
     ``facets`` the answer must cover. On any failure it falls back to the
     keyword-heuristic concepts, a neutral budget, and empty queries/facets
     (the caller then behaves like the legacy single-query path).
     """
-    max_authors = max(1, int(max_authors))
-    if not query.strip():
-        return QueryPlan([], 1, [], [])
     chosen_model = model or settings.openai_model_nano
     oa = _async_client(chosen_model)
     try:
@@ -1105,6 +1102,27 @@ async def extract_concepts_ex(
         logger.exception("extract_concepts_ex failed; degrading to keyword heuristic + neutral budget")
         concepts = await extract_concepts(query, model=model)
         return QueryPlan(concepts, min(2, max_authors), [], [])
+
+
+# Flag-gated chained planner (decompose->expand->consolidate). Default OFF.
+_PLANNER_CHAIN_ON = os.environ.get("TUTOR_PLANNER_CHAIN", "0") == "1"
+
+
+async def extract_concepts_ex(
+    query: str, *, model: str | None = None, max_authors: int = 4
+) -> "QueryPlan":
+    """Query planner dispatcher. With TUTOR_PLANNER_CHAIN=1 runs the 3-step chain
+    (decompose->expand->consolidate); otherwise (or on any chain failure) runs the
+    single-call planner. Output is always a QueryPlan."""
+    max_authors = max(1, int(max_authors))
+    if not query.strip():
+        return QueryPlan([], 1, [], [])
+    if _PLANNER_CHAIN_ON:
+        try:
+            return await extract_concepts_chain(query, model=model, max_authors=max_authors)
+        except Exception:  # noqa: BLE001
+            logger.exception("planner chain failed; degrading to single-call planner")
+    return await _extract_concepts_single(query, model=model, max_authors=max_authors)
 
 
 # ---------------------------------------------------------------------------
