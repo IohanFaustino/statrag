@@ -10,6 +10,11 @@ def test_is_structured_output_capable():
     assert is_structured_output_capable("qwen-plus") is False
     assert is_structured_output_capable("gemini-2.5-flash") is False
     assert is_structured_output_capable("openai/gpt-oss-120b") is False  # groq
+    # Prefix robustness: new IDs not yet in the static registry sets are still
+    # correctly excluded because dispatch uses startswith, not set membership.
+    assert is_structured_output_capable("gemini-3.0-ultra") is False   # new gemini id, prefix
+    assert is_structured_output_capable("qwen-next") is False          # new qwen id, prefix
+    assert is_structured_output_capable("deepseek-v5-ultra") is False  # new deepseek id, prefix
 
 
 def test_recommended_flag_is_nano_not_qwen():

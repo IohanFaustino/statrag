@@ -313,15 +313,25 @@ def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
 
 
 def is_structured_output_capable(model_id: str | None) -> bool:
-    """True iff the model can run OpenAI strict json_schema structured output
-    (response_format=<PydanticModel>). Only OpenAI-family models qualify;
-    deepseek/groq/gemini/qwen must use the json_object path instead. None →
-    True (defaults to OpenAI)."""
+    """True iff the model runs OpenAI strict json_schema structured output.
+
+    Mirrors the provider dispatch in :func:`aclient_for` / :func:`get_llm`
+    so the routing predicate and the actual client dispatch never disagree:
+
+    * ``deepseek`` / ``gemini`` / ``qwen`` — matched by **ID prefix** (same
+      as dispatch); a new model ID with those prefixes is excluded even before
+      it appears in the static registry sets.
+    * Groq — matched by **set membership** in ``GROQ_MODEL_IDS`` (same as
+      dispatch; prefix matching is unsafe here because Groq hosts
+      ``openai/gpt-oss-*`` IDs that share the ``openai/`` prefix with
+      OpenAI-hosted IDs).
+    * Everything else (OpenAI family, unknown, ``None``) → ``True``.
+    """
     if not model_id:
         return True
-    if model_id.startswith("deepseek"):
+    if model_id.startswith(("deepseek", "gemini", "qwen")):
         return False
-    if model_id in GROQ_MODEL_IDS or model_id in GEMINI_MODEL_IDS or model_id in QWEN_MODEL_IDS:
+    if model_id in GROQ_MODEL_IDS:
         return False
     return True
 
