@@ -133,7 +133,7 @@ async def _schema_fill(
         f"Re-express the synthesis into the DeepTutorAnswer schema now."
     )
     messages = [
-        {"role": "system", "content": SCHEMA_FILL_PROMPT},
+        {"role": "system", "content": DEEP_TUTOR_INSTRUCTIONS + "\n\n" + SCHEMA_FILL_PROMPT},
         {"role": "user", "content": user},
     ]
     return await _stream_structured(messages, fill_model, on_aspect_delta)
