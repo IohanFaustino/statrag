@@ -418,7 +418,7 @@ describe("PipelineDiagram", () => {
     expect(html).not.toContain("deepagents + skill → schema-fill");
   });
 
-  it("synthesizer node renders a model dropdown defaulting to nano id when stageModels.synth is unset", () => {
+  it("orchestrator-deep: synthesizer renders editable dropdown defaulting to nano id when stageModels.synth is unset", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
@@ -431,14 +431,83 @@ describe("PipelineDiagram", () => {
         onWorkflowChange={() => {}}
       />,
     );
-    // Synthesizer node must have a dropdown toggle (not static text only)
+    // Synthesizer node must have an editable dropdown toggle in deep mode
     expect(html).toContain('data-node="synthesizer"');
     expect(html).toContain("node-dd__toggle");
     // nano id not in PROVIDERS fixture → rendered as raw id in toggle name span
     expect(html).toContain("gpt-5.4-nano-2026-03-17");
   });
 
-  it("synthesizer node shows override model name when stageModels.synth is set", () => {
+  it("orchestrator-deep: synthesizer shows override model name when stageModels.synth is set", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{ synth: "gpt-4o-mini" }}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator-deep"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    expect(html).toContain('data-node="synthesizer"');
+    // gpt-4o-mini is in PROVIDERS fixture → its display name should appear in the toggle
+    expect(html).toContain("GPT-4o mini");
+    // The synthesizer dropdown aria-label reflects the override, not nano
+    expect(html).toContain('aria-label="Model: GPT-4o mini. Click to change."');
+  });
+
+  it("plain orchestrator: synthesizer renders READ-ONLY draft model badge, NOT an editable synth dropdown", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    // Synthesizer node must be present
+    expect(html).toContain('data-node="synthesizer"');
+    // Extract the synthesizer node's segment to scope assertions
+    const synthStart = html.indexOf('data-node="synthesizer"');
+    const synthEnd = html.indexOf('data-node=', synthStart + 1);
+    const synthSegment = synthEnd === -1 ? html.slice(synthStart) : html.slice(synthStart, synthEnd);
+    // Read-only badge class must be present in the synthesizer node
+    expect(synthSegment).toContain("pipe2__model-fixed");
+    // The badge shows the draft model (pickerModel "gpt-4o" → "GPT-4o")
+    expect(synthSegment).toContain("GPT-4o");
+    // NO editable dropdown toggle inside the synthesizer node
+    expect(synthSegment).not.toContain("node-dd__toggle");
+  });
+
+  it("plain orchestrator: synthesizer read-only badge tracks stageModels.draft when set", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{ draft: "deepseek-chat" }}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    const synthStart = html.indexOf('data-node="synthesizer"');
+    const synthEnd = html.indexOf('data-node=', synthStart + 1);
+    const synthSegment = synthEnd === -1 ? html.slice(synthStart) : html.slice(synthStart, synthEnd);
+    // Badge shows the draft override model name, not the picker
+    expect(synthSegment).toContain("DeepSeek Chat");
+    // stageModels.synth is NOT set but we're in plain orchestrator — no dropdown
+    expect(synthSegment).not.toContain("node-dd__toggle");
+  });
+
+  it("plain orchestrator: setting stageModels.synth does NOT change the synthesizer badge (synth ignored in this mode)", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
@@ -451,11 +520,14 @@ describe("PipelineDiagram", () => {
         onWorkflowChange={() => {}}
       />,
     );
-    expect(html).toContain('data-node="synthesizer"');
-    // gpt-4o-mini is in PROVIDERS fixture → its display name should appear in the toggle
-    expect(html).toContain("GPT-4o mini");
-    // The synthesizer dropdown aria-label reflects the override, not nano
-    expect(html).toContain('aria-label="Model: GPT-4o mini. Click to change."');
+    const synthStart = html.indexOf('data-node="synthesizer"');
+    const synthEnd = html.indexOf('data-node=', synthStart + 1);
+    const synthSegment = synthEnd === -1 ? html.slice(synthStart) : html.slice(synthStart, synthEnd);
+    // Should show the draft model (pickerModel "gpt-4o" → "GPT-4o"), NOT "GPT-4o mini"
+    expect(synthSegment).toContain("GPT-4o");
+    expect(synthSegment).toContain("pipe2__model-fixed");
+    // synth override must NOT drive a dropdown in plain orchestrator
+    expect(synthSegment).not.toContain("node-dd__toggle");
   });
 });
 

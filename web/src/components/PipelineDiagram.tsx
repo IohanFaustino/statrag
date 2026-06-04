@@ -157,7 +157,7 @@ const ORC_NODES: PipelineNode[] = [
   {
     id: "synthesizer",
     label: "Synthesizer",
-    desc: "Integrates & compares per-author drafts into the final answer. Under deep synthesis this node's model (default nano) runs the deepagents synthesizer + schema-fill; the draft/orchestrator model only drives the per-author workers.",
+    desc: "Integrates & compares per-author drafts into the final answer. In plain orchestrator mode the synthesizer runs on the draft model; switch to deep synthesis (orchestrator-deep) to select a dedicated synthesis model (default nano) that drives the deepagents synthesizer + nano schema-fill.",
     kind: "llm",
     stage: "synth",
     defaultModel: "gpt-5.4-nano-2026-03-17",
@@ -473,10 +473,14 @@ export default function PipelineDiagram({
           );
         }
 
-        // ── synthesizer node (selectable model, stage "synth") ──
+        // ── synthesizer node ─────────────────────────────────────────────
+        // deepSynth (orchestrator-deep): editable synth model dropdown.
+        // plain orchestrator: read-only badge showing the draft model (the L0
+        // synthesizer actually runs on the draft model in that path).
         if (n.id === "synthesizer") {
           const deepSynth = tutorWorkflow === "orchestrator-deep";
           const synthActive = stageModels["synth"] ?? n.defaultModel;
+          const draftActive = stageModels["draft"] ?? pickerModel;
           return (
             <div
               key={n.id}
@@ -490,11 +494,15 @@ export default function PipelineDiagram({
                   {deepSynth ? "deepagents + skill → schema-fill" : "integrate & compare"}
                 </span>
               </div>
-              <NodeModelDropdown
-                value={synthActive}
-                providers={providers}
-                onChange={(id) => onStageModelChange("synth" as StageKey, id)}
-              />
+              {deepSynth ? (
+                <NodeModelDropdown
+                  value={synthActive}
+                  providers={providers}
+                  onChange={(id) => onStageModelChange("synth" as StageKey, id)}
+                />
+              ) : (
+                <span className="pipe2__model-fixed">{modelName(providers, draftActive) || draftActive}</span>
+              )}
             </div>
           );
         }
