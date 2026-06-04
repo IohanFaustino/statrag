@@ -7,7 +7,7 @@ def test_constants():
     assert pc.JUDGE_MODEL == "gpt-5.4-nano-2026-03-17"
     assert len(pc.QUESTIONS) == 3
     assert pc.JUDGE_DIMS == ("decomposition", "coverage", "targeting", "redundancy")
-    assert pc.MAX_TOK == 300 and pc.TIMEOUT_S == 60
+    assert pc.MAX_TOK == 700 and pc.TIMEOUT_S == 60
 
 
 def test_render_plan_text():

@@ -22,7 +22,7 @@ QUESTIONS = [
     "What are the components of a time series?",
     "Compare L1 and L2 regularization.",
 ]
-MAX_TOK = 300
+MAX_TOK = 700
 TIMEOUT_S = 60
 JUDGE_DIMS = ("decomposition", "coverage", "targeting", "redundancy")
 

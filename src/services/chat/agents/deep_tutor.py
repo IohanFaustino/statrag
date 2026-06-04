@@ -1175,7 +1175,9 @@ def _parse_consolidate(raw: str, max_authors: int) -> "QueryPlan":
 async def _planner_call(messages: list[dict], *, model: str) -> str:
     oa = _async_client(model)
     resp = await oa.chat.completions.create(
-        model=model, messages=messages, temperature=0.0, max_completion_tokens=300,
+        # 700 (not 300): the decompose step emits verbose JSON and reasoning models
+        # (nano) spend budget on hidden tokens; 300 truncated the JSON mid-string.
+        model=model, messages=messages, temperature=0.0, max_completion_tokens=700,
     )
     return resp.choices[0].message.content or "{}"
 
