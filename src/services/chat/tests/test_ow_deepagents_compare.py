@@ -1,5 +1,11 @@
 """CI unit tests for the Plan C deepagents comparison (pure helpers only)."""
+import asyncio
+import sys
+
+import pytest
+
 from src.services.chat.agents import ow_deepagents as DA
+from src.services.chat.eval import ow_deepagents_compare as PC
 
 
 def test_sum_usage_totals():
@@ -25,22 +31,15 @@ def test_synthesis_skill_exists_and_well_formed():
 
 
 def test_skill_arm_import_guard(monkeypatch):
-    import sys, asyncio
-    import pytest as _pytest
     monkeypatch.setitem(sys.modules, "deepagents", None)
-    with _pytest.raises(RuntimeError, match="pip install deepagents"):
+    with pytest.raises(RuntimeError, match="pip install deepagents"):
         asyncio.run(DA.synthesize_with_skill("q", [], []))
 
 
 def test_subagents_arm_import_guard(monkeypatch):
-    import sys, asyncio
-    import pytest as _pytest
     monkeypatch.setitem(sys.modules, "deepagents", None)
-    with _pytest.raises(RuntimeError, match="pip install deepagents"):
+    with pytest.raises(RuntimeError, match="pip install deepagents"):
         asyncio.run(DA.synthesize_with_subagents("q", [], []))
-
-
-from src.services.chat.eval import ow_deepagents_compare as PC
 
 
 def test_pc_constants():
