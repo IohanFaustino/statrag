@@ -11,3 +11,14 @@ def test_sum_usage_totals():
 def test_sum_usage_empty():
     assert DA._sum_usage({}) == (0, 0)
     assert DA._sum_usage(None) == (0, 0)
+
+
+def test_synthesis_skill_exists_and_well_formed():
+    from pathlib import Path
+    p = Path(DA.__file__).parent / "ow_skills" / "synthesis" / "SKILL.md"
+    assert p.exists()
+    txt = p.read_text(encoding="utf-8")
+    assert txt.startswith("---")          # frontmatter
+    assert "name:" in txt and "description:" in txt
+    assert "/briefs/" in txt              # tells the agent where the briefs are
+    assert DA.SYNTHESIS_SKILL_DIR == str(p.parent.parent)  # ".../ow_skills"
