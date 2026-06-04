@@ -819,7 +819,6 @@ def _render_artifact(results: dict) -> str:
         if not r.get("ok", False):
             lines.append(f"| {label} | Q{qi} | FAILED |  |  |  |  | {r.get('out_tok',0)} | {r.get('ms',0)} | _{r.get('err','')}_ |")
             continue
-        is_agentless = model.startswith("gpt-5.4-nano") and "baseline" in label
         usd = f"${usd_est(model, input_tokens=r['in_tok'], output_tokens=r['out_tok']):.4f}"
         lines.append(
             f"| {label} | Q{qi} | {sc['overall']} | {sc['decomposition']} | {sc['coverage']} | "
@@ -834,42 +833,88 @@ def _render_artifact(results: dict) -> str:
     return "\n".join(lines)
 
 
+async def _call_usage(model: str, messages: list[dict]) -> tuple[str, int, int]:
+    """One capped+timed planner call; returns (content, in_tok, out_tok) from the
+    response's real usage so the eval can compute true USD."""
+    from src.services.chat.agents.deep_tutor import _async_client
+    resp = await asyncio.wait_for(
+        _async_client(model).chat.completions.create(
+            model=model, messages=messages, temperature=0.0, max_completion_tokens=MAX_TOK),
+        timeout=TIMEOUT_S)
+    u = getattr(resp, "usage", None)
+    return (resp.choices[0].message.content or "{}",
+            int(getattr(u, "prompt_tokens", 0) or 0),
+            int(getattr(u, "completion_tokens", 0) or 0))
+
+
 async def step_run() -> None:
-    """Produce plans for each (contestant × question). Persists incrementally."""
+    """Produce plans for each (contestant × question), capturing real token usage.
+    Persists incrementally. Calls DT's prompts + parsers directly (no Qdrant);
+    production code is untouched."""
     from src.services.chat.agents import deep_tutor as DT
 
     results = _load_results()
-    # chain contestants: capture sub_questions too (call the steps directly)
+    # chain contestants: run the 3 steps inline, summing usage across the 3 calls.
     for model in MODELS:
         for qi, q in enumerate(QUESTIONS):
             t0 = time.monotonic()
+            itok = otok = 0
             try:
-                subqs = await asyncio.wait_for(DT._planner_decompose(q, model=model), timeout=TIMEOUT_S)
-                items = await asyncio.wait_for(DT._planner_expand(q, subqs, model=model), timeout=TIMEOUT_S)
-                plan = await asyncio.wait_for(DT._planner_consolidate(items, model=model, max_authors=4), timeout=TIMEOUT_S)
+                raw, i1, o1 = await _call_usage(
+                    model, [{"role": "system", "content": DT.PLANNER_DECOMPOSE_PROMPT},
+                            {"role": "user", "content": q}])
+                itok += i1; otok += o1
+                subqs = DT._parse_decompose(raw)
+
+                numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(subqs, 1))
+                euser = f"original question: {q}\n\nsub-questions:\n{numbered}"
+                raw, i2, o2 = await _call_usage(
+                    model, [{"role": "system", "content": DT.PLANNER_EXPAND_PROMPT},
+                            {"role": "user", "content": euser}])
+                itok += i2; otok += o2
+                items = DT._parse_expand(raw)
+
+                clines = [f"- sub_question: {it['sub_question']}\n  concept: {it['concept']}\n"
+                          f"  query: {it['query']}\n  facet: {it['facet']}" for it in items]
+                cuser = "expanded items:\n" + "\n".join(clines)
+                raw, i3, o3 = await _call_usage(
+                    model, [{"role": "system",
+                             "content": DT.PLANNER_CONSOLIDATE_PROMPT.format(max_authors=4)},
+                            {"role": "user", "content": cuser}])
+                itok += i3; otok += o3
+                plan = DT._parse_consolidate(raw, 4)
+
                 pd = {"sub_questions": subqs, "concepts": plan.concepts,
                       "perspectives": plan.suggested_authors, "facets": plan.facets, "queries": plan.queries}
                 results[(model, qi)] = {"model": model, "qi": qi, "label": f"{_short(model)}-chain",
-                                        "plan_text": _render_plan(pd), "in_tok": 0, "out_tok": 0,
+                                        "plan_text": _render_plan(pd), "in_tok": itok, "out_tok": otok,
                                         "ms": int((time.monotonic()-t0)*1000), "ok": True, "err": ""}
             except Exception as exc:  # noqa: BLE001
                 results[(model, qi)] = {"model": model, "qi": qi, "label": f"{_short(model)}-chain",
-                                        "plan_text": "", "in_tok": 0, "out_tok": 0,
+                                        "plan_text": "", "in_tok": itok, "out_tok": otok,
                                         "ms": int((time.monotonic()-t0)*1000), "ok": False,
                                         "err": f"{type(exc).__name__}: {exc}"}
             _save_results(results)
-            print(f"[{model} Q{qi}] {'ok' if results[(model,qi)]['ok'] else 'FAILED'} {results[(model,qi)]['ms']}ms")
+            print(f"[{model} Q{qi}] {'ok' if results[(model,qi)]['ok'] else 'FAILED'} "
+                  f"out_tok={results[(model,qi)]['out_tok']} {results[(model,qi)]['ms']}ms")
 
-    # baseline: single-call nano
+    # baseline: single-call nano (one call), real usage.
     bmodel = JUDGE_MODEL
     for qi, q in enumerate(QUESTIONS):
         t0 = time.monotonic()
         try:
-            plan = await asyncio.wait_for(DT._extract_concepts_single(q, model=bmodel, max_authors=4), timeout=TIMEOUT_S)
-            pd = {"concepts": plan.concepts, "perspectives": plan.suggested_authors,
-                  "facets": plan.facets, "queries": plan.queries}
+            raw, it, ot = await _call_usage(
+                bmodel, [{"role": "system",
+                          "content": DT.EXTRACT_CONCEPTS_BUDGET_PROMPT.format(max_authors=4)},
+                         {"role": "user", "content": q}])
+            parsed = json.loads(strip_fences(raw))
+            concepts = [str(x).strip() for x in (parsed.get("concepts") or []) if str(x).strip()][:3]
+            n = max(1, min(4, int(parsed.get("perspectives", 2))))
+            facets = [str(x).strip() for x in (parsed.get("facets") or []) if str(x).strip()][:6]
+            queries = [str(x).strip() for x in (parsed.get("queries") or []) if str(x).strip()][:5]
+            pd = {"concepts": concepts, "perspectives": n, "facets": facets, "queries": queries}
             results[("baseline", qi)] = {"model": bmodel, "qi": qi, "label": "single-call(nano) baseline",
-                                         "plan_text": _render_plan(pd), "in_tok": 0, "out_tok": 0,
+                                         "plan_text": _render_plan(pd), "in_tok": it, "out_tok": ot,
                                          "ms": int((time.monotonic()-t0)*1000), "ok": True, "err": ""}
         except Exception as exc:  # noqa: BLE001
             results[("baseline", qi)] = {"model": bmodel, "qi": qi, "label": "single-call(nano) baseline",
@@ -1010,5 +1055,9 @@ git commit -m "eval(planner-chain): run results + artifact + verdict"
 
 **Type consistency:** `QueryPlan(concepts, suggested_authors, queries, facets)` used consistently; JSON `perspectives` → `suggested_authors` in both `_parse_consolidate` and `_extract_concepts_single`. Chain step fn names (`_planner_decompose/_expand/_consolidate`) and parser names (`_parse_decompose/_expand/_consolidate`) match across Tasks 2, 3, 6. Eval row keys (`model/qi/label/plan_text/in_tok/out_tok/ms/ok/err/scores`) consistent across `_save_results`, `step_run`, `_render_artifact`.
 
-**Known limitation (acceptable):** eval `in_tok/out_tok` are 0 because the chain step fns don't surface usage (USD shows $0.0000); the table still ranks quality/latency. If cost precision matters later, thread usage through `_planner_call` — out of scope here.
+**Real cost capture:** `step_run` calls each step via `_call_usage`, which reads
+`resp.usage.{prompt_tokens,completion_tokens}`, so `in_tok/out_tok` are real and the
+USD column is the true per-model spend for that model's chain (3 calls) vs the
+baseline (1 call). Production code is untouched — the eval reuses DT's prompts +
+parsers directly.
 ```
