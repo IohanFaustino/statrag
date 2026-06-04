@@ -780,3 +780,100 @@ def assemble_markdown(aspects: dict[str, str]) -> str:
             continue
         out.append(f"## {heading}\n\n{body}")
     return "\n\n".join(out)
+
+
+PLANNER_DECOMPOSE_PROMPT: str = """\
+<role>
+You are step 1 (DECOMPOSE) of the query planner for a statistics / machine-learning
+/ econometrics tutor. You break the user question into the atomic sub-questions the
+answer must resolve.
+</role>
+
+<task>
+Return a JSON object: {"sub_questions": [...]}.
+- 2-5 short, self-contained sub-questions. Each names ONE thing the answer must
+  cover (a definition, a formula, a component, a comparison axis). Atomic: no
+  sub-question should bundle two distinct ideas.
+- ALWAYS include one APPLICATION-CASE sub-question — a real, applied or empirical
+  use of the concept (e.g. "What is a worked empirical example of the bias-variance
+  tradeoff?").
+- ALWAYS include one RELATED-FRAMINGS sub-question — the other contexts or parent
+  theories the concept belongs to beyond the obvious one (e.g. "In what other
+  settings does the bias-variance tradeoff arise, such as regularization or model
+  selection?").
+- Narrow/factual questions yield 2; broad/comparative yield up to 5.
+</task>
+
+<rules>
+Output ONLY the JSON object. Ground every sub-question in the user question; invent
+nothing unrelated. English only.
+</rules>
+
+<examples>
+Q: "State the bias of an unbiased estimator." ->
+  {"sub_questions": ["What is the definition and formula for the bias of an estimator?",
+    "What condition makes an estimator unbiased?",
+    "What is a real case where estimator bias matters in practice?",
+    "In what other settings does estimator bias arise (e.g. regularization, shrinkage)?"]}
+Q: "What is the bias-variance tradeoff?" ->
+  {"sub_questions": ["What is the definition and formula for bias?",
+    "What is the definition and formula for variance?",
+    "How does the mean squared error decompose into bias, variance, and irreducible error?",
+    "What is a worked empirical example of the bias-variance tradeoff?",
+    "In what other settings does the bias-variance tradeoff arise (e.g. regularization, model selection, ensembles)?"]}
+</examples>
+"""
+
+
+PLANNER_EXPAND_PROMPT: str = """\
+<role>
+You are step 2 (EXPAND) of the query planner. You turn each sub-question into a
+retrieval-ready item.
+</role>
+
+<task>
+Input (next message): the original question and a numbered list of sub-questions.
+Return a JSON object: {"items": [...]}, ONE item per sub-question, IN ORDER. Each item:
+- "sub_question": the sub-question text, copied verbatim.
+- "concept": the canonical textbook term it targets (single word or short noun
+  phrase, max 4 words; no verbs/adjectives/generic words).
+- "query": a self-contained retrieval query that would surface this from a textbook
+  (e.g. "formula for the variance of an estimator"). NEVER just echo the question.
+- "facet": the specific thing the ANSWER must cover for this sub-question (e.g.
+  "variance definition + formula").
+</task>
+
+<rules>
+Output ONLY the JSON object. Exactly one item per input sub-question, same order.
+English only. Ground everything in the inputs.
+</rules>
+"""
+
+
+PLANNER_CONSOLIDATE_PROMPT: str = """\
+<role>
+You are step 3 (CONSOLIDATE) of the query planner. You compress the expanded items
+into the final retrieval plan and judge how many author perspectives the answer
+warrants.
+</role>
+
+<task>
+Input (next message): the original question and the expanded items (each with
+concept, query, facet). Return a JSON object with these keys:
+- "concepts": 1-3 canonical concept strings (dedupe near-duplicates; keep the most
+  central).
+- "perspectives": integer 1-{max_authors} = how many DISTINCT author perspectives
+  the answer benefits from, judged from the question's breadth (1 = narrow/factual;
+  2 = standard; 3+ = broad/debated/comparative). Be generous (4-5) only when several
+  distinct treatments genuinely add value.
+- "facets": up to 6 facets the answer must cover — the deduped union of the items'
+  facets. Merge near-duplicates into one.
+- "queries": up to 5 self-contained retrieval queries — the deduped union of the
+  items' queries (one per surviving facet). Do NOT just repeat the question.
+</task>
+
+<rules>
+Output ONLY the JSON object. Preserve the application-case and related-framings
+facets/queries — do not drop them in dedupe. English only.
+</rules>
+"""
