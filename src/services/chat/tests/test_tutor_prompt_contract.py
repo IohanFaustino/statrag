@@ -351,3 +351,7 @@ def test_deep_tutor_instructions_within_token_budget():
         f"DEEP_TUTOR_INSTRUCTIONS is {n} chars, exceeds budget {_PROMPT_BUDGET_CEILING}. "
         "Remove duplicate rules before adding new ones."
     )
+
+
+def test_definition_states_component_formulas():
+    assert "defining formula" in INSTR

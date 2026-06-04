@@ -235,10 +235,11 @@ async def run_orchestrator_workers(
         except Exception:  # noqa: BLE001
             logger.exception("ow level-%d structured synth failed; falling back to L0", level)
 
-    # L5 / per-request deep synthesis: deepagents + synthesis SKILL, then a nano
-    # schema-fill pass renders it as a streamed DeepTutorAnswer. Any failure
-    # (deepagents missing, empty, schema-fill None) falls through to L0 below.
-    if deep_synth or level == 5:
+    # L5 env-only: deepagents + synthesis SKILL + nano schema-fill pass (kept for
+    # eval reproducibility). The live orchestrator-deep workflow (deep_synth=True)
+    # now falls through to the fast L0 structured synth below — same DeepTutorAnswer
+    # schema, no schema-fill overhead. Any failure falls through to L0.
+    if level == 5:
         try:
             from src.services.chat.agents import ow_deepagents
             # The deep synthesizer + schema-fill run on OpenAI (ChatOpenAI /

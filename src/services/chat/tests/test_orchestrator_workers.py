@@ -151,6 +151,7 @@ def _two_author_inputs():
 
 
 def test_deep_synth_routes_to_skill_then_schema_fill(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     sources, plan = _two_author_inputs()
 
     async def fake_worker(query, thesis, author, srcs, *, model=None):
@@ -174,12 +175,13 @@ def test_deep_synth_routes_to_skill_then_schema_fill(monkeypatch):
     monkeypatch.setattr(OW, "_schema_fill", fake_fill)
 
     deep, _ = asyncio.run(OW.run_orchestrator_workers(
-        "q", sources, plan, deep_synth=True))
+        "q", sources, plan))
     assert calls.get("skill") and calls["fill_text"] == "DEEPAGENTS SYNTH"
     assert deep.tldr == "ok"
 
 
 def test_deep_synth_falls_back_to_L0_on_skill_failure(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     sources, plan = _two_author_inputs()
 
     async def fake_worker(query, thesis, author, srcs, *, model=None):
@@ -202,11 +204,12 @@ def test_deep_synth_falls_back_to_L0_on_skill_failure(monkeypatch):
     monkeypatch.setattr(OW, "_stream_structured", fake_stream)
 
     deep, _ = asyncio.run(OW.run_orchestrator_workers(
-        "q", sources, plan, deep_synth=True))
+        "q", sources, plan))
     assert seen.get("L0") and deep.tldr == "L0"
 
 
 def test_deep_synth_falls_back_to_L0_when_schema_fill_returns_none(monkeypatch):
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     sources, plan = _two_author_inputs()
 
     async def fake_worker(query, thesis, author, srcs, *, model=None):
@@ -231,7 +234,7 @@ def test_deep_synth_falls_back_to_L0_when_schema_fill_returns_none(monkeypatch):
                                further_reading=""), {}
     monkeypatch.setattr(OW, "_stream_structured", fake_stream)
 
-    deep, _ = asyncio.run(OW.run_orchestrator_workers("q", sources, plan, deep_synth=True))
+    deep, _ = asyncio.run(OW.run_orchestrator_workers("q", sources, plan))
     assert seen.get("L0") and deep.tldr == "L0"
 
 
@@ -276,6 +279,7 @@ def test_env_level_5_triggers_skill_path(monkeypatch):
 def test_deep_synth_model_passed_to_skill_and_fill(monkeypatch):
     """deep_synth_model (an OpenAI id) is forwarded unchanged to both
     synthesize_with_skill (model= kwarg) and _schema_fill (model arg)."""
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     from src.core.config import settings
     sources, plan = _two_author_inputs()
 
@@ -301,7 +305,7 @@ def test_deep_synth_model_passed_to_skill_and_fill(monkeypatch):
 
     nano = settings.openai_model_nano
     asyncio.run(OW.run_orchestrator_workers(
-        "q", sources, plan, deep_synth=True, deep_synth_model=nano))
+        "q", sources, plan, deep_synth_model=nano))
     assert captured["skill_model"] == nano
     assert captured["fill_model"] == nano
 
@@ -309,6 +313,7 @@ def test_deep_synth_model_passed_to_skill_and_fill(monkeypatch):
 def test_deep_synth_model_coerces_non_openai_to_nano(monkeypatch):
     """A non-OpenAI deep_synth_model (e.g. qwen-plus) is coerced to nano for
     both the deepagents agent and the schema-fill pass."""
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     from src.core.config import settings
     sources, plan = _two_author_inputs()
 
@@ -334,9 +339,39 @@ def test_deep_synth_model_coerces_non_openai_to_nano(monkeypatch):
 
     nano = settings.openai_model_nano
     asyncio.run(OW.run_orchestrator_workers(
-        "q", sources, plan, deep_synth=True, deep_synth_model="qwen-plus"))
+        "q", sources, plan, deep_synth_model="qwen-plus"))
     assert captured["skill_model"] == nano, "qwen-plus should be coerced to nano for skill"
     assert captured["fill_model"] == nano, "qwen-plus should be coerced to nano for fill"
+
+
+def test_deep_synth_flag_routes_to_L0_structured(monkeypatch):
+    """deep_synth=True (live orchestrator-deep flag) must reach the fast L0
+    structured synth (_stream_structured) and NOT call synthesize_with_skill."""
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        from src.services.chat.schemas.output import AuthorBrief
+        return AuthorBrief(author=author, summary=f"{author} s",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    import src.services.chat.agents.ow_deepagents as OWD
+
+    async def boom_skill(*a, **k):
+        raise AssertionError("deep_synth must NOT call the deepagents skill path")
+    monkeypatch.setattr(OWD, "synthesize_with_skill", boom_skill)
+
+    seen = {}
+
+    async def fake_stream(messages, model, on_aspect_delta=None):
+        seen["L0"] = True
+        return DeepTutorAnswer(tldr="ok", definition="L0", formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {}
+    monkeypatch.setattr(OW, "_stream_structured", fake_stream)
+
+    deep, _ = asyncio.run(OW.run_orchestrator_workers("q", sources, plan, deep_synth=True))
+    assert seen.get("L0") and deep.definition == "L0"
 
 
 def test_level_6_routes_to_structured(monkeypatch):
@@ -365,6 +400,7 @@ def test_level_6_routes_to_structured(monkeypatch):
 def test_deep_synth_model_coerces_groq_openai_prefix_to_nano(monkeypatch):
     """A Groq id whose prefix looks OpenAI-like (openai/gpt-oss-120b) must be
     coerced to nano via the ``id in GROQ_MODEL_IDS`` branch, not startswith."""
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
     from src.core.config import settings
     from src.services.chat.llm.router import GROQ_MODEL_IDS
     sources, plan = _two_author_inputs()
@@ -394,7 +430,7 @@ def test_deep_synth_model_coerces_groq_openai_prefix_to_nano(monkeypatch):
 
     nano = settings.openai_model_nano
     asyncio.run(OW.run_orchestrator_workers(
-        "q", sources, plan, deep_synth=True, deep_synth_model=groq_id))
+        "q", sources, plan, deep_synth_model=groq_id))
     assert captured["skill_model"] == nano, "openai/gpt-oss-120b (Groq) should be coerced to nano for skill"
     assert captured["fill_model"] == nano, "openai/gpt-oss-120b (Groq) should be coerced to nano for fill"
 

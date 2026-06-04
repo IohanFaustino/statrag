@@ -203,9 +203,13 @@ Per-field requirements (target lengths are minimums; longer is fine):
     relevant error measure): state the decomposition and explain how each
     component affects the error term. This subsection is REQUIRED whenever
     the components combine into a single error quantity.
-  - FORMULAS HAVE A HOME HERE, AS CENTERED DISPLAY EQUATIONS. Each
-    component ``### `` subsection (e.g. ``### Bias``, ``### Variance``) MUST
-    contain its defining formula as ``$$ … $$`` (NOT inline ``$…$``).
+  - FORMULAS HAVE A HOME HERE, AS CENTERED DISPLAY EQUATIONS. For a
+    decomposition or tradeoff concept, EACH component ``### `` subsection
+    MUST open with a bullet stating its defining formula inline, and the
+    central ``### `` (e.g. ``### MSE``) states the ``$$decomposition$$``.
+    More generally, each component ``### `` subsection (e.g. ``### Bias``,
+    ``### Variance``) MUST contain its defining formula as ``$$ … $$``
+    (NOT inline ``$…$``).
     The ``### MSE`` (or relevant central-quantity) subsection states the
     decomposition even if that quantity was not named in the question.
     Do NOT defer the formulas to ``formal_statement`` — that field is
