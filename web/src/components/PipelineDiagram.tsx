@@ -215,7 +215,7 @@ export default function PipelineDiagram({
   tutorWorkflow,
   onWorkflowChange,
 }: PipelineDiagramProps) {
-  const isOrch = tutorWorkflow === "orchestrator" || tutorWorkflow === "orchestrator-deep";
+  const isOrchLayout = tutorWorkflow === "orchestrator" || tutorWorkflow === "orchestrator-deep";
 
   // ── Derive effective graph ───────────────────────────────────────────────
   let effectiveNodes: PipelineNode[];
@@ -223,7 +223,7 @@ export default function PipelineDiagram({
   let effectiveLayout: Record<string, Box>;
   let canvasH: number;
 
-  if (!isOrch) {
+  if (!isOrchLayout) {
     effectiveNodes  = TUTOR_PIPELINE.nodes;
     effectiveEdges  = TUTOR_PIPELINE.edges;
     effectiveLayout = BASE_LAYOUT;

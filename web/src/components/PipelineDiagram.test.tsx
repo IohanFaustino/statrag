@@ -389,6 +389,13 @@ describe("PipelineDiagram", () => {
       />,
     );
     expect(html).toContain("Deep synthesis (slower ~45s)");
+    // orchestrator-deep uses the orchestrator layout: cluster nodes present
+    expect(html).toContain('data-node="orchestrator"');
+    expect(html).toContain('data-node="synthesizer"');
+    expect(html).toContain("Worker · N");
+    // single draft box must NOT be rendered in this mode
+    expect(html).not.toContain("Draft / synthesis");
+    expect(html).not.toContain('data-node="draft"');
   });
 });
 
