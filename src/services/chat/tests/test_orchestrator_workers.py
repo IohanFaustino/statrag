@@ -1,10 +1,12 @@
 """Tests for the orchestrator-workers (per-author) drafting workflow."""
+import asyncio
+
 import pytest
 
-from src.services.chat.schemas import ChatRequest, Source
-from src.services.chat.schemas.output import AuthorBrief, SynthesisPlan
 from src.services.chat.agents import deep_tutor as d
 from src.services.chat.agents import orchestrator_workers as ow
+from src.services.chat.schemas import ChatRequest, Source
+from src.services.chat.schemas.output import AuthorBrief, DeepTutorAnswer, SynthesisPlan, WorkerTask
 
 
 def _src(rank, author, book):
@@ -75,7 +77,6 @@ async def test_orchestrator_falls_back_when_all_workers_fail(monkeypatch):
 @pytest.mark.asyncio
 async def test_orchestrator_uses_planner_tasks(monkeypatch):
     # The Planner's tasks (plan.tasks) drive the workers — no second LLM call.
-    from src.services.chat.schemas.output import WorkerTask, DeepTutorAnswer
     seen = []
     async def _worker(query, thesis, focus, srcs, *, model=None):
         seen.append(focus)
@@ -102,11 +103,6 @@ def test_format_author_briefs():
         AuthorBrief(author="Smith", summary="S", key_points=["p1"], source_ranks=[1, 3]),
     ])
     assert "<author_briefs>" in txt and "author='Smith'" in txt and "#1, #3" in txt
-
-
-import asyncio
-
-from src.services.chat.schemas.output import DeepTutorAnswer
 
 
 def test_schema_fill_calls_stream_structured_with_synthesis_text(monkeypatch):

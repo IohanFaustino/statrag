@@ -850,7 +850,7 @@ English only. Ground everything in the inputs.
 """
 
 
-SCHEMA_FILL_PROMPT = (
+SCHEMA_FILL_PROMPT: str = (
     "You are a formatter. You are given a finished, correct tutor synthesis written "
     "as free prose, plus the original question. Re-express that synthesis into the "
     "DeepTutorAnswer schema fields WITHOUT adding, removing, or changing any claim, "
