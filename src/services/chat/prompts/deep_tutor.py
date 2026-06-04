@@ -664,6 +664,11 @@ Return ONLY a JSON object:
 - Ground everything in the provided sources; cite the `[#rank]` you used in
   `source_ranks`. Do not invent claims, numbers, or notation.
 - `key_points` = the load-bearing, separable claims (roughly 3-6).
+- PRESERVE EQUATIONS: when the author states a defining equation, include it
+  VERBATIM in a `key_point` — copy the exact LaTeX (`$...$` or `$$...$$`) from
+  the source. If the source shows the equation only as prose or a dropped image
+  placeholder (`![...]`), state the equation it describes. Do not paraphrase a
+  formula into words.
 - Note this author's distinctive emphasis or notation if any (it helps the
   synthesizer compare authors).
 </rules>

@@ -89,7 +89,7 @@ async def run_author_worker(
             ],
             response_format=AuthorBrief,
             temperature=0.0,
-            max_completion_tokens=420,
+            max_completion_tokens=600,
         )
         brief = resp.choices[0].message.parsed
         if brief and not brief.author:

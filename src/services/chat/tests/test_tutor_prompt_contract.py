@@ -360,3 +360,10 @@ def test_definition_states_component_formulas():
 def test_definition_prefers_verbatim_then_reconstructs_equations():
     assert "copy it verbatim" in INSTR
     assert "reconstruct" in INSTR
+
+
+def test_author_worker_preserves_equations():
+    from src.services.chat.prompts.deep_tutor import AUTHOR_WORKER_PROMPT
+    p = AUTHOR_WORKER_PROMPT.lower()
+    assert "preserve equations" in p
+    assert "verbatim" in p
