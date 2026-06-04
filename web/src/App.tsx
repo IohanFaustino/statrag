@@ -245,6 +245,13 @@ export default function App() {
     tutorWorkflow,
   });
 
+  // Deep-synthesis path: show more informative copy while the ~45 s
+  // deepagents synthesis runs before any tokens stream.
+  const thinkingLabel =
+    activeMode === "tutor" && tutorWorkflow === "orchestrator-deep"
+      ? "Synthesizing across authors… (~45 s)"
+      : "Thinking";
+
   // Backend health (status dot)
   const [online, setOnline] = useState(false);
   useEffect(() => {
@@ -608,6 +615,7 @@ export default function App() {
               forkDisabled={tempChatOpen}
               isStreaming={isStreaming}
               streamingPhase={streamingPhase}
+              thinkingLabel={thinkingLabel}
             />
             <InputBar
               activeMode={activeMode}

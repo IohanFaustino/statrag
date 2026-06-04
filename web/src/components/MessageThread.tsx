@@ -215,6 +215,7 @@ interface AssistantMessageViewProps {
   streamingPhase?: "idle" | "thinking" | "writing";
   isLast?: boolean;
   onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
+  thinkingLabel?: string;
 }
 
 const STRUCTURED_MODES = new Set(["tutor", "qa", "facilitate", "resume"]);
@@ -229,6 +230,7 @@ function AssistantMessageView({
   streamingPhase,
   isLast,
   onClarifyPick,
+  thinkingLabel = "Thinking",
 }: AssistantMessageViewProps) {
   const ModeIcon = MODE_ICONS[msg.mode];
   const modeLabel = MODE_LABELS[msg.mode] ?? msg.mode;
@@ -283,7 +285,7 @@ function AssistantMessageView({
       <div className="msg__body">
         {(isPending || (isLast && isStreaming && streamingPhase === "thinking")) && (
           <div className="msg__thinking" aria-live="polite">
-            <span className="msg__thinking-lbl">Thinking</span>
+            <span className="msg__thinking-lbl">{thinkingLabel}</span>
             <span className="msg__thinking-ell" aria-hidden="true">
               <span>.</span><span>.</span><span>.</span>
             </span>
@@ -411,6 +413,7 @@ export interface MessageThreadProps {
   onExportMessage?: (idx: number) => void;
   isStreaming?: boolean;
   streamingPhase?: "idle" | "thinking" | "writing";
+  thinkingLabel?: string;
   conversationLoaded?: boolean;
   onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
 }
@@ -435,6 +438,7 @@ export default function MessageThread({
   onExportMessage,
   isStreaming = false,
   streamingPhase = "idle",
+  thinkingLabel = "Thinking",
   conversationLoaded = false,
   onClarifyPick,
 }: MessageThreadProps) {
@@ -489,6 +493,7 @@ export default function MessageThread({
               onExport={onExportMessage}
               forkDisabled={forkDisabled}
               streamingPhase={streamingPhase}
+              thinkingLabel={thinkingLabel}
               isLast={i === thread.length - 1}
               onClarifyPick={onClarifyPick}
             />
