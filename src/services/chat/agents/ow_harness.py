@@ -10,6 +10,7 @@ Levels 0-3 implemented (Plan B); level 4 reserved.
 """
 from __future__ import annotations
 
+import json as _json
 import logging
 import os
 from typing import Callable, TypeVar
@@ -46,9 +47,6 @@ def maybe_traced(fn: _F, *, name: str) -> _F:
     except Exception:  # noqa: BLE001
         logger.exception("LangSmith tracing wrap failed; running untraced")
         return fn
-
-
-import json as _json
 
 
 def structured_briefs_block(briefs) -> str:

@@ -1,5 +1,6 @@
 """Tests for the orchestrator-workers harness scaffold + eval helpers."""
 import asyncio
+import json as _json
 from unittest.mock import patch
 
 from src.services.chat.agents import orchestrator_workers as OW
@@ -104,7 +105,6 @@ def test_owc_render_artifact():
 # ---------------------------------------------------------------------------
 # Task 1 — harness helpers
 # ---------------------------------------------------------------------------
-import json as _json
 
 
 def test_structured_briefs_block_is_json():
