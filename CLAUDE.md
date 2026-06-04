@@ -114,7 +114,7 @@ fresh session asking what to do, read this list and the linked spec(s):
 
 | Pending | Status | Spec / pointer |
 |---|---|---|
-| **Plan D — productionize L3b** (deepagents + synthesis skill) into the live tutor at :5175 | ✅ shipped — opt-in `tutorWorkflow="orchestrator-deep"` / `TUTOR_OW_HARNESS=5`; L0 fallback; `deepagents==0.6.8` dep | [doc 56](docs/services/chat-features/56-deep-synthesis-l3b.md) · [plan](docs/superpowers/plans/2026-06-04-ow-harness-pland.md) |
+| **Plan D — productionize L3b** (deepagents + synthesis skill) into the live tutor at :5175 | ✅ shipped — opt-in `tutorWorkflow="orchestrator-deep"` / `TUTOR_OW_HARNESS=5`; L0 fallback; `deepagents==0.6.8` dep. **Follow-on (lean structured):** live deep path now routes to fast L0 structured synth directly (no `_schema_fill`); deepagents agents (levels 6/7) eval-only. | [doc 56](docs/services/chat-features/56-deep-synthesis-l3b.md) · [plan](docs/superpowers/plans/2026-06-04-ow-harness-pland.md) |
 
 ### Shortcut: `feature_Agent`
 

@@ -2,6 +2,18 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Lean structured deep synthesis
+
+**Eval verdict:** three synthesizer arms (C = live L0 structured synth, A = deepagents `synthesize_structured` level 6, B = deepagents subagents level 7) were compared on bias-variance and related questions after enriching the synthesis skill with a component-formula rule. All three tied on quality (clean math, Bias/Variance/MSE component formulas, C-style bullets). Arms A/B are ~5× slower (>280 s / ~259 s vs ~52–69 s) with zero quality gain; token capture returned 0 for deepagents (callback miss). Artifact: `docs/superpowers/eval/2026-06-04-structured-synth-compare.md`.
+
+**Decision ("lean structured"):** the live `orchestrator-deep` path now routes directly to the **fast L0 structured synthesizer** (`_stream_structured`), which emits a typed `DeepTutorAnswer` via `response_format` natively. The `_schema_fill` re-express pass is **dropped from the live path**. The deepagents+skill+schema-fill path (level 5) and the structured deepagents agents (levels 6/7) are retained ENV-gated (`TUTOR_OW_HARNESS=5/6/7`) for eval reproducibility only.
+
+**Component formulas:** a defining-formula rule was added to `DEEP_TUTOR_INSTRUCTIONS` and to `ow_skills/synthesis/SKILL.md` — every component subsection (Bias, Variance) states its formula inline; the central MSE subsection states the full decomposition. Delimiter rule enforced: strictly `$…$` / `$$…$$`; never plain-text, never `\(…\)`.
+
+**Structured-output finding:** `response_format=ToolStrategy(DeepTutorAnswer)` in a deepagents agent emits the typed answer directly — there is no free-text intermediary for `_schema_fill` to re-express. The two approaches are mutually exclusive.
+
+**Artifacts:** `src/services/chat/agents/ow_deepagents.py` (levels 6/7 eval agents), `src/services/chat/agents/ow_harness.py` (max level 7), `src/services/chat/agents/orchestrator_workers.py` (live deep path → L0 synth directly), `src/services/chat/prompts/deep_tutor.py` (component-formula rule in `DEEP_TUTOR_INSTRUCTIONS`), `src/services/chat/agents/ow_skills/synthesis/SKILL.md` + `references/formulas.md` (enriched skill), `src/services/chat/eval/structured_synth_compare.py`, `docs/superpowers/eval/2026-06-04-structured-synth-compare.md`, `docs/services/chat-features/56-deep-synthesis-l3b.md` (updated), `docs/system/invariants.md` (invariant 35 clarified).
+
 ## 2026-06-04 — Tutor C-style subsection bodies + deep-path figure forwarding
 
 Draft/synth prompt (`prompts/deep_tutor.py`) and L3b synthesis SKILL (`ow_skills/synthesis/SKILL.md`) now emit scannable bodies: **bold lead sentence** + **bold lead-in bullets** per `### ` subsection (was a dense 3-5 sentence paragraph). Display math `$$…$$` and `[Fn]` figure markers are placed inside the pertinent subsection; each Example `### Case` carries its own `$$formula$$` + figure. No `##`/`###` layout, schema, or frontend change.

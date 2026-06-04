@@ -154,6 +154,57 @@ See doc 36 ([36-deep-tutor.md](36-deep-tutor.md)) for the full env table.
 
 ---
 
+---
+
+## 2026-06-04 — Lean structured synthesis (follow-on eval cycle)
+
+### Structured-output finding
+
+When `deepagents` agents use `response_format=ToolStrategy(DeepTutorAnswer, handle_errors=True)`, the framework emits a **typed `DeepTutorAnswer` directly** — there is no free-text intermediary for a schema-fill pass to re-express. This means the L3b approach (deepagents free text → `_schema_fill`) cannot be combined with a `response_format`-driven structured agent; the two mechanisms are mutually exclusive.
+
+### Harness levels 6 and 7 (eval-only)
+
+Two additional structured synthesizers were built in `agents/ow_deepagents.py` and are kept ENV-gated at `TUTOR_OW_HARNESS=6/7` for eval reproducibility only — they are **not on the live path**:
+
+| Level | Approach | Description |
+|---|---|---|
+| 6 | `synthesize_structured` (Approach A) | Single deepagents agent; `response_format=ToolStrategy(DeepTutorAnswer)` — emits typed answer directly, no schema-fill. |
+| 7 | `synthesize_subagents_structured` (Approach B) | Subagents-per-author variant; same `ToolStrategy` response format. |
+
+`ow_harness.py` recognises levels 6 and 7; they are strictly eval-gated (`TUTOR_OW_HARNESS=6` or `7`).
+
+### A/B/C eval results
+
+Three synthesizer arms were compared on the bias-variance question (and related questions); full artifact: [`docs/superpowers/eval/2026-06-04-structured-synth-compare.md`](../../superpowers/eval/2026-06-04-structured-synth-compare.md).
+
+| Arm | Level | Latency | Quality | Notes |
+|---|---|---|---|---|
+| **C (current L0 structured synth)** | live | ~52–69 s | clean math, component formulas, C-style bullets | live `orchestrator-deep` path |
+| A (`synthesize_structured`) | 6 | >280 s | TIE with C | ~5× slower, no quality gain |
+| B (`synthesize_subagents_structured`) | 7 | ~259 s | TIE with C | ~4–5× slower, no quality gain |
+
+Token capture returned 0 for levels 6/7 (deepagents usage callback didn't catch usage). All three arms produced clean math, component-defining formulas, and C-style bullets after the synthesis skill enrichment.
+
+**Verdict:** the deepagents structured agents (A/B) are ~5× slower than the existing L0 structured synthesizer with no quality gain. They are retired from the live path.
+
+### Enriched synthesis skill
+
+The `ow_skills/synthesis/SKILL.md` and `agents/ow_skills/synthesis/references/formulas.md` were enriched with a **component-formula rule**: every `### <Component>` bullet (Bias, Variance, Noise/Irreducible) must state its defining formula inline; the central `### MSE` subsection must state the full decomposition `$$MSE = Bias^2 + Variance + \sigma^2_\varepsilon$$`. Delimiters are strictly `$…$` (inline) and `$$…$$` (display) — never plain-text, never `\(…\)`, never `\$(\`.
+
+The same component-formula rule was folded into `DEEP_TUTOR_INSTRUCTIONS` in `prompts/deep_tutor.py` so the L0 structured synthesizer (the fast live path) also emits Bias / Variance / MSE formulas.
+
+### "Lean structured" decision
+
+The live `orchestrator-deep` workflow (`deep_synth=True` in `run_orchestrator_workers`) now routes directly to the **fast L0 structured synthesizer** — the same `_stream_structured` path used by plain `orchestrator`, which already emits a typed `DeepTutorAnswer` natively via `response_format`. There is **no schema-fill pass** on the live deep path.
+
+The deepagents+skill+`_schema_fill` path (level 5) and the structured deepagents agents (levels 6/7) remain reachable via `TUTOR_OW_HARNESS=5/6/7` for eval reproducibility only.
+
+**Live verify (2026-06-04):** bias-variance question via `orchestrator-deep` — 69 s, 0 `\$(` delimiter violations, 34 bullets, Bias/Variance/MSE present, 8 `$$` blocks, 1 figure event.
+
+> **Note on the mermaid graph above:** the graph reflects the L5 deep path (deepagents → free text → schema-fill → `DeepTutorAnswer`). On the **live** `orchestrator-deep` path, the `synthesize_with_skill` + schema-fill nodes are bypassed — `deep_synth=True` now routes directly to the L0 `_stream_structured`. The graph is preserved for L5 eval reference; the live flow is: per-author workers → L0 structured synth → streamed `DeepTutorAnswer`.
+
+---
+
 ## Synced artifacts
 
 A logic change to the deep synthesis path is incomplete until **all** of these reflect it:
