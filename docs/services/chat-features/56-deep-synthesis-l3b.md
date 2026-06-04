@@ -116,12 +116,31 @@ The default paths (`single`, `orchestrator`, `TUTOR_OW_HARNESS=0`) are byte-for-
 
 ---
 
+## Synthesis model (selectable)
+
+The deep-synthesis model is user-selectable via the `stageModels` request dict under stage key `"synth"`. Default: `gpt-5.4-nano-2026-03-17` (nano).
+
+The selected model drives **both** steps of the deep path:
+- the `synthesize_with_skill` deepagents call (ChatOpenAI backend), and
+- the follow-on nano schema-fill pass (`_schema_fill`).
+
+**Non-OpenAI coercion:** if a non-OpenAI model id is passed (e.g. `deepseek-v4-pro`, `gemini-2.5-flash`, `qwen-plus`, any Groq id), the backend coerces it to nano. Both steps require the OpenAI structured-output API; deepagents also runs on `ChatOpenAI` — routing non-OpenAI ids there would fail silently, so nano is always substituted.
+
+**Backend resolve:** `_resolve_stage_model("synth", settings.openai_model_nano, sm)` in `deep_tutor.py`; the resolved id is passed to `run_orchestrator_workers` as `deep_synth_model`.
+
+**Pipeline (i) modal behaviour:**
+- Under `tutorWorkflow="orchestrator-deep"`: the **Synthesizer** node shows an **editable model dropdown** (default nano). Selecting a non-OpenAI id is accepted in the UI but coerced to nano by the backend.
+- Under plain `"orchestrator"` (the L0 path): the Synthesizer node shows the **draft model read-only** — the L0 streaming synthesizer uses the draft model, so `stageModels.synth` is not applicable there.
+
+---
+
 ## Env flags and request knobs
 
 | Knob | Type | Effect |
 |---|---|---|
 | `tutorWorkflow="orchestrator-deep"` | per-request | Activates the deep synthesis path for this request; selectable in the pipeline (i) modal |
 | `TUTOR_OW_HARNESS=5` | env | Ops override: activates L5 on any `orchestrator` request (same path as `orchestrator-deep`) |
+| `stageModels.synth` | per-request | Deep-synthesis model (deepagents + schema-fill); default nano; non-OpenAI ids coerced to nano; deep path only |
 
 See doc 36 ([36-deep-tutor.md](36-deep-tutor.md)) for the full env table.
 
@@ -144,11 +163,11 @@ A logic change to the deep synthesis path is incomplete until **all** of these r
 | OW stage wiring | `src/services/chat/agents/orchestrator_workers.py` — `_schema_fill`, `deep_synth` param |
 | Schema-fill prompt | `src/services/chat/prompts/deep_tutor.py` — `SCHEMA_FILL_PROMPT` |
 | Harness level parse | `src/services/chat/agents/ow_harness.py` — `_MAX_IMPLEMENTED_LEVEL=5` |
-| Dispatch | `src/services/chat/agents/deep_tutor.py` — `_resolve_workflow`, `_draft_coro` |
-| Request schema | `src/services/chat/schemas/_core.py` — `tutorWorkflow` Literal includes `"orchestrator-deep"` |
+| Dispatch | `src/services/chat/agents/deep_tutor.py` — `_resolve_workflow`, `_draft_coro`, `_resolve_stage_model("synth", …)` → `deep_synth_model` param |
+| Request schema | `src/services/chat/schemas/_core.py` — `tutorWorkflow` Literal includes `"orchestrator-deep"`; `stageModels.synth` |
 | Dep | `requirements.txt` — `deepagents==0.6.8` |
 | Modal card data | `web/src/data/tutorPipeline.ts` — drafting-workflow node desc |
-| Modal card render | `web/src/components/PipelineDiagram.tsx` — `orchestrator-deep` option |
+| Modal card render | `web/src/components/PipelineDiagram.tsx` — `orchestrator-deep` option; Synthesizer node editable dropdown (deep mode) / draft-model read-only (plain orchestrator) |
 | Progress copy | `web/src/App.tsx` — computes `thinkingLabel`; `web/src/components/MessageThread.tsx` — renders it in the thinking indicator |
 | Env table + graph | `docs/services/chat-features/36-deep-tutor.md` |
 | Ablation doc | `docs/services/chat-features/55-ow-harness-ablation.md` — L3b shipped note |

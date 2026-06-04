@@ -156,7 +156,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_ADAPTIVE_ROUTING` | `1` | Phase 3: `1` = route by complexity tier — simple questions (planner `perspectives ≤ 1`) skip the synthesis-plan stage and the related-framings retrieval query; `0` = always standard (Phase-2 behavior, rollback). Full draft model in both tiers. |
 | `TUTOR_SYNTHESIS_PLAN` | `1` | `0` = skip the synthesis-plan step (legacy single-draft). Per-request: `stageModels.plan = "off"` or a model id |
 | `TUTOR_WORKFLOW` | `single` | Drafting workflow default; `orchestrator` = per-author workers + synthesizer; `orchestrator-deep` = orchestrator workers + deepagents+SKILL deep synthesizer (opt-in per-request, ~45 s blocking, falls back to L0; see doc 56); `organize` = long-context organizer (§11/48). Per-request: `tutorWorkflow` |
-| `TUTOR_WORKER_MODEL` | nano | Model for orchestrator worker calls (synthesizer uses the Draft-node model) |
+| `TUTOR_WORKER_MODEL` | nano | Model for orchestrator worker calls (L0 synthesizer uses the Draft-node model; deep-path synthesizer + schema-fill use `stageModels.synth`, default nano — non-OpenAI ids coerced to nano; selectable in the pipeline (i) modal Synthesizer node under `orchestrator-deep` only) |
 | `TUTOR_ORGANIZE_MODEL` | `deepseek-v4-pro` | Model for the `organize` workflow — reads a large pool, organizes pieces into fields (§48) |
 | `TUTOR_ORGANIZE_MAX_TOKENS` | `120000` | Token budget (≈ chars/4) for the organizer's source pool; safe-truncates, never assumes a 1M window |
 | `TUTOR_ORGANIZE_POOL` | `60` | Max chunks reranked into the organizer pool before token-budget trim |
