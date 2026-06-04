@@ -2,6 +2,14 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Tutor draft default → nano + capability-based routing
+
+Changed the tutor draft default from `qwen-plus` to `gpt-5.4-nano-2026-03-17` (nano) across the full stack: `TUTOR_DRAFT_MODEL` env default, `_DRAFT_MODEL_DEFAULT` fallback in `deep_tutor.py`, `RECOMMENDED_MODEL_ID` constant in `web/src/data/recommended.ts`, and the `recommended: true` flag in `router.py`. **Root cause:** qwen-plus hung under strict `json_schema` structured output (`response_format=<PydanticModel>`), producing empty/timeout responses. Nano is the eval value-winner with full json_schema reliability.
+
+Added capability-based routing so any user-selected draft model runs correctly: `is_structured_output_capable(model_id)` in `router.py` returns `True` for OpenAI-family only (deepseek/qwen/gemini by prefix; groq by `GROQ_MODEL_IDS` membership → `False`). `_stream_draft` in `deep_tutor.py` and the L0 synthesizer in `orchestrator_workers.py` both branch on this predicate — OpenAI-family → `_stream_structured` (strict `json_schema`); others → `_stream_draft_via_router` (`json_object` + `<response_format>` hint). Non-OpenAI draft picks (deepseek/qwen/gemini/groq) continue to work end-to-end via the json_object path. Invariant 36 added.
+
+**Artifacts:** `src/services/chat/llm/router.py` (`is_structured_output_capable`, `recommended` flag), `src/services/chat/agents/deep_tutor.py` (`_DRAFT_MODEL_DEFAULT`, `_stream_draft` routing), `src/services/chat/agents/orchestrator_workers.py` (L0 synth routing), `web/src/data/recommended.ts` (`RECOMMENDED_MODEL_ID`), `docs/services/chat-features/36-deep-tutor.md` (`TUTOR_DRAFT_MODEL` row), `docs/system/invariants.md` (invariant 36).
+
 ## 2026-06-04 — Plan D: opt-in deep synthesis (L3b productionized)
 
 Shipped L3b as an opt-in "deep synthesis" path in the orchestrator-workers stage. Two triggers feed one gate: per-request `tutorWorkflow="orchestrator-deep"` (selectable in the pipeline (i) modal as **Deep synthesis (slower ~45 s)**) and ops env `TUTOR_OW_HARNESS=5`. The path runs `synthesize_with_skill` (deepagents + `ow_skills/synthesis/SKILL.md`) to produce a free-text cross-author synthesis, then a follow-on nano "schema-fill" pass (`_schema_fill` → `_stream_structured`) maps it into a streamed `DeepTutorAnswer`. Any failure (deepagents absent, empty output, schema-fill `None`, exception) falls back to the L0 streaming synthesizer; default behavior is byte-for-byte unchanged. `deepagents==0.6.8` added to `requirements.txt` (lazy-imported; absence never breaks default paths). Latency UX: "Synthesizing across authors… (~45 s)" shown before first token. Invariant 35 added.

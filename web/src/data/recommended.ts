@@ -2,8 +2,8 @@ import type { ModelProvider } from "../types";
 import type { StageKey } from "./tutorPipeline";
 
 // The system-recommended model id. Must match the registry entry flagged
-// `recommended: true` in src/services/chat/llm/router.py (qwen-plus).
-export const RECOMMENDED_MODEL_ID = "qwen-plus";
+// `recommended: true` in src/services/chat/llm/router.py (gpt-5.4-nano-2026-03-17).
+export const RECOMMENDED_MODEL_ID = "gpt-5.4-nano-2026-03-17";
 
 // Cheap default for the non-draft text stages. Mirrors the backend
 // `settings.openai_model_nano` used by `_resolve_stage_model` for every

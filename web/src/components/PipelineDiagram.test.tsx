@@ -575,17 +575,17 @@ describe("AboutModelModal", () => {
 });
 
 describe("stageDefaultModels (Default button reset map)", () => {
-  it("restores true per-stage defaults: nano for non-draft text stages, gpt-4o-mini vision, recommended draft — NOT qwen-plus everywhere", () => {
-    const defaults = stageDefaultModels("qwen-plus");
+  it("restores true per-stage defaults: nano for non-draft text stages, gpt-4o-mini vision, recommended draft — NOT the recommended model everywhere", () => {
+    const defaults = stageDefaultModels("gpt-5.4-nano-2026-03-17");
     expect(defaults).toEqual({
       expansion: "gpt-5.4-nano-2026-03-17",
       image_judge: "gpt-5.4-nano-2026-03-17",
       plan: "gpt-5.4-nano-2026-03-17",
       synth: "gpt-5.4-nano-2026-03-17",
-      draft: "qwen-plus",
+      draft: "gpt-5.4-nano-2026-03-17",
       vision_explain: "gpt-4o-mini",
     });
-    // regression guard: the non-draft stages must NOT all be the recommended (qwen-plus)
+    // regression guard: the non-draft stages must NOT all fall back to the old recommended (qwen-plus)
     expect(defaults.plan).not.toBe("qwen-plus");
     expect(defaults.synth).not.toBe("qwen-plus");
     expect(defaults.vision_explain).not.toBe("qwen-plus");
