@@ -397,6 +397,30 @@ def test_level_6_routes_to_structured(monkeypatch):
     assert seen.get("A") and deep.definition == "D"
 
 
+def test_level_7_routes_to_subagents_structured(monkeypatch):
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        from src.services.chat.schemas.output import AuthorBrief
+        return AuthorBrief(author=author, summary=f"{author} s", key_points=[f"{author} kp"],
+                           source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "7")
+    from src.services.chat.schemas.output import DeepTutorAnswer
+    seen = {}
+
+    async def fake_subagents_struct(query, srcs, briefs, *, model=None, figures=None):
+        seen["B"] = True
+        return DeepTutorAnswer(tldr="ok", definition="L7", formal_statement="",
+                               example_intuition="", applications="", further_reading=""), 1, 2
+    import src.services.chat.agents.ow_deepagents as OWD
+    monkeypatch.setattr(OWD, "synthesize_subagents_structured", fake_subagents_struct)
+
+    deep, _ = asyncio.run(OW.run_orchestrator_workers("q", sources, plan))
+    assert seen.get("B"), "synthesize_subagents_structured must be called at L7"
+    assert deep is not None and deep.definition == "L7"
+
+
 def test_deep_synth_model_coerces_groq_openai_prefix_to_nano(monkeypatch):
     """A Groq id whose prefix looks OpenAI-like (openai/gpt-oss-120b) must be
     coerced to nano via the ``id in GROQ_MODEL_IDS`` branch, not startswith."""

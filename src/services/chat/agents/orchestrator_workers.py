@@ -162,6 +162,9 @@ async def run_orchestrator_workers(
     figures: list | None = None,
     on_aspect_delta=None,
     on_briefs=None,
+    # deep_synth is forwarded by the caller (tutorWorkflow="orchestrator-deep") for
+    # backward-compat but routing is now controlled solely by ow_harness_level();
+    # the live deep path falls through to the fast L0 structured synth (no schema-fill).
     deep_synth: bool = False,
     deep_synth_model: str | None = None,
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
