@@ -17,6 +17,7 @@ const DIVERSITY_OPTIONS: ChoiceOption[] = [
 const WORKFLOW_OPTIONS: ChoiceOption[] = [
   { label: "Single draft",               value: "single" },
   { label: "Orchestrator (per author)",  value: "orchestrator" },
+  { label: "Deep synthesis (slower ~45s)", value: "orchestrator-deep" },
   { label: "Organize (V4-PRO, long-ctx)", value: "organize" },
 ];
 
@@ -214,7 +215,7 @@ export default function PipelineDiagram({
   tutorWorkflow,
   onWorkflowChange,
 }: PipelineDiagramProps) {
-  const isOrch = tutorWorkflow === "orchestrator";
+  const isOrch = tutorWorkflow === "orchestrator" || tutorWorkflow === "orchestrator-deep";
 
   // ── Derive effective graph ───────────────────────────────────────────────
   let effectiveNodes: PipelineNode[];

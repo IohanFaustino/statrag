@@ -374,6 +374,22 @@ describe("PipelineDiagram", () => {
     );
     expect(html).toContain("6 authors");
   });
+
+  it("renders the deep-synthesis workflow option", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+        tutorWorkflow="orchestrator-deep"
+        onWorkflowChange={() => {}}
+      />,
+    );
+    expect(html).toContain("Deep synthesis (slower ~45s)");
+  });
 });
 
 describe("AboutModelModal", () => {

@@ -102,7 +102,7 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
     {
       id: "drafting",
       label: "Drafting workflow",
-      desc: "Single draft (one call writes all sections); orchestrator-workers (one worker per author, then a synthesizer integrates + compares); or organize (a large token-budgeted pool handed to deepseek-v4-pro, which organizes the coherent pieces — formulas, the MSE decomposition, real cases — into the fields).",
+      desc: "Single draft (one call writes all sections); orchestrator-workers (one worker per author, then a synthesizer integrates + compares); or organize (a large token-budgeted pool handed to deepseek-v4-pro, which organizes the coherent pieces — formulas, the MSE decomposition, real cases — into the fields). Deep synthesis runs the orchestrator workers then a deepagents agent that reads the synthesis skill and integrates the briefs (~45 s, opt-in).",
       kind: "data",
       stage: null,
       defaultModel: "",
