@@ -97,9 +97,14 @@ async def synthesize_with_deepagents(query: str, sources, briefs) -> str:
     return text
 
 
-async def synthesize_with_skill(query: str, sources, briefs) -> tuple[str, int, int]:
+async def synthesize_with_skill(
+    query: str, sources, briefs, *, model: str | None = None
+) -> tuple[str, int, int]:
     """L3b: deepagents synthesizer + the written synthesis SKILL. Returns
-    (text, in_tok, out_tok)."""
+    (text, in_tok, out_tok).
+
+    *model* — OpenAI model id for the ChatOpenAI agent. Defaults to
+    ``settings.openai_model_nano`` when ``None`` or not provided."""
     try:
         import deepagents  # noqa: F401
         from deepagents import create_deep_agent
@@ -110,16 +115,18 @@ async def synthesize_with_skill(query: str, sources, briefs) -> tuple[str, int, 
     from langchain_openai import ChatOpenAI
     from pathlib import Path
 
+    chosen = model or settings.openai_model_nano
+
     store = _build_store(briefs)
     # Preload the synthesis skill into the store's /skills/ tree.
     skill_md = (Path(SYNTHESIS_SKILL_DIR) / "synthesis" / "SKILL.md").read_text(encoding="utf-8")
     store.put(namespace=("filesystem",), key="/skills/synthesis/SKILL.md",
               value=create_file_data(skill_md))
 
-    model = ChatOpenAI(model=settings.openai_model_nano, temperature=0.0,
-                       api_key=settings.openai_api_key)
+    lc_model = ChatOpenAI(model=chosen, temperature=0.0,
+                          api_key=settings.openai_api_key)
     agent = create_deep_agent(
-        model=model, tools=[],
+        model=lc_model, tools=[],
         system_prompt="Use the synthesis skill to synthesize the briefs in /briefs/.",
         backend=lambda rt: StoreBackend(rt), store=store, skills=["/skills/"])
     return await _run_agent(agent, f"Question: {query}\nSynthesize the briefs now.")

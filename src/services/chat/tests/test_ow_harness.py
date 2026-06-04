@@ -228,6 +228,16 @@ def test_owc_render_three_levels():
     assert "L0" in md and "L2" in md and "L3" in md
 
 
+# ---------------------------------------------------------------------------
+# Plan D — Change 1: synthesize_with_skill accepts model kwarg
+# ---------------------------------------------------------------------------
+
+def test_synthesize_with_skill_accepts_model_kwarg():
+    import inspect
+    from src.services.chat.agents.ow_deepagents import synthesize_with_skill
+    assert "model" in inspect.signature(synthesize_with_skill).parameters
+
+
 def test_fidelity_input_not_truncated():
     """Regression: the fidelity judge must see full briefs + full answer (the
     2500/3000 truncation cut most authors and falsely scored retained facts as

@@ -160,7 +160,7 @@ def test_deep_synth_routes_to_skill_then_schema_fill(monkeypatch):
 
     calls = {}
 
-    async def fake_skill(query, srcs, briefs):
+    async def fake_skill(query, srcs, briefs, *, model=None):
         calls["skill"] = True
         return "DEEPAGENTS SYNTH", 10, 20
     import src.services.chat.agents.ow_deepagents as OWD
@@ -187,7 +187,7 @@ def test_deep_synth_falls_back_to_L0_on_skill_failure(monkeypatch):
                            key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
     monkeypatch.setattr(OW, "run_author_worker", fake_worker)
 
-    async def boom(query, srcs, briefs):
+    async def boom(query, srcs, briefs, *, model=None):
         raise RuntimeError("pip install deepagents")
     import src.services.chat.agents.ow_deepagents as OWD
     monkeypatch.setattr(OWD, "synthesize_with_skill", boom)
@@ -214,7 +214,7 @@ def test_deep_synth_falls_back_to_L0_when_schema_fill_returns_none(monkeypatch):
                            key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
     monkeypatch.setattr(OW, "run_author_worker", fake_worker)
 
-    async def ok_skill(query, srcs, briefs):
+    async def ok_skill(query, srcs, briefs, *, model=None):
         return "SYNTH", 10, 20
     import src.services.chat.agents.ow_deepagents as OWD
     monkeypatch.setattr(OWD, "synthesize_with_skill", ok_skill)
@@ -251,7 +251,7 @@ def test_env_level_5_triggers_skill_path(monkeypatch):
     monkeypatch.setattr(OW, "run_author_worker", fake_worker)
 
     calls = {}
-    async def fake_skill(query, srcs, briefs):
+    async def fake_skill(query, srcs, briefs, *, model=None):
         calls["skill"] = True
         return "ENV SYNTH", 1, 2
     import src.services.chat.agents.ow_deepagents as OWD
@@ -267,3 +267,103 @@ def test_env_level_5_triggers_skill_path(monkeypatch):
     deep, _ = asyncio.run(OW.run_orchestrator_workers("q", sources, plan))
     assert calls.get("skill") and calls["fill_text"] == "ENV SYNTH"
     assert deep.tldr == "env-ok"
+
+
+# ---------------------------------------------------------------------------
+# Plan D — Change 2: deep_synth_model threading
+# ---------------------------------------------------------------------------
+
+def test_deep_synth_model_passed_to_skill_and_fill(monkeypatch):
+    """deep_synth_model (an OpenAI id) is forwarded unchanged to both
+    synthesize_with_skill (model= kwarg) and _schema_fill (model arg)."""
+    from src.core.config import settings
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    captured = {}
+    import src.services.chat.agents.ow_deepagents as OWD
+
+    async def fake_skill(query, srcs, briefs, *, model=None):
+        captured["skill_model"] = model
+        return "T", 1, 2
+    monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
+
+    async def fake_fill(query, text, model, cb):
+        captured["fill_model"] = model
+        return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {}
+    monkeypatch.setattr(OW, "_schema_fill", fake_fill)
+
+    nano = settings.openai_model_nano
+    asyncio.run(OW.run_orchestrator_workers(
+        "q", sources, plan, deep_synth=True, deep_synth_model=nano))
+    assert captured["skill_model"] == nano
+    assert captured["fill_model"] == nano
+
+
+def test_deep_synth_model_coerces_non_openai_to_nano(monkeypatch):
+    """A non-OpenAI deep_synth_model (e.g. qwen-plus) is coerced to nano for
+    both the deepagents agent and the schema-fill pass."""
+    from src.core.config import settings
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    captured = {}
+    import src.services.chat.agents.ow_deepagents as OWD
+
+    async def fake_skill(query, srcs, briefs, *, model=None):
+        captured["skill_model"] = model
+        return "T", 1, 2
+    monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
+
+    async def fake_fill(query, text, model, cb):
+        captured["fill_model"] = model
+        return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {}
+    monkeypatch.setattr(OW, "_schema_fill", fake_fill)
+
+    nano = settings.openai_model_nano
+    asyncio.run(OW.run_orchestrator_workers(
+        "q", sources, plan, deep_synth=True, deep_synth_model="qwen-plus"))
+    assert captured["skill_model"] == nano, "qwen-plus should be coerced to nano for skill"
+    assert captured["fill_model"] == nano, "qwen-plus should be coerced to nano for fill"
+
+
+# ---------------------------------------------------------------------------
+# Plan D — Change 3: deep_tutor resolves synth stage model
+# ---------------------------------------------------------------------------
+
+def test_deep_tutor_resolves_synth_stage_default_nano(monkeypatch):
+    """_resolve_stage_model('synth', nano, None) == nano; an override is honored
+    only when the candidate is in the known-models registry."""
+    import src.services.chat.agents.deep_tutor as DT
+    from src.core.config import settings
+
+    nano = settings.openai_model_nano
+
+    # Default: no stageModels -> nano
+    assert DT._resolve_stage_model("synth", nano, None) == nano
+
+    # Override with a model id that IS in the known registry:
+    # monkeypatch _known_chat_models to return a set containing our test id.
+    test_model = "gpt-5.4-test-override"
+    monkeypatch.setattr(DT, "_known_chat_models", lambda: {test_model, nano})
+    # Also clear the global cache so _resolve_stage_model calls our patched version.
+    import src.services.chat.agents.deep_tutor as _dt_mod
+    if "_KNOWN_CHAT_MODELS_CACHE" in _dt_mod.__dict__:
+        del _dt_mod.__dict__["_KNOWN_CHAT_MODELS_CACHE"]
+
+    assert DT._resolve_stage_model("synth", nano, {"synth": test_model}) == test_model
+
+    # Override with an unknown model id -> falls back to nano
+    assert DT._resolve_stage_model("synth", nano, {"synth": "not-a-real-model"}) == nano

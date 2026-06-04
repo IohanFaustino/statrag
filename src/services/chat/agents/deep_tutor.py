@@ -827,7 +827,7 @@ _VISION_EXPLAIN: bool = _VISION_EXPLAIN_MODE == "1"
 # Only these LLM-text stages may be re-routed to a picker chat model. Other
 # stages (retrieval/rerank use no chat LLM; vision needs a vision model;
 # embedding needs an embedding model) are never overridden.
-_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge"})
+_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge", "synth"})
 
 
 def _known_chat_models() -> set[str]:
@@ -2314,6 +2314,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     m_draft = _resolve_stage_model("draft", default_model, sm)
     m_critique = _resolve_stage_model("critique", default_model, sm)
     m_image_judge = _resolve_stage_model("image_judge", default_model, sm)
+    m_synth = _resolve_stage_model("synth", settings.openai_model_nano, sm)
     m_vision = _resolve_vision_model(sm)
 
     # Resolve author-diversity mode/cap (request field > env default > off).
@@ -2532,6 +2533,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                 synth_model=m_draft,
                 figures=approved_figures, on_aspect_delta=_emit_aspect_delta,
                 deep_synth=(workflow == "orchestrator-deep"),
+                deep_synth_model=m_synth,
             )
             if deep_o is not None:
                 return deep_o, aspects_o
