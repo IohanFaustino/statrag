@@ -22,3 +22,11 @@ def test_synthesis_skill_exists_and_well_formed():
     assert "name:" in txt and "description:" in txt
     assert "/briefs/" in txt              # tells the agent where the briefs are
     assert DA.SYNTHESIS_SKILL_DIR == str(p.parent.parent)  # ".../ow_skills"
+
+
+def test_skill_arm_import_guard(monkeypatch):
+    import sys, asyncio
+    import pytest as _pytest
+    monkeypatch.setitem(sys.modules, "deepagents", None)
+    with _pytest.raises(RuntimeError, match="pip install deepagents"):
+        asyncio.run(DA.synthesize_with_skill("q", [], []))

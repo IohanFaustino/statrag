@@ -95,3 +95,69 @@ async def synthesize_with_deepagents(query: str, sources, briefs) -> str:
                               backend=lambda rt: StoreBackend(rt), store=store)
     text, _it, _ot = await _run_agent(agent, f"Question: {query}\nSynthesize the briefs now.")
     return text
+
+
+async def synthesize_with_skill(query: str, sources, briefs) -> tuple[str, int, int]:
+    """L3b: deepagents synthesizer + the written synthesis SKILL. Returns
+    (text, in_tok, out_tok)."""
+    try:
+        import deepagents  # noqa: F401
+        from deepagents import create_deep_agent
+        from deepagents.backends import StoreBackend
+        from deepagents.backends.utils import create_file_data
+    except (ImportError, TypeError) as e:
+        raise RuntimeError("pip install deepagents to run harness level 3b") from e
+    from langchain_openai import ChatOpenAI
+    from pathlib import Path
+
+    store = _build_store(briefs)
+    # Preload the synthesis skill into the store's /skills/ tree.
+    skill_md = (Path(SYNTHESIS_SKILL_DIR) / "synthesis" / "SKILL.md").read_text(encoding="utf-8")
+    store.put(namespace=("filesystem",), key="/skills/synthesis/SKILL.md",
+              value=create_file_data(skill_md))
+
+    model = ChatOpenAI(model=settings.openai_model_nano, temperature=0.0,
+                       api_key=settings.openai_api_key)
+    agent = create_deep_agent(
+        model=model, tools=[],
+        system_prompt="Use the synthesis skill to synthesize the briefs in /briefs/.",
+        backend=lambda rt: StoreBackend(rt), store=store, skills=["/skills/"])
+    return await _run_agent(agent, f"Question: {query}\nSynthesize the briefs now.")
+
+
+async def synthesize_with_subagents(query: str, sources, briefs) -> tuple[str, int, int]:
+    """L4: deepagents synthesizer that delegates each author's brief to an
+    author-analyst subagent, then integrates. Returns (text, in_tok, out_tok)."""
+    try:
+        import deepagents  # noqa: F401
+        from deepagents import create_deep_agent
+        from deepagents.backends import StoreBackend
+        from deepagents.backends.utils import create_file_data
+    except (ImportError, TypeError) as e:
+        raise RuntimeError("pip install deepagents to run harness level 4") from e
+    from langchain_openai import ChatOpenAI
+    from pathlib import Path
+
+    store = _build_store(briefs)
+    skill_md = (Path(SYNTHESIS_SKILL_DIR) / "synthesis" / "SKILL.md").read_text(encoding="utf-8")
+    store.put(namespace=("filesystem",), key="/skills/synthesis/SKILL.md",
+              value=create_file_data(skill_md))
+
+    authors = "; ".join(_slug(b.author) for b in briefs)
+    model = ChatOpenAI(model=settings.openai_model_nano, temperature=0.0,
+                       api_key=settings.openai_api_key)
+    agent = create_deep_agent(
+        model=model, tools=[],
+        system_prompt=(
+            "For EACH author brief file in /briefs/, delegate to the 'author-analyst' "
+            "subagent (via the task tool) to extract that author's key points from its "
+            f"brief file. Author brief slugs: {authors}. Then integrate all analyses into "
+            "one comparative answer that retains every key point and compares the authors."),
+        subagents=[{
+            "name": "author-analyst",
+            "description": "Read one author's brief file and report its key points.",
+            "system_prompt": "Read the named /briefs/<author>.md file and return its key points faithfully.",
+            "skills": ["/skills/"],
+        }],
+        backend=lambda rt: StoreBackend(rt), store=store, skills=["/skills/"])
+    return await _run_agent(agent, f"Question: {query}\nProduce the comparative synthesis now.")
