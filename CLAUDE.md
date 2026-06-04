@@ -114,15 +114,7 @@ fresh session asking what to do, read this list and the linked spec(s):
 
 | Pending | Status | Spec / pointer |
 |---|---|---|
-| **Plan D — productionize L3b** (deepagents + synthesis skill) into the live tutor at :5175 | ⏳ draft spec, awaiting review → then `writing-plans` → Sonnet build | [`docs/superpowers/specs/2026-06-04-ow-harness-pland-design.md`](docs/superpowers/specs/2026-06-04-ow-harness-pland-design.md) |
-
-**Plan D context:** Plan C proved **L3b wins** (deepagents + `ow_skills/synthesis/SKILL.md`
-beats the current orchestrator-workers synthesizer on all 6 questions: quality 4.39 vs 3.96,
-fidelity 4.50 vs 3.39, ~$0.0046/answer; L4 subagents rejected). The winning code is committed
-(`ow_deepagents.synthesize_with_skill`). Plan D wires it live: free-text → `DeepTutorAnswer`
-schema-fill, ~45 s latency UX (opt-in), `deepagents` dep, browser-verify :5175. Three open
-decisions are flagged at the bottom of the spec. Verdict: `docs/superpowers/eval/2026-06-04-ow-deepagents-compare.md`.
-**Branch housekeeping first:** merge the stacked `feat/ow-harness-planc` (carries planb) to main.
+| **Plan D — productionize L3b** (deepagents + synthesis skill) into the live tutor at :5175 | ✅ shipped — opt-in `tutorWorkflow="orchestrator-deep"` / `TUTOR_OW_HARNESS=5`; L0 fallback; `deepagents==0.6.8` dep | [doc 56](docs/services/chat-features/56-deep-synthesis-l3b.md) · [plan](docs/superpowers/plans/2026-06-04-ow-harness-pland.md) |
 
 ### Shortcut: `feature_Agent`
 

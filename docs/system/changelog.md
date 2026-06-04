@@ -2,6 +2,12 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Plan D: opt-in deep synthesis (L3b productionized)
+
+Shipped L3b as an opt-in "deep synthesis" path in the orchestrator-workers stage. Two triggers feed one gate: per-request `tutorWorkflow="orchestrator-deep"` (selectable in the pipeline (i) modal as **Deep synthesis (slower ~45 s)**) and ops env `TUTOR_OW_HARNESS=5`. The path runs `synthesize_with_skill` (deepagents + `ow_skills/synthesis/SKILL.md`) to produce a free-text cross-author synthesis, then a follow-on nano "schema-fill" pass (`_schema_fill` → `_stream_structured`) maps it into a streamed `DeepTutorAnswer`. Any failure (deepagents absent, empty output, schema-fill `None`, exception) falls back to the L0 streaming synthesizer; default behavior is byte-for-byte unchanged. `deepagents==0.6.8` added to `requirements.txt` (lazy-imported; absence never breaks default paths). Latency UX: "Synthesizing across authors… (~45 s)" shown before first token. Invariant 35 added.
+
+**Artifacts:** `src/services/chat/agents/ow_harness.py` (max level 3→5), `agents/orchestrator_workers.py` (`_schema_fill`, `deep_synth` param, L5 branch), `agents/ow_deepagents.py` (`synthesize_with_skill` — from Plan C), `prompts/deep_tutor.py` (`SCHEMA_FILL_PROMPT`), `schemas/_core.py` (`tutorWorkflow` Literal + `"orchestrator-deep"`), `agents/deep_tutor.py` (`_resolve_workflow`, `_draft_coro`), `requirements.txt`, `web/src/data/tutorPipeline.ts`, `web/src/components/PipelineDiagram.tsx`, `web/src/App.tsx`. New doc: [56-deep-synthesis-l3b.md](../services/chat-features/56-deep-synthesis-l3b.md). Tests: `test_ow_harness.py`, `test_orchestrator_workers.py`, `PipelineDiagram.test.tsx`. Spec: `docs/superpowers/specs/2026-06-04-ow-harness-pland-design.md`. Verdict: `docs/superpowers/eval/2026-06-04-ow-deepagents-compare.md`.
+
 ## 2026-06-04 — OW harness Plan C (powered deepagents skills+subagents)
 Powered 4-arm synthesizer comparison (72 runs: L0 / L3a bare deepagents / L3b
 deepagents+written-skill / L4 deepagents+subagents-per-author; 6 q × 3 runs, full-text

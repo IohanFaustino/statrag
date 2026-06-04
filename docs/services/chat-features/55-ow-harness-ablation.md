@@ -75,3 +75,11 @@ beats L0 on all 6 questions (quality 4.39 vs 3.96, fidelity 4.50 vs 3.39) at ~$0
 the SKILL is the active ingredient (L3b ≫ L3a bare). **L4 subagents rejected** (worse than
 L3b at 1.6× its cost, ~7× L0). L3b → adopt-candidate; productionizing (DeepTutorAnswer
 schema + deepagents dep + latency gate) is Plan D. deepagents stays out of `requirements.txt`.
+
+## Plan D — L3b shipped as opt-in (2026-06-04)
+
+L3b productionized as **harness level 5 / `tutorWorkflow="orchestrator-deep"`** (Plan D).
+`deepagents==0.6.8` added to `requirements.txt`. Free text from `synthesize_with_skill` is
+mapped to a streamable `DeepTutorAnswer` via a nano schema-fill pass. Default behavior
+unchanged; any L5 failure falls back to L0. See [doc 56](56-deep-synthesis-l3b.md) for the
+full design and synced-artifacts checklist.

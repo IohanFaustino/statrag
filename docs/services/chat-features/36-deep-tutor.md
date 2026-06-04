@@ -40,7 +40,7 @@ graph TD
   PLAN --> WF{tutorWorkflow?}
   WF -->|single default| DR["draft (single call, streamed)<br/>response_format = DeepTutorAnswer<br/>follows the plan: thesis + ledger + contrasts"]
   WF -->|orchestrator| WK["per-author workers ‖ (one AuthorBrief each)"]
-  WK --> SY["synthesizer (streamed, DeepTutorAnswer)<br/>integrate briefs + compare authors"]
+  WK --> SY["synthesizer (streamed, DeepTutorAnswer)<br/>integrate briefs + compare authors<br/>opt-in deep path: deepagents+SKILL → nano schema-fill (doc 56)"]
   SY --> CRT
   WK -.->|<2 authors or all fail| DR
   DR --> CRT{TUTOR_DEEP_CRITIQUE?}
@@ -155,7 +155,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_COVERAGE_CHECK` | `1` | `0` = skip the facet coverage check + re-query entirely. When `1`, an additional gate applies: coverage runs only when `len(facets) >= 4` or any facet contains `$` or the word `formula` — simple questions skip the extra nano call (see Phase-1 coverage gate). |
 | `TUTOR_ADAPTIVE_ROUTING` | `1` | Phase 3: `1` = route by complexity tier — simple questions (planner `perspectives ≤ 1`) skip the synthesis-plan stage and the related-framings retrieval query; `0` = always standard (Phase-2 behavior, rollback). Full draft model in both tiers. |
 | `TUTOR_SYNTHESIS_PLAN` | `1` | `0` = skip the synthesis-plan step (legacy single-draft). Per-request: `stageModels.plan = "off"` or a model id |
-| `TUTOR_WORKFLOW` | `single` | Drafting workflow default; `orchestrator` = per-author workers + synthesizer; `organize` = long-context organizer (§11/48). Per-request: `tutorWorkflow` |
+| `TUTOR_WORKFLOW` | `single` | Drafting workflow default; `orchestrator` = per-author workers + synthesizer; `orchestrator-deep` = orchestrator workers + deepagents+SKILL deep synthesizer (opt-in per-request, ~45 s blocking, falls back to L0; see doc 56); `organize` = long-context organizer (§11/48). Per-request: `tutorWorkflow` |
 | `TUTOR_WORKER_MODEL` | nano | Model for orchestrator worker calls (synthesizer uses the Draft-node model) |
 | `TUTOR_ORGANIZE_MODEL` | `deepseek-v4-pro` | Model for the `organize` workflow — reads a large pool, organizes pieces into fields (§48) |
 | `TUTOR_ORGANIZE_MAX_TOKENS` | `120000` | Token budget (≈ chars/4) for the organizer's source pool; safe-truncates, never assumes a 1M window |
@@ -165,7 +165,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_DIVERSITY_DEFAULT` | `auto` | Mode when request omits `diversityAuthors` (`auto`/`off`/int) |
 | `TUTOR_DIVERSITY_TARGET_AUTHORS` | `3` | Legacy fallback for the cap |
 | `TUTOR_PLANNER_CHAIN` | `0` | When `1`, the query planner runs the 3-step decompose→expand→consolidate chain (3 nano calls) instead of the single call; falls back to single-call on any chain error. |
-| `TUTOR_OW_HARNESS` | `0` | Orchestrator-workers harness level (ablation pilot, doc 55): `0` baseline (flat-string briefs); `1` LangSmith tracing (observability-only — needs `LANGSMITH_API_KEY`); `2` structured-JSON brief handoff to the same synthesizer (no deepagents); `3` deepagents synthesizer agent (eval experiment — needs `pip install deepagents`, lazy import, not a prod dep). Values `>3`/non-numeric → `0`. Never changes the answer at 0/1; any level failure (incl. L3 missing deepagents/credentials) falls back to L0. **Plan B A/B verdict: L2 ≈ L0 (no effect), L3 +0.41 quality but −0.67 fidelity on a tiny sample → NOT shipped; L0 stays default.** |
+| `TUTOR_OW_HARNESS` | `0` | Orchestrator-workers harness level (ablation pilot, doc 55): `0` baseline (flat-string briefs); `1` LangSmith tracing (observability-only — needs `LANGSMITH_API_KEY`); `2` structured-JSON brief handoff to the same synthesizer (no deepagents); `3` deepagents synthesizer agent (eval experiment — lazy import); `4` deepagents + subagents-per-author (rejected by Plan C — worse than L3b at 1.6× cost; no branch → falls through to L0); `5` deepagents + synthesis `SKILL.md` (**Plan D, shipped opt-in** — needs `deepagents` installed; deepagents free text → nano schema-fill → `DeepTutorAnswer`; any failure → L0). Values `>5`/non-numeric → `0`. Never changes the answer at 0/1; any level failure falls back to L0. **Plan B A/B verdict: L2 ≈ L0 (no effect), L3 +0.41 quality but −0.67 fidelity on a tiny sample → NOT shipped; L0 stays default. Plan C: L3b (deepagents+skill) beats L0 on all 6 questions → L5 shipped as opt-in.** See doc 56 ([56-deep-synthesis-l3b.md](56-deep-synthesis-l3b.md)). |
 
 `diversityAuthors` (request): `"auto"` = concept-extraction model picks the count (clamped to the cap **and** to authors available in the pool); `0`/`1` = off; `N≥2` = hard cap. Effective count is always ≤ authors available, so a single-author topic yields one author.
 
