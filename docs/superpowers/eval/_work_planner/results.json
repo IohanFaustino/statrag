@@ -1,0 +1,218 @@
+[
+  {
+    "model": "gpt-5.4-nano-2026-03-17",
+    "qi": 0,
+    "label": "nano-chain",
+    "plan_text": "sub_questions:\n- What is the definition and formula for the bias of an estimator?\n- What condition makes an estimator unbiased (in terms of expectation)?\n- What is a worked example of an unbiased estimator and how its bias is verified?\nconcepts: ['Estimator bias', 'Unbiased estimator (expectation condition)', 'Bias verification via worked example']\nperspectives: 2\nfacets:\n- Bias definition and mathematical formula (Bias(\\hat{\\theta}) = E[\\hat{\\theta}] - \\theta)\n- Unbiasedness condition expressed using expectation (E[\\hat{\\theta}] = \\theta)\n- Worked example estimator with step-by-step verification that bias equals zero\nqueries:\n- Provide the definition of estimator bias and the formula Bias(\\hat{\\theta}) = E[\\hat{\\theta}] - \\theta, including notation for parameter \\theta and estimator \\hat{\\theta].\n- State the condition for an estimator to be unbiased in terms of expectation, i.e., E[\\hat{\\theta}] = \\theta, and explain what expectation is taken over.\n- Find a worked example of an unbiased estimator and show the verification steps by computing E[\\hat{\\theta}] and demonstrating it equals the target parameter (thereby bias = 0).",
+    "in_tok": 1236,
+    "out_tok": 535,
+    "ms": 6960,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 5.0,
+      "coverage": 4.0,
+      "targeting": 5.0,
+      "redundancy": 5.0,
+      "overall": 4.75
+    }
+  },
+  {
+    "model": "gpt-5.4-nano-2026-03-17",
+    "qi": 1,
+    "label": "nano-chain",
+    "plan_text": "sub_questions:\n- What are the standard components of a time series (e.g., trend, seasonality, cyclical, irregular) and what does each represent?\n- How is the trend component defined and interpreted in a time series?\n- How is seasonality defined and how does it differ from cyclical variation?\n- What is an application case where decomposing a time series into components is used (e.g., forecasting demand or sales)?\n- In what related frameworks is time-series decomposition used beyond basic forecasting (e.g., classical decomposition vs. STL, state-space models)?\nconcepts: ['time series components (trend, seasonality, cyclical, irregular)', 'time series decomposition for forecasting and analysis', 'decomposition methods (classical, STL, state-space)']\nperspectives: 2\nfacets:\n- List standard time series components (trend, seasonality, cyclical, irregular) and define what each represents\n- Define and interpret the trend component (direction and magnitude over time)\n- Define seasonality and contrast it with cyclical variation (fixed vs variable period/regularity)\n- Provide a concrete application case of decomposition for forecasting demand/sales and explain how components inform forecasts\n- Identify related decomposition frameworks/methods (classical decomposition, STL, state-space) and how decomposition is used in each\nqueries:\n- textbook definition of time series components: trend, seasonality, cyclical, irregular; what each component represents\n- definition of trend component in time series interpretation: long-term movement; how to interpret direction and magnitude over time\n- time series seasonality definition (fixed periodic pattern) vs cyclical variation definition (variable period/regularity); key differences\n- application of time series decomposition for forecasting demand or sales: how trend/seasonality/irregular components inform forecasts\n- comparison of time series decomposition methods: classical decomposition vs STL vs state-space models; how each models trend/seasonality/irregular",
+    "in_tok": 1507,
+    "out_tok": 879,
+    "ms": 8371,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 4.0,
+      "coverage": 5.0,
+      "targeting": 4.0,
+      "redundancy": 4.0,
+      "overall": 4.25
+    }
+  },
+  {
+    "model": "gpt-5.4-nano-2026-03-17",
+    "qi": 2,
+    "label": "nano-chain",
+    "plan_text": "sub_questions:\n- What are the definitions of L1 and L2 regularization terms in an objective function?\n- How do L1 and L2 regularization differ in their effects on coefficient sparsity (feature selection) and shrinkage?\n- How do L1 and L2 regularization differ in their geometric interpretation (constraint/penalty shapes) and resulting optimization behavior?\n- What is a worked applied example (e.g., linear regression or logistic regression) showing when L1 vs L2 regularization performs better?\n- In what related settings do L1 and L2 regularization appear (e.g., LASSO vs ridge, elastic net, Bayesian priors)?\nconcepts: ['L1 regularization (LASSO)', 'L2 regularization (ridge)', 'Geometric and Bayesian interpretations of L1 vs L2']\nperspectives: 4\nfacets:\n- Mathematical definitions: how L1 and L2 penalties are written and added to the objective (||w||_1, ||w||_2 with strength \u03bb)\n- Effect on sparsity and shrinkage: L1 tends to yield exact zeros (feature selection) vs L2 mainly shrinks without exact zeros\n- Geometric interpretation: L1 vs L2 constraint/penalty geometry (diamond vs sphere) and optimization behavior (corner vs smooth solutions)\n- Worked applied example: when L1 vs L2 performs better (sparse true coefficients vs dense/collinear signals) in linear/logistic regression\n- Related settings and mappings: LASSO, ridge, elastic net, and Bayesian priors (Laplace for L1, Gaussian for L2)\nqueries:\n- definition of L1 regularization term in objective function: add \u03bb * ||w||_1 (sum of absolute values of coefficients) to the loss\n- compare L1 vs L2 regularization effects on sparsity and shrinkage: LASSO produces sparse coefficients (exact zeros) while ridge shrinks coefficients without exact zeros\n- geometric interpretation of L1 and L2 regularization constraint sets: L1 ball (diamond) vs L2 ball (sphere) and how corners vs smooth boundaries lead to different optimization solutions\n- worked example comparing LASSO and ridge regression on synthetic data: sparse true coefficients vs dense/collinear coefficients; summarize when L1 outperforms L2 and vice versa\n- relationships between L1 and L2 regularization and related methods: LASSO, ridge, elastic net; Bayesian interpretation with Laplace prior for L1 and Gaussian prior for L2",
+    "in_tok": 1661,
+    "out_tok": 1142,
+    "ms": 8844,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 5.0,
+      "coverage": 5.0,
+      "targeting": 5.0,
+      "redundancy": 4.0,
+      "overall": 4.75
+    }
+  },
+  {
+    "model": "gemini-2.5-flash",
+    "qi": 0,
+    "label": "gemini-chain",
+    "plan_text": "",
+    "in_tok": 1318,
+    "out_tok": 366,
+    "ms": 12724,
+    "ok": false,
+    "err": "JSONDecodeError: Expecting property name enclosed in double quotes: line 5 column 5 (char 69)",
+    "scores": {
+      "decomposition": 0.0,
+      "coverage": 0.0,
+      "targeting": 0.0,
+      "redundancy": 0.0,
+      "overall": 0.0
+    }
+  },
+  {
+    "model": "gemini-2.5-flash",
+    "qi": 1,
+    "label": "gemini-chain",
+    "plan_text": "",
+    "in_tok": 851,
+    "out_tok": 372,
+    "ms": 6591,
+    "ok": false,
+    "err": "JSONDecodeError: Expecting property name enclosed in double quotes: line 23 column 55 (char 1262)",
+    "scores": {
+      "decomposition": 0.0,
+      "coverage": 0.0,
+      "targeting": 0.0,
+      "redundancy": 0.0,
+      "overall": 0.0
+    }
+  },
+  {
+    "model": "gemini-2.5-flash",
+    "qi": 2,
+    "label": "gemini-chain",
+    "plan_text": "",
+    "in_tok": 878,
+    "out_tok": 272,
+    "ms": 7457,
+    "ok": false,
+    "err": "JSONDecodeError: Unterminated string starting at: line 12 column 16 (char 624)",
+    "scores": {
+      "decomposition": 0.0,
+      "coverage": 0.0,
+      "targeting": 0.0,
+      "redundancy": 0.0,
+      "overall": 0.0
+    }
+  },
+  {
+    "model": "qwen-plus",
+    "qi": 0,
+    "label": "qwen-chain",
+    "plan_text": "sub_questions:\n- What is the definition and formula for the bias of an estimator?\n- What condition makes an estimator unbiased?\n- What is a real case where estimator bias matters in practice?\n- In what other settings does estimator bias arise, such as regularization or shrinkage?\nconcepts: ['bias of an estimator', 'unbiased estimator', 'bias\u2013variance tradeoff']\nperspectives: 3\nfacets:\n- formal definition + formula involving expected value and true parameter\n- mathematical condition on expected value equaling true parameter\n- concrete applied scenario with consequences of bias\n- role and source of bias in regularization and shrinkage methods\n- application-case\n- related-framings\nqueries:\n- definition and mathematical formula for bias of an estimator in statistics\n- condition for an estimator to be unbiased\n- real-world example where estimator bias affects inference or decision-making\n- how bias arises in regularized estimators like ridge regression or shrinkage estimators\n- how bias of an estimator is framed in relation to variance, consistency, and model selection",
+    "in_tok": 1285,
+    "out_tok": 479,
+    "ms": 13031,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 4.0,
+      "coverage": 5.0,
+      "targeting": 4.0,
+      "redundancy": 3.0,
+      "overall": 4.0
+    }
+  },
+  {
+    "model": "qwen-plus",
+    "qi": 1,
+    "label": "qwen-chain",
+    "plan_text": "sub_questions:\n- What is the definition and mathematical form of the trend component?\n- What is the definition and mathematical form of the seasonal component?\n- What is the definition and mathematical form of the cyclical component?\n- What is a real empirical example where decomposing a time series into its components clarified an economic or business insight?\n- In what other statistical or machine learning frameworks do these time series components reappear (e.g., state-space models, STL decomposition, Prophet, or spectral analysis)?\nconcepts: ['trend component', 'seasonal component', 'cyclical component']\nperspectives: 3\nfacets:\n- formal definition + standard functional form (e.g., linear, polynomial, or smooth deterministic function)\n- formal definition + standard functional form (e.g., periodic function with fixed period, trigonometric or dummy-variable formulation)\n- formal definition + distinction from seasonal component + typical functional form (e.g., non-fixed-period oscillation, often modeled via stochastic cycles)\n- specific dataset + decomposition method used + actionable insight uncovered (e.g., policy response, forecasting improvement, anomaly detection)\n- named frameworks (e.g., state-space models, STL, Prophet, spectral analysis) + how each represents or estimates the three core components\nqueries:\n- definition and mathematical representation of trend component in time series decomposition\n- definition and mathematical representation of seasonal component in time series decomposition\n- definition and mathematical representation of cyclical component in time series decomposition\n- real-world example of time series decomposition revealing economic or business insight (e.g., retail sales, GDP, unemployment)\n- statistical or machine learning frameworks that explicitly model or recover trend, seasonal, and cyclical components",
+    "in_tok": 1502,
+    "out_tok": 824,
+    "ms": 18745,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 4.0,
+      "coverage": 4.0,
+      "targeting": 5.0,
+      "redundancy": 4.0,
+      "overall": 4.25
+    }
+  },
+  {
+    "model": "qwen-plus",
+    "qi": 2,
+    "label": "qwen-chain",
+    "plan_text": "sub_questions:\n- What is the mathematical definition and penalty term for L1 regularization?\n- What is the mathematical definition and penalty term for L2 regularization?\n- How do L1 and L2 regularization differ in their effect on coefficient estimates (e.g., sparsity vs. shrinkage)?\n- What is a real-world application where L1 regularization is preferred over L2, and why?\n- In what other statistical or machine learning frameworks do L1 and L2 penalties appear (e.g., Bayesian priors, generalized linear models, deep learning)?\nconcepts: ['L1 regularization', 'L2 regularization', 'regularization effects']\nperspectives: 3\nfacets:\n- penalty term expression and standard notation\n- effect on coefficient estimates (sparsity vs. shrinkage) and geometric interpretation\n- real-world application domains and rationale for preference\n- appearance in other statistical/ML frameworks (e.g., Bayesian priors, GLMs, deep learning)\nqueries:\n- mathematical definition of L1 regularization penalty term in linear regression including \u2016\u03b2\u2016\u2081 notation and \u03bb scaling\n- mathematical definition of L2 regularization penalty term in linear regression including \u2016\u03b2\u2016\u2082\u00b2 notation and \u03bb scaling\n- comparison of L1 and L2 regularization effects on coefficient estimates in linear models with emphasis on sparsity induction, uniform shrinkage, and constraint geometry\n- real-world application where L1 regularization is preferred over L2, with domain-specific justification such as interpretability or high-dimensional feature selection\n- L1 and L2 penalties in Bayesian inference (e.g., Laplace vs. Gaussian priors), generalized linear models, and deep learning (e.g., weight decay, elastic net)",
+    "in_tok": 1520,
+    "out_tok": 839,
+    "ms": 19372,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 4.0,
+      "coverage": 5.0,
+      "targeting": 4.0,
+      "redundancy": 5.0,
+      "overall": 4.5
+    }
+  },
+  {
+    "model": "baseline",
+    "qi": 0,
+    "label": "single-call(nano) baseline",
+    "plan_text": "concepts: ['unbiased estimator', 'bias']\nperspectives: 1\nfacets:\n- definition of bias of an estimator\n- unbiasedness condition (E[estimator] = parameter) implies zero bias\n- real-world application or empirical case of the bias concept (e.g., bias check in a Monte Carlo simulation or sample estimator)\n- related framings: other error decompositions involving bias (e.g., mean squared error decomposition)\nqueries:\n- definition and formula for the bias of an estimator\n- unbiased estimator condition E[\\hat{\\theta}] = \\theta and proof that bias is zero\n- worked example or Monte Carlo simulation demonstrating bias of an estimator and verifying unbiasedness\n- mean squared error decomposition into variance and squared bias (bias-variance/MSE decomposition)\n- bias concept in the context of estimator performance measures (MSE, risk) and how bias affects them",
+    "in_tok": 946,
+    "out_tok": 213,
+    "ms": 3105,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 4.0,
+      "coverage": 4.0,
+      "targeting": 4.0,
+      "redundancy": 5.0,
+      "overall": 4.25
+    }
+  },
+  {
+    "model": "baseline",
+    "qi": 1,
+    "label": "single-call(nano) baseline",
+    "plan_text": "concepts: ['time series components', 'trend', 'seasonality']\nperspectives: 2\nfacets:\n- trend component definition and typical modeling forms\n- seasonal component definition and typical modeling forms\n- cyclical component definition and distinction from seasonality\n- irregular (remainder) component definition\n- real-world application or empirical case of time series decomposition (e.g., forecasting sales with trend/seasonality)\n- related framings such as classical decomposition vs STL/ETS and connections to ARIMA/structural time series\nqueries:\n- classical time series decomposition components: trend, seasonal, cyclical, irregular (remainder) definitions\n- trend component modeling in time series decomposition (additive vs multiplicative, polynomial/smoothing trend)\n- seasonal component modeling in time series decomposition (additive vs multiplicative, seasonal indices)\n- cyclical vs seasonal components in time series (definitions, periodicity assumptions) and irregular component\n- worked example applying time series decomposition to forecasting (trend + seasonality + irregular) and comparison to alternative methods like STL/ETS or ARIMA/structural time series",
+    "in_tok": 947,
+    "out_tok": 260,
+    "ms": 2429,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 5.0,
+      "coverage": 5.0,
+      "targeting": 4.0,
+      "redundancy": 4.0,
+      "overall": 4.5
+    }
+  },
+  {
+    "model": "baseline",
+    "qi": 2,
+    "label": "single-call(nano) baseline",
+    "plan_text": "concepts: ['L1 regularization', 'L2 regularization', 'regularization']\nperspectives: 4\nfacets:\n- L1 regularization objective and penalty term (L1 norm)\n- L2 regularization objective and penalty term (L2 norm)\n- optimization/geometry comparison (sparsity via L1, shrinkage via L2; subgradient vs gradient)\n- real-world application or empirical case comparing L1 vs L2 (e.g., feature selection in high-dimensional regression)\n- related framings (MAP interpretation with Laplace vs Gaussian priors; connections to ridge vs lasso and elastic net)\nqueries:\n- L1 regularization (lasso) objective function with L1 norm penalty and its optimization conditions (subgradient)\n- L2 regularization (ridge) objective function with L2 norm penalty and its optimization conditions (gradient/closed-form in linear regression)\n- geometric interpretation of L1 vs L2 regularization (constraint sets, sparsity of L1, shrinkage of L2) and implications for coefficient paths\n- worked empirical example comparing lasso (L1) and ridge (L2) in high-dimensional regression with feature selection or prediction performance\n- Bayesian/MAP interpretation of L1 vs L2 regularization (Laplace vs Gaussian priors) and connections to ridge, lasso, and elastic net",
+    "in_tok": 947,
+    "out_tok": 308,
+    "ms": 3108,
+    "ok": true,
+    "err": "",
+    "scores": {
+      "decomposition": 4.0,
+      "coverage": 5.0,
+      "targeting": 5.0,
+      "redundancy": 5.0,
+      "overall": 4.75
+    }
+  }
+]
