@@ -158,14 +158,16 @@ Synthesize the supplied sources IN YOUR OWN WORDS — do not paste
 excerpts. Quoting more than ~15 consecutive source words verbatim
 counts as failure.
 
-DEPTH OVER BREVITY. Each ``### `` subsection must be SUBSTANTIVE — aim for
-3-5 sentences, not a single line. For every subsection do not merely STATE a
-fact; explain (1) the PROBLEM it addresses or the question it answers, (2) the
-mechanism / why it is true, and (3) WHERE IT FITS — how this piece connects to
-the central concept and to the surrounding theory or practice. A worked case or
-application is only useful if you say what problem it tackles, what the method
-does, and what the concept buys there. Thin, one-sentence subsections are a
-failure mode; favour dense, connected explanation grounded in the sources.
+DEPTH OVER BREVITY. Each ``### `` subsection must be SUBSTANTIVE — open with a
+short bold lead sentence + SUBSTANTIVE bold lead-in bullets (one claim per
+line, ``[N]`` at line end), not a one-word fragment. For every subsection do
+not merely STATE a fact; explain (1) the PROBLEM it addresses or the question
+it answers, (2) the mechanism / why it is true, and (3) WHERE IT FITS — how
+this piece connects to the central concept and to the surrounding theory or
+practice. A worked case or application is only useful if you say what problem
+it tackles, what the method does, and what the concept buys there. Thin,
+one-line bullets with no explanation are a failure mode; favour dense,
+connected explanation grounded in the sources.
 
 BE EXTENSIVE. The per-field word ranges below are MINIMUMS, not caps — when
 the sources support it, write MORE: add subsections, develop the mechanism
@@ -249,10 +251,11 @@ Per-field requirements (target lengths are minimums; longer is fine):
   1. DESCRIBE THREE CASES. Lay out three concrete scenarios that span the
      behaviour of the concept — e.g. an under-flexible case, a balanced
      case, and an over-flexible case for a tradeoff; or three contrasting
-     parameter/data regimes. Give each case its own ``### `` subsection of
-     3-5 sentences: state the PROBLEM/setup, what the model or estimator
-     DOES, what goes WRONG (or right), and which component (bias or
-     variance) dominates and why. Reuse the same symbols and quantities from
+     parameter/data regimes. Give each case its own ``### `` subsection with
+     a short bold lead sentence + bold lead-in bullets (one claim per line):
+     state the PROBLEM/setup, what the model or estimator DOES, what goes
+     WRONG (or right), and which component (bias or variance) dominates and
+     why. Reuse the same symbols and quantities from
      ``definition`` (and ``formal_statement`` if present) so the cases are
      anchored to what was just defined. A short equation, tiny table, or
      numerical value per case is welcome. Cite the textbook example you
@@ -271,16 +274,17 @@ Per-field requirements (target lengths are minimums; longer is fine):
   is applied — drawn from the sources, NOT generic field labels.
   - Open with one framing sentence ("The sources apply this in concrete
     cases:").
-  - Then ONE ``### `` subsection per case (3-5 sentences each). Name a
-    SPECIFIC case the source reports — a named method/model, dataset, study,
-    experiment, or worked empirical example (e.g. ``### Ridge vs. OLS on the
-    prostate data``). For each case explain, in this order: (a) the PROBLEM /
-    setting (what is being predicted/estimated and what goes wrong without
-    the concept), (b) what the method DOES, (c) WHERE THE CONCEPT FITS — how
-    bias and variance move and what the tradeoff buys here — ending in its
-    ``[N]`` marker. A bare domain label ("in finance", "in marketing") with no
-    specific case is NOT acceptable; tie every claim to a case the source
-    describes. One-sentence cases are too thin.
+  - Then ONE ``### `` subsection per case with a short bold lead sentence +
+    bold lead-in bullets (one claim per line). Name a SPECIFIC case the source
+    reports — a named method/model, dataset, study, experiment, or worked
+    empirical example (e.g. ``### Ridge vs. OLS on the prostate data``). For
+    each case explain, in this order: (a) the PROBLEM / setting (what is being
+    predicted/estimated and what goes wrong without the concept), (b) what the
+    method DOES, (c) WHERE THE CONCEPT FITS — how bias and variance move and
+    what the tradeoff buys here — ending in its ``[N]`` marker. A bare domain
+    label ("in finance", "in marketing") with no specific case is NOT
+    acceptable; tie every claim to a case the source describes. One-bullet
+    cases with no explanation are too thin.
   - Use ONLY cases the sources actually contain. If the corpus offers only
     abstract treatments and no concrete applied case, say so plainly
     ("The retrieved sources discuss the concept abstractly; no specific
@@ -305,31 +309,38 @@ Per-field requirements (target lengths are minimums; longer is fine):
 </task>
 
 <structure>
-- Never emit a wall of text. Structure every aspect body with LEFT-ALIGNED
-  SUBSECTION HEADERS using Markdown ``### `` (H3), NOT bullet lists. Each
-  ``### Subheader`` names one perspective/part of the aspect, followed by a
-  SUBSTANTIVE paragraph of 3-5 sentences (not a one-liner) that explains the
-  problem it addresses, the mechanism, and where it fits. Prefer 2-4
-  subsections per aspect. Do NOT use ``- `` bullet lists for the main structure.
-- Concretely (see ``definition`` / ``applications`` / ``example_intuition``
-  / ``further_reading`` rules above for the full per-field spec):
+- Never emit a wall of text. Each aspect body keeps LEFT-ALIGNED SUBSECTION
+  HEADERS using Markdown ``### `` (H3) as its BACKBONE — one ``### Subheader``
+  per perspective/part of the aspect (prefer 2-4 per aspect). The ``### ``
+  headers are the structure; never collapse an aspect into a single flat
+  paragraph.
+- INSIDE each ``### `` subsection, write SCANNABLE text, not a dense block:
+  - Open with ONE short BOLD lead sentence naming the point.
+  - Then BOLD LEAD-IN BULLETS — ``- **<claim>** — <explanation> [N]`` — ONE
+    CLAIM PER LINE, with the ``[N]`` citation marker at the end of the line the
+    source supports. Bullets must be SUBSTANTIVE — carry the same depth a full
+    paragraph would, not one-word fragments (DEPTH OVER BREVITY).
+  - Keep a genuinely continuous argument as a 1-2 sentence prose run between
+    bullets; use bullets for the enumerable/claim parts and prose for the
+    connective tissue. Explain the mechanism and WHERE IT FITS.
+- Concretely (see the per-field rules above for the full spec):
   - ``definition`` → ``### `` per component + one for the central quantity
-    (e.g. ``### Bias``, ``### Variance``, ``### MSE``), as detailed above.
-  - ``applications`` → one ``### `` per concrete cited case (name the case
-    in the header, e.g. ``### Ridge vs. OLS on the prostate data``).
-  - ``example_intuition`` → keep its three-move shape, but you may use a
-    ``### `` per case plus a final ``### The intuition`` paragraph.
-  - ``further_reading`` → a short ``### Adjacent concepts`` paragraph and a
+    (e.g. ``### Bias``, ``### Variance``, ``### MSE``); each subsection's
+    bullets define the quantity and its role.
+  - ``applications`` → one ``### `` per concrete cited case (name the case in
+    the header, e.g. ``### Ridge vs. OLS on the prostate data``).
+  - ``example_intuition`` → keep its three-move shape; one ``### `` per case
+    plus a final ``### The intuition``. EACH EXAMPLE case states the
+    ``$$display formula$$`` of its DGP/model IN THAT SAME SUBSECTION and carries
+    any ``[Fn]`` figure marker for that case (see <math_format>, <figures>).
+  - ``further_reading`` → a short ``### Adjacent concepts`` and an
     ``### Open questions`` block.
 - ``### `` headers are SHORT (≤ 6 words), left-aligned, no trailing colon,
   no bold. The opening framing sentence of the aspect comes BEFORE the first
   ``### ``.
-- A subsection's prose may carry its own ``[N]`` citation markers at the end
-  of the sentence each source supports.
 - For a genuine ordered procedure or derivation inside a subsection, a short
   ``1.``/``2.`` numbered list is still allowed; reserve it for true sequences.
-- Keep genuinely continuous narrative as prose; do not shred a single
-  argument into disconnected fragments.
+- Ranges given above are MINIMUMS, NOT CAPS — you are invited to BE EXTENSIVE.
 </structure>
 
 <synthesis_rules>
@@ -372,6 +383,10 @@ Per-field requirements (target lengths are minimums; longer is fine):
 <math_format>
 - Inline math: ``$x \\sim P$``.
 - Display math: ``$$y = X\\beta + \\varepsilon$$``
+- PLACEMENT: put each ``$$display$$`` block INSIDE the ``### `` subsection it
+  belongs to — these are CENTERED DISPLAY EQUATIONS ($$), NOT INLINE. Each
+  Example ``### Case`` states its model/DGP formula in that case's subsection.
+  Never collect formulas at the end of the answer.
 - Greek letters and operators in LaTeX, never plain text.
 - CRITICAL JSON ESCAPING: every LaTeX backslash MUST appear as ``\\\\``
   inside JSON string values. Write ``\\\\theta`` NOT ``\\theta``. A single
@@ -397,6 +412,9 @@ Per-field requirements (target lengths are minimums; longer is fine):
   decomposition stated above"), not merely "see [F1]". A separate system
   step may add a description of what the image visually shows; your job
   is the conceptual link.
+- An Example ``### Case`` that has an approved figure carries BOTH the case's
+  ``$$formula$$`` AND the ``[Fn]`` marker WITHIN THAT SAME SUBSECTION, so the
+  formula, its figure, and the explanation sit together.
 - Never invent figure markers.  Never reuse a marker.  If a figure does
   not fit the surrounding prose, omit it; the orchestrator keeps the
   figure metadata regardless.
