@@ -123,3 +123,80 @@ def test_schema_fill_calls_stream_structured_with_synthesis_text(monkeypatch):
     blob = "".join(m["content"] for m in captured["messages"])
     assert "SYNTH TEXT" in blob and "What is variance?" in blob
     assert captured["model"] == "nano"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: L5 / deep_synth tests
+# ---------------------------------------------------------------------------
+
+import src.services.chat.agents.orchestrator_workers as OW  # noqa: E402
+
+
+def _two_author_inputs():
+    sources = [
+        Source(rank=1, book="b1", chapter="1", section="s", excerpt="x",
+               authors_short="Casella", title="t", score=0.5, chunkId="c1", chunk="x"),
+        Source(rank=2, book="b2", chapter="1", section="s", excerpt="y",
+               authors_short="Wasserman", title="t", score=0.5, chunkId="c2", chunk="y"),
+    ]
+    plan = SynthesisPlan(thesis="th", tasks=[
+        WorkerTask(focus="Casella", source_ranks=[1]),
+        WorkerTask(focus="Wasserman", source_ranks=[2]),
+    ])
+    return sources, plan
+
+
+def test_deep_synth_routes_to_skill_then_schema_fill(monkeypatch):
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    calls = {}
+
+    async def fake_skill(query, srcs, briefs):
+        calls["skill"] = True
+        return "DEEPAGENTS SYNTH", 10, 20
+    import src.services.chat.agents.ow_deepagents as OWD
+    monkeypatch.setattr(OWD, "synthesize_with_skill", fake_skill)
+
+    async def fake_fill(query, text, model, cb):
+        calls["fill_text"] = text
+        return DeepTutorAnswer(tldr="ok", definition=text, formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {}
+    monkeypatch.setattr(OW, "_schema_fill", fake_fill)
+
+    deep, _ = asyncio.run(OW.run_orchestrator_workers(
+        "q", sources, plan, deep_synth=True))
+    assert calls.get("skill") and calls["fill_text"] == "DEEPAGENTS SYNTH"
+    assert deep.tldr == "ok"
+
+
+def test_deep_synth_falls_back_to_L0_on_skill_failure(monkeypatch):
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary=f"{author} sum",
+                           key_points=[f"{author} kp"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    async def boom(query, srcs, briefs):
+        raise RuntimeError("pip install deepagents")
+    import src.services.chat.agents.ow_deepagents as OWD
+    monkeypatch.setattr(OWD, "synthesize_with_skill", boom)
+
+    seen = {}
+
+    async def fake_stream(messages, model, cb):
+        seen["L0"] = True
+        return DeepTutorAnswer(tldr="L0", definition="d", formal_statement="",
+                               example_intuition="", applications="",
+                               further_reading=""), {}
+    monkeypatch.setattr(OW, "_stream_structured", fake_stream)
+
+    deep, _ = asyncio.run(OW.run_orchestrator_workers(
+        "q", sources, plan, deep_synth=True))
+    assert seen.get("L0") and deep.tldr == "L0"

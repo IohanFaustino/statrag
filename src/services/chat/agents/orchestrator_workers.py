@@ -150,6 +150,7 @@ async def run_orchestrator_workers(
     figures: list | None = None,
     on_aspect_delta=None,
     on_briefs=None,
+    deep_synth: bool = False,
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
     """Orchestrator LLM (dynamic subtasks) → parallel workers → streaming
     synthesizer. Falls back to a per-author split when the orchestrator
@@ -203,6 +204,26 @@ async def run_orchestrator_workers(
             logger.info("ow level-3 deepagents returned empty; falling back to L0 synth")
         except Exception:  # noqa: BLE001
             logger.exception("ow level-3 deepagents failed; falling back to L0 synthesizer")
+
+    # L5 / per-request deep synthesis: deepagents + synthesis SKILL, then a nano
+    # schema-fill pass renders it as a streamed DeepTutorAnswer. Any failure
+    # (deepagents missing, empty, schema-fill None) falls through to L0 below.
+    if deep_synth or level == 5:
+        try:
+            from src.services.chat.agents import ow_deepagents
+            text, _it, _ot = await ow_deepagents.synthesize_with_skill(query, sources, briefs)
+            if text.strip():
+                fill_model = synth_model or settings.openai_model_nano
+                if fill_model.startswith("deepseek"):
+                    fill_model = settings.openai_model_nano
+                deep_a, aspects_a = await _schema_fill(query, text, fill_model, on_aspect_delta)
+                if deep_a is not None:
+                    return deep_a, aspects_a
+                logger.info("ow L5 schema-fill returned None; falling back to L0 synth")
+            else:
+                logger.info("ow L5 deepagents+skill returned empty; falling back to L0 synth")
+        except Exception:  # noqa: BLE001
+            logger.exception("ow L5 deepagents+skill failed; falling back to L0 synthesizer")
 
     # Synthesizer: same DeepTutorAnswer schema + draft rules + briefs addendum.
     plan_block = _format_plan_block(plan)
