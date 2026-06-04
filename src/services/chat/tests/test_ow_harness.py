@@ -70,3 +70,35 @@ def test_maybe_traced_preserves_behavior_when_on(monkeypatch):
 
     wrapped = H.maybe_traced(f, name="f")
     assert wrapped(2) == 6
+
+
+from src.services.chat.eval import ow_harness_compare as OWC
+
+
+def test_owc_constants_and_helpers():
+    assert OWC.JUDGE_MODEL == "gpt-5.4-nano-2026-03-17"
+    assert len(OWC.QUESTIONS) == 3
+    assert OWC.JUDGE_DIMS == ("faithfulness", "coverage", "synthesis", "coherence")
+
+
+def test_owc_render_briefs_text():
+    from src.services.chat.schemas.output import AuthorBrief
+    txt = OWC._briefs_text([AuthorBrief(author="Hansen", summary="s", key_points=["k1"])])
+    assert "Hansen" in txt and "k1" in txt
+
+
+def test_owc_parse_scores_fallback():
+    d = OWC._parse_scores("garbage", OWC.JUDGE_DIMS)
+    assert d["overall"] == 0.0
+    good = '{"faithfulness":5,"coverage":4,"synthesis":4,"coherence":5}'
+    g = OWC._parse_scores(good, OWC.JUDGE_DIMS)
+    assert g["overall"] == 4.5
+
+
+def test_owc_render_artifact():
+    rows = {("L0", 0): {"level": "L0", "qi": 0, "ok": True, "answer": "A", "briefs": "B",
+                        "in_tok": 10, "out_tok": 5, "ms": 100,
+                        "quality": {"faithfulness":5,"coverage":4,"synthesis":4,"coherence":5,"overall":4.5},
+                        "fidelity": 4.0}}
+    md = OWC._render_artifact(rows)
+    assert "| level | question |" in md and "L0" in md and "4.5" in md and "fidelity" in md.lower()
