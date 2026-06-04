@@ -39,7 +39,7 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
     {
       id: "expansion",
       label: "Query planner",
-      desc: "Interprets the question → concepts, targeted retrieval queries, and the facets the answer must cover (folds into the nano call).",
+      desc: "Interprets the question. Default: one nano call → concepts, queries, facets. With TUTOR_PLANNER_CHAIN=1: a 3-step prompt chain — decompose (question → atomic sub-questions) → expand (per sub-question: concept, query, facet) → consolidate (dedupe, budget perspectives) → QueryPlan.",
       kind: "llm",
       stage: "expansion",
       defaultModel: "gpt-5.4-nano-2026-03-17",
