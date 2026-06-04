@@ -62,15 +62,23 @@ def _briefs_text(briefs) -> str:
 
 
 def _answer_text(ans) -> str:
-    """Flatten a DeepTutorAnswer's aspect fields into one judged string."""
+    """Flatten a DeepTutorAnswer's real aspect fields into one judged string."""
     if ans is None:
         return ""
     parts = []
-    for k in ("definition", "intuition", "mechanism", "applications", "comparison",
-              "summary", "answer", "body"):
+    # Actual DeepTutorAnswer text fields (schemas/output.py).
+    for k in ("tldr", "definition", "formal_statement", "example_intuition",
+              "applications", "further_reading"):
         v = getattr(ans, k, "") or ""
         if v:
             parts.append(str(v))
+    # The author-comparison sub-object — central to the synthesis dimension.
+    cmp = getattr(ans, "comparison", None)
+    if cmp is not None:
+        for k in ("author_a", "position_a", "author_b", "position_b"):
+            v = getattr(cmp, k, "") or ""
+            if v:
+                parts.append(str(v))
     return "\n\n".join(parts) or str(ans)
 
 
