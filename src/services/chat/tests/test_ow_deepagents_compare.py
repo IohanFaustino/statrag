@@ -30,3 +30,11 @@ def test_skill_arm_import_guard(monkeypatch):
     monkeypatch.setitem(sys.modules, "deepagents", None)
     with _pytest.raises(RuntimeError, match="pip install deepagents"):
         asyncio.run(DA.synthesize_with_skill("q", [], []))
+
+
+def test_subagents_arm_import_guard(monkeypatch):
+    import sys, asyncio
+    import pytest as _pytest
+    monkeypatch.setitem(sys.modules, "deepagents", None)
+    with _pytest.raises(RuntimeError, match="pip install deepagents"):
+        asyncio.run(DA.synthesize_with_subagents("q", [], []))
