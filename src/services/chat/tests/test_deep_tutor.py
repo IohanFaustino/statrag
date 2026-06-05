@@ -1290,3 +1290,24 @@ def test_convert_dedupes_and_caps_figures_per_aspect():
     ans = _convert_to_tutor_answer(deep, aspects, sources=[], approved_figures=figs)
     total = sum(v.count("### Figure example") for v in ans.aspects.values())
     assert total == 1, ans.aspects
+
+
+def test_inline_midline_display_converts_bullet_display_to_inline():
+    from src.services.chat.agents.deep_tutor import _inline_midline_display
+    s = r"- **In estimator notation, bias is** $$\mathrm{Bias}(\hat\theta)=\mathbb{E}[\hat\theta]-\theta$$ [2]"
+    out = _inline_midline_display(s)
+    assert "$$" not in out
+    assert r"$\mathrm{Bias}(\hat\theta)=\mathbb{E}[\hat\theta]-\theta$" in out
+
+
+def test_inline_midline_display_keeps_ownline_display_block():
+    from src.services.chat.agents.deep_tutor import _inline_midline_display
+    s = r"$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$"
+    assert _inline_midline_display(s) == s
+
+
+def test_inline_midline_display_keeps_indented_ownline_display():
+    from src.services.chat.agents.deep_tutor import _inline_midline_display
+    s = "intro line\n  $$\\mathrm{MSE}=\\sigma^2$$\nnext line"
+    out = _inline_midline_display(s)
+    assert "  $$\\mathrm{MSE}=\\sigma^2$$" in out

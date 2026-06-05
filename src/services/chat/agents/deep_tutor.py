@@ -365,6 +365,35 @@ def _wrap_bare_math(s: str) -> str:
     return "".join(out_parts)
 
 
+def _inline_midline_display(s: str) -> str:
+    """Convert a ``$$…$$`` that shares its line with other text into inline
+    ``$…$``.
+
+    The frontend block-math parser (``TutorView.splitIntoBlocks``) only renders
+    a ``$$…$$`` that OWNS its line; a display span placed mid-line (e.g. inside
+    a bullet, ``- **bias is** $$\\mathrm{Bias}…$$ [2]``) is handed to the inline
+    ``$…$`` matcher, which mis-reads the doubled ``$`` and leaks raw LaTeX.
+    Converting such mid-line display spans to inline ``$…$`` makes KaTeX render
+    them; a ``$$…$$`` that already owns its line is left as a display block."""
+    if "$$" not in s:
+        return s
+    out_lines: list[str] = []
+    for line in s.split("\n"):
+        stripped = line.strip()
+        # Own-line display block: a single ``$$…$$`` span alone on the line.
+        if (
+            stripped.startswith("$$")
+            and stripped.endswith("$$")
+            and stripped.count("$$") == 2
+        ):
+            out_lines.append(line)
+            continue
+        if "$$" in line:
+            line = re.sub(r"\$\$([^$]+?)\$\$", r"$\1$", line)
+        out_lines.append(line)
+    return "\n".join(out_lines)
+
+
 # ---------------------------------------------------------------------------
 # Figure → aspect placement
 # ---------------------------------------------------------------------------
@@ -2143,7 +2172,7 @@ def _convert_to_tutor_answer(
     final_aspects = {k: (getattr(deep, k, None) or aspects.get(k, "") or "") for k in ASPECT_HEADINGS}
     for k, v in final_aspects.items():
         repaired = _repair_latex_post(v)
-        final_aspects[k] = _wrap_bare_math(repaired)
+        final_aspects[k] = _inline_midline_display(_wrap_bare_math(repaired))
 
     figs_for_text = list(approved_figures) if approved_figures else (
         list(deep.figures) if deep else []
