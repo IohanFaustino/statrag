@@ -2,6 +2,17 @@
 
 Append-only. Latest at top.
 
+## 2026-06-05 — Deep-tutor answer formatting fixes (best-effort + math wrap + prompt + figures)
+
+**Symptoms** (live answer on :5175, "What is the bias-variance tradeoff?"): (A) raw inline LaTeX leaked as literal text (`\tilde y=\tilde β₀+\tilde β₁ x_1.`); (B) sentence-completing defining equations were emitted as `$$display$$`, leaving an orphan `" . [N]"`; (C) `[N]` citation markers wrapped alone on a line after a display block; (D) two near-duplicate `### Figure example` blocks for one aspect, the 2nd with a generic caption. Separately, the strict component-equation validator could hard-fail an answer ("Failed to generate") when neither synth nor the one repair complied.
+
+**Fixes:**
+- **Best-effort format validation** — `DeepTutorAnswer._require_component_equations` now takes `ValidationInfo` and is skipped when validated with `context={"skip_format_checks": True}`. `orchestrator._validate_and_repair` adds a final fallback: after the first validate + one repair both fail, it re-parses the best available text with `skip_format_checks` and, if structurally valid, returns the imperfect answer (renders) instead of `(None, err)`. A renderable answer is never blanked by a soft format check; structural failures still surface `SchemaValidationError`. (Existing equation enforcement still drives the repair attempt.)
+- **A — raw inline-LaTeX leak** fixed deterministically in `_wrap_bare_math` (`agents/deep_tutor.py`): `_MATH_TOK` now treats the unicode Greek block (U+0370–U+03FF) + unicode minus/middle-dot/combining-hat as math tokens, so a run mixing `\commands` with unicode greek (`\tilde β_0`) is recognized and wrapped in `$…$` rather than leaking. (The proposed standalone leak validator was dropped — redundant under best-effort; the wrapper fixes the render deterministically.)
+- **Prompt rules** (`DEEP_TUTOR_INSTRUCTIONS`): DELIMIT ALL MATH (every symbol in prose wrapped `$…$`/`$$…$$`, no bare `\command`/`x_1`, no unicode-glyph+`\command` mixing) and INLINE-vs-DISPLAY (sentence-completing eqs inline; `[N]` before a display block, never dangling after). Prompt budget ceiling raised 19200→20500 (`test_tutor_prompt_contract.py`).
+- **D — figures**: `_convert_to_tutor_answer` dedupes figures by `ref`/`url`, drops boilerplate-caption figures (`_is_generic_figure`), and caps one figure block per aspect (highest `judge_confidence`).
+- Tests: `test_component_equations.py` (+2 best-effort/context), `test_deep_tutor.py` (+wrap-greek, +figure dedupe/cap), `test_tutor_prompt_contract.py` (+budget/+rule presence). Full chat suite 737 passed. Spec/plan: `docs/superpowers/specs|plans/2026-06-05-deep-tutor-formatting-fixes*`.
+
 ## 2026-06-05 — Schema-time enforcement of per-component defining equations
 
 **Symptom:** conv `9e0a393d` ("What is the bias-variance tradeoff?") rendered `### Bias` and `### Variance` subsections as prose with NO defining equation, and used a word-form pseudo-equation (`$$\text{Squared bias}+\text{Variance}\approx\text{Test MSE}$$`) in place of a symbolic one — even though `DEEP_TUTOR_INSTRUCTIONS` already mandated a `$$…$$` per component subsection (invariant 23). The prompt directive alone was being ignored.
