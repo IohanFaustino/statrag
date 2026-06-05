@@ -1264,3 +1264,29 @@ def test_wrap_bare_math_leaves_plain_prose_untouched():
     from src.services.chat.agents.deep_tutor import _wrap_bare_math
     s = "The model omits a relevant variable and induces bias."
     assert _wrap_bare_math(s) == s
+
+
+def test_convert_dedupes_and_caps_figures_per_aspect():
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    from src.services.chat.schemas.output import DeepTutorAnswer, FigureRef
+
+    deep = DeepTutorAnswer(
+        tldr="t", definition="d", formal_statement="", example_intuition="e",
+        applications="a", further_reading="f", citations=[], math_blocks=[], figures=[],
+    )
+    aspects = {
+        "tldr": "t", "definition": "d", "formal_statement": "",
+        "example_intuition": "e", "applications": "a", "further_reading": "f",
+    }
+    figs = [
+        FigureRef(ref="r1", book="islp", chapter="ch02", caption="bias variance plot",
+                  url="/api/figures?path=a.jpg", judge_confidence=0.9,
+                  judge_reason="plots bias and variance vs flexibility", figure_role="other"),
+        FigureRef(ref="r2", book="islp", chapter="ch02", caption="",
+                  url="/api/figures?path=b.jpg", judge_confidence=0.4,
+                  judge_reason="The image visually represents the bias-variance tradeoff, which is relevant to the query.",
+                  figure_role="other"),
+    ]
+    ans = _convert_to_tutor_answer(deep, aspects, sources=[], approved_figures=figs)
+    total = sum(v.count("### Figure example") for v in ans.aspects.values())
+    assert total == 1, ans.aspects

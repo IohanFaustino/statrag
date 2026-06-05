@@ -602,6 +602,28 @@ def _wrap_bare_math_segment(seg: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Figure-placement helpers (defect D)
+# ---------------------------------------------------------------------------
+
+_GENERIC_FIG_RE = re.compile(
+    r"the image visually represents|which is relevant to the query"
+    r"|the image illustrates",
+    re.IGNORECASE,
+)
+
+
+def _is_generic_figure(f, vision_explanations: dict[str, str] | None) -> bool:
+    """A figure whose only 'explanation' is boilerplate judge/vision text that
+    adds no specific content — drop it from the rendered answer (defect D)."""
+    url = getattr(f, "url", "") or ""
+    text = ((vision_explanations or {}).get(url, "") or "") \
+        + " " + (getattr(f, "judge_reason", "") or "") \
+        + " " + (getattr(f, "caption", "") or "")
+    has_specific = bool((getattr(f, "caption", "") or "").strip())
+    return _GENERIC_FIG_RE.search(text) is not None and not has_specific
+
+
+# ---------------------------------------------------------------------------
 # Tunables
 # ---------------------------------------------------------------------------
 
@@ -2126,6 +2148,18 @@ def _convert_to_tutor_answer(
     figs_for_text = list(approved_figures) if approved_figures else (
         list(deep.figures) if deep else []
     )
+    # Dedupe by ref/url and drop boilerplate-only figures (defect D).
+    _seen: set[str] = set()
+    _deduped = []
+    for f in figs_for_text:
+        key = (getattr(f, "ref", "") or getattr(f, "url", "") or "")
+        if key in _seen:
+            continue
+        _seen.add(key)
+        if _is_generic_figure(f, vision_explanations):
+            continue
+        _deduped.append(f)
+    figs_for_text = _deduped
     if figs_for_text:
         fallback = "example_intuition" if "example_intuition" in ASPECT_HEADINGS else next(iter(ASPECT_HEADINGS))
         # Score-based placement: pick the aspect with highest token overlap
@@ -2140,6 +2174,12 @@ def _convert_to_tutor_answer(
             per_target.setdefault(target, []).append(f)
         fig_seq = 0
         for target, figs in per_target.items():
+            # Cap: one figure block per aspect — keep highest judge_confidence.
+            figs = sorted(
+                figs,
+                key=lambda f: float(getattr(f, "judge_confidence", 0.0) or 0.0),
+                reverse=True,
+            )[:1]
             base = final_aspects.get(target, "").rstrip()
             blocks: list[str] = []
             for f in figs:
