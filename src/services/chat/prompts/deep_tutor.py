@@ -219,16 +219,12 @@ Per-field requirements (target lengths are minimums; longer is fine):
     SOURCE EACH EQUATION from the ``<source_bundle>``: if the source gives
     it as LaTeX, copy it verbatim; otherwise reconstruct it from the prose or
     image-placeholder description. NEVER omit a component's equation.
-    A word-form "equation" is a FAILURE — e.g. emitting
-    ``$$\\\\text{Squared bias}+\\\\text{Variance}\\\\approx\\\\text{Test MSE}$$``
-    or ``$$\\\\text{Bias}^2+\\\\text{Variance}\\\\approx\\\\text{MSE}$$`` is
-    WRONG because those are labels dressed as symbols. Use real symbols:
-    the central-quantity subsection states e.g.
-    ``$$\\\\mathrm{MSE}=\\\\mathrm{Bias}^2+\\\\mathrm{Var}+\\\\sigma^2$$``;
-    ``### Bias`` states e.g.
-    ``$$\\\\mathrm{Bias}(\\\\hat\\\\theta)=\\\\mathbb{E}[\\\\hat\\\\theta]-\\\\theta$$``;
-    ``### Variance`` states e.g.
-    ``$$\\\\mathrm{Var}(\\\\hat\\\\theta)=\\\\mathbb{E}[(\\\\hat\\\\theta-\\\\mathbb{E}[\\\\hat\\\\theta])^2]$$``.
+    A word-form "equation" is a FAILURE: never emit
+    ``$$\\\\text{Squared bias}+\\\\text{Variance}\\\\approx\\\\text{Test MSE}$$``.
+    Use real symbols — ``### Bias`` →
+    ``$$\\\\mathrm{Bias}(\\\\hat\\\\theta)=\\\\mathbb{E}[\\\\hat\\\\theta]-\\\\theta$$``,
+    ``### Variance`` → ``$$\\\\mathrm{Var}(\\\\hat\\\\theta)=\\\\mathbb{E}[(\\\\hat\\\\theta-\\\\mathbb{E}[\\\\hat\\\\theta])^2]$$``,
+    ``### MSE`` → ``$$\\\\mathrm{MSE}=\\\\mathrm{Bias}^2+\\\\mathrm{Var}+\\\\sigma^2$$``.
   - CLOSE WITH THE GRAPHICAL HAND-OFF. If a figure is attached to this
     aspect, end with a sentence that introduces it and says what it will
     show — e.g. "The graphical example in [F1] helps guide the intuition:
