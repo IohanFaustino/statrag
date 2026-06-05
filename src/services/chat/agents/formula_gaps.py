@@ -17,7 +17,11 @@ _DEF_RE = re.compile(
     r"(?:of an estimator|is defined as|are defined as|is defined to be|of the estimator)",
     re.IGNORECASE,
 )
-_LATEX_RE = re.compile(r"\$\$?[^$]*[=][^$]*\$\$?")
+# Match a genuine block `$$ ... = ... $$` or inline `$ <non-ws> ... = ... $`.
+# Requiring a non-whitespace char immediately after the opening `$` prevents
+# the false positive `$ = prose text $` that arises when two separate inline
+# math tokens ($a$ and $b$) appear on either side of a prose `=` sign.
+_LATEX_RE = re.compile(r"\$\$[^$]*=[^$]*\$\$|\$[^$\s][^$]*=[^$]*\$")
 _IMG_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 _WINDOW = 220  # chars around the definition span to look for latex / image
 _MAX_GAPS = 4
@@ -36,7 +40,13 @@ def _norm(term: str) -> str:
 
 def detect_formula_gaps(sources: list[Source], query: str) -> list[GapConcept]:
     """Return concepts whose defining equation is absent as LaTeX but whose
-    definition sits next to a dropped image placeholder (formula lost to OCR)."""
+    definition sits next to a dropped image placeholder (formula lost to OCR).
+
+    Args:
+        sources: Retrieved source chunks to scan.
+        query: Reserved for future query-relevance filtering (Task 4 callers in
+            orchestrator_workers pass the user query here); do not remove.
+    """
     by_term: dict[str, GapConcept] = {}
     for s in sources:
         text = s.chunk or s.excerpt or ""

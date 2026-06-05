@@ -38,3 +38,17 @@ def test_cap_at_four_gaps():
         srcs.append(_src(c, book=f"b{i}", section=str(i)))
     gaps = detect_formula_gaps(srcs, "estimator properties")
     assert len(gaps) <= 4
+
+
+def test_gap_detected_despite_inline_prose_equals_near_image():
+    # "$n$ = sample size" (with a second $\sigma^2$ nearby) is prose notation,
+    # NOT the defining equation; the defining equation was dropped to the image
+    # -> the old cross-span regex `$\$?[^$]*=...\$?` would see `$ = ... $`
+    # spanning across two separate inline-math tokens and treat it as LaTeX,
+    # silently masking the gap. The fixed regex must reject this pattern.
+    chunk = ("The variance of an estimator is defined as\n\n"
+             "![art](markdown/media/Art_P12.jpg)\n\n"
+             r"where $n$ = sample size and $\sigma^2$ is measured above.")
+    gaps = detect_formula_gaps([_src(chunk)], "variance")
+    assert len(gaps) == 1
+    assert "variance" in gaps[0].term.lower()
