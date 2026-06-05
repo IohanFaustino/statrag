@@ -153,3 +153,8 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
     { from: "vision_explain", to: "output" },
   ],
 };
+
+// Default drafting workflow — the deep-agent path (orchestrator → workers →
+// formula recovery → synthesizer). Shared by the app's initial state and the
+// modal's "Default" reset so they cannot drift.
+export const DEFAULT_TUTOR_WORKFLOW = "orchestrator-deep";

@@ -3,6 +3,7 @@ import FocusModal from "./FocusModal";
 import PipelineDiagram from "../PipelineDiagram";
 import { TUTOR_MODE } from "../../data/tutorMode";
 import type { StageKey } from "../../data/tutorPipeline";
+import { DEFAULT_TUTOR_WORKFLOW } from "../../data/tutorPipeline";
 import { stageDefaultModels } from "../../data/recommended";
 import type { ModelProvider } from "../../types";
 
@@ -61,7 +62,10 @@ export default function AboutModelModal({
   // non-draft stages → nano, vision_explain → gpt-4o-mini, draft → recommended
   // draft model. A full reset (not a merge) so stale overrides are cleared. The
   // per-stage dropdowns still let the user pick any model afterward.
-  const setDefaults = () => setDraftStageModels(stageDefaultModels(recommendedModel));
+  const setDefaults = () => {
+    setDraftStageModels(stageDefaultModels(recommendedModel));
+    setDraftWorkflow(DEFAULT_TUTOR_WORKFLOW);
+  };
 
   const dirty =
     JSON.stringify(draftStageModels) !== JSON.stringify(stageModels) ||

@@ -21,6 +21,7 @@ import QAModeModal from "./components/modals/QAModeModal";
 import ChapterFacilitateModal from "./components/modals/ChapterFacilitateModal";
 import ChapterResumeModal from "./components/modals/ChapterResumeModal";
 import type { StageKey } from "./data/tutorPipeline";
+import { DEFAULT_TUTOR_WORKFLOW } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
 import { RECOMMENDED_MODEL_ID, recommendedModelId } from "./data/recommended";
@@ -196,7 +197,7 @@ export default function App() {
   // Drafting workflow: "single" (one-call) or "orchestrator" (per-author workers).
   const [tutorWorkflow, setTutorWorkflow] = usePersistentState<string>(
     "statrag.tutorWorkflow",
-    "orchestrator-deep",
+    DEFAULT_TUTOR_WORKFLOW,
   );
 
   // Derive recommended model id from the live registry (used by modals in Task 4).
