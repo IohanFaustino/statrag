@@ -2537,7 +2537,28 @@ select:focus-visible {
 }
 .pipe2__node--io .pipe2__node-hd { justify-content: center; }
 .pipe2__node--locked { opacity: 0.78; }
-.pipe2__node--llm { border-left: 3px solid var(--accent, #E5484D); }
+/* phase color-grouping (shared by tutor PipelineDiagram + qa/chapter FlowDiagram) */
+.pipe2__node[data-phase] {
+  border-left: 3px solid var(--phase-generation);
+  background: color-mix(in srgb, var(--phase-generation) 8%, var(--bg-secondary, #16161a));
+}
+.pipe2__node[data-phase="planning"]   { border-left-color: var(--phase-planning);   background: color-mix(in srgb, var(--phase-planning) 8%,   var(--bg-secondary, #16161a)); }
+.pipe2__node[data-phase="retrieval"]  { border-left-color: var(--phase-retrieval);  background: color-mix(in srgb, var(--phase-retrieval) 8%,  var(--bg-secondary, #16161a)); }
+.pipe2__node[data-phase="generation"] { border-left-color: var(--phase-generation); background: color-mix(in srgb, var(--phase-generation) 8%, var(--bg-secondary, #16161a)); }
+.pipe2__node[data-phase="vision"]     { border-left-color: var(--phase-vision);     background: color-mix(in srgb, var(--phase-vision) 8%,     var(--bg-secondary, #16161a)); }
+.pipe2__node--io[data-phase] { border-left: 1px dashed var(--phase-io); background: transparent; }
+
+/* phase chip in the node header */
+.pipe2__phase-chip {
+  font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 0 5px; border-radius: 7px; flex-shrink: 0;
+  color: var(--phase-generation); border: 1px solid var(--phase-generation);
+}
+.pipe2__phase-chip[data-phase="planning"]   { color: var(--phase-planning);   border-color: var(--phase-planning); }
+.pipe2__phase-chip[data-phase="retrieval"]  { color: var(--phase-retrieval);  border-color: var(--phase-retrieval); }
+.pipe2__phase-chip[data-phase="generation"] { color: var(--phase-generation); border-color: var(--phase-generation); }
+.pipe2__phase-chip[data-phase="vision"]     { color: var(--phase-vision);     border-color: var(--phase-vision); }
+.pipe2__phase-chip[data-phase="io"]         { color: var(--phase-io);         border-color: var(--phase-io); }
 .pipe2__node-hd { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .pipe2__node-label { font-weight: 600; color: var(--text-primary); font-size: 0.84rem; line-height: 1.2; }
 .pipe2__badge {
@@ -2559,7 +2580,7 @@ select:focus-visible {
   display: inline-block; font-size: 0.74rem; color: var(--text-secondary, #bbb);
   font-family: monospace; padding: 2px 6px;
   background: rgba(128,128,128,0.12); border-radius: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  white-space: normal; overflow-wrap: anywhere; max-width: 100%;
 }
 /* allow the node's custom dropdown toggle to render without clipping */
 .pipe2__node { overflow: visible; }
@@ -2570,10 +2591,8 @@ select:focus-visible {
 .flow__seg { width: 100%; display: flex; flex-direction: column; align-items: center; }
 .flow__arrow { display: flex; justify-content: center; line-height: 0; margin: 1px 0; }
 .pipe2__node-desc { font-size: 0.74rem; color: var(--text-tertiary, #9aa1aa); line-height: 1.45; }
-.pipe2__node-desc--clamp {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
-  overflow: hidden;
-}
+/* auto-fit: descriptions wrap fully, no line clamp */
+.pipe2__node-desc--clamp { overflow: visible; }
 .pipe2__badge--data { color: var(--text-tertiary, #9aa1aa); border-color: var(--text-tertiary, #9aa1aa); }
 
 /* ─── Node model dropdown (replicates chatbox model picker) ───────────── */

@@ -23,6 +23,12 @@
   --accent-danger:    #FF7A8B;
   --accent-neutral:   #D49AF0;
 
+  --phase-planning:   #D98E04;
+  --phase-retrieval:  #4D6BFE;
+  --phase-generation: var(--accent-primary, #E5484D);
+  --phase-vision:     #A371F7;
+  --phase-io:         var(--text-tertiary, #9aa1aa);
+
   --code-surface: rgba(20, 10, 14, 0.62);
   --code-accent:  #E5484D;
   --syntax-amber: #FFD18A;
@@ -55,6 +61,12 @@
   --accent-tertiary:  #C28C18;
   --accent-danger:    #B0312A;
   --accent-neutral:   #6B4F8C;
+
+  --phase-planning:   #B45309;
+  --phase-retrieval:  #3743C4;
+  --phase-generation: var(--accent-primary, #1E3A8A);
+  --phase-vision:     #7C3AED;
+  --phase-io:         var(--text-tertiary);
 
   --code-surface: rgba(30, 58, 138, 0.06);
   --code-accent:  #1E3A8A;
