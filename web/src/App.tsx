@@ -196,7 +196,7 @@ export default function App() {
   // Drafting workflow: "single" (one-call) or "orchestrator" (per-author workers).
   const [tutorWorkflow, setTutorWorkflow] = usePersistentState<string>(
     "statrag.tutorWorkflow",
-    "single",
+    "orchestrator-deep",
   );
 
   // Derive recommended model id from the live registry (used by modals in Task 4).

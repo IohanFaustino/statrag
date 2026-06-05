@@ -430,7 +430,7 @@ export default function PipelineDiagram({
             <div
               key={n.id}
               ref={(el) => { nodeRefs.current[n.id] = el; }}
-              className="pipe2__node pipe2__node--data"
+              className="pipe2__node pipe2__node--data pipe2__node--blink"
               style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
               data-node={n.id}
               data-phase={phaseOf(n.id)}
