@@ -6,6 +6,7 @@ Best-effort: any failure degrades to a cache miss / no-op.
 """
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import uuid
@@ -22,6 +23,12 @@ COLLECTION = "formula_cache"
 _NS = uuid.UUID("00000000-0000-0000-0000-0000000fca1e")  # stable namespace for ids
 
 
+@functools.lru_cache(maxsize=1)
+def _oa() -> _openai.AsyncOpenAI:
+    """Return (and cache) the shared AsyncOpenAI client for this process."""
+    return _openai.AsyncOpenAI(api_key=settings.openai_api_key)
+
+
 class RecoveredEquation(BaseModel):
     term: str
     latex: str
@@ -33,8 +40,7 @@ def _norm(term: str) -> str:
 
 
 async def _embed(text: str) -> list[float]:
-    oa = _openai.AsyncOpenAI(api_key=settings.openai_api_key)
-    return (await oa.embeddings.create(model=settings.embedding_model, input=text[:8000])).data[0].embedding
+    return (await _oa().embeddings.create(model=settings.embedding_model, input=text[:8000])).data[0].embedding
 
 
 def _collection_exists(name: str) -> bool:
@@ -44,12 +50,12 @@ def _collection_exists(name: str) -> bool:
         return False
 
 
-def _query(name, emb, limit):
+def _query(name: str, emb: list[float], limit: int) -> object:
     return client().query_points(collection_name=name, query=emb, using=TEXT_VECTOR,
                                  limit=limit, with_payload=True)
 
 
-def _upsert(name, point_id, emb, payload):
+def _upsert(name: str, point_id: str, emb: list[float], payload: dict) -> None:
     from qdrant_client.models import PointStruct  # noqa: PLC0415
     ensure_text_collection(name)
     client().upsert(collection_name=name,
