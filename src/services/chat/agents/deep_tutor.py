@@ -333,6 +333,13 @@ _MATH_TOK = (
     r"\([^()]*[\\=^_][^()]*\)"
     r"|"
     r"\[[^\[\]]*[\\=^_][^\[\]]*\]"
+    r"|"
+    # unicode Greek-and-Coptic block (U+0370-U+03FF: covers alpha-omega incl.
+    # beta theta sigma lambda mu) + unicode minus (U+2212), middle dot
+    # (U+00B7), combining circumflex/hat (U+0302). The `re` module parses
+    # \uXXXX escapes even from raw strings. Models emit these interleaved with
+    # \commands, which used to break the run and leak raw LaTeX.
+    r"[Ͱ-Ͽ−·̂]"
     r")"
 )
 _MATH_RUN_RE = re.compile(_MATH_TOK + r"(?:\s*" + _MATH_TOK + r")*")

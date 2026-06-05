@@ -1248,3 +1248,19 @@ async def test_stream_draft_routes_non_openai_via_router(monkeypatch):
     await DT._stream_draft("q", [src_], model=nano)
     assert calls["structured"] == [nano], "OpenAI nano must use _stream_structured"
     assert calls["router"] == []
+
+
+def test_wrap_bare_math_wraps_unicode_greek_latex_run():
+    from src.services.chat.agents.deep_tutor import _wrap_bare_math
+    import re
+    s = r"running a simple regression: \tilde y=\tilde β_0+\tilde β_1 x_1."
+    out = _wrap_bare_math(s)
+    stripped = re.sub(r"\$\$[^$]+\$\$|\$[^$]+\$", "", out)
+    assert "\\tilde" not in stripped, f"raw LaTeX leaked: {out!r}"
+    assert "$" in out
+
+
+def test_wrap_bare_math_leaves_plain_prose_untouched():
+    from src.services.chat.agents.deep_tutor import _wrap_bare_math
+    s = "The model omits a relevant variable and induces bias."
+    assert _wrap_bare_math(s) == s
