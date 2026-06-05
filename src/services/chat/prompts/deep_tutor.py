@@ -411,6 +411,16 @@ Per-field requirements (target lengths are minimums; longer is fine):
   punctuation AFTER the closing ``$$``/``$``, never inside. Example —
   WRONG: ``$$\\\\text{MSE} = b^2 + v + \\\\sigma^2.$$`` /
   RIGHT: ``$$\\\\text{MSE} = b^2 + v + \\\\sigma^2$$``
+- DELIMIT ALL MATH: every symbol or expression in prose MUST be wrapped —
+  inline ``$…$`` or display ``$$…$$``. NEVER write a bare LaTeX command
+  (``\\\\tilde``, ``\\\\hat``, ``\\\\beta``), a bare subscript/superscript
+  (``x_1``, ``a^2``), or mix unicode glyphs (β, θ) with ``\\\\commands``
+  in one expression. A bare ``\\\\command`` in prose is a FAILURE.
+- INLINE vs DISPLAY: a defining equation that completes a sentence is
+  INLINE ``$…$`` so the prose flows; reserve ``$$…$$`` for standalone
+  decompositions on their own line. Do NOT leave a dangling ``". [N]"``
+  after a display block — end the sentence AND place its ``[N]`` citation
+  BEFORE the block, never alone on the line after ``$$…$$``.
 </math_format>
 
 <figures>

@@ -342,7 +342,7 @@ def test_convert_uses_relevance_override():
 # Soft regression guard: ceiling sits deliberately above the current ~18.7k size
 # to catch runaway bloat while leaving comfortable room for intentional additions.
 # Raise it when you genuinely add new rules; lower it after a prompt-diet pass.
-_PROMPT_BUDGET_CEILING = 19_200
+_PROMPT_BUDGET_CEILING = 20_500
 
 
 def test_deep_tutor_instructions_within_token_budget():
@@ -373,3 +373,11 @@ def test_author_worker_preserves_equations():
 def test_recovered_equations_rule_present():
     assert "<recovered_equations>" in INSTR or "recovered_equations" in INSTR
     assert "verbatim" in INSTR
+
+
+def test_deep_tutor_inline_delimiter_rule_present():
+    from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_INSTRUCTIONS as INSTR
+    low = INSTR.lower()
+    assert "wrap" in low and ("$…$" in INSTR or "$...$" in INSTR or "inline" in low)
+    # bans bare commands / dangling citation after display block
+    assert "bare" in low or "undelimited" in low
