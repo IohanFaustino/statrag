@@ -7,9 +7,10 @@ Chinese-wall: imports only stdlib + pydantic. No src.* imports.
 """
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +107,44 @@ class TutorAnswer(BaseModel):
     # should illustrate (definition + formal_statement). Older
     # frontends ignore the field.
     quality: dict[str, float] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Per-component equation enforcement (bias-variance fix, 2026-06-05)
+# ---------------------------------------------------------------------------
+
+_DISPLAY_EQ_RE = re.compile(r"\$\$(.+?)\$\$", re.DOTALL)
+# A display block is a "real" equation only if its body carries a math symbol
+# beyond words/\text/\approx — a relation/operator/greek/command/digit.
+_REAL_MATH_RE = re.compile(
+    r"=|\^|_|\\frac|\\hat|\\mathbb|\\mathrm|\\sum|\\int|\\sigma|\\theta"
+    r"|\\beta|\\lambda|\\mu|\\partial|\\sqrt|\\bar|\\big|\d"
+)
+
+
+def _split_definition_subsections(text: str) -> list[tuple[str, str]]:
+    """Split a markdown ``definition`` into ``(heading, body)`` pairs, one per
+    ``### `` subsection. Text before the first ``### `` (framing sentence) is
+    ignored. Returns ``[]`` when there are no ``### `` headers."""
+    parts = re.split(r"(?m)^###\s+(.+?)\s*$", text)
+    # parts = [pre, name1, body1, name2, body2, ...]
+    out: list[tuple[str, str]] = []
+    for i in range(1, len(parts) - 1, 2):
+        out.append((parts[i].strip(), parts[i + 1]))
+    return out
+
+
+def _has_real_equation(body: str) -> bool:
+    """True iff ``body`` contains a ``$$…$$`` block whose contents include a
+    genuine math symbol (not a word-form pseudo-equation like
+    ``$$\\text{Squared bias}+\\text{Variance}\\approx\\text{Test MSE}$$``)."""
+    for m in _DISPLAY_EQ_RE.finditer(body):
+        inner = m.group(1)
+        # Strip \text{...} wrappers so their letters don't count as math.
+        stripped = re.sub(r"\\text\{[^}]*\}", "", inner)
+        if _REAL_MATH_RE.search(stripped):
+            return True
+    return False
 
 
 class DeepTutorAnswer(BaseModel):
