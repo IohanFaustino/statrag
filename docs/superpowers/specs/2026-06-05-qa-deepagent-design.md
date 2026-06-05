@@ -37,7 +37,26 @@ scope (deterministic, nano)
 
 Three stable stages wrap the agent: a deterministic **scope** pre-pass and a deterministic **verify** post-pass are hard quality gates; the **deepagent** owns retrieval + drafting in between. This preserves the two guardrails the current pipeline relies on while moving retrieval from one-shot to agentic.
 
-### 2.1 Why an adaptive gate
+### 2.1 Isolation from tutor mode (hard constraint)
+
+**Rebuilding Q&A must not change a single tutor file, and Q&A must not import tutor logic/prompts/skills.** Coupling the two means a Q&A change could force a tutor change (or silently break it) — that is forbidden.
+
+| Aspect | Rule |
+|---|---|
+| `ow_deepagents.py`, `orchestrator_workers.py`, `deep_tutor.py` | **Pattern reference only** — do *not* import from them. Q&A copies the `create_deep_agent`/`StoreBackend`/`ToolStrategy` construction idiom into its own module. |
+| `prompts/deep_tutor.py`, `DEEP_TUTOR_INSTRUCTIONS` | **Never imported.** Q&A's agent system prompt and `grounded-qa` skill are written fresh and standalone. |
+| `agents/ow_skills/synthesis/` | **Not shared.** Q&A gets its own skill dir `agents/qa_skills/grounded-qa/`. |
+| Figure helpers (`_format_figure_bundle`) | **Not used** — Q&A has no figures. |
+| Frontend `PipelineDiagram.tsx`, `tutorPipeline.ts` | **Untouched.** Q&A keeps its own `QAPipelineDiagram.tsx` + `qaPipeline.ts`. |
+| Tutor modal / `AboutModelModal` | **Untouched.** Q&A keeps `QAModeModal`. |
+
+**Only shared primitives — read-only, stable, generic (not tutor structure):**
+- `TutorCitation` schema type — already reused by the current `QAAnswer`; a generic citation record, not tutor logic. Kept as-is (giving Q&A its own copy would be churn for no benefit). Q&A must not modify it.
+- Generic render helpers `renderInlineWithCites` + `MathBlock` — already used by `QAAnswerCard`; shared UI primitives, not tutor-specific components. Unchanged.
+
+Net: Q&A owns `qa.py`, `prompts/qa.py`, `qa_skills/grounded-qa/`, its QA schemas, and its frontend card/modal/diagram. The lockstep checklist in §12 touches **zero** tutor files.
+
+### 2.2 Why an adaptive gate
 
 Always-on decomposition + subagents would converge Q&A onto the tutor's existing `orchestrator_workers` pipeline, erasing the fast/punctual niche and duplicating machinery. The **complexity gate** (decided in the scope pre-pass) keeps simple doubts on a fast single-loop path and reserves the heavier decompose→subagent→organize path for questions that actually have multiple facets.
 
