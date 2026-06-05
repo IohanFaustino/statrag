@@ -37,3 +37,18 @@ def test_has_real_equation_false_when_no_block():
 def test_has_real_equation_false_for_word_form_pseudo_equation():
     body = r"$$\text{Squared bias}+\text{Variance}\approx\text{Test MSE}$$"
     assert _has_real_equation(body) is False
+
+
+def test_has_real_equation_false_for_text_superscript_word_form():
+    body = r"$$\text{Bias}^2 + \text{Variance} \approx \text{MSE}$$"
+    assert _has_real_equation(body) is False
+
+
+def test_has_real_equation_true_for_mathrm_decomposition():
+    body = r"$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$"
+    assert _has_real_equation(body) is True
+
+
+def test_has_real_equation_true_for_plain_variables():
+    body = r"$$f(x) = g(x)$$"
+    assert _has_real_equation(body) is True

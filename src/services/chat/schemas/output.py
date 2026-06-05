@@ -114,12 +114,8 @@ class TutorAnswer(BaseModel):
 # ---------------------------------------------------------------------------
 
 _DISPLAY_EQ_RE = re.compile(r"\$\$(.+?)\$\$", re.DOTALL)
-# A display block is a "real" equation only if its body carries a math symbol
-# beyond words/\text/\approx — a relation/operator/greek/command/digit.
-_REAL_MATH_RE = re.compile(
-    r"=|\^|_|\\frac|\\hat|\\mathbb|\\mathrm|\\sum|\\int|\\sigma|\\theta"
-    r"|\\beta|\\lambda|\\mu|\\partial|\\sqrt|\\bar|\\big|\d"
-)
+# Textual LaTeX connectors that do NOT make a block a "real" equation.
+_TEXTUAL_LATEX_RE = re.compile(r"\\(?:text|mathrm|mathbf)\{[^}]*\}|\\(?:approx|sim|propto)\b")
 
 
 def _split_definition_subsections(text: str) -> list[tuple[str, str]]:
@@ -135,14 +131,20 @@ def _split_definition_subsections(text: str) -> list[tuple[str, str]]:
 
 
 def _has_real_equation(body: str) -> bool:
-    """True iff ``body`` contains a ``$$…$$`` block whose contents include a
-    genuine math symbol (not a word-form pseudo-equation like
-    ``$$\\text{Squared bias}+\\text{Variance}\\approx\\text{Test MSE}$$``)."""
+    """True iff ``body`` contains a ``$$…$$`` block that is a genuine symbolic
+    equation — not a word-form pseudo-equation like
+    ``$$\\text{Squared bias}+\\text{Variance}\\approx\\text{Test MSE}$$`` or
+    ``$$\\text{Bias}^2+\\text{Variance}\\approx\\text{MSE}$$``.
+
+    Heuristic: strip word-only LaTeX (``\\text{…}``/``\\mathrm{…}`` wrappers and
+    textual relations like ``\\approx``), then require a residual math letter or
+    LaTeX command — operators, digits and punctuation alone do not count."""
     for m in _DISPLAY_EQ_RE.finditer(body):
         inner = m.group(1)
-        # Strip \text{...} wrappers so their letters don't count as math.
-        stripped = re.sub(r"\\text\{[^}]*\}", "", inner)
-        if _REAL_MATH_RE.search(stripped):
+        stripped = _TEXTUAL_LATEX_RE.sub("", inner)
+        # A real equation still carries a variable letter or a LaTeX command
+        # (e.g. \hat, \sigma, \frac, \mathbb) after the word-only parts go.
+        if re.search(r"[A-Za-z]|\\[a-zA-Z]+", stripped):
             return True
     return False
 
