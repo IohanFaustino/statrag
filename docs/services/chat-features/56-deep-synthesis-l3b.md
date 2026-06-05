@@ -205,6 +205,70 @@ The deepagents+skill+`_schema_fill` path (level 5) and the structured deepagents
 
 ---
 
+## Formula recovery stage
+
+Added in the same branch (`feat/ow-harness-pland`) after the core L3b work. Runs inside `run_orchestrator_workers` between the author-worker briefs and the L0 structured synthesizer (on both the plain `orchestrator` and `orchestrator-deep` paths).
+
+### Problem
+
+Many defining equations (e.g. Bias² / Variance / MSE decomposition) were OCR-dropped during ingestion — stored as image placeholders (`![art](…jpg)`) with no LaTeX text. The existing verbatim/reconstruct rule in the synth can only reconstruct from memory (inconsistent run-to-run). The formula recovery stage closes this gap at query time via a targeted second-RAG pass.
+
+### Flow
+
+```
+worker briefs
+      │
+      ▼
+detect_formula_gaps          ← formula_gaps.py
+      │  FormulaGap list
+      ▼
+recover_formulas             ← formula_recovery.py
+  (asyncio.gather per gap)
+  ┌── cache_lookup           ← formula_cache.py (Qdrant formula_cache collection)
+  │     hit → return LaTeX
+  ├── vision read (miss)
+  │     search_figures + inspect_figure (gpt-4o reads equation off figure image)
+  │     hit → cache_write → return LaTeX
+  └── text re-query fallback
+        targeted retrieval re-query → cache_write → return LaTeX
+      │
+      ▼
+<recovered_equations> block injected into synth user message
+      │
+      ▼
+L0 structured synthesizer (_stream_structured)
+```
+
+### Three new modules
+
+| Module | Responsibility |
+|---|---|
+| `src/services/chat/agents/formula_gaps.py` | Scans worker briefs for concepts whose defining equation is absent (OCR-dropped image placeholder or empty formula slot). Returns a list of `FormulaGap` objects (concept name + context). |
+| `src/services/chat/agents/formula_cache.py` | `cache_lookup` / `cache_write` against a dedicated `formula_cache` Qdrant collection. Keyed by normalized concept name (cosine threshold). Ensures the same concept always reuses the same LaTeX across sessions (consistency + cost savings). |
+| `src/services/chat/agents/formula_recovery.py` | Orchestrates `asyncio.gather` over gaps. Per gap: cache → vision (`search_figures` + `inspect_figure` via gpt-4o) → text re-query fallback. Any failure degrades silently to the pre-recovery state. |
+
+### Synth integration
+
+Recovered equations are injected into the synth user message as a `<recovered_equations>` block:
+
+```
+<recovered_equations>
+Bias squared: $\text{Bias}^2 = (E[\hat{f}(x)] - f(x))^2$  [recovered via vision]
+Variance: $\text{Var}[\hat{f}(x)] = E[(\hat{f}(x) - E[\hat{f}(x)])^2]$  [recovered via text]
+</recovered_equations>
+```
+
+A new rule in `DEEP_TUTOR_INSTRUCTIONS` and `DEEP_TUTOR_SYNTH_PROMPT` (`src/services/chat/prompts/deep_tutor.py`) directs the synthesizer to use each recovered equation **VERBATIM** — exact LaTeX, no simplification or reformulation — and cite the source tag (`[recovered via vision]` or `[recovered via text]`).
+
+### Properties
+
+- **Best-effort throughout:** any failure (no gaps found, no figure located, vision extracts no LaTeX, text re-query empty) silently skips that gap; the synth continues with whatever formula text was already in the briefs.
+- **No deepagents:** lightweight `asyncio.gather` only.
+- **Wiring:** `run_orchestrator_workers` in `orchestrator_workers.py`; verbatim rule in `prompts/deep_tutor.py`.
+- **Caching:** the `formula_cache` Qdrant collection persists across sessions — the vision pipeline for a given concept runs at most once.
+
+---
+
 ## Synced artifacts
 
 A logic change to the deep synthesis path is incomplete until **all** of these reflect it:

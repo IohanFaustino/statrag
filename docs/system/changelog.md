@@ -2,6 +2,31 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Formula recovery (vision second-RAG) + global formula cache
+
+**Problem:** many defining equations (e.g. Bias²/Variance decomposition) were OCR-dropped to image placeholders during ingestion — the LaTeX text is genuinely absent in the indexed chunks, so the existing verbatim/reconstruct rule in the synth can only reconstruct from memory (inconsistent). No mechanism existed to close that gap at query time.
+
+**Fix — gap-triggered second-RAG stage** (best-effort, lightweight asyncio):
+
+A new stage runs inside `run_orchestrator_workers` between worker briefs and the L0 structured synth:
+
+1. **`detect_formula_gaps`** (`src/services/chat/agents/formula_gaps.py`): scans the worker briefs for concepts whose defining equation was OCR-dropped to an image placeholder (`![art](…jpg)` or empty formula slot). Returns a list of `FormulaGap` objects (concept name + relevant context).
+
+2. **`recover_formulas`** (`src/services/chat/agents/formula_recovery.py`): called once with all gaps; runs `asyncio.gather` for parallel per-gap recovery. Each gap is resolved via a three-step waterfall:
+   - **Cache lookup** — `formula_cache.cache_lookup` checks the global `formula_cache` Qdrant collection; hit → return immediately (consistency + zero cost).
+   - **Vision read** — `search_figures` locates figure(s) relevant to the concept; `inspect_figure` asks `gpt-4o` to read the equation off the image. On success → `cache_write`, return LaTeX.
+   - **Text re-query fallback** — if vision yields nothing (no figure found, no LaTeX extracted), a targeted text retrieval re-query fetches additional chunks. Recovered LaTeX written to cache.
+
+3. Recovered equations are injected into the synth user message as a `<recovered_equations>` block (one `concept: $…$` line per recovery). A new rule in `DEEP_TUTOR_INSTRUCTIONS` / `DEEP_TUTOR_SYNTH_PROMPT` directs the synthesizer to use each recovered equation **VERBATIM** (exact LaTeX, no simplification) and cite its source (`[recovered via vision]` or `[recovered via text]`).
+
+**Global formula cache** (`src/services/chat/agents/formula_cache.py`): a dedicated `formula_cache` Qdrant collection persists recovered equations across sessions keyed by normalized concept name. `cache_lookup` returns the stored LaTeX if a close-enough match exists (cosine threshold); `cache_write` upserts on success. Ensures the same concept always reuses the same equation (consistency) without re-running the vision pipeline (cost).
+
+**Properties:**
+- Best-effort throughout — any failure at any step degrades silently to prior behavior (the synth continues with whatever formula text was already in the briefs).
+- No deepagents; uses only `asyncio.gather` for parallelism.
+- New modules: `src/services/chat/agents/formula_gaps.py`, `formula_cache.py`, `formula_recovery.py`.
+- Wiring: `run_orchestrator_workers` in `orchestrator_workers.py`; verbatim rule in `deep_tutor.py` (`DEEP_TUTOR_INSTRUCTIONS` / `DEEP_TUTOR_SYNTH_PROMPT`).
+
 ## 2026-06-04 — Reliable component equations in the definition
 
 **Symptom:** the `definition` aspect intermittently omitted the Bias/Variance defining equations (formula density varied wildly run-to-run, e.g. 18 vs 4 `$`), and never copied a source's equation verbatim.
