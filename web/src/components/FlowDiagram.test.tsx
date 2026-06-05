@@ -39,4 +39,23 @@ describe("FlowDiagram", () => {
         providers={PROVIDERS} stageModels={{ scope: "gpt-4o" }} onStageModelChange={() => {}} />);
     expect(html).toContain("GPT-4o");
   });
+  it("tags each node with its phase (data-phase)", () => {
+    const html = renderToStaticMarkup(
+      <FlowDiagram
+        nodes={[
+          { id: "scope",    label: "Scope",    desc: "d", kind: "llm",  defaultModel: "m" },
+          { id: "retrieve", label: "Retrieve", desc: "d", kind: "data", defaultModel: "" },
+          { id: "generate", label: "Generate", desc: "d", kind: "llm",  defaultModel: "m" },
+        ]}
+        inputLabel="Question"
+        outputLabel="Answer"
+        providers={[]}
+        stageModels={{}}
+        onStageModelChange={() => {}}
+      />,
+    );
+    expect(html).toContain('data-phase="planning"');   // scope
+    expect(html).toContain('data-phase="retrieval"');  // retrieve
+    expect(html).toContain('data-phase="generation"'); // generate
+  });
 });

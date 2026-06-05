@@ -1,5 +1,6 @@
 import NodeModelDropdown from "./NodeModelDropdown";
 import type { ModelProvider } from "../types";
+import { phaseOf, PHASE_META } from "../data/pipelinePhases";
 
 export interface FlowNode {
   id: string;
@@ -42,7 +43,7 @@ export default function FlowDiagram({
 }: FlowDiagramProps) {
   return (
     <div className="pipe2 flow" role="group" aria-label="Pipeline — input to output">
-      <div className="pipe2__node pipe2__node--io flow__node">
+      <div className="pipe2__node pipe2__node--io flow__node" data-phase="io">
         <div className="pipe2__node-hd"><span className="pipe2__node-label">{inputLabel}</span></div>
       </div>
       {nodes.map((n) => {
@@ -51,9 +52,12 @@ export default function FlowDiagram({
         return (
           <div key={n.id} className="flow__seg">
             <Connector />
-            <div className={"pipe2__node flow__node pipe2__node--" + n.kind}>
+            <div className={"pipe2__node flow__node pipe2__node--" + n.kind} data-phase={phaseOf(n.id)}>
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
                 {n.kind === "llm"
                   ? <span className="pipe2__badge" title="Click the model to swap">swap</span>
                   : <span className="pipe2__badge pipe2__badge--data" title="Fixed data stage">data</span>}
@@ -73,7 +77,7 @@ export default function FlowDiagram({
         );
       })}
       <Connector />
-      <div className="pipe2__node pipe2__node--io flow__node">
+      <div className="pipe2__node pipe2__node--io flow__node" data-phase="io">
         <div className="pipe2__node-hd"><span className="pipe2__node-label">{outputLabel}</span></div>
       </div>
     </div>
