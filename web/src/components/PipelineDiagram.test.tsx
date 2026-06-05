@@ -301,6 +301,9 @@ describe("PipelineDiagram", () => {
     expect(html).toContain('data-node="synthesizer"');
     // Worker nodes present
     expect(html).toContain("Worker · N");
+    // Formula-recovery stage sits in the cluster (workers → recovery → synthesizer)
+    expect(html).toContain('data-node="formula_recovery"');
+    expect(html).toContain("Formula recovery");
     // Single draft box must NOT be rendered
     expect(html).not.toContain("Draft / synthesis");
     expect(html).not.toContain('data-node="draft"');
@@ -325,6 +328,9 @@ describe("PipelineDiagram", () => {
     // Orchestrator cluster must NOT be rendered
     expect(html).not.toContain('data-node="orchestrator"');
     expect(html).not.toContain("Synthesizer");
+    // Formula recovery is orchestrator-only — never in single-draft
+    expect(html).not.toContain('data-node="formula_recovery"');
+    expect(html).not.toContain("Formula recovery");
   });
 
   it("rerank node label contains 'adjacent sections' (Change 1)", () => {
