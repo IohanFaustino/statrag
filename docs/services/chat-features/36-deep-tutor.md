@@ -40,7 +40,8 @@ graph TD
   PLAN --> WF{tutorWorkflow?}
   WF -->|single default| DR["draft (single call, streamed)<br/>response_format = DeepTutorAnswer<br/>follows the plan: thesis + ledger + contrasts"]
   WF -->|orchestrator| WK["per-author workers ‖ (one AuthorBrief each)"]
-  WK --> SY["synthesizer (streamed, DeepTutorAnswer)<br/>integrate briefs + compare authors<br/>opt-in deep path: deepagents+SKILL → nano schema-fill (doc 56)"]
+  WK --> FR["formula recovery (gap-triggered, best-effort)<br/>detect OCR-dropped defining equations →<br/>‖ per gap: formula_cache → vision off figure (gpt-4o) → text re-query<br/>→ &lt;recovered_equations&gt; block (verbatim) + cache (doc 56)"]
+  FR --> SY["synthesizer (streamed, DeepTutorAnswer)<br/>integrate briefs + compare authors + recovered equations verbatim<br/>opt-in deep path: deepagents+SKILL → nano schema-fill (doc 56)"]
   SY --> CRT
   WK -.->|<2 authors or all fail| DR
   DR --> CRT{TUTOR_DEEP_CRITIQUE?}
