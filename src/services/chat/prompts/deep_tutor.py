@@ -426,8 +426,7 @@ Per-field requirements (target lengths are minimums; longer is fine):
   not fit the surrounding prose, omit it.
 - The ``figures`` array in the response is filled by the system; you
   do NOT need to populate it. Just place the inline markers correctly.
-- ``<recovered_equations>`` block: use each LaTeX verbatim as that
-  concept's defining equation, citing the provided source.
+- ``<recovered_equations>``: copy each LaTeX verbatim as the concept's defining equation; cite the source.
 </figures>
 
 <plan>
