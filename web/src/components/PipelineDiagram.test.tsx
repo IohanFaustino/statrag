@@ -538,6 +538,32 @@ describe("PipelineDiagram", () => {
   });
 });
 
+it("tags nodes with their phase (single layout)", () => {
+  const html = renderToStaticMarkup(
+    <PipelineDiagram
+      pickerModel="gpt-4o" stageModels={{}} providers={PROVIDERS}
+      onStageModelChange={() => {}} diversityAuthors={3} onDiversityChange={() => {}}
+      tutorWorkflow="single" onWorkflowChange={() => {}}
+    />,
+  );
+  expect(html).toContain('data-phase="planning"');
+  expect(html).toContain('data-phase="retrieval"');
+  expect(html).toContain('data-phase="vision"');
+  expect(html).toContain('data-phase="generation"');
+});
+
+it("formula_recovery node carries the vision phase (orchestrator layout)", () => {
+  const html = renderToStaticMarkup(
+    <PipelineDiagram
+      pickerModel="gpt-4o" stageModels={{}} providers={PROVIDERS}
+      onStageModelChange={() => {}} diversityAuthors={3} onDiversityChange={() => {}}
+      tutorWorkflow="orchestrator" onWorkflowChange={() => {}}
+    />,
+  );
+  expect(html).toContain('data-node="formula_recovery"');
+  expect(html).toContain('data-phase="vision"');
+});
+
 describe("AboutModelModal", () => {
   it("renders nothing when closed", () => {
     const html = renderToStaticMarkup(

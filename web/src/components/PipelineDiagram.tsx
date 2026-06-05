@@ -1,8 +1,10 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { ModelProvider } from "../types";
 import { TUTOR_PIPELINE, type StageKey } from "../data/tutorPipeline";
 import NodeModelDropdown from "./NodeModelDropdown";
 import NodeChoiceDropdown, { type ChoiceOption, type ChoiceValue } from "./NodeChoiceDropdown";
 import type { PipelineNode, PipelineEdge } from "../data/tutorPipeline";
+import { phaseOf, PHASE_META } from "../data/pipelinePhases";
 
 const DIVERSITY_OPTIONS: ChoiceOption[] = [
   { label: "Off",        value: 0 },
@@ -68,59 +70,70 @@ const ROW_DEF: ReadonlyArray<{ id: string; h: number; io?: boolean }> = [
   { id: "output",         h: 46,  io: true },
 ];
 
-const BASE_LAYOUT: Record<string, Box> = (() => {
-  const out: Record<string, Box> = {};
-  let y = TOP;
-  for (const r of ROW_DEF) {
-    out[r.id] = r.io
-      ? { x: IO_X, y, w: IO_W, h: r.h }
-      : { x: CX,   y, w: CW,   h: r.h };
-    y += r.h + GAP;
-  }
-  return out;
-})();
-
-const BASE_H = (() => {
-  let y = TOP;
-  for (const r of ROW_DEF) y += r.h + GAP;
-  return y + 8; // bottom padding
-})();
-
-// ── orchestrator cluster geometry ──────────────────────────────────────────
-// The `draft` slot starts at y=848. The orchestrator cluster replaces it with:
-//   - orchestrator node (same position as draft)
-//   - worker row (3 workers side-by-side) below orchestrator
-//   - synthesizer below the worker row
-// Nodes that follow (vision_explain, output) are shifted down.
-
-const ORCH_Y       = BASE_LAYOUT.draft.y;  // where draft was (848)
-const ORCH_H       = 104;  // fits label + desc + model dropdown (matches draft node)
-const WORKER_ROW_Y = ORCH_Y + ORCH_H + 18;  // 848
-const WORKER_H     = 56;
-// Formula recovery sits between the worker row and the synthesizer: the workers'
-// briefs are scanned for OCR-dropped defining equations, recovered (vision/text),
-// and handed to the synthesizer. Locked (vision + cache), no model dropdown.
-const FR_Y         = WORKER_ROW_Y + WORKER_H + 18;
-const FR_H         = 88;
-const SYNTH_Y      = FR_Y + FR_H + 18;
-const SYNTH_H      = 66;
-const TAIL_SHIFT   = (SYNTH_Y + SYNTH_H) - (BASE_LAYOUT.draft.y + BASE_LAYOUT.draft.h);
-// tail shift = how much extra vertical space we added over the single `draft` box.
+// Default heights used when measured offsetHeight === 0 (jsdom / SSR).
+// Matches old fixed layout so existing tests stay valid.
+const DEFAULT_H: Record<string, number> = {
+  ...Object.fromEntries(ROW_DEF.map((r) => [r.id, r.h])),
+  orchestrator: 104, worker1: 56, worker2: 56, worker3: 56,
+  formula_recovery: 88, synthesizer: 66,
+};
 
 // Worker layout — three equal columns fitting inside the 232px centre band.
 const WORKER_W = 68;
 const WORKER_GAP = 6;
 const WORKERS_TOTAL_W = 3 * WORKER_W + 2 * WORKER_GAP; // 216
-const WORKERS_LEFT_X  = BASE_LAYOUT.draft.x + (BASE_LAYOUT.draft.w - WORKERS_TOTAL_W) / 2; // 152
+const WORKERS_LEFT_X  = CX + (CW - WORKERS_TOTAL_W) / 2;
 
-const ORC_LAYOUT: Record<string, Box> = {
-  orchestrator: { x: BASE_LAYOUT.draft.x, y: ORCH_Y,       w: BASE_LAYOUT.draft.w, h: ORCH_H },
-  worker1:      { x: WORKERS_LEFT_X,                              y: WORKER_ROW_Y, w: WORKER_W, h: WORKER_H },
-  worker2:      { x: WORKERS_LEFT_X + WORKER_W + WORKER_GAP,     y: WORKER_ROW_Y, w: WORKER_W, h: WORKER_H },
-  worker3:      { x: WORKERS_LEFT_X + 2 * (WORKER_W + WORKER_GAP), y: WORKER_ROW_Y, w: WORKER_W, h: WORKER_H },
-  formula_recovery: { x: BASE_LAYOUT.draft.x, y: FR_Y, w: BASE_LAYOUT.draft.w, h: FR_H },
-  synthesizer:  { x: BASE_LAYOUT.draft.x, y: SYNTH_Y, w: BASE_LAYOUT.draft.w, h: SYNTH_H },
-};
+// ── Layout builders (parametrised by a height getter) ──────────────────────
+function buildBaseLayout(h: (id: string) => number): { layout: Record<string, Box>; height: number } {
+  const layout: Record<string, Box> = {};
+  let y = TOP;
+  for (const r of ROW_DEF) {
+    const hh = h(r.id);
+    layout[r.id] = r.io ? { x: IO_X, y, w: IO_W, h: hh } : { x: CX, y, w: CW, h: hh };
+    y += hh + GAP;
+  }
+  return { layout, height: y + 8 };
+}
+
+const PRE_CLUSTER_IDS = [
+  "input", "expansion", "retrieval", "rerank", "diversity",
+  "coverage", "image_judge", "plan", "drafting",
+] as const;
+
+function buildOrchLayout(h: (id: string) => number): { layout: Record<string, Box>; height: number } {
+  const layout: Record<string, Box> = {};
+  let y = TOP;
+  for (const id of PRE_CLUSTER_IDS) {
+    const r = ROW_DEF.find((rr) => rr.id === id)!;
+    const hh = h(id);
+    layout[id] = r.io ? { x: IO_X, y, w: IO_W, h: hh } : { x: CX, y, w: CW, h: hh };
+    y += hh + GAP;
+  }
+  const oH = h("orchestrator");
+  layout.orchestrator = { x: CX, y, w: CW, h: oH };
+  y += oH + GAP;
+  const wH = Math.max(h("worker1"), h("worker2"), h("worker3"));
+  layout.worker1 = { x: WORKERS_LEFT_X, y, w: WORKER_W, h: wH };
+  layout.worker2 = { x: WORKERS_LEFT_X + WORKER_W + WORKER_GAP, y, w: WORKER_W, h: wH };
+  layout.worker3 = { x: WORKERS_LEFT_X + 2 * (WORKER_W + WORKER_GAP), y, w: WORKER_W, h: wH };
+  y += wH + GAP;
+  const frH = h("formula_recovery");
+  layout.formula_recovery = { x: CX, y, w: CW, h: frH };
+  y += frH + GAP;
+  const sH = h("synthesizer");
+  layout.synthesizer = { x: CX, y, w: CW, h: sH };
+  y += sH + GAP;
+  for (const id of ["vision_explain", "output"] as const) {
+    const r = ROW_DEF.find((rr) => rr.id === id)!;
+    const hh = h(id);
+    layout[id] = r.io ? { x: IO_X, y, w: IO_W, h: hh } : { x: CX, y, w: CW, h: hh };
+    y += hh + GAP;
+  }
+  return { layout, height: y + 8 };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 
 // Extra synthetic nodes for the orchestrator cluster.
 const ORC_NODES: PipelineNode[] = [
@@ -200,18 +213,6 @@ const DASHED_EDGES = new Set(["orchestrator→worker1", "orchestrator→worker2"
 // IDs for loop-back edges (go upward; rendered as left-side arcs).
 const LOOP_EDGES = new Set(["coverage→retrieval"]);
 
-function buildOrchLayout(): Record<string, Box> {
-  const layout: Record<string, Box> = { ...BASE_LAYOUT, ...ORC_LAYOUT };
-  // Shift the tail nodes down by TAIL_SHIFT.
-  for (const id of ["vision_explain", "output"] as const) {
-    layout[id] = { ...BASE_LAYOUT[id], y: BASE_LAYOUT[id].y + TAIL_SHIFT };
-  }
-  return layout;
-}
-
-const ORCH_LAYOUT_FULL = buildOrchLayout();
-const ORCH_CANVAS_H = BASE_H + TAIL_SHIFT;
-
 // ──────────────────────────────────────────────────────────────────────────
 
 function modelName(providers: ModelProvider[], id: string): string {
@@ -234,17 +235,18 @@ export default function PipelineDiagram({
 }: PipelineDiagramProps) {
   const isOrchLayout = tutorWorkflow === "orchestrator" || tutorWorkflow === "orchestrator-deep";
 
+  // ── Measurement state ────────────────────────────────────────────────────
+  const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [measured, setMeasured] = useState<Record<string, number>>({});
+  const h = (id: string) => measured[id] || DEFAULT_H[id] || 100;
+
   // ── Derive effective graph ───────────────────────────────────────────────
   let effectiveNodes: PipelineNode[];
   let effectiveEdges: PipelineEdge[];
-  let effectiveLayout: Record<string, Box>;
-  let canvasH: number;
 
   if (!isOrchLayout) {
     effectiveNodes  = TUTOR_PIPELINE.nodes;
     effectiveEdges  = TUTOR_PIPELINE.edges;
-    effectiveLayout = BASE_LAYOUT;
-    canvasH         = BASE_H;
   } else {
     // Drop `draft` from base nodes; append orchestrator cluster.
     effectiveNodes = [
@@ -259,9 +261,25 @@ export default function PipelineDiagram({
       ),
       ...ORC_EDGES,
     ];
-    effectiveLayout = ORCH_LAYOUT_FULL;
-    canvasH         = ORCH_CANVAS_H;
   }
+
+  // ── Build layout from measured (or default) heights ──────────────────────
+  const built = isOrchLayout ? buildOrchLayout(h) : buildBaseLayout(h);
+  const effectiveLayout = built.layout;
+  const canvasH = built.height;
+
+  // ── Measure node heights after render ────────────────────────────────────
+  useLayoutEffect(() => {
+    const next: Record<string, number> = {};
+    for (const id of Object.keys(nodeRefs.current)) {
+      const el = nodeRefs.current[id];
+      if (el && el.offsetHeight > 0) next[id] = el.offsetHeight;
+    }
+    const keys = new Set([...Object.keys(next), ...Object.keys(measured)]);
+    let changed = false;
+    for (const k of keys) if (next[k] !== measured[k]) { changed = true; break; }
+    if (changed) setMeasured(next);
+  });
 
   // ── Edge path helpers ────────────────────────────────────────────────────
   const edgePath = (fromId: string, toId: string): string => {
@@ -381,12 +399,17 @@ export default function PipelineDiagram({
           return (
             <div
               key={n.id}
+              ref={(el) => { nodeRefs.current[n.id] = el; }}
               className="pipe2__node pipe2__node--data"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h }}
+              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
               data-node={n.id}
+              data-phase={phaseOf(n.id)}
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
                 <span className="pipe2__badge" title="Click to set author diversity">set</span>
               </div>
               <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
@@ -405,12 +428,17 @@ export default function PipelineDiagram({
           return (
             <div
               key={n.id}
+              ref={(el) => { nodeRefs.current[n.id] = el; }}
               className="pipe2__node pipe2__node--data"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h }}
+              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
               data-node={n.id}
+              data-phase={phaseOf(n.id)}
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
                 <span className="pipe2__badge" title="Click to set drafting workflow">set</span>
               </div>
               <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
@@ -430,12 +458,17 @@ export default function PipelineDiagram({
           return (
             <div
               key={n.id}
+              ref={(el) => { nodeRefs.current[n.id] = el; }}
               className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h }}
+              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
               data-node={n.id}
+              data-phase={phaseOf(n.id)}
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
               <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
@@ -456,12 +489,17 @@ export default function PipelineDiagram({
           return (
             <div
               key={n.id}
+              ref={(el) => { nodeRefs.current[n.id] = el; }}
               className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h }}
+              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
               data-node={n.id}
+              data-phase={phaseOf(n.id)}
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
                 <span className="pipe2__badge" title="Click the model to swap">swap</span>
               </div>
               <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
@@ -474,14 +512,16 @@ export default function PipelineDiagram({
           );
         }
 
-        // ── worker nodes (static, no dropdown) ──────────────────────────
+        // ── worker nodes (static, no dropdown, no chip) ──────────────────
         if (n.id === "worker1" || n.id === "worker2" || n.id === "worker3") {
           return (
             <div
               key={n.id}
+              ref={(el) => { nodeRefs.current[n.id] = el; }}
               className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h, fontSize: "0.72em" }}
+              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, fontSize: "0.72em" }}
               data-node={n.id}
+              data-phase={phaseOf(n.id)}
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
@@ -501,12 +541,17 @@ export default function PipelineDiagram({
           return (
             <div
               key={n.id}
+              ref={(el) => { nodeRefs.current[n.id] = el; }}
               className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h }}
+              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
               data-node={n.id}
+              data-phase={phaseOf(n.id)}
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
                 <span className="pipe2__node-sublabel">
                   {deepSynth ? "deepagents + skill → schema-fill" : "integrate & compare"}
                 </span>
@@ -535,16 +580,23 @@ export default function PipelineDiagram({
         return (
           <div
             key={n.id}
+            ref={(el) => { nodeRefs.current[n.id] = el; }}
             className={
               "pipe2__node" +
               (n.locked ? " pipe2__node--locked" : "") +
               ` pipe2__node--${n.kind}`
             }
-            style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h }}
+            style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
             data-node={n.id}
+            data-phase={phaseOf(n.id)}
           >
             <div className="pipe2__node-hd">
               <span className="pipe2__node-label">{n.label}</span>
+              {n.kind !== "io" && (
+                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
+                  {PHASE_META[phaseOf(n.id)].label}
+                </span>
+              )}
               {n.locked ? (
                 <span className="pipe2__lock" title="Fixed model — not swappable">🔒</span>
               ) : (
