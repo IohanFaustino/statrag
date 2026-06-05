@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -199,12 +199,18 @@ class DeepTutorAnswer(BaseModel):
     figures: list[FigureRef] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _require_component_equations(self) -> "DeepTutorAnswer":
+    def _require_component_equations(self, info: ValidationInfo) -> "DeepTutorAnswer":
         """Every component ``### `` subsection of a *mathematical* definition
         must carry a real ``$$…$$`` defining equation. Math-answer gate: only
         enforced when ``math_blocks`` is non-empty or ``definition`` contains
         ``$$``. Header-less / non-math definitions are exempt, so directly
-        constructed fallbacks (e.g. ``_wrap_text_answer``) never raise."""
+        constructed fallbacks (e.g. ``_wrap_text_answer``) never raise.
+
+        Best-effort: when validated with ``context={"skip_format_checks": True}``
+        this check is skipped (used by the orchestrator's final fallback so a
+        format-imperfect answer renders instead of erroring)."""
+        if (info.context or {}).get("skip_format_checks"):
+            return self
         is_math = bool(self.math_blocks) or "$$" in self.definition
         if not is_math:
             return self

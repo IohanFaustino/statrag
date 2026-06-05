@@ -144,14 +144,13 @@ async def _validate_and_repair(
     """
     schema_cls = spec.output_schema
 
+    text = accumulated.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
+
     # --- First attempt ---
     try:
-        # Strip markdown code fences if present
-        text = accumulated.strip()
-        if text.startswith("```"):
-            # Remove ```json ... ``` wrapper
-            lines = text.splitlines()
-            text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
         obj = schema_cls.model_validate_json(text)
         return obj.model_dump(), None
     except (ValidationError, Exception) as first_err:
@@ -160,23 +159,33 @@ async def _validate_and_repair(
     # --- Repair attempt ---
     schema_json = json.dumps(schema_cls.model_json_schema(), indent=2)
     repair_prompt = build_repair_prompt(first_error_str, schema_json, accumulated)
-
-    repair_messages: list[ChatMessage] = [
-        ChatMessage(role="user", content=repair_prompt),
-    ]
+    repair_messages: list[ChatMessage] = [ChatMessage(role="user", content=repair_prompt)]
+    repaired_text = ""
     try:
         repaired = ""
         async for chunk in llm.stream(repair_messages, model=model_id):
             repaired += chunk
-
         repaired_text = repaired.strip()
         if repaired_text.startswith("```"):
             lines = repaired_text.splitlines()
             repaired_text = "\n".join(lines[1:-1]) if len(lines) > 2 else repaired_text
-
         obj = schema_cls.model_validate_json(repaired_text)
         return obj.model_dump(), None
     except (ValidationError, Exception) as second_err:
+        # Best-effort: if the answer is structurally valid and only a soft
+        # FORMAT validator failed, accept it (render imperfect) rather than
+        # blanking the turn. context={"skip_format_checks": True} bypasses only
+        # DeepTutorAnswer's format validators; other schemas ignore it.
+        for candidate in (repaired_text, text):
+            if not candidate:
+                continue
+            try:
+                obj = schema_cls.model_validate_json(
+                    candidate, context={"skip_format_checks": True}
+                )
+                return obj.model_dump(), None
+            except Exception:
+                continue
         return None, str(second_err)
 
 

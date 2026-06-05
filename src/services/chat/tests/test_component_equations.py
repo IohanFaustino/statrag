@@ -186,3 +186,53 @@ def test_noncompliant_json_triggers_repair():
     assert err is None
     assert calls["n"] == 1
     assert validated is not None
+
+
+def test_skip_format_checks_context_bypasses_equation_validator():
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    bad = (
+        "We define each component.\n"
+        "### Bias\n- prose only, no formula\n"
+        "### MSE\n"
+        r"$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$" "\n"
+    )
+    payload = DeepTutorAnswer.model_construct(
+        tldr="i", definition=bad, formal_statement="", example_intuition="e",
+        applications="a", further_reading="f", citations=[], math_blocks=[], figures=[],
+    ).model_dump_json()
+    with pytest.raises(ValidationError):
+        DeepTutorAnswer.model_validate_json(payload)
+    obj = DeepTutorAnswer.model_validate_json(payload, context={"skip_format_checks": True})
+    assert obj.definition == bad
+
+
+def test_validate_and_repair_best_effort_accepts_on_repair_failure():
+    import asyncio
+    from src.services.chat import orchestrator
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    bad = (
+        "We define each component.\n"
+        "### Bias\n- prose only, no formula\n"
+        "### MSE\n"
+        r"$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$" "\n"
+    )
+    bad_json = DeepTutorAnswer.model_construct(
+        tldr="i", definition=bad, formal_statement="", example_intuition="e",
+        applications="a", further_reading="f", citations=[], math_blocks=[], figures=[],
+    ).model_dump_json()
+
+    class _FakeLLM:
+        async def stream(self, messages, **kw):
+            yield bad_json
+
+    class _Spec:
+        output_schema = DeepTutorAnswer
+
+    validated, err = asyncio.run(
+        orchestrator._validate_and_repair(bad_json, _Spec(), _FakeLLM(), "gpt-5.4-nano-2026-03-17")
+    )
+    assert err is None
+    assert validated is not None
+    assert "### Bias" in validated["definition"]
