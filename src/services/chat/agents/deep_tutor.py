@@ -404,6 +404,63 @@ def _isolate_midline_display(s: str) -> str:
     return "\n".join(out_lines)
 
 
+_INLINE_MATH_RE = re.compile(r"(?<!\$)\$([^$\n]+?)\$(?!\$)")
+# An inline span is a full *defining equation* (not a passing symbol) when it
+# carries a relation operator. Such spans become own-line display blocks.
+_RELATION_RE = re.compile(r"=|\\leq|\\geq|\\approx|\\neq|\\sim|\\propto|<|>")
+
+
+def _promote_inline_equations(s: str) -> str:
+    """Promote inline ``$…$`` *defining equations* to own-line ``$$…$$`` display
+    blocks (used for the ``definition`` aspect, where core formulas must render
+    as centered display per the tutor contract).
+
+    An inline span is treated as a defining equation only when it contains a
+    relation operator (``=``, ``\\leq``, ``\\approx`` …). Bare-symbol spans like
+    ``$x_2$`` or ``$\\theta$`` mentioned in running prose stay inline. The
+    surrounding prose (and any ``[N]`` citation) is kept; a trailing connector
+    (``:``) before the equation and a leading connector (``,`` ``;``) after it
+    are trimmed so the broken sentence still reads cleanly."""
+    if "$" not in s:
+        return s
+    out_lines: list[str] = []
+    for line in s.split("\n"):
+        if line.lstrip().startswith("$$") or "$" not in line:
+            out_lines.append(line)
+            continue
+        segs: list[tuple[str, str]] = []
+        pos = 0
+        changed = False
+        for m in _INLINE_MATH_RE.finditer(line):
+            if _RELATION_RE.search(m.group(1)):
+                segs.append(("text", line[pos:m.start()]))
+                segs.append(("eq", m.group(1)))
+                pos = m.end()
+                changed = True
+        if not changed:
+            out_lines.append(line)
+            continue
+        segs.append(("text", line[pos:]))
+        buf = ""
+        for kind, val in segs:
+            if kind == "text":
+                buf += val
+                continue
+            lead = re.sub(r"[ \t]{2,}", " ", buf).rstrip()
+            lead = lead.rstrip(" :")
+            if lead.strip():
+                out_lines.append(lead)
+            out_lines.append("")
+            out_lines.append(f"$${val}$$")
+            out_lines.append("")
+            buf = ""
+        tail = buf.lstrip(" ,;")
+        tail = re.sub(r"[ \t]{2,}", " ", tail).rstrip()
+        if tail.strip():
+            out_lines.append(tail)
+    return "\n".join(out_lines)
+
+
 # ---------------------------------------------------------------------------
 # Figure → aspect placement
 # ---------------------------------------------------------------------------
@@ -2181,8 +2238,11 @@ def _convert_to_tutor_answer(
         )
     final_aspects = {k: (getattr(deep, k, None) or aspects.get(k, "") or "") for k in ASPECT_HEADINGS}
     for k, v in final_aspects.items():
-        repaired = _repair_latex_post(v)
-        final_aspects[k] = _isolate_midline_display(_wrap_bare_math(repaired))
+        repaired = _wrap_bare_math(_repair_latex_post(v))
+        # Core formulas in the definition render as own-line $$display$$ blocks.
+        if k == "definition":
+            repaired = _promote_inline_equations(repaired)
+        final_aspects[k] = _isolate_midline_display(repaired)
 
     figs_for_text = list(approved_figures) if approved_figures else (
         list(deep.figures) if deep else []

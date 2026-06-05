@@ -1314,3 +1314,25 @@ def test_isolate_midline_display_keeps_indented_ownline_display():
     s = "intro line\n  $$\\mathrm{MSE}=\\sigma^2$$\nnext line"
     out = _isolate_midline_display(s)
     assert "  $$\\mathrm{MSE}=\\sigma^2$$" in out
+
+
+def test_promote_inline_equations_promotes_relation_span():
+    from src.services.chat.agents.deep_tutor import _promote_inline_equations
+    s = r"- the bias is $\mathrm{Bias}(\hat\theta)=\mathbb{E}[\hat\theta]-\theta$, capturing how far. [1]"
+    out = _promote_inline_equations(s)
+    lines = [ln for ln in out.split("\n") if ln.strip()]
+    assert r"$$\mathrm{Bias}(\hat\theta)=\mathbb{E}[\hat\theta]-\theta$$" in lines, out
+    # the equation is gone from the prose line; trailing comma trimmed
+    assert any("capturing how far" in ln and "$$" not in ln and not ln.lstrip().startswith(",") for ln in lines), out
+
+
+def test_promote_inline_equations_keeps_bare_symbols_inline():
+    from src.services.chat.agents.deep_tutor import _promote_inline_equations
+    s = r"the true model includes $x_2$ but the fitted model omits $\theta$ here."
+    assert _promote_inline_equations(s) == s  # no relation -> untouched
+
+
+def test_promote_inline_equations_ignores_ownline_display():
+    from src.services.chat.agents.deep_tutor import _promote_inline_equations
+    s = "$$\\mathrm{MSE}=\\sigma^2$$"
+    assert _promote_inline_equations(s) == s
