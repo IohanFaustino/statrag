@@ -55,6 +55,8 @@ graph TD
   FIN --> SSE["meta → token* (per-aspect attribution)<br/>→ structured_output → sources_full<br/>→ retrieval_meta (incl. timings) → usage → done"]
 ```
 
+> **Modal phase colors** (the (i) pipeline diagram color-groups nodes by function, from `web/src/data/pipelinePhases.ts`): Planning (amber) · Retrieval (indigo) · Generation (red) · Vision (violet) · I/O (grey). Tutor cards auto-fit their text (measured reflow); QA/Facilitate/Resume share the same palette via `FlowDiagram`.
+
 ## Schema (LLM contract)
 
 ```python
