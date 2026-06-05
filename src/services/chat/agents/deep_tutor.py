@@ -365,22 +365,23 @@ def _wrap_bare_math(s: str) -> str:
     return "".join(out_parts)
 
 
-def _inline_midline_display(s: str) -> str:
-    """Convert a ``$$…$$`` that shares its line with other text into inline
-    ``$…$``.
+def _isolate_midline_display(s: str) -> str:
+    """Move every ``$$…$$`` display block onto its OWN line.
 
     The frontend block-math parser (``TutorView.splitIntoBlocks``) only renders
     a ``$$…$$`` that OWNS its line; a display span placed mid-line (e.g. inside
     a bullet, ``- **bias is** $$\\mathrm{Bias}…$$ [2]``) is handed to the inline
-    ``$…$`` matcher, which mis-reads the doubled ``$`` and leaks raw LaTeX.
-    Converting such mid-line display spans to inline ``$…$`` makes KaTeX render
-    them; a ``$$…$$`` that already owns its line is left as a display block."""
+    ``$…$`` matcher, which mis-reads the doubled ``$`` and leaks raw LaTeX. We
+    keep core defining equations as DISPLAY blocks (per the prompt), so we MOVE
+    each mid-line ``$$…$$`` onto its own line — the surrounding text and its
+    ``[N]`` citation stay on the line above, the equation renders as a centered
+    display block below. A ``$$…$$`` that already owns its line is left as-is."""
     if "$$" not in s:
         return s
     out_lines: list[str] = []
     for line in s.split("\n"):
         stripped = line.strip()
-        # Own-line display block: a single ``$$…$$`` span alone on the line.
+        # Already an own-line display block: leave untouched.
         if (
             stripped.startswith("$$")
             and stripped.endswith("$$")
@@ -388,9 +389,18 @@ def _inline_midline_display(s: str) -> str:
         ):
             out_lines.append(line)
             continue
-        if "$$" in line:
-            line = re.sub(r"\$\$([^$]+?)\$\$", r"$\1$", line)
-        out_lines.append(line)
+        # Mid-line display span(s): pull each onto its own line below the text.
+        if line.count("$$") >= 2:
+            blocks = re.findall(r"\$\$[^$]+?\$\$", line)
+            remainder = re.sub(r"\$\$[^$]+?\$\$", "", line)
+            remainder = re.sub(r"[ \t]{2,}", " ", remainder).rstrip()
+            if remainder.strip():
+                out_lines.append(remainder)
+            for blk in blocks:
+                out_lines.append("")
+                out_lines.append(blk)
+        else:
+            out_lines.append(line)
     return "\n".join(out_lines)
 
 
@@ -2172,7 +2182,7 @@ def _convert_to_tutor_answer(
     final_aspects = {k: (getattr(deep, k, None) or aspects.get(k, "") or "") for k in ASPECT_HEADINGS}
     for k, v in final_aspects.items():
         repaired = _repair_latex_post(v)
-        final_aspects[k] = _inline_midline_display(_wrap_bare_math(repaired))
+        final_aspects[k] = _isolate_midline_display(_wrap_bare_math(repaired))
 
     figs_for_text = list(approved_figures) if approved_figures else (
         list(deep.figures) if deep else []

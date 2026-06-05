@@ -205,11 +205,13 @@ Per-field requirements (target lengths are minimums; longer is fine):
     the components combine into a single error quantity.
   - FORMULAS HAVE A HOME HERE, AS CENTERED DISPLAY EQUATIONS. For a
     decomposition or tradeoff concept, EACH component ``### `` subsection
-    MUST open with a bullet stating its defining formula inline, and the
-    central ``### `` (e.g. ``### MSE``) states the ``$$decomposition$$``.
-    More generally, each component ``### `` subsection (e.g. ``### Bias``,
-    ``### Variance``) MUST contain its defining formula as ``$$ … $$``
-    (NOT inline ``$…$``).
+    states its defining formula as a ``$$ … $$`` DISPLAY block ON ITS OWN
+    LINE (lead-in text + ``[N]`` on the line above, the ``$$ … $$`` alone on
+    the next line), and the central ``### `` (e.g. ``### MSE``) likewise
+    states the ``$$decomposition$$`` as its own display block.
+    Each component ``### `` subsection (e.g. ``### Bias``, ``### Variance``)
+    MUST contain its defining formula as an own-line ``$$ … $$`` block —
+    NEVER inline ``$…$`` and NEVER ``$$ … $$`` mid-line inside a bullet.
     The ``### MSE`` (or relevant central-quantity) subsection states the
     decomposition even if that quantity was not named in the question.
     Do NOT defer the formulas to ``formal_statement`` — that field is
@@ -416,11 +418,14 @@ Per-field requirements (target lengths are minimums; longer is fine):
   (``\\\\tilde``, ``\\\\hat``, ``\\\\beta``), a bare subscript/superscript
   (``x_1``, ``a^2``), or mix unicode glyphs (β, θ) with ``\\\\commands``
   in one expression. A bare ``\\\\command`` in prose is a FAILURE.
-- INLINE vs DISPLAY: a defining equation that completes a sentence is
-  INLINE ``$…$`` so the prose flows; reserve ``$$…$$`` for standalone
-  decompositions on their own line. Do NOT leave a dangling ``". [N]"``
-  after a display block — end the sentence AND place its ``[N]`` citation
-  BEFORE the block, never alone on the line after ``$$…$$``.
+- INLINE vs DISPLAY: a CORE defining equation (each component's defining
+  formula and the central decomposition in ``definition``) is a DISPLAY block
+  ``$$…$$`` ON ITS OWN LINE — put the lead-in text and its ``[N]`` citation on
+  the line above, then the ``$$…$$`` alone on the next line. Use inline
+  ``$…$`` ONLY for small symbols mentioned in running prose (e.g. ``$x_1$``,
+  ``$\\\\lambda$``), never for a full defining equation. Do NOT place a
+  ``$$…$$`` mid-line inside a bullet or sentence, and do NOT leave a dangling
+  ``". [N]"`` after a display block.
 </math_format>
 
 <figures>
