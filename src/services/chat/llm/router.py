@@ -62,6 +62,7 @@ _PROVIDERS: list[ModelProvider] = [
                 cost="$",
                 speed="fast",
                 ctx="200k",
+                recommended=True,
             ),
             Model(
                 id="gpt-5.4-2026-03-05",
@@ -182,7 +183,6 @@ _PROVIDERS: list[ModelProvider] = [
                 cost="$",
                 speed="fast",
                 ctx="1M",
-                recommended=True,
             ),
             Model(
                 id="qwen-max",
@@ -310,6 +310,30 @@ def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
             base_url=settings.qwen_base_url,
         )
     return openai.AsyncOpenAI(api_key=settings.openai_api_key)
+
+
+def is_structured_output_capable(model_id: str | None) -> bool:
+    """True iff the model runs OpenAI strict json_schema structured output.
+
+    Mirrors the provider dispatch in :func:`aclient_for` / :func:`get_llm`
+    so the routing predicate and the actual client dispatch never disagree:
+
+    * ``deepseek`` / ``gemini`` / ``qwen`` — matched by **ID prefix** (same
+      as dispatch); a new model ID with those prefixes is excluded even before
+      it appears in the static registry sets.
+    * Groq — matched by **set membership** in ``GROQ_MODEL_IDS`` (same as
+      dispatch; prefix matching is unsafe here because Groq hosts
+      ``openai/gpt-oss-*`` IDs that share the ``openai/`` prefix with
+      OpenAI-hosted IDs).
+    * Everything else (OpenAI family, unknown, ``None``) → ``True``.
+    """
+    if not model_id:
+        return True
+    if model_id.startswith(("deepseek", "gemini", "qwen")):
+        return False
+    if model_id in GROQ_MODEL_IDS:
+        return False
+    return True
 
 
 def list_providers() -> list[ModelProvider]:

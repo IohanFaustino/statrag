@@ -17,6 +17,7 @@ const DIVERSITY_OPTIONS: ChoiceOption[] = [
 const WORKFLOW_OPTIONS: ChoiceOption[] = [
   { label: "Single draft",               value: "single" },
   { label: "Orchestrator (per author)",  value: "orchestrator" },
+  { label: "Deep synthesis (slower ~45s)", value: "orchestrator-deep" },
   { label: "Organize (V4-PRO, long-ctx)", value: "organize" },
 ];
 
@@ -96,7 +97,12 @@ const ORCH_Y       = BASE_LAYOUT.draft.y;  // where draft was (848)
 const ORCH_H       = 104;  // fits label + desc + model dropdown (matches draft node)
 const WORKER_ROW_Y = ORCH_Y + ORCH_H + 18;  // 848
 const WORKER_H     = 56;
-const SYNTH_Y      = WORKER_ROW_Y + WORKER_H + 18;  // 922
+// Formula recovery sits between the worker row and the synthesizer: the workers'
+// briefs are scanned for OCR-dropped defining equations, recovered (vision/text),
+// and handed to the synthesizer. Locked (vision + cache), no model dropdown.
+const FR_Y         = WORKER_ROW_Y + WORKER_H + 18;
+const FR_H         = 88;
+const SYNTH_Y      = FR_Y + FR_H + 18;
 const SYNTH_H      = 66;
 const TAIL_SHIFT   = (SYNTH_Y + SYNTH_H) - (BASE_LAYOUT.draft.y + BASE_LAYOUT.draft.h);
 // tail shift = how much extra vertical space we added over the single `draft` box.
@@ -112,6 +118,7 @@ const ORC_LAYOUT: Record<string, Box> = {
   worker1:      { x: WORKERS_LEFT_X,                              y: WORKER_ROW_Y, w: WORKER_W, h: WORKER_H },
   worker2:      { x: WORKERS_LEFT_X + WORKER_W + WORKER_GAP,     y: WORKER_ROW_Y, w: WORKER_W, h: WORKER_H },
   worker3:      { x: WORKERS_LEFT_X + 2 * (WORKER_W + WORKER_GAP), y: WORKER_ROW_Y, w: WORKER_W, h: WORKER_H },
+  formula_recovery: { x: BASE_LAYOUT.draft.x, y: FR_Y, w: BASE_LAYOUT.draft.w, h: FR_H },
   synthesizer:  { x: BASE_LAYOUT.draft.x, y: SYNTH_Y, w: BASE_LAYOUT.draft.w, h: SYNTH_H },
 };
 
@@ -154,26 +161,37 @@ const ORC_NODES: PipelineNode[] = [
     locked: false,
   },
   {
+    id: "formula_recovery",
+    label: "Formula recovery",
+    desc: "Gap-triggered · best-effort. If a concept's defining equation was OCR-dropped to a figure, recover it per gap in parallel: formula_cache → vision reads it off the figure (gpt-4o) → text re-query. Injected into the synth as <recovered_equations> (used verbatim) and cached. No-op on failure.",
+    kind: "data",
+    stage: null,
+    defaultModel: "gpt-4o vision + formula_cache",
+    locked: true,
+  },
+  {
     id: "synthesizer",
     label: "Synthesizer",
-    desc: "Integrates & compares per-author drafts into the final answer.",
+    desc: "Integrates & compares per-author drafts into the final answer. In plain orchestrator mode the synthesizer runs on the draft model; switch to deep synthesis (orchestrator-deep) to select a dedicated synthesis model (default nano) that drives the deepagents synthesizer + nano schema-fill.",
     kind: "llm",
-    stage: null,
-    defaultModel: "__active__",
+    stage: "synth",
+    defaultModel: "gpt-5.4-nano-2026-03-17",
     locked: false,
   },
 ];
 
-// Edges that replace the single `drafting → draft` edge.
+// Edges that replace the single `drafting → draft` edge. Workers' briefs flow
+// through the formula-recovery stage before the synthesizer integrates them.
 const ORC_EDGES: PipelineEdge[] = [
-  { from: "drafting",      to: "orchestrator" },
-  { from: "orchestrator",  to: "worker1" },
-  { from: "orchestrator",  to: "worker2" },
-  { from: "orchestrator",  to: "worker3" },
-  { from: "worker1",       to: "synthesizer" },
-  { from: "worker2",       to: "synthesizer" },
-  { from: "worker3",       to: "synthesizer" },
-  { from: "synthesizer",   to: "vision_explain" },
+  { from: "drafting",          to: "orchestrator" },
+  { from: "orchestrator",      to: "worker1" },
+  { from: "orchestrator",      to: "worker2" },
+  { from: "orchestrator",      to: "worker3" },
+  { from: "worker1",           to: "formula_recovery" },
+  { from: "worker2",           to: "formula_recovery" },
+  { from: "worker3",           to: "formula_recovery" },
+  { from: "formula_recovery",  to: "synthesizer" },
+  { from: "synthesizer",       to: "vision_explain" },
 ];
 
 // IDs that are dashed delegate edges (orchestrator → workers).
@@ -214,7 +232,7 @@ export default function PipelineDiagram({
   tutorWorkflow,
   onWorkflowChange,
 }: PipelineDiagramProps) {
-  const isOrch = tutorWorkflow === "orchestrator";
+  const isOrchLayout = tutorWorkflow === "orchestrator" || tutorWorkflow === "orchestrator-deep";
 
   // ── Derive effective graph ───────────────────────────────────────────────
   let effectiveNodes: PipelineNode[];
@@ -222,7 +240,7 @@ export default function PipelineDiagram({
   let effectiveLayout: Record<string, Box>;
   let canvasH: number;
 
-  if (!isOrch) {
+  if (!isOrchLayout) {
     effectiveNodes  = TUTOR_PIPELINE.nodes;
     effectiveEdges  = TUTOR_PIPELINE.edges;
     effectiveLayout = BASE_LAYOUT;
@@ -472,8 +490,14 @@ export default function PipelineDiagram({
           );
         }
 
-        // ── synthesizer node (static label, no separate model control) ──
+        // ── synthesizer node ─────────────────────────────────────────────
+        // deepSynth (orchestrator-deep): editable synth model dropdown.
+        // plain orchestrator: read-only badge showing the draft model (the L0
+        // synthesizer actually runs on the draft model in that path).
         if (n.id === "synthesizer") {
+          const deepSynth = tutorWorkflow === "orchestrator-deep";
+          const synthActive = stageModels["synth"] ?? n.defaultModel;
+          const draftActive = stageModels["draft"] ?? pickerModel;
           return (
             <div
               key={n.id}
@@ -483,8 +507,19 @@ export default function PipelineDiagram({
             >
               <div className="pipe2__node-hd">
                 <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__node-sublabel">integrate &amp; compare</span>
+                <span className="pipe2__node-sublabel">
+                  {deepSynth ? "deepagents + skill → schema-fill" : "integrate & compare"}
+                </span>
               </div>
+              {deepSynth ? (
+                <NodeModelDropdown
+                  value={synthActive}
+                  providers={providers}
+                  onChange={(id) => onStageModelChange("synth" as StageKey, id)}
+                />
+              ) : (
+                <span className="pipe2__model-fixed">{modelName(providers, draftActive) || draftActive}</span>
+              )}
             </div>
           );
         }

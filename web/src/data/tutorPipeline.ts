@@ -6,7 +6,7 @@
 // to a picker chat model). Locked nodes use a fixed model class (embedding /
 // cross-encoder / vision) that a chat model cannot replace.
 
-export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan";
+export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan" | "synth";
 
 export interface PipelineNode {
   id: string;
@@ -102,7 +102,7 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
     {
       id: "drafting",
       label: "Drafting workflow",
-      desc: "Single draft (one call writes all sections); orchestrator-workers (one worker per author, then a synthesizer integrates + compares); or organize (a large token-budgeted pool handed to deepseek-v4-pro, which organizes the coherent pieces — formulas, the MSE decomposition, real cases — into the fields).",
+      desc: "Single draft (one call writes all sections); orchestrator-workers (one worker per author, then a synthesizer integrates + compares); deep synthesis (orchestrator workers + deepagents synthesis skill integrates the briefs, ~45 s, opt-in); or organize (a large token-budgeted pool handed to deepseek-v4-pro, which organizes the coherent pieces — formulas, the MSE decomposition, real cases — into the fields).",
       kind: "data",
       stage: null,
       defaultModel: "",

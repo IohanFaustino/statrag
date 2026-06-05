@@ -66,3 +66,124 @@ def test_pc_render_artifact():
                        "ms_mean": 3000, "usd_mean": 0.0009, "ok_runs": 3}}
     md = PC._render_artifact(agg)
     assert "| arm | question |" in md and "L0" in md and "3.9" in md and "±" in md
+
+
+def test_schema_fill_uses_draft_system_prompt(monkeypatch):
+    """L3b schema-fill must re-express via the draft system prompt so C-style
+    bullets, $$display$$ math, and [Fn] markers survive into the schema.
+
+    _schema_fill lives in orchestrator_workers.py and calls _stream_structured
+    (imported there from deep_tutor.py). We patch the module-level binding in
+    orchestrator_workers so the call is intercepted.
+    """
+    import src.services.chat.agents.orchestrator_workers as ow
+    from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_INSTRUCTIONS
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    captured: dict = {}
+
+    async def fake_stream_structured(messages, model, on_aspect_delta=None):
+        captured["messages"] = messages
+        return DeepTutorAnswer.model_construct(), {}
+
+    monkeypatch.setattr(ow, "_stream_structured", fake_stream_structured)
+
+    synthesis = (
+        "- **Central claim** — body text\n\n"
+        "$$y = \\beta_0 + \\beta_1 x$$\n\n"
+        "See [F1] for the graphical illustration."
+    )
+    asyncio.run(ow._schema_fill("What is linear regression?", synthesis,
+                                "gpt-5.4-nano-2026-03-17", lambda *_: None))
+
+    assert captured, "_stream_structured was never called"
+    system_content = captured["messages"][0]["content"]
+    assert captured["messages"][0]["role"] == "system"
+    # The C-style draft contract must govern the fill — check a distinctive
+    # prefix of DEEP_TUTOR_INSTRUCTIONS that is NOT in SCHEMA_FILL_PROMPT.
+    assert DEEP_TUTOR_INSTRUCTIONS[:60] in system_content, (
+        "DEEP_TUTOR_INSTRUCTIONS not found in schema-fill system prompt; "
+        "C-style formatting contract will be lost on the L3b path."
+    )
+
+
+def test_schema_fill_includes_figure_bundle(monkeypatch):
+    """_schema_fill must inject the approved figures so [F<i>] markers survive
+    the re-express on the deep path."""
+    import asyncio
+    import src.services.chat.agents.orchestrator_workers as ow
+
+    captured = {}
+
+    async def fake_stream(messages, *args, **kwargs):
+        captured["messages"] = messages
+        from src.services.chat.schemas.output import DeepTutorAnswer
+        return DeepTutorAnswer.model_construct(), {}
+
+    class _Fig:
+        aspect_hint = "example_intuition"
+        figure_role = "illustration"
+        ref = "fig1"
+        book = "ISL"
+        chapter = "2"
+        caption = "bias-variance curve"
+
+    monkeypatch.setattr(ow, "_stream_structured", fake_stream, raising=False)
+    asyncio.run(ow._schema_fill("q", "synthesis text", ow.settings.openai_model_nano,
+                                lambda *_: None, figures=[_Fig()]))
+    user_msg = next(m["content"] for m in captured["messages"] if m["role"] == "user")
+    assert "<figures>" in user_msg
+
+
+def test_synthesize_with_skill_accepts_figures():
+    import inspect
+    from src.services.chat.agents.ow_deepagents import synthesize_with_skill
+    assert "figures" in inspect.signature(synthesize_with_skill).parameters
+
+
+def test_synthesize_structured_returns_typed_answer(monkeypatch):
+    import asyncio
+    import src.services.chat.agents.ow_deepagents as owd
+    from src.services.chat.schemas.output import DeepTutorAnswer, AuthorBrief
+
+    sentinel = DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                               example_intuition="e", applications="a", further_reading="f")
+
+    class _Agent:
+        def invoke(self, payload, config=None):
+            return {"structured_response": sentinel, "messages": []}
+
+    captured = {}
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return _Agent()
+    monkeypatch.setattr(owd, "create_deep_agent", fake_create, raising=False)
+
+    briefs = [AuthorBrief(author="Das", summary="s", key_points=["k"], source_ranks=[1])]
+    out, it, ot = asyncio.run(owd.synthesize_structured("q", [], briefs, model="gpt-5.4-nano-2026-03-17"))
+    assert out is sentinel
+    assert captured.get("response_format") is not None
+    assert captured.get("skills") == ["/skills/"]
+
+
+def test_synthesize_subagents_structured_builds_author_subagents(monkeypatch):
+    import asyncio
+    import src.services.chat.agents.ow_deepagents as owd
+    from src.services.chat.schemas.output import DeepTutorAnswer, AuthorBrief
+
+    sentinel = DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                               example_intuition="e", applications="a", further_reading="f")
+    class _Agent:
+        def invoke(self, payload, config=None):
+            return {"structured_response": sentinel, "messages": []}
+    captured = {}
+    monkeypatch.setattr(owd, "create_deep_agent", lambda **kw: (captured.update(kw) or _Agent()), raising=False)
+
+    briefs = [AuthorBrief(author="Das", summary="s", key_points=["k"], source_ranks=[1]),
+              AuthorBrief(author="Pesaran", summary="s2", key_points=["k2"], source_ranks=[2])]
+    out, it, ot = asyncio.run(owd.synthesize_subagents_structured("q", [], briefs, model="gpt-5.4-nano-2026-03-17"))
+    assert out is sentinel
+    subs = captured.get("subagents") or []
+    assert len(subs) == 2
+    assert all("response_format" in s for s in subs)
+    assert captured.get("response_format") is not None

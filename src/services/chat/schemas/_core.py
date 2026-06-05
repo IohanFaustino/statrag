@@ -138,8 +138,10 @@ class ChatRequest(BaseModel):
 
     # Drafting workflow: ``"single"`` = one draft call writes all aspects (legacy);
     # ``"orchestrator"`` = one worker per author + a synthesizer integrate pass.
+    # ``"orchestrator-deep"`` = orchestrator workers + the deepagents+SKILL deep
+    #   synthesizer (Plan D, opt-in, ~45 s blocking; falls back to L0 on failure).
     # ``None`` defers to the ``TUTOR_WORKFLOW`` env default.
-    tutorWorkflow: Literal["single", "orchestrator", "organize"] | None = None
+    tutorWorkflow: Literal["single", "orchestrator", "orchestrator-deep", "organize"] | None = None
 
 
 class SearchRequest(BaseModel):

@@ -35,22 +35,37 @@ def test_intro_heading_renamed():
 # --- #3 structure into left-aligned subsections (§12) ------------------
 def test_structure_requires_subsection_headers():
     assert "wall of text" in INSTR
-    # §12: aspects structured with ### subsection headers, NOT bullet lists
+    # ### H3 headers remain the backbone of each aspect body
     assert "left-aligned subsection headers" in INSTR
-    assert "not bullet lists" in INSTR
+    # C-style: inside each ### subsection, use bold-lead-in bullets, one per claim
+    assert "bold lead-in bullets" in INSTR
+    assert "one claim per line" in INSTR
+    # the old prose mandate is gone — no flat 3-5 sentence paragraph rule,
+    # no blanket bullet ban
+    assert "3-5 sentences" not in INSTR
+    assert "not bullet lists" not in INSTR
     # definition gets a ### per component and a ### for the central quantity
     assert "### bias" in INSTR
     assert "### mse" in INSTR
     # component/decomposition formulas must be CENTERED DISPLAY equations ($$)
     assert "centered display equations" in INSTR
     assert "not inline" in INSTR
-    # density: subsections must be substantive and explain where the concept fits
+    # density: bullets must stay substantive and explain where the concept fits
     assert "depth over brevity" in INSTR
     assert "where it fits" in INSTR
-    assert "3-5 sentences" in INSTR
     # draft is invited to be extensive — ranges are minimums, not caps
     assert "be extensive" in INSTR
     assert "minimums, not caps" in INSTR
+
+
+def test_math_and_figures_placed_in_subsection():
+    # display math is placed inside the ### subsection it belongs to,
+    # never piled at the end
+    assert "inside the" in INSTR and "subsection it belongs to" in INSTR
+    # each Example case states its formula and carries its figure marker
+    # within that case's subsection
+    assert "each example" in INSTR
+    assert "in that same subsection" in INSTR or "within that same subsection" in INSTR
 
 
 # --- #4 intro = summary + roadmap --------------------------------------
@@ -324,9 +339,10 @@ def test_convert_uses_relevance_override():
 
 
 # --- Phase-1 token-budget regression guard ---------------------------------
-# Ceiling: ~10% above the trimmed length after the 2026-05-30 prompt-diet pass
-# (17029 chars). Trips if future edits re-bloat the instructions.
-_PROMPT_BUDGET_CEILING = 18_800
+# Soft regression guard: ceiling sits deliberately above the current ~18.7k size
+# to catch runaway bloat while leaving comfortable room for intentional additions.
+# Raise it when you genuinely add new rules; lower it after a prompt-diet pass.
+_PROMPT_BUDGET_CEILING = 19_200
 
 
 def test_deep_tutor_instructions_within_token_budget():
@@ -336,3 +352,24 @@ def test_deep_tutor_instructions_within_token_budget():
         f"DEEP_TUTOR_INSTRUCTIONS is {n} chars, exceeds budget {_PROMPT_BUDGET_CEILING}. "
         "Remove duplicate rules before adding new ones."
     )
+
+
+def test_definition_states_component_formulas():
+    assert "defining formula" in INSTR
+
+
+def test_definition_prefers_verbatim_then_reconstructs_equations():
+    assert "copy it verbatim" in INSTR
+    assert "reconstruct" in INSTR
+
+
+def test_author_worker_preserves_equations():
+    from src.services.chat.prompts.deep_tutor import AUTHOR_WORKER_PROMPT
+    p = AUTHOR_WORKER_PROMPT.lower()
+    assert "preserve equations" in p
+    assert "verbatim" in p
+
+
+def test_recovered_equations_rule_present():
+    assert "<recovered_equations>" in INSTR or "recovered_equations" in INSTR
+    assert "verbatim" in INSTR

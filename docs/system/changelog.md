@@ -2,6 +2,75 @@
 
 Append-only. Latest at top.
 
+## 2026-06-04 — Formula recovery (vision second-RAG) + global formula cache
+
+**Problem:** many defining equations (e.g. Bias²/Variance decomposition) were OCR-dropped to image placeholders during ingestion — the LaTeX text is genuinely absent in the indexed chunks, so the existing verbatim/reconstruct rule in the synth can only reconstruct from memory (inconsistent). No mechanism existed to close that gap at query time.
+
+**Fix — gap-triggered second-RAG stage** (best-effort, lightweight asyncio):
+
+A new stage runs inside `run_orchestrator_workers` between worker briefs and the L0 structured synth:
+
+1. **`detect_formula_gaps`** (`src/services/chat/agents/formula_gaps.py`): scans the retrieved `sources` for concepts whose defining equation was OCR-dropped to an image placeholder (`![art](…jpg)` or empty formula slot). Returns a list of `GapConcept` objects (concept name + relevant context).
+
+2. **`recover_formulas`** (`src/services/chat/agents/formula_recovery.py`): called once with all gaps; runs `asyncio.gather` for parallel per-gap recovery. Each gap is resolved via a three-step waterfall:
+   - **Cache lookup** — `formula_cache.cache_lookup` checks the global `formula_cache` Qdrant collection; hit → return immediately (consistency + zero cost).
+   - **Vision read** — `search_figures` locates figure(s) relevant to the concept; `inspect_figure` asks `gpt-4o` to read the equation off the image. On success → `cache_write`, return LaTeX.
+   - **Text re-query fallback** — if vision yields nothing (no figure found, no LaTeX extracted), a targeted text retrieval re-query fetches additional chunks. Recovered LaTeX written to cache.
+
+3. Recovered equations are injected into the synth user message as a `<recovered_equations>` block (one `concept: $…$` line per recovery). A new rule in `DEEP_TUTOR_INSTRUCTIONS` / `DEEP_TUTOR_SYNTH_PROMPT` directs the synthesizer to use each recovered equation **VERBATIM** (exact LaTeX, no simplification) and cite its source (`[recovered via vision]` or `[recovered via text]`).
+
+**Global formula cache** (`src/services/chat/agents/formula_cache.py`): a dedicated `formula_cache` Qdrant collection persists recovered equations across sessions keyed by normalized concept name. `cache_lookup` returns the stored LaTeX if a close-enough match exists (cosine threshold); `cache_write` upserts on success. Ensures the same concept always reuses the same equation (consistency) without re-running the vision pipeline (cost).
+
+**Properties:**
+- Best-effort throughout — any failure at any step degrades silently to prior behavior (the synth continues with whatever formula text was already in the briefs).
+- No deepagents; uses only `asyncio.gather` for parallelism.
+- New modules: `src/services/chat/agents/formula_gaps.py`, `formula_cache.py`, `formula_recovery.py`.
+- Wiring: `run_orchestrator_workers` in `orchestrator_workers.py`; verbatim rule in `deep_tutor.py` (`DEEP_TUTOR_INSTRUCTIONS` / `DEEP_TUTOR_SYNTH_PROMPT`).
+
+## 2026-06-04 — Reliable component equations in the definition
+
+**Symptom:** the `definition` aspect intermittently omitted the Bias/Variance defining equations (formula density varied wildly run-to-run, e.g. 18 vs 4 `$`), and never copied a source's equation verbatim.
+
+**Root cause (systematic debugging):** (1) crucial equations are often OCR'd as dropped image placeholders (`![art](…jpg)`) — the formula text is gone, only surrounding prose survives; (2) the orchestrator author-workers digested sources into prose `key_points` and **stripped the LaTeX** (420-token cap, no preserve-equations rule), so the synthesizer's spine carried no formulas and reconstructed them from memory inconsistently.
+
+**Fix (defense-in-depth):** synth directive in `DEEP_TUTOR_INSTRUCTIONS` — copy a source's equation **verbatim** when present as LaTeX, **reconstruct** it from prose/image-description when dropped, never omit; `AUTHOR_WORKER_PROMPT` now **preserves equations verbatim** in `key_points` (token cap 420→600); `run_author_worker` retries once on `openai.LengthFinishReasonError` so equation-bearing briefs aren't silently dropped. Verified: Bias + Variance formulas now reliably present across runs. Exact byte-verbatim remains best-effort where the source formula was OCR'd to an image (text genuinely absent → standard equation reconstructed + cited).
+
+## 2026-06-04 — Lean structured deep synthesis
+
+**Eval verdict:** three synthesizer arms (C = live L0 structured synth, A = deepagents `synthesize_structured` level 6, B = deepagents subagents level 7) were compared on bias-variance and related questions after enriching the synthesis skill with a component-formula rule. All three tied on quality (clean math, Bias/Variance/MSE component formulas, C-style bullets). Arms A/B are ~5× slower (>280 s / ~259 s vs ~52–69 s) with zero quality gain; token capture returned 0 for deepagents (callback miss). Artifact: `docs/superpowers/eval/2026-06-04-structured-synth-compare.md`.
+
+**Decision ("lean structured"):** the live `orchestrator-deep` path now routes directly to the **fast L0 structured synthesizer** (`_stream_structured`), which emits a typed `DeepTutorAnswer` via `response_format` natively. The `_schema_fill` re-express pass is **dropped from the live path**. The deepagents+skill+schema-fill path (level 5) and the structured deepagents agents (levels 6/7) are retained ENV-gated (`TUTOR_OW_HARNESS=5/6/7`) for eval reproducibility only.
+
+**Component formulas:** a defining-formula rule was added to `DEEP_TUTOR_INSTRUCTIONS` and to `ow_skills/synthesis/SKILL.md` — every component subsection (Bias, Variance) states its formula inline; the central MSE subsection states the full decomposition. Delimiter rule enforced: strictly `$…$` / `$$…$$`; never plain-text, never `\(…\)`.
+
+**Structured-output finding:** `response_format=ToolStrategy(DeepTutorAnswer)` in a deepagents agent emits the typed answer directly — there is no free-text intermediary for `_schema_fill` to re-express. The two approaches are mutually exclusive.
+
+**Artifacts:** `src/services/chat/agents/ow_deepagents.py` (levels 6/7 eval agents), `src/services/chat/agents/ow_harness.py` (max level 7), `src/services/chat/agents/orchestrator_workers.py` (live deep path → L0 synth directly), `src/services/chat/prompts/deep_tutor.py` (component-formula rule in `DEEP_TUTOR_INSTRUCTIONS`), `src/services/chat/agents/ow_skills/synthesis/SKILL.md` + `references/formulas.md` (enriched skill), `src/services/chat/eval/structured_synth_compare.py`, `docs/superpowers/eval/2026-06-04-structured-synth-compare.md`, `docs/services/chat-features/56-deep-synthesis-l3b.md` (updated), `docs/system/invariants.md` (invariant 35 clarified).
+
+## 2026-06-04 — Tutor C-style subsection bodies + deep-path figure forwarding
+
+Draft/synth prompt (`prompts/deep_tutor.py`) and L3b synthesis SKILL (`ow_skills/synthesis/SKILL.md`) now emit scannable bodies: **bold lead sentence** + **bold lead-in bullets** per `### ` subsection (was a dense 3-5 sentence paragraph). Display math `$$…$$` and `[Fn]` figure markers are placed inside the pertinent subsection; each Example `### Case` carries its own `$$formula$$` + figure. No `##`/`###` layout, schema, or frontend change.
+
+Fix: the orchestrator-deep path now forwards the approved figures bundle into `synthesize_with_skill` + `_schema_fill` (previously dropped, so `[Fn]` markers were never placed on that path); `_schema_fill` now re-expresses via the draft C-style contract (`DEEP_TUTOR_INSTRUCTIONS`).
+
+**Artifacts:** `src/services/chat/prompts/deep_tutor.py` (C-style body mandate), `src/services/chat/agents/ow_skills/synthesis/SKILL.md` (same), `src/services/chat/agents/ow_deepagents.py` (`synthesize_with_skill` — figures param), `src/services/chat/agents/orchestrator_workers.py` (`_schema_fill` — `DEEP_TUTOR_INSTRUCTIONS` prepend + figures forwarding), `docs/system/invariants.md` (invariant 24 updated), `docs/services/chat-features/56-deep-synthesis-l3b.md`, `docs/services/chat-features/36-deep-tutor.md`. Tests: `test_structure_requires_subsection_headers` (rewritten), `test_math_and_figures_placed_in_subsection`, `test_synthesis_skill_requires_c_style_body`, `test_schema_fill_uses_draft_system_prompt`, `test_schema_fill_includes_figure_bundle`, `test_synthesize_with_skill_accepts_figures`.
+
+## 2026-06-04 — Tutor draft default → nano + capability-based routing
+
+Changed the tutor draft default from `qwen-plus` to `gpt-5.4-nano-2026-03-17` (nano) across the full stack: `TUTOR_DRAFT_MODEL` env default, `_DRAFT_MODEL_DEFAULT` fallback in `deep_tutor.py`, `RECOMMENDED_MODEL_ID` constant in `web/src/data/recommended.ts`, and the `recommended: true` flag in `router.py`. **Root cause:** qwen-plus hung under strict `json_schema` structured output (`response_format=<PydanticModel>`), producing empty/timeout responses. Nano is the eval value-winner with full json_schema reliability.
+
+Added capability-based routing so any user-selected draft model runs correctly: `is_structured_output_capable(model_id)` in `router.py` returns `True` for OpenAI-family only (deepseek/qwen/gemini by prefix; groq by `GROQ_MODEL_IDS` membership → `False`). `_stream_draft` in `deep_tutor.py` and the L0 synthesizer in `orchestrator_workers.py` both branch on this predicate — OpenAI-family → `_stream_structured` (strict `json_schema`); others → `_stream_draft_via_router` (`json_object` + `<response_format>` hint). Non-OpenAI draft picks (deepseek/qwen/gemini/groq) continue to work end-to-end via the json_object path. Invariant 36 added.
+
+**Artifacts:** `src/services/chat/llm/router.py` (`is_structured_output_capable`, `recommended` flag), `src/services/chat/agents/deep_tutor.py` (`_DRAFT_MODEL_DEFAULT`, `_stream_draft` routing), `src/services/chat/agents/orchestrator_workers.py` (L0 synth routing), `web/src/data/recommended.ts` (`RECOMMENDED_MODEL_ID`), `docs/services/chat-features/36-deep-tutor.md` (`TUTOR_DRAFT_MODEL` row), `docs/system/invariants.md` (invariant 36).
+
+## 2026-06-04 — Plan D: opt-in deep synthesis (L3b productionized)
+
+Shipped L3b as an opt-in "deep synthesis" path in the orchestrator-workers stage. Two triggers feed one gate: per-request `tutorWorkflow="orchestrator-deep"` (selectable in the pipeline (i) modal as **Deep synthesis (slower ~45 s)**) and ops env `TUTOR_OW_HARNESS=5`. The path runs `synthesize_with_skill` (deepagents + `ow_skills/synthesis/SKILL.md`) to produce a free-text cross-author synthesis, then a follow-on nano "schema-fill" pass (`_schema_fill` → `_stream_structured`) maps it into a streamed `DeepTutorAnswer`. Any failure (deepagents absent, empty output, schema-fill `None`, exception) falls back to the L0 streaming synthesizer; default behavior is byte-for-byte unchanged. `deepagents==0.6.8` added to `requirements.txt` (lazy-imported; absence never breaks default paths). Latency UX: "Synthesizing across authors… (~45 s)" shown before first token. Invariant 35 added.
+
+**Artifacts:** `src/services/chat/agents/ow_harness.py` (max level 3→5), `agents/orchestrator_workers.py` (`_schema_fill`, `deep_synth` param, L5 branch), `agents/ow_deepagents.py` (`synthesize_with_skill` — from Plan C), `prompts/deep_tutor.py` (`SCHEMA_FILL_PROMPT`), `schemas/_core.py` (`tutorWorkflow` Literal + `"orchestrator-deep"`), `agents/deep_tutor.py` (`_resolve_workflow`, `_draft_coro`), `requirements.txt`, `web/src/data/tutorPipeline.ts`, `web/src/components/PipelineDiagram.tsx`, `web/src/App.tsx`. New doc: [56-deep-synthesis-l3b.md](../services/chat-features/56-deep-synthesis-l3b.md). Tests: `test_ow_harness.py`, `test_orchestrator_workers.py`, `PipelineDiagram.test.tsx`. Spec: `docs/superpowers/specs/2026-06-04-ow-harness-pland-design.md`. Verdict: `docs/superpowers/eval/2026-06-04-ow-deepagents-compare.md`.
+
+**Follow-on (same date):** Deep-synthesis model is now user-selectable via `stageModels.synth` (default `gpt-5.4-nano-2026-03-17` / nano). Controls both the `synthesize_with_skill` deepagents call and the schema-fill pass; non-OpenAI ids (deepseek/gemini/qwen/groq) are coerced to nano (both steps require the OpenAI structured-output API). Surfaced in the pipeline (i) modal as an editable Synthesizer node dropdown under `orchestrator-deep`; under plain `orchestrator` the node shows the draft model read-only. Backend resolve: `_resolve_stage_model("synth", settings.openai_model_nano, sm)` in `deep_tutor.py`, passed as `deep_synth_model` to `run_orchestrator_workers`. Docs updated: [56-deep-synthesis-l3b.md](../services/chat-features/56-deep-synthesis-l3b.md), [36-deep-tutor.md](../services/chat-features/36-deep-tutor.md).
+
 ## 2026-06-04 — OW harness Plan C (powered deepagents skills+subagents)
 Powered 4-arm synthesizer comparison (72 runs: L0 / L3a bare deepagents / L3b
 deepagents+written-skill / L4 deepagents+subagents-per-author; 6 q × 3 runs, full-text

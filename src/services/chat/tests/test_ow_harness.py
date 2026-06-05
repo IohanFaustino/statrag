@@ -126,11 +126,19 @@ def test_content_bearing_filters_no_info():
     assert [b.author for b in kept] == ["B"]
 
 
-def test_max_level_is_three(monkeypatch):
-    monkeypatch.setenv("TUTOR_OW_HARNESS", "3")
-    assert H.ow_harness_level() == 3
-    monkeypatch.setenv("TUTOR_OW_HARNESS", "4")
-    assert H.ow_harness_level() == 0
+def test_max_level_is_five(monkeypatch):
+    # Levels 5, 6, 7 are all valid now; this test just confirms 5 still works.
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "5")
+    assert H.ow_harness_level() == 5
+
+
+def test_levels_6_and_7_accepted(monkeypatch):
+    import src.services.chat.agents.ow_harness as h
+    for lvl in ("6", "7"):
+        monkeypatch.setenv("TUTOR_OW_HARNESS", lvl)
+        assert h.ow_harness_level() == int(lvl)
+    monkeypatch.setenv("TUTOR_OW_HARNESS", "8")
+    assert h.ow_harness_level() == 0
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +159,17 @@ def test_deepagents_import_error_is_clear(monkeypatch):
     import pytest as _pytest
     with _pytest.raises(RuntimeError, match="pip install deepagents"):
         asyncio.run(DA.synthesize_with_deepagents("q", [], []))
+
+
+def test_synthesize_with_skill_import_error_is_clear(monkeypatch):
+    """Invariant 35: synthesize_with_skill must also raise a clear RuntimeError
+    (mentioning deepagents / pip install) when deepagents is absent."""
+    import sys
+    from src.services.chat.agents import ow_deepagents as DA
+    monkeypatch.setitem(sys.modules, "deepagents", None)
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError, match="deepagents"):
+        asyncio.run(DA.synthesize_with_skill("q", [], []))
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +236,16 @@ def test_owc_render_three_levels():
     assert "L0" in md and "L2" in md and "L3" in md
 
 
+# ---------------------------------------------------------------------------
+# Plan D — Change 1: synthesize_with_skill accepts model kwarg
+# ---------------------------------------------------------------------------
+
+def test_synthesize_with_skill_accepts_model_kwarg():
+    import inspect
+    from src.services.chat.agents.ow_deepagents import synthesize_with_skill
+    assert "model" in inspect.signature(synthesize_with_skill).parameters
+
+
 def test_fidelity_input_not_truncated():
     """Regression: the fidelity judge must see full briefs + full answer (the
     2500/3000 truncation cut most authors and falsely scored retained facts as
@@ -226,3 +255,27 @@ def test_fidelity_input_not_truncated():
     s = OWC._fidelity_input(big_briefs, big_answer)
     assert big_briefs in s and big_answer in s
     assert OWC._JUDGE_CHARS >= 12000
+
+
+# ---------------------------------------------------------------------------
+# Task 3 (Plan D) — synthesis SKILL.md encodes C-style body rules
+# ---------------------------------------------------------------------------
+
+def test_synthesis_skill_requires_c_style_body():
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "agents" / "ow_skills" / "synthesis" / "SKILL.md"
+    md = p.read_text(encoding="utf-8").lower()
+    assert "bold lead-in bullets" in md
+    assert "$$" in md          # display math allowed, not just inline
+    assert "[fn]" in md or "figure marker" in md
+
+
+def test_synthesis_skill_demands_component_formulas():
+    from pathlib import Path
+    base = Path(__file__).resolve().parents[1] / "agents" / "ow_skills" / "synthesis"
+    md = (base / "SKILL.md").read_text(encoding="utf-8").lower()
+    assert "component" in md and "formula" in md
+    assert "$$" in md
+    assert "never use plain-text" in md or "never plain-text" in md
+    assert (base / "references" / "formulas.md").exists()
+    assert "formulas.md" in md

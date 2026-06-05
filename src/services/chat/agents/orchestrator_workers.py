@@ -17,10 +17,13 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import openai
+
 from src.core.config import settings
 from src.services.chat.prompts.deep_tutor import (
     AUTHOR_WORKER_PROMPT,
     DEEP_TUTOR_INSTRUCTIONS,
+    SCHEMA_FILL_PROMPT,
     SYNTHESIZER_ADDENDUM,
     format_source_bundle,
 )
@@ -44,8 +47,17 @@ from src.services.chat.agents.deep_tutor import (
     _format_plan_block,
     _stream_structured,
 )
+from src.services.chat.agents.formula_gaps import detect_formula_gaps
+from src.services.chat.agents.formula_recovery import recover_formulas, format_recovered_block
 
 logger = logging.getLogger(__name__)
+
+_ASPECT_FIELDS = ("tldr", "definition", "formal_statement", "example_intuition", "applications", "further_reading")
+
+
+def _aspects_from_answer(ans) -> dict[str, str]:
+    """Build the aspect-text dict the caller expects from a finished answer."""
+    return {f: (getattr(ans, f, "") or "") for f in _ASPECT_FIELDS}
 
 
 def _group_sources_by_author(sources: list[Source]) -> dict[str, list[Source]]:
@@ -72,7 +84,7 @@ async def run_author_worker(
         f"{format_source_bundle(srcs)}\n\n"
         f"Return this author's brief JSON now."
     )
-    try:
+    async def _parse_brief(mct: int) -> AuthorBrief | None:
         resp = await oa.chat.completions.parse(
             model=chosen_model,
             messages=[
@@ -81,9 +93,16 @@ async def run_author_worker(
             ],
             response_format=AuthorBrief,
             temperature=0.0,
-            max_completion_tokens=420,
+            max_completion_tokens=mct,
         )
-        brief = resp.choices[0].message.parsed
+        return resp.choices[0].message.parsed
+
+    try:
+        try:
+            brief = await _parse_brief(600)
+        except openai.LengthFinishReasonError:
+            logger.info("author worker %s hit length cap; retrying with larger budget", author)
+            brief = await _parse_brief(1100)
         if brief and not brief.author:
             brief.author = author
         return brief
@@ -121,6 +140,28 @@ def _wrap_text_answer(text: str) -> DeepTutorAnswer:
                            example_intuition="", applications="", further_reading="")
 
 
+async def _schema_fill(
+    query: str, synthesis_text: str, fill_model: str, on_aspect_delta,
+    figures: list | None = None,
+) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
+    """Map an L3b free-text synthesis into a streamed DeepTutorAnswer via one
+    structured nano call. Streams the same _raw deltas the UI already renders.
+
+    *figures* — approved figure objects; injected so ``[F<i>]`` markers placed
+    by the synthesizer survive the re-express step."""
+    user = (
+        f"<question>\n{query}\n</question>\n\n"
+        f"<synthesis>\n{synthesis_text}\n</synthesis>\n\n"
+        f"{_format_figure_bundle(figures or [])}\n\n"
+        f"Re-express the synthesis into the DeepTutorAnswer schema now."
+    )
+    messages = [
+        {"role": "system", "content": DEEP_TUTOR_INSTRUCTIONS + "\n\n" + SCHEMA_FILL_PROMPT},
+        {"role": "user", "content": user},
+    ]
+    return await _stream_structured(messages, fill_model, on_aspect_delta)
+
+
 async def run_orchestrator_workers(
     query: str,
     sources: list[Source],
@@ -132,6 +173,11 @@ async def run_orchestrator_workers(
     figures: list | None = None,
     on_aspect_delta=None,
     on_briefs=None,
+    # deep_synth is forwarded by the caller (tutorWorkflow="orchestrator-deep") for
+    # backward-compat but routing is now controlled solely by ow_harness_level();
+    # the live deep path falls through to the fast L0 structured synth (no schema-fill).
+    deep_synth: bool = False,
+    deep_synth_model: str | None = None,
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
     """Orchestrator LLM (dynamic subtasks) → parallel workers → streaming
     synthesizer. Falls back to a per-author split when the orchestrator
@@ -186,11 +232,67 @@ async def run_orchestrator_workers(
         except Exception:  # noqa: BLE001
             logger.exception("ow level-3 deepagents failed; falling back to L0 synthesizer")
 
+    # L6 / L7: deepagents structured synthesizers — emit DeepTutorAnswer directly
+    # (no schema-fill pass). Any failure falls through to L0 below.
+    if level in (6, 7):
+        try:
+            from src.services.chat.agents import ow_deepagents
+            from src.services.chat.llm.router import GROQ_MODEL_IDS  # noqa: PLC0415
+            synth_oa = deep_synth_model or settings.openai_model_nano
+            if synth_oa.startswith(("deepseek", "gemini", "qwen")) or synth_oa in GROQ_MODEL_IDS:
+                synth_oa = settings.openai_model_nano
+            fn = ow_deepagents.synthesize_structured if level == 6 else ow_deepagents.synthesize_subagents_structured
+            deep_a, _it, _ot = await fn(query, sources, briefs, model=synth_oa, figures=figures)
+            if deep_a is not None:
+                return deep_a, _aspects_from_answer(deep_a)
+            logger.info("ow level-%d structured synth returned None; falling back to L0", level)
+        except Exception:  # noqa: BLE001
+            logger.exception("ow level-%d structured synth failed; falling back to L0", level)
+
+    # L5 env-only: deepagents + synthesis SKILL + nano schema-fill pass (kept for
+    # eval reproducibility). The live orchestrator-deep workflow (deep_synth=True)
+    # now falls through to the fast L0 structured synth below — same DeepTutorAnswer
+    # schema, no schema-fill overhead. Any failure falls through to L0.
+    if level == 5:
+        try:
+            from src.services.chat.agents import ow_deepagents
+            # The deep synthesizer + schema-fill run on OpenAI (ChatOpenAI /
+            # structured output). Resolve the requested synth model, coercing any
+            # non-OpenAI id (deepseek/groq/gemini/qwen/…) to nano.
+            from src.services.chat.llm.router import GROQ_MODEL_IDS  # noqa: PLC0415
+            synth_oa = deep_synth_model or settings.openai_model_nano
+            if (synth_oa.startswith(("deepseek", "gemini", "qwen"))
+                    or synth_oa in GROQ_MODEL_IDS):
+                synth_oa = settings.openai_model_nano
+            text, _it, _ot = await ow_deepagents.synthesize_with_skill(
+                query, sources, briefs, model=synth_oa, figures=figures)
+            if text.strip():
+                deep_a, aspects_a = await _schema_fill(query, text, synth_oa, on_aspect_delta, figures=figures)
+                if deep_a is not None:
+                    return deep_a, aspects_a
+                logger.info("ow L5 schema-fill returned None; falling back to L0 synth")
+            else:
+                logger.info("ow L5 deepagents+skill returned empty; falling back to L0 synth")
+        except Exception:  # noqa: BLE001
+            logger.exception("ow L5 deepagents+skill failed; falling back to L0 synthesizer")
+
+    # Formula recovery: when a concept's defining equation was OCR-dropped to an
+    # image, recover it (vision/text) so the synth states it verbatim. Best-effort.
+    recovered_block = ""
+    try:
+        gaps = detect_formula_gaps(sources, query)
+        if gaps:
+            recovered = await recover_formulas(query, gaps)
+            recovered_block = format_recovered_block(recovered)
+    except Exception:  # noqa: BLE001
+        logger.exception("formula recovery stage failed; continuing without it")
+
     # Synthesizer: same DeepTutorAnswer schema + draft rules + briefs addendum.
     plan_block = _format_plan_block(plan)
     user = (
         f"<question>\n{query}\n</question>\n\n"
         f"{format_source_bundle(sources)}\n\n"
+        f"{(recovered_block + chr(10) + chr(10)) if recovered_block else ''}"
         f"{(plan_block + chr(10) + chr(10)) if plan_block else ''}"
         f"{structured_briefs_block(briefs) if level == 2 else _format_author_briefs(briefs)}\n\n"
         f"{_format_figure_bundle(figures or [])}\n\n"
@@ -202,8 +304,12 @@ async def run_orchestrator_workers(
         {"role": "system", "content": DEEP_TUTOR_INSTRUCTIONS + SYNTHESIZER_ADDENDUM},
         {"role": "user", "content": user},
     ]
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
     synth = synth_model or settings.openai_model_nano
-    if synth.startswith("deepseek"):
-        # Synthesizer needs the OpenAI structured path; nano covers deepseek picks.
-        synth = settings.openai_model_nano
+    if not is_structured_output_capable(synth):
+        from src.services.chat.agents.deep_tutor import _stream_draft_via_router  # noqa: PLC0415
+        from src.services.chat.prompts.deep_tutor import ASPECT_HEADINGS  # noqa: PLC0415
+        return await _stream_draft_via_router(
+            synth, messages, {k: "" for k in ASPECT_HEADINGS}, on_aspect_delta
+        )
     return await _stream_structured(messages, synth, on_aspect_delta)

@@ -82,10 +82,12 @@
   FJ --> WF{Drafting workflow}
   PL --> WF
   WF -->|single| DFT[Single draft - streaming structured output]
-  WF -->|orchestrator| WK[Workers per author in parallel - Synthesizer]
+  WF -->|orchestrator| WK[Workers per author in parallel]
   WF -->|organize| ORG[Long-context organizer - deepseek-v4-pro]
   DFT --> VE[Vision explain - gpt-4o-mini default]
-  WK --> VE
+  WK --> FR[Formula recovery - gap-triggered best-effort - cache to vision off figure to text - recovered_equations verbatim]
+  FR --> SY[Synthesizer - integrate briefs + recovered equations verbatim]
+  SY --> VE
   ORG --> VE
   VE --> ANS[Answer - SSE]
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
@@ -105,10 +107,12 @@
   FJ --> WF{Drafting workflow}
   PL --> WF
   WF -->|single| DFT[Single draft - streaming structured output]
-  WF -->|orchestrator| WK[Workers per author in parallel - Synthesizer]
+  WF -->|orchestrator| WK[Workers per author in parallel]
   WF -->|organize| ORG[Long-context organizer - deepseek-v4-pro]
   DFT --> VE[Vision explain - gpt-4o-mini default]
-  WK --> VE
+  WK --> FR[Formula recovery - gap-triggered best-effort - cache to vision off figure to text - recovered_equations verbatim]
+  FR --> SY[Synthesizer - integrate briefs + recovered equations verbatim]
+  SY --> VE
   ORG --> VE
   VE --> ANS[Answer - SSE]
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
