@@ -40,23 +40,26 @@ async def _recover_one(query: str, gap: GapConcept) -> RecoveredEquation | None:
         logger.exception("cache_lookup raised for %s", gap.term)
     # 2. vision on figure
     try:
-        figs = search_figures(f"{gap.term} definition formula equation",
+        figs = search_figures(f"{gap.term} definition formula equation — {query}",
                               book_slugs=gap.book_slugs or None, k=2)
         for fig in figs:
-            txt = await inspect_figure(
-                fig, query=(f"Transcribe the exact defining equation for '{gap.term}' "
-                            f"shown in this figure as LaTeX, delimited with $...$ or $$...$$. "
-                            f"Output ONLY the equation."))
-            latex = _first_latex(txt)
-            if latex:
-                eq = RecoveredEquation(term=gap.term, latex=latex, citation=_cite(fig))
-                await cache_write(eq.term, eq.latex, eq.citation)
-                return eq
+            try:
+                txt = await inspect_figure(
+                    fig, query=(f"Transcribe the exact defining equation for '{gap.term}' "
+                                f"shown in this figure as LaTeX, delimited with $...$ or $$...$$. "
+                                f"Output ONLY the equation."))
+                latex = _first_latex(txt)
+                if latex:
+                    eq = RecoveredEquation(term=gap.term, latex=latex, citation=_cite(fig))
+                    await cache_write(eq.term, eq.latex, eq.citation)
+                    return eq
+            except Exception:  # noqa: BLE001
+                logger.exception("inspect_figure raised for %s (figure skipped)", gap.term)
     except Exception:  # noqa: BLE001
         logger.exception("vision recovery failed for %s", gap.term)
     # 3. text re-query fallback
     try:
-        srcs, _ = hybrid_search(f"{gap.term} is defined as the formula",
+        srcs, _ = hybrid_search(f"{gap.term} is defined as the formula — {query}",
                                 book_slugs=gap.book_slugs or None, top_k=3, rerank=False)
         for s in srcs:
             chunk = getattr(s, "chunk", "") or ""

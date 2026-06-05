@@ -52,6 +52,19 @@ def test_total_miss_yields_no_equation(monkeypatch):
     assert out == []
 
 
+def test_sibling_gap_isolated_on_failure(monkeypatch):
+    # gap A raises in cache_lookup; gap B succeeds via cache. A must not break B.
+    async def lookup(term, **k):
+        if term == "boom":
+            raise RuntimeError("explode")
+        return RecoveredEquation(term="ok", latex="$ok$", citation="C")
+    monkeypatch.setattr(fr, "cache_lookup", lookup)
+    monkeypatch.setattr(fr, "search_figures", lambda *a, **k: [])
+    monkeypatch.setattr(fr, "hybrid_search", lambda *a, **k: ([], {}))
+    out = asyncio.run(fr.recover_formulas("q", [_gap(term="boom"), _gap(term="ok")]))
+    assert len(out) == 1 and out[0].latex == "$ok$"
+
+
 def test_format_recovered_block():
     block = fr.format_recovered_block([RecoveredEquation(term="Bias", latex="$b$", citation="Murphy")])
     assert "<recovered_equations>" in block and "$b$" in block and "Bias" in block
