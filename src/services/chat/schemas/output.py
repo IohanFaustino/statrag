@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator  # noqa: F401
+from pydantic import BaseModel, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +197,28 @@ class DeepTutorAnswer(BaseModel):
     citations: list[TutorCitation] = Field(default_factory=list)
     math_blocks: list[str] = Field(default_factory=list)
     figures: list[FigureRef] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _require_component_equations(self) -> "DeepTutorAnswer":
+        """Every component ``### `` subsection of a *mathematical* definition
+        must carry a real ``$$…$$`` defining equation. Math-answer gate: only
+        enforced when ``math_blocks`` is non-empty or ``definition`` contains
+        ``$$``. Header-less / non-math definitions are exempt, so directly
+        constructed fallbacks (e.g. ``_wrap_text_answer``) never raise."""
+        is_math = bool(self.math_blocks) or "$$" in self.definition
+        if not is_math:
+            return self
+        for name, body in _split_definition_subsections(self.definition):
+            if not _has_real_equation(body):
+                raise ValueError(
+                    f"definition subsection '### {name}' is missing its "
+                    f"required $$display equation$$ — every component "
+                    f"subsection in a mathematical definition must state its "
+                    f"defining formula symbolically (not a word-form "
+                    f"pseudo-equation like "
+                    f"$$\\text{{Squared bias}}+\\text{{Variance}}$$)."
+                )
+        return self
 
 
 # ---------------------------------------------------------------------------
