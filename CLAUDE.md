@@ -109,12 +109,13 @@ A fresh Claude session must:
 
 ### ⏳ Pending tasks (pick up next session)
 
-When the user says **"pending tasks"**, **"what's next"**, **"resume Plan D"**, or starts a
-fresh session asking what to do, read this list and the linked spec(s):
+When the user says **"pending tasks"**, **"what's next"**, **"resume formula recovery"**, or
+starts a fresh session asking what to do, read this list and the linked spec/plan:
 
-| Pending | Status | Spec / pointer |
+| Pending | Status | Spec / plan |
 |---|---|---|
-| **Plan D — productionize L3b** (deepagents + synthesis skill) into the live tutor at :5175 | ✅ shipped — opt-in `tutorWorkflow="orchestrator-deep"` / `TUTOR_OW_HARNESS=5`; L0 fallback; `deepagents==0.6.8` dep. **Follow-on (lean structured):** live deep path now routes to fast L0 structured synth directly (no `_schema_fill`); deepagents agents (levels 6/7) eval-only. | [doc 56](docs/services/chat-features/56-deep-synthesis-l3b.md) · [plan](docs/superpowers/plans/2026-06-04-ow-harness-pland.md) |
+| **Formula recovery + global cache** — gap-triggered second-RAG: when a concept's defining equation was OCR-dropped to an image, gpt-4o **vision reads the equation off the figure** (`search_figures`+`inspect_figure`), text re-query fallback, fed into the synth as `<recovered_equations>` (used verbatim); recovered equations cached globally in a `formula_cache` Qdrant collection for consistency/cost. Lightweight `asyncio.gather` (no deepagents). 5 TDD tasks. | ⏳ **NEXT — planned, not executed.** Execute via subagent-driven-development (Sonnet) on branch `feat/ow-harness-pland`. | [spec](docs/superpowers/specs/2026-06-04-formula-recovery-and-cache-design.md) · [plan](docs/superpowers/plans/2026-06-04-formula-recovery-and-cache.md) |
+| **Plan D — productionize L3b** (deepagents) + lean-structured follow-on | ✅ shipped — live deep path routes to fast L0 structured synth (no `_schema_fill`); deepagents agents (levels 6/7) eval-only; component-equation verbatim/reconstruct + worker preserve-equations. | [doc 56](docs/services/chat-features/56-deep-synthesis-l3b.md) |
 
 ### Shortcut: `feature_Agent`
 
