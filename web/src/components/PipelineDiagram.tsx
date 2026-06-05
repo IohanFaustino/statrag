@@ -40,17 +40,18 @@ interface PipelineDiagramProps {
 // Drafting workflow → Draft / synthesis → Vision explain → Answer
 //
 // Coverage check also has a loop-back edge to Hybrid retrieval (left-side arc).
-const W = 520;
+const W = 560;
 interface Box { x: number; y: number; w: number; h: number; }
 
 // Vertical gap between rows.
 const GAP = 18;
-// Centred nodes geometry.
-const CX = 144;   // left edge of centred nodes
-const CW = 232;   // width of centred nodes
-// io nodes are a touch narrower + centred in the 520 canvas.
-const IO_X = 160;
-const IO_W = 200;
+// Centred nodes geometry. Wide cards fill the modal width so descriptions +
+// model names wrap on fewer lines (less vertical sprawl).
+const CX = 80;    // left edge of centred nodes
+const CW = 400;   // width of centred nodes
+// io nodes are a touch narrower + centred in the 560 canvas.
+const IO_X = 100;
+const IO_W = 360;
 const TOP = 8;    // top padding
 
 // Ordered rows with per-node heights (sized to fit label + clamped desc +
@@ -79,9 +80,9 @@ const DEFAULT_H: Record<string, number> = {
 };
 
 // Worker layout — three equal columns fitting inside the 232px centre band.
-const WORKER_W = 68;
-const WORKER_GAP = 6;
-const WORKERS_TOTAL_W = 3 * WORKER_W + 2 * WORKER_GAP; // 216
+const WORKER_W = 120;
+const WORKER_GAP = 10;
+const WORKERS_TOTAL_W = 3 * WORKER_W + 2 * WORKER_GAP; // 380
 const WORKERS_LEFT_X  = CX + (CW - WORKERS_TOTAL_W) / 2;
 
 // ── Layout builders (parametrised by a height getter) ──────────────────────
