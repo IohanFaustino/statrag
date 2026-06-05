@@ -34,6 +34,14 @@ class GapConcept:
     book_slugs: list[str] = field(default_factory=list)
 
 
+_ARTICLE_RE = re.compile(r"^(?:the|a|an)\s+", re.IGNORECASE)
+
+
+def _strip_article(term: str) -> str:
+    """Remove a leading 'the/a/an ' article (case-insensitive)."""
+    return _ARTICLE_RE.sub("", term).strip()
+
+
 def _norm(term: str) -> str:
     return re.sub(r"\s+", " ", term).strip().lower()
 
@@ -51,7 +59,7 @@ def detect_formula_gaps(sources: list[Source], query: str) -> list[GapConcept]:
     for s in sources:
         text = s.chunk or s.excerpt or ""
         for m in _DEF_RE.finditer(text):
-            term = m.group("term").strip()
+            term = _strip_article(m.group("term").strip())
             lo = max(0, m.start() - _WINDOW)
             hi = min(len(text), m.end() + _WINDOW)
             window = text[lo:hi]

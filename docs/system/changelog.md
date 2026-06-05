@@ -10,7 +10,7 @@ Append-only. Latest at top.
 
 A new stage runs inside `run_orchestrator_workers` between worker briefs and the L0 structured synth:
 
-1. **`detect_formula_gaps`** (`src/services/chat/agents/formula_gaps.py`): scans the worker briefs for concepts whose defining equation was OCR-dropped to an image placeholder (`![art](…jpg)` or empty formula slot). Returns a list of `FormulaGap` objects (concept name + relevant context).
+1. **`detect_formula_gaps`** (`src/services/chat/agents/formula_gaps.py`): scans the retrieved `sources` for concepts whose defining equation was OCR-dropped to an image placeholder (`![art](…jpg)` or empty formula slot). Returns a list of `GapConcept` objects (concept name + relevant context).
 
 2. **`recover_formulas`** (`src/services/chat/agents/formula_recovery.py`): called once with all gaps; runs `asyncio.gather` for parallel per-gap recovery. Each gap is resolved via a three-step waterfall:
    - **Cache lookup** — `formula_cache.cache_lookup` checks the global `formula_cache` Qdrant collection; hit → return immediately (consistency + zero cost).

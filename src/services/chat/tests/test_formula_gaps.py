@@ -40,6 +40,14 @@ def test_cap_at_four_gaps():
     assert len(gaps) <= 4
 
 
+def test_leading_article_stripped_from_term():
+    # "The Bias" → term should normalise to "bias" (no leading "the ")
+    chunk = ("The bias of an estimator is defined as\n![art](a.jpg)\nwhere x.")
+    gaps = detect_formula_gaps([_src(chunk)], "bias variance tradeoff")
+    assert len(gaps) == 1
+    assert not gaps[0].term.lower().startswith("the ")
+
+
 def test_gap_detected_despite_inline_prose_equals_near_image():
     # "$n$ = sample size" (with a second $\sigma^2$ nearby) is prose notation,
     # NOT the defining equation; the defining equation was dropped to the image

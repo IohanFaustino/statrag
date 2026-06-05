@@ -26,7 +26,13 @@ from src.services.chat.schemas import Figure
 logger = logging.getLogger(__name__)
 
 
-async def inspect_figure(figure: Figure, *, query: str) -> str:
+async def inspect_figure(
+    figure: Figure,
+    *,
+    query: str,
+    instruction: str | None = None,
+    max_tokens: int = 300,
+) -> str:
     """Call gpt-4o vision on a figure URL and return a short interpretation.
 
     Skips the remote call when the figure has no URL (local-only or built-in
@@ -34,15 +40,37 @@ async def inspect_figure(figure: Figure, *, query: str) -> str:
 
     Args:
         figure: The :class:`~src.services.chat.schemas.Figure` to inspect.
-        query: The user's original question, used to focus the vision prompt.
+        query: The user's original question, used for log context / ``query_len``.
+            When ``instruction`` is ``None`` this also appears in the vision prompt.
+        instruction: Optional override for the vision prompt's ask text.  When
+            provided the prompt is built as the figure context header followed by
+            *instruction* (the default prose ask is NOT included).  When ``None``
+            the behaviour is byte-for-byte identical to the original default.
+        max_tokens: Token budget for the completion (default 300, same as before).
 
     Returns:
-        A 2-3 sentence visual interpretation, or an empty string on failure
-        or when no valid URL is available.
+        A 2-3 sentence visual interpretation (or the result of ``instruction``),
+        or an empty string on failure or when no valid URL is available.
     """
     if not figure.chart or not figure.chart.startswith("http"):
         # Local-only or built-in chart kind — skip remote call.
         return ""
+
+    if instruction is None:
+        prompt_text = (
+            f"This figure is from {figure.book} {figure.chapter}. "
+            f"Caption: {figure.caption}\n\n"
+            f"Question: {query}\n\n"
+            "In 2-3 sentences, describe what this figure shows and "
+            "how it relates to the question. Be specific about axes, "
+            "curves, or labels."
+        )
+    else:
+        prompt_text = (
+            f"This figure is from {figure.book} {figure.chapter}. "
+            f"Caption: {figure.caption}\n\n"
+            f"{instruction}"
+        )
 
     oa = _openai.AsyncOpenAI(api_key=settings.openai_api_key)
     t0 = time.monotonic()
@@ -55,14 +83,7 @@ async def inspect_figure(figure: Figure, *, query: str) -> str:
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                f"This figure is from {figure.book} {figure.chapter}. "
-                                f"Caption: {figure.caption}\n\n"
-                                f"Question: {query}\n\n"
-                                "In 2-3 sentences, describe what this figure shows and "
-                                "how it relates to the question. Be specific about axes, "
-                                "curves, or labels."
-                            ),
+                            "text": prompt_text,
                         },
                         {
                             "type": "image_url",
@@ -71,7 +92,7 @@ async def inspect_figure(figure: Figure, *, query: str) -> str:
                     ],
                 }
             ],
-            max_tokens=300,
+            max_tokens=max_tokens,
             temperature=0.0,
         )
         out: str = resp.choices[0].message.content or ""

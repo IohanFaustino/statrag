@@ -45,9 +45,14 @@ async def _recover_one(query: str, gap: GapConcept) -> RecoveredEquation | None:
         for fig in figs:
             try:
                 txt = await inspect_figure(
-                    fig, query=(f"Transcribe the exact defining equation for '{gap.term}' "
-                                f"shown in this figure as LaTeX, delimited with $...$ or $$...$$. "
-                                f"Output ONLY the equation."))
+                    fig,
+                    query=gap.term,
+                    instruction=(
+                        f"Transcribe the exact defining equation for '{gap.term}' shown in this "
+                        f"figure as LaTeX, delimited with $...$ or $$...$$. Output ONLY the equation."
+                    ),
+                    max_tokens=200,
+                )
                 latex = _first_latex(txt)
                 if latex:
                     eq = RecoveredEquation(term=gap.term, latex=latex, citation=_cite(fig))
