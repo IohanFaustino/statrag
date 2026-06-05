@@ -500,6 +500,36 @@ def test_author_worker_retries_on_length_error(monkeypatch):
     assert calls["n"] == 2, f"expected 2 parse calls (1 fail + 1 retry), got {calls['n']}"
 
 
+def test_recovered_equations_injected_into_synth(monkeypatch):
+    sources, plan = _two_author_inputs()
+
+    async def fake_worker(query, thesis, author, srcs, *, model=None):
+        return AuthorBrief(author=author, summary="s", key_points=["k"], source_ranks=[srcs[0].rank])
+    monkeypatch.setattr(OW, "run_author_worker", fake_worker)
+
+    # force a gap + a recovered equation
+    from src.services.chat.agents.formula_gaps import GapConcept
+    from src.services.chat.agents.formula_cache import RecoveredEquation
+    monkeypatch.setattr(OW, "detect_formula_gaps",
+                        lambda sources, query: [GapConcept(term="Bias", hint="h", book_slugs=["murphy"])])
+
+    async def fake_recover(query, gaps):
+        return [RecoveredEquation(term="Bias", latex="$E[\\hat\\theta]-\\theta$", citation="Murphy")]
+    monkeypatch.setattr(OW, "recover_formulas", fake_recover)
+
+    captured = {}
+
+    async def fake_stream(messages, model, on_aspect_delta=None):
+        captured["messages"] = messages
+        return DeepTutorAnswer(tldr="t", definition="d", formal_statement="",
+                               example_intuition="", applications="", further_reading=""), {}
+    monkeypatch.setattr(OW, "_stream_structured", fake_stream)
+
+    asyncio.run(OW.run_orchestrator_workers("q", sources, plan))
+    user_msg = next(m["content"] for m in captured["messages"] if m["role"] == "user")
+    assert "<recovered_equations>" in user_msg and "$E[\\hat\\theta]-\\theta$" in user_msg
+
+
 def test_deep_tutor_resolves_synth_stage_default_nano(monkeypatch):
     """_resolve_stage_model('synth', nano, None) == nano; an override is honored
     only when the candidate is in the known-models registry."""

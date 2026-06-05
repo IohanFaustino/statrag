@@ -422,12 +422,12 @@ Per-field requirements (target lengths are minimums; longer is fine):
 - An Example ``### Case`` that has an approved figure carries BOTH the case's
   ``$$formula$$`` AND the ``[Fn]`` marker WITHIN THAT SAME SUBSECTION, so the
   formula, its figure, and the explanation sit together.
-- Never invent figure markers.  Never reuse a marker.  If a figure does
-  not fit the surrounding prose, omit it; the orchestrator keeps the
-  figure metadata regardless.
-- The ``figures`` array in the response is filled by the system from
-  the judge's verdict; you do NOT need to populate it.  Just place the
-  inline markers correctly.
+- Never invent figure markers. Never reuse a marker. If a figure does
+  not fit the surrounding prose, omit it.
+- The ``figures`` array in the response is filled by the system; you
+  do NOT need to populate it. Just place the inline markers correctly.
+- ``<recovered_equations>`` block: use each LaTeX verbatim as that
+  concept's defining equation, citing the provided source.
 </figures>
 
 <plan>

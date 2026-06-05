@@ -367,3 +367,8 @@ def test_author_worker_preserves_equations():
     p = AUTHOR_WORKER_PROMPT.lower()
     assert "preserve equations" in p
     assert "verbatim" in p
+
+
+def test_recovered_equations_rule_present():
+    assert "<recovered_equations>" in INSTR or "recovered_equations" in INSTR
+    assert "verbatim" in INSTR

@@ -47,6 +47,8 @@ from src.services.chat.agents.deep_tutor import (
     _format_plan_block,
     _stream_structured,
 )
+from src.services.chat.agents.formula_gaps import detect_formula_gaps
+from src.services.chat.agents.formula_recovery import recover_formulas, format_recovered_block
 
 logger = logging.getLogger(__name__)
 
@@ -274,11 +276,23 @@ async def run_orchestrator_workers(
         except Exception:  # noqa: BLE001
             logger.exception("ow L5 deepagents+skill failed; falling back to L0 synthesizer")
 
+    # Formula recovery: when a concept's defining equation was OCR-dropped to an
+    # image, recover it (vision/text) so the synth states it verbatim. Best-effort.
+    recovered_block = ""
+    try:
+        gaps = detect_formula_gaps(sources, query)
+        if gaps:
+            recovered = await recover_formulas(query, gaps)
+            recovered_block = format_recovered_block(recovered)
+    except Exception:  # noqa: BLE001
+        logger.exception("formula recovery stage failed; continuing without it")
+
     # Synthesizer: same DeepTutorAnswer schema + draft rules + briefs addendum.
     plan_block = _format_plan_block(plan)
     user = (
         f"<question>\n{query}\n</question>\n\n"
         f"{format_source_bundle(sources)}\n\n"
+        f"{(recovered_block + chr(10) + chr(10)) if recovered_block else ''}"
         f"{(plan_block + chr(10) + chr(10)) if plan_block else ''}"
         f"{structured_briefs_block(briefs) if level == 2 else _format_author_briefs(briefs)}\n\n"
         f"{_format_figure_bundle(figures or [])}\n\n"
