@@ -129,3 +129,60 @@ def test_header_less_text_definition_does_not_raise():
     definition = r"A paragraph mentioning $$x=1$$ with no headers at all."
     ans = _build(definition=definition, math_blocks=[r"$$x=1$$"])
     assert ans.definition == definition
+
+
+def test_noncompliant_json_triggers_repair():
+    """A non-compliant DeepTutorAnswer JSON routed through _validate_and_repair
+    triggers exactly one repair stream call, then validates."""
+    import asyncio
+
+    from src.services.chat import orchestrator
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    bad_def = (
+        "We define each component.\n"
+        "### Bias\n- prose only, no formula\n"
+        "### MSE\n"
+        r"$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$" "\n"
+    )
+    good_def = (
+        "We define each component.\n"
+        "### Bias\n"
+        r"$$\mathrm{Bias}(\hat\theta)=\mathbb{E}[\hat\theta]-\theta$$" "\n"
+        "### MSE\n"
+        r"$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$" "\n"
+    )
+
+    def _payload(definition: str) -> str:
+        return DeepTutorAnswer.model_construct(
+            tldr="i",
+            definition=definition,
+            formal_statement="",
+            example_intuition="e",
+            applications="a",
+            further_reading="f",
+            citations=[],
+            math_blocks=[],
+            figures=[],
+        ).model_dump_json()
+
+    bad_json = _payload(bad_def)
+    good_json = _payload(good_def)
+    calls = {"n": 0}
+
+    class _FakeLLM:
+        async def stream(self, messages, **kw):
+            calls["n"] += 1
+            yield good_json
+
+    class _Spec:
+        output_schema = DeepTutorAnswer
+
+    validated, err = asyncio.run(
+        orchestrator._validate_and_repair(
+            bad_json, _Spec(), _FakeLLM(), "gpt-5.4-nano-2026-03-17"
+        )
+    )
+    assert err is None
+    assert calls["n"] == 1
+    assert validated is not None
