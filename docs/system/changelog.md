@@ -2,6 +2,20 @@
 
 Append-only. Latest at top.
 
+## 2026-06-05 — Schema-time enforcement of per-component defining equations
+
+**Symptom:** conv `9e0a393d` ("What is the bias-variance tradeoff?") rendered `### Bias` and `### Variance` subsections as prose with NO defining equation, and used a word-form pseudo-equation (`$$\text{Squared bias}+\text{Variance}\approx\text{Test MSE}$$`) in place of a symbolic one — even though `DEEP_TUTOR_INSTRUCTIONS` already mandated a `$$…$$` per component subsection (invariant 23). The prompt directive alone was being ignored.
+
+**Root cause:** the per-component-equation rule lived only in prompt text; nothing *enforced* it. Under ADR-008 native `response_format`, the OpenAI client guarantees JSON validity but not this semantic rule, so a non-compliant answer streamed through unchecked.
+
+**Fix (Approach A — validator + repair, synth prompt + schema only):**
+- New `model_validator(mode="after")` `_require_component_equations` on `DeepTutorAnswer` (`schemas/output.py`). Math-answer gate: enforced only when `math_blocks` is non-empty OR `definition` contains `$$`. For such answers, every `### ` subsection in `definition` must contain a *real* `$$…$$` block; first offender raises `ValueError` naming the subsection. Header-less / non-math definitions are exempt, so directly constructed fallbacks (`_wrap_text_answer`) never raise.
+- Equation-quality helpers `_split_definition_subsections` + `_has_real_equation` (`schemas/output.py`): a `$$…$$` whose content — after stripping `\text{…}`/`\mathrm{…}` wrappers and textual relations like `\approx` — has no residual math letter or `\command` is treated as a word-form pseudo-equation and rejected (so `$$\text{Bias}^2+\text{Variance}\approx\text{MSE}$$` does NOT count; `$$\mathrm{MSE}=\mathrm{Bias}^2+\mathrm{Var}+\sigma^2$$` does).
+- Enforcement rides the existing ADR-005 path: the validator's `ValidationError` is caught by `orchestrator._validate_and_repair`, which runs one free-form repair call that backfills the missing equations. Proven by `test_component_equations.py::test_noncompliant_json_triggers_repair`.
+- Prompt half (lockstep): a compact negative example in the `definition` block of `DEEP_TUTOR_INSTRUCTIONS` bans word-form pseudo-equations and shows the real symbolic forms (kept under the 19200-char prompt budget enforced by `test_tutor_prompt_contract.py`).
+- No frontend change (`definition` stays a markdown string). Spec: `docs/superpowers/specs/2026-06-05-bias-variance-component-equations-design.md`.
+- Tests: `src/services/chat/tests/test_component_equations.py` (14); full chat suite 731 passed.
+
 ## 2026-06-04 — Formula recovery (vision second-RAG) + global formula cache
 
 **Problem:** many defining equations (e.g. Bias²/Variance decomposition) were OCR-dropped to image placeholders during ingestion — the LaTeX text is genuinely absent in the indexed chunks, so the existing verbatim/reconstruct rule in the synth can only reconstruct from memory (inconsistent). No mechanism existed to close that gap at query time.
