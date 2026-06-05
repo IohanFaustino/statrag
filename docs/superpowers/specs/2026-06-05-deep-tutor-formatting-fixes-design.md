@@ -59,24 +59,28 @@ additions exceed it. Raise `_PROMPT_BUDGET_CEILING` in
 `tests/test_tutor_prompt_contract.py` to **20500** (documented bump — the new
 rules are load-bearing, not duplication) and keep the additions terse.
 
-### 2. Schema — `src/services/chat/schemas/output.py`
+### 2a. Deterministic render fix for A — `src/services/chat/agents/deep_tutor.py`
 
-- **New `_no_raw_latex_leak` validator** on `DeepTutorAnswer`
-  (`model_validator(mode="after")`, takes `ValidationInfo`): for each prose
-  aspect (`definition`, `example_intuition`, `applications`, `further_reading`,
-  `tldr`), strip all `$$…$$` and `$…$` spans, then search the remainder for a
-  **known LaTeX command** outside math — regex over an explicit allow-list of
-  commands (`\\(?:tilde|hat|bar|vec|dot|frac|sqrt|sum|int|prod|beta|alpha|theta|
-  sigma|mu|lambda|mathbb|mathrm|mathbf|cdot|times|approx|leq|geq|big|left|right|
-  partial|hat|widehat)\b`). On match → `ValueError("aspect '{name}' contains raw
-  LaTeX '\\{cmd}' outside $…$ — wrap all math in $…$ (inline) or $$…$$
-  (display)")`.
-- **Best-effort gate:** both `_require_component_equations` and
-  `_no_raw_latex_leak` first check
+The leak is the model mixing **unicode greek (`β`, `θ`, `σ`) with LaTeX
+commands** (`\tilde`, `x_1`) in undelimited prose. `_convert_to_tutor_answer`
+already post-processes each aspect with `_repair_latex_post` + `_wrap_bare_math`,
+but `_wrap_bare_math`'s token regex (`_MATH_TOK`/`_MATH_RUN_RE`) breaks on
+unicode greek, so a run like `\tilde y=\tilde β_0+\tilde β_1 x_1` is left raw.
+**Fix:** extend `_MATH_TOK` to treat common unicode greek letters
+(`α β γ δ ε θ λ μ σ τ φ ω Σ Π Δ Ω` …) and the unicode minus/middle-dot as math
+tokens so a mixed run is recognized and wrapped as one `$…$` span. This is the
+primary, deterministic fix (works regardless of model, no extra LLM call). The
+proposed standalone leak *validator* is dropped — under best-effort it would not
+change the render, and `_wrap_bare_math` fixes it deterministically.
+
+### 2b. Schema best-effort gate — `src/services/chat/schemas/output.py`
+
+- **Best-effort gate** on the existing `_require_component_equations`: take
+  `ValidationInfo` and first check
   `if (info.context or {}).get("skip_format_checks"): return self`. Normal
-  construction (no context) enforces; the final fallback passes the flag to
-  bypass *only* these format checks (required-fields/types still enforced).
-- Retrofit `_require_component_equations` to accept `info` and honor the flag.
+  construction enforces; the final fallback passes the flag to bypass *only*
+  this format check (required-fields/types still enforced). This removes the
+  hard-fail availability risk observed when the one repair could not comply.
 
 ### 3. Orchestrator best-effort fallback — `src/services/chat/orchestrator.py`
 
