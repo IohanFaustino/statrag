@@ -1,5 +1,7 @@
 # Q&A Deepagent Implementation Plan
 
+> ⚠️ **SUPERSEDED (2026-06-08)** by [`2026-06-08-qa-deepagent-roster.md`](2026-06-08-qa-deepagent-roster.md) — adds the 4-agent roster (AGENTS.md + tools + skills per agent), thesis/body/conclusion output, and the env-capped checker re-call loop. Use the newer plan. This file kept for history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rebuild Q&A mode as a scoped agentic-retrieval deepagent — deterministic scope → adaptive gate (simple bounded loop ‖ compound parallel subagents) → organize → deterministic verify — that grounds answers better while staying punctual.
