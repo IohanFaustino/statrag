@@ -154,6 +154,7 @@ MODES = [
             ("grounding", "Verify verdict: {ok, unsupported[], confidence}."),
         ],
         "fields_note": "schemas/output.py:237-251.",
+        "note": 'This page documents the <b>current live</b> 4-node Q&amp;A graph. A scoped agentic-retrieval deepagent rebuild is specified but <b>not started</b> — see <code>docs/superpowers/specs/2026-06-05-qa-deepagent-design.md</code>.',
     },
     {
         "id": "facilitate", "name": "Facilitate", "arch": "multi-agent (chapter pipeline)",
@@ -335,6 +336,10 @@ def mode_page(m: dict) -> str:
     </table>
     <p class="caption">Source: <code>src/services/chat/agents/chapter.py:45-48</code>.</p>
   </section>"""
+    note_section = ""
+    if m.get("note"):
+        note_section = f'\n  <section><div class="card" style="border-left:3px solid var(--accent)"><p style="margin:0">{m["note"]}</p></div></section>'
+
     # mermaid src goes in BOTH data-src and text content (render reads data-src first).
     agentic = m["agentic"].replace('"', "&quot;")
 
@@ -382,7 +387,7 @@ def mode_page(m: dict) -> str:
     body = f"""<header>
   <h1><span class="accent">{m['name']}</span> mode <span class="pill">{m['arch']}</span></h1>
   <div class="sub">{m['purpose']}</div>
-</header>
+</header>{note_section}
 <main>
   <section>
     <h2>What it serves</h2>
