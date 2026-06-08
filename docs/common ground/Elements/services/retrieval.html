@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Retrieval</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Retrieval</span> <span class="pill">Service · DB → results</span></h1>
+  <div class="sub">Hybrid query service: dense + sparse BM25 over the per-field collections, fused with Reciprocal Rank Fusion, optional cross-encoder rerank. The retrieval primitive every chat mode builds on.</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Service · DB → results</td></tr>
+      <tr><th>Path</th><td><code>src/services/retrieval/</code></td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code>. Never imports other services or ingestion.</td></tr>
+      <tr><th>Entrypoint</th><td><code>python -m src.services.retrieval.cli "&lt;question&gt;" --book &lt;slug&gt;</code>.</td></tr>
+    </table>
+    <p class="caption">Chinese-wall rule verified from <code>src/services/retrieval/__init__.py</code>.</p>
+  </section>
+  <section>
+    <h2>Key modules</h2>
+    <table>
+      <tr><th>Module</th><th>Role</th></tr>
+      <tr><td><code>chain.py</code></td><td>Hybrid query chain — embed, dense+sparse search, RRF, rerank.</td></tr>
+      <tr><td><code>retrievers.py</code></td><td>Dense / sparse retriever wrappers over Qdrant.</td></tr>
+      <tr><td><code>cli.py</code></td><td>Stand-alone retrieval CLI.</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>Related</h2>
+    <div class="card"><p style="margin:0"><a href="../retrieval.html">Retrieval ops page</a></p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

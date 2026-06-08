@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Chat</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Chat</span> <span class="pill">Service · user-facing</span></h1>
+  <div class="sub">The SSE-streaming conversational layer: a FastAPI app exposing the four chat modes over hybrid retrieval, including the deep-tutor pipeline (query planning → coverage → orchestrator-workers → vision).</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Service · user-facing</td></tr>
+      <tr><th>Path</th><td><code>src/services/chat/</code></td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code>. Reads manifest.json + book YAML as files, never imports ingestion.</td></tr>
+      <tr><th>Entrypoint</th><td><code>uvicorn src.services.chat.api:app</code> (dev: ./scripts/dev.sh → :8766).</td></tr>
+    </table>
+    <p class="caption">Chinese-wall rule verified from <code>src/services/chat/__init__.py</code>.</p>
+  </section>
+  <section>
+    <h2>Key modules</h2>
+    <table>
+      <tr><th>Module</th><th>Role</th></tr>
+      <tr><td><code>api.py</code></td><td>FastAPI app + SSE endpoints (app = FastAPI, uvicorn entry).</td></tr>
+      <tr><td><code>modes.py</code></td><td>ModeSpec registry — tutor / qa / facilitate / resume.</td></tr>
+      <tr><td><code>agents/</code></td><td>Runners: deep_tutor, qa, chapter, orchestrator_workers, coverage, …</td></tr>
+      <tr><td><code>prompts/</code></td><td>Per-stage system prompts.</td></tr>
+      <tr><td><code>schemas/</code></td><td>Request knobs + output models.</td></tr>
+      <tr><td><code>llm/router.py</code></td><td>Provider / model routing (see Models).</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>Related</h2>
+    <div class="card"><p style="margin:0"><a href="../chat.html">Chat & deep-tutor page</a> · <a href="../modes/index.html">Modes</a> · <a href="../models/index.html">Models</a></p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

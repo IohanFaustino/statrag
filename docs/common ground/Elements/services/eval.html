@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Eval</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Eval</span> <span class="pill">Service · placeholder</span></h1>
+  <div class="sub">Evaluation scaffolding — dataset building, generation, and metrics for retrieval / answer quality. Present but a placeholder; not wired into the live app.</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Service · placeholder</td></tr>
+      <tr><th>Path</th><td><code>src/services/eval/</code></td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code>. Never imports other services or ingestion.</td></tr>
+      <tr><th>Entrypoint</th><td>Placeholder — no stable CLI yet.</td></tr>
+    </table>
+    <p class="caption">Chinese-wall rule verified from <code>src/services/eval/__init__.py</code>.</p>
+  </section>
+  <section>
+    <h2>Key modules</h2>
+    <table>
+      <tr><th>Module</th><th>Role</th></tr>
+      <tr><td><code>dataset.py</code></td><td>Eval dataset construction.</td></tr>
+      <tr><td><code>generator.py</code></td><td>Candidate / answer generation for scoring.</td></tr>
+      <tr><td><code>metrics.py</code></td><td>Scoring metrics.</td></tr>
+      <tr><td><code>runner.py</code></td><td>Eval run driver.</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>Related</h2>
+    <div class="card"><p style="margin:0"><a href="../report.html">Verification page</a></p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

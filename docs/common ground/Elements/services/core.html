@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Core</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Core</span> <span class="pill">Core · shared infra</span></h1>
+  <div class="sub">The shared system layer: configuration and the Qdrant client/store wrapper. Everything else depends on core; core depends on nothing in-repo.</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Core · shared infra</td></tr>
+      <tr><th>Path</th><td><code>src/core/</code></td></tr>
+      <tr><th>Import rule</th><td>Nothing in the repo — only third-party libs. ingestion/ and services/ may import core; core never imports them.</td></tr>
+      <tr><th>Entrypoint</th><td>Imported as <code>src.core.config</code> / <code>src.core.qdrant_store</code> — no CLI.</td></tr>
+    </table>
+    <p class="caption">Chinese-wall rule verified from <code>src/core/__init__.py</code>.</p>
+  </section>
+  <section>
+    <h2>Key modules</h2>
+    <table>
+      <tr><th>Module</th><th>Role</th></tr>
+      <tr><td><code>config.py</code></td><td>Pydantic settings — env, model ids, ports, collection naming.</td></tr>
+      <tr><td><code>qdrant_store.py</code></td><td>Qdrant client + per-field collection helpers (textbooks/images).</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>Related</h2>
+    <div class="card"><p style="margin:0"><a href="../index.html">Overview — Chinese wall</a></p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

@@ -8,6 +8,7 @@
   const PAGES = [
     ["home.html", "Home"],
     ["index.html", "Overview"],
+    ["services/index.html", "Services"],
     ["ingestion.html", "Ingestion"],
     ["retrieval.html", "Retrieval"],
     ["chat.html", "Chat & deep-tutor"],

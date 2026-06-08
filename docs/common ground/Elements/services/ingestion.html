@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Ingestion</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Ingestion</span> <span class="pill">Task · external-input → DB</span></h1>
+  <div class="sub">One-off pipeline that turns an OCR'd book into enriched, embedded Qdrant points. Reads per-book YAML + preprocessor output, writes the field_textbooks / field_images collections.</div>
+</header>
+<main>
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Task · external-input → DB</td></tr>
+      <tr><th>Path</th><td><code>src/ingestion/</code></td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code> + third-party. No imports from services/. Other tasks/services never import ingestion.</td></tr>
+      <tr><th>Entrypoint</th><td><code>python -m src.ingestion.pipeline --book &lt;slug&gt; --chapter chNN</code> (pipeline.py:271 main).</td></tr>
+    </table>
+    <p class="caption">Chinese-wall rule verified from <code>src/ingestion/__init__.py</code>.</p>
+  </section>
+  <section>
+    <h2>Key modules</h2>
+    <table>
+      <tr><th>Module</th><th>Role</th></tr>
+      <tr><td><code>pipeline.py</code></td><td>Orchestrates preprocess → enrich → embed → upsert (CLI entry).</td></tr>
+      <tr><td><code>build_documents.py</code></td><td>Section chunking (1 section = 1 chunk, 8000-tok split).</td></tr>
+      <tr><td><code>llm_enrich.py</code></td><td>LLM enrichment (DeepSeek-flash default).</td></tr>
+      <tr><td><code>regex_pass.py</code></td><td>Deterministic regex cleanup pass.</td></tr>
+      <tr><td><code>ingest_images_only.py</code></td><td>Image-only ingest path for figures.</td></tr>
+      <tr><td><code>manifest.py</code></td><td>Writes data/parsed/manifest.json.</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>Related</h2>
+    <div class="card"><p style="margin:0"><a href="../ingestion.html">Ingestion ops page</a></p></div>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>
