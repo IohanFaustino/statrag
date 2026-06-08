@@ -6,6 +6,7 @@
 // modes/ or models/). A toggle auto-expands when the current page is inside it.
 (function () {
   const PAGES = [
+    ["home.html", "Home"],
     ["index.html", "Overview"],
     ["ingestion.html", "Ingestion"],
     ["retrieval.html", "Retrieval"],
