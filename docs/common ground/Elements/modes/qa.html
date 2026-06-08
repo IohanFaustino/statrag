@@ -20,7 +20,7 @@
     <div class="card"><p style="margin:0">Use for a specific, bounded question where you want a short, sourced answer fast — not a full tutorial. The verify node flags unsupported claims and reports a confidence.</p></div>
   </section>
   <section>
-    <h2>Pipeline</h2>
+    <h2>Agentic workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart LR
   Q[&quot;Question&quot;] --> SC[&quot;scope (nano)<br/>target_gap + assumed_known&quot;]
   SC --> RET[&quot;retrieve (top 4, rerank)&quot;]
@@ -35,6 +35,58 @@
   VF --> A["QAAnswer"]
   style VF fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
     <p class="caption">Four nodes, run in order (agents/qa.py). One schema-repair retry on the generate node (ADR-005).</p>
+  </section>
+  <section>
+    <h2>Functions workflow</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
+  E[&quot;run_qa()&quot;] --> SC[&quot;extract_scope()&quot;]
+  SC -. &quot;QA_SCOPE_PROMPT&quot; .- P1[(&quot;prompts/qa.py&quot;)]
+  SC --> RT[&quot;retrieve_for_gap()<br/>hybrid, top 4, rerank&quot;]
+  RT --> GN[&quot;generate_scoped()<br/>_one() schema-repair retry&quot;]
+  GN -. &quot;QA_GENERATE_PROMPT&quot; .- P2[(&quot;prompts/qa.py&quot;)]
+  GN --> VF[&quot;verify_grounding()&quot;]
+  VF -. &quot;QA_VERIFY_PROMPT&quot; .- P3[(&quot;prompts/qa.py&quot;)]
+  VF --> A[&quot;QAAnswer&quot;]
+  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style P3 fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
+  E["run_qa()"] --> SC["extract_scope()"]
+  SC -. "QA_SCOPE_PROMPT" .- P1[("prompts/qa.py")]
+  SC --> RT["retrieve_for_gap()<br/>hybrid, top 4, rerank"]
+  RT --> GN["generate_scoped()<br/>_one() schema-repair retry"]
+  GN -. "QA_GENERATE_PROMPT" .- P2[("prompts/qa.py")]
+  GN --> VF["verify_grounding()"]
+  VF -. "QA_VERIFY_PROMPT" .- P3[("prompts/qa.py")]
+  VF --> A["QAAnswer"]
+  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style P3 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
+    <p class="caption">Code call-graph — green = LLM-call node, purple = prompt constant, red = synthesis/heavy stage. Verified from the runner source listed below.</p>
+  </section>
+  <section>
+    <h2>Sources, prompts &amp; tools</h2>
+    <h3>Prompts</h3>
+    <table><tr><th>Constant</th><th>Location</th><th>Role</th></tr>
+      <tr><td><code>QA_SCOPE_PROMPT</code></td><td><code>prompts/qa.py:12</code></td><td>Extract target_gap + assumed_known from the question.</td></tr>
+      <tr><td><code>QA_GENERATE_PROMPT</code></td><td><code>prompts/qa.py:43</code></td><td>Terse grounded answer over the retrieved set.</td></tr>
+      <tr><td><code>QA_VERIFY_PROMPT</code></td><td><code>prompts/qa.py:75</code></td><td>Flag unsupported claims; report confidence.</td></tr>
+    </table>
+    <h3>Tools &amp; retrieval calls</h3>
+    <table><tr><th>Function</th><th>Hits</th><th>Purpose</th></tr>
+      <tr><td><code>retrieve_for_gap</code></td><td>Qdrant field_textbooks (dense+BM25) + reranker</td><td>Top-4 high-precision retrieval (rerank_top_n=4).</td></tr>
+      <tr><td><code>generate_scoped → _one (retry)</code></td><td>nano LLM</td><td>Generate; one schema-repair retry (ADR-005).</td></tr>
+      <tr><td><code>verify_grounding</code></td><td>nano LLM</td><td>Grounding verdict over the same sources.</td></tr>
+    </table>
+    <h3>Source modules</h3>
+    <table><tr><th>Stage</th><th>Path</th></tr>
+      <tr><td>entrypoint</td><td><code>src/services/chat/agents/qa.py:240 (run_qa)</code></td></tr>
+      <tr><td>scope</td><td><code>src/services/chat/agents/qa.py:74 (extract_scope)</code></td></tr>
+      <tr><td>retrieve</td><td><code>src/services/chat/agents/qa.py:107 (retrieve_for_gap)</code></td></tr>
+      <tr><td>generate</td><td><code>src/services/chat/agents/qa.py:165 (generate_scoped, retry at :184)</code></td></tr>
+      <tr><td>verify</td><td><code>src/services/chat/agents/qa.py:203 (verify_grounding)</code></td></tr>
+    </table>
   </section>
   <section>
     <h2>Spec</h2>
