@@ -1,19 +1,30 @@
 # Q&A Deepagent — Scoped Agentic Retrieval (Design)
 
-**Date:** 2026-06-05
-**Status:** Design — awaiting user review
-**Supersedes:** the lean 4-node Q&A graph (`scope → retrieve → generate → verify`) documented in [`docs/services/chat-features/51-qa-mode.md`](../../services/chat-features/51-qa-mode.md)
-**Driving goal:** better grounding/quality via agentic, bounded, decomposition-driven retrieval — while keeping Q&A *punctual* (answers exactly one question, no tutor-style scaffolding).
+**Date:** 2026-06-05 · **Revised:** 2026-06-08
+**Status:** Design — revised per user direction (agent roster, thesis/body/conclusion, checker re-call loop)
+**Supersedes:** the lean 4-node Q&A graph (`scope → retrieve → generate → verify`) in [`docs/services/chat-features/51-qa-mode.md`](../../services/chat-features/51-qa-mode.md)
+**Driving goal:** better grounding/quality via agentic, bounded, decomposition-driven retrieval — answers exactly one question as a **thesis → deep-dive → concise-conclusion** progression, with a checker that re-calls the loop when coverage is insufficient.
+
+---
+
+## 0. Revision 2026-06-08 — what changed vs the original design
+
+| # | Original (2026-06-05) | Revised (2026-06-08) | Why |
+|---|---|---|---|
+| 1 | `QAAnswer.text` — one lean blob, no structure | `QAAnswer{thesis, body, conclusion}` — 3 fixed fields | User wants an explicit progression of ideas: core answer first, augmented detail, concise conclusion. |
+| 2 | Adaptive gate (simple / compound) | **kept** | Confirmed — fast path for simple doubts, fan-out only on real facets. |
+| 3 | `verify` advisory only (sets badge) | **Checker** absorbs verify + drives an **env-capped re-call loop** (`QA_MAX_RECHECK=2`) | User wants "another agent checks the result and calls it once more if needed". |
+| 4 | Single `grounded-qa` skill | **Three skills** + **per-agent `AGENTS.md`** roster | User wants each subagent to carry AGENTS.md + tools + skills; incorporates patterns from [scientific-agent-skills](https://github.com/k-dense-ai/scientific-agent-skills) (Open Agent Skills `SKILL.md` standard, peer-review/critique loop) and [deep-research-skills](https://skillsllm.com/skill/deep-research-skills) (`Decompose → Search → Synthesize → Verify`, outline-first thesis/body, parallel per-item agents). |
+
+The **anti-tutor-drift guarantee** is restated: the answer is exactly **3 fixed fields** (thesis/body/conclusion) — never the tutor's open-ended `sections`/`aspects`/`figures`. Q&A stays structurally incapable of becoming a tutor.
 
 ---
 
 ## 1. Motivation
 
-Today's Q&A retrieves **once** on the scoped `target_gap`, then generates. When that single retrieval misses (under-retrieves, or conflates a compound question's facets), the punctual answer is nakedly wrong or vague — Q&A has no scaffolding to hedge behind, so a missed retrieval is a visible failure.
+Today's Q&A retrieves **once** on the scoped `target_gap`, then generates. A missed retrieval produces a nakedly wrong/vague punctual answer with no scaffolding to hedge behind. The fix is **agentic retrieval**: retrieval becomes a tool the agent calls, bounded to a few rounds, with pertinence self-checks against the central question; compound questions decompose into per-facet subagents whose findings are fused. A separate **checker** judges whether the fused answer actually covers the gap and, if not, re-runs the loop (bounded).
 
-The fix is **agentic retrieval**: retrieval becomes a tool the agent calls, bounded to 2–3 rounds, with a pertinence self-check against the central question. For genuinely compound questions, the question is decomposed into sub-questions, each retrieved in isolation, then the findings are fused into one scoped answer.
-
-**Non-goal:** turning Q&A into a second tutor. Decomposition is an internal *retrieval* strategy, not an *output* structure. The reply stays one scope-delimited response — no recommendations, examples, or intuitions.
+**Non-goal:** turning Q&A into a second tutor. Decomposition is an internal *retrieval* strategy; thesis/body/conclusion is a fixed *rhetorical* shape, not an open tutor structure.
 
 ---
 
@@ -21,182 +32,208 @@ The fix is **agentic retrieval**: retrieval becomes a tool the agent calls, boun
 
 ```
 scope (deterministic, nano)
-  → QAScope{ target_gap, assumed_known, answer_form,
-             complexity: simple|compound, sub_questions[] }
+  → QAScope{ target_gap, assumed_known, answer_form, complexity, sub_questions[] }
   │
-  ├─ simple   → deepagent: bounded loop (≤ QA_MAX_ROUNDS search_corpus calls)
-  │             pertinence self-check vs target_gap; hits offloaded to /sources/
+  ├─ simple   → ORCHESTRATOR deepagent: bounded search_corpus loop (≤ QA_MAX_ROUNDS)
+  │             evidence offloaded → StoreBackend /sources/
   │
-  └─ compound → deepagent: one analyst SUBAGENT per sub_question, run in
-                parallel, isolated context → each returns QAFinding
-                { sub_question, text, citations[], pertinent } → organizer fuses
+  └─ compound → ORCHESTRATOR deepagent + one ANALYST subagent per sub_question
+  │             (isolated context, own search_corpus, /skills/grounded-qa)
+  │             → each returns QAFinding{ sub_question, text, citations, pertinent }
   │
-  → organizer emits QAAnswer via ToolStrategy(QAAnswer)
-  → verify (deterministic, nano, advisory) → grounding badge
+  → ORGANIZE (orchestrator, /skills/synthesize-progression):
+  │     merge/drop repeated info → QAAnswer{ thesis, body, conclusion, citations, math_blocks }
+  │
+  → CHECKER (deterministic, nano, /skills/critique-coverage) → QACheck{ sufficient, gaps[], grounding }
+  │     sufficient                    → finalize, set grounding badge
+  │     gaps & round < QA_MAX_RECHECK → feed gaps back into the orchestrator, RE-RUN  ┐
+  │     cap hit                       → finalize, low-confidence badge                │
+  └──────────────────────────────────────────── re-call loop ◄───────────────────────┘
 ```
 
-Three stable stages wrap the agent: a deterministic **scope** pre-pass and a deterministic **verify** post-pass are hard quality gates; the **deepagent** owns retrieval + drafting in between. This preserves the two guardrails the current pipeline relies on while moving retrieval from one-shot to agentic.
+Two deterministic guardrails wrap the deepagent: a **scope** pre-pass and a **checker** post-loop. The orchestrator owns retrieval + organization in between. This maps directly onto the deep-research `Decompose → Search → Synthesize → Verify` cycle.
 
-### 2.1 Isolation from tutor mode (hard constraint)
+### 2.1 Isolation from tutor mode (hard constraint — unchanged)
 
-**Rebuilding Q&A must not change a single tutor file, and Q&A must not import tutor logic/prompts/skills.** Coupling the two means a Q&A change could force a tutor change (or silently break it) — that is forbidden.
+Rebuilding Q&A must not change a single tutor file, and Q&A must not import tutor logic/prompts/skills.
 
 | Aspect | Rule |
 |---|---|
-| `ow_deepagents.py`, `orchestrator_workers.py`, `deep_tutor.py` | **Pattern reference only** — do *not* import from them. Q&A copies the `create_deep_agent`/`StoreBackend`/`ToolStrategy` construction idiom into its own module. |
-| `prompts/deep_tutor.py`, `DEEP_TUTOR_INSTRUCTIONS` | **Never imported.** Q&A's agent system prompt and `grounded-qa` skill are written fresh and standalone. |
-| `agents/ow_skills/synthesis/` | **Not shared.** Q&A gets its own skill dir `agents/qa_skills/grounded-qa/`. |
-| Figure helpers (`_format_figure_bundle`) | **Not used** — Q&A has no figures. |
-| Frontend `PipelineDiagram.tsx`, `tutorPipeline.ts` | **Untouched.** Q&A keeps its own `QAPipelineDiagram.tsx` + `qaPipeline.ts`. |
-| Tutor modal / `AboutModelModal` | **Untouched.** Q&A keeps `QAModeModal`. |
+| `ow_deepagents.py`, `orchestrator_workers.py`, `deep_tutor.py` | **Pattern reference only** — never imported. Q&A copies the `create_deep_agent`/`StoreBackend`/`ToolStrategy` idiom into its own module. |
+| `prompts/deep_tutor.py`, `DEEP_TUTOR_INSTRUCTIONS` | **Never imported.** Q&A prompts written fresh. |
+| `agents/ow_skills/synthesis/` | **Not shared.** Q&A gets its own `agents/qa_skills/`. |
+| Frontend `PipelineDiagram.tsx`, `tutorPipeline.ts`, tutor modal | **Untouched.** Q&A keeps `QAPipelineDiagram.tsx` + `qaPipeline.ts` + `QAModeModal`. |
 
-**Only shared primitives — read-only, stable, generic (not tutor structure):**
-- `TutorCitation` schema type — already reused by the current `QAAnswer`; a generic citation record, not tutor logic. Kept as-is (giving Q&A its own copy would be churn for no benefit). Q&A must not modify it.
-- Generic render helpers `renderInlineWithCites` + `MathBlock` — already used by `QAAnswerCard`; shared UI primitives, not tutor-specific components. Unchanged.
-
-Net: Q&A owns `qa.py`, `prompts/qa.py`, `qa_skills/grounded-qa/`, its QA schemas, and its frontend card/modal/diagram. The lockstep checklist in §12 touches **zero** tutor files.
+Only shared read-only primitives: `TutorCitation` schema type; `renderInlineWithCites` + `MathBlock` render helpers.
 
 ### 2.2 Why an adaptive gate
 
-Always-on decomposition + subagents would converge Q&A onto the tutor's existing `orchestrator_workers` pipeline, erasing the fast/punctual niche and duplicating machinery. The **complexity gate** (decided in the scope pre-pass) keeps simple doubts on a fast single-loop path and reserves the heavier decompose→subagent→organize path for questions that actually have multiple facets.
+Always-on decomposition would converge Q&A onto the tutor's `orchestrator_workers`, erasing the fast/punctual niche. The complexity gate (decided in scope) keeps simple doubts on a fast single-loop path; the heavier decompose→subagent→organize path is reserved for genuinely multi-facet questions.
 
 ---
 
-## 3. Deepagents features — final selection
+## 3. Agent & skill roster
 
-Built on `deepagents==0.6.8` (already a prod dependency), following the proven pattern in `src/services/chat/agents/ow_deepagents.py` (tutor L6/L7 structured synth): `create_deep_agent` + `StoreBackend` virtual FS + `skills` + `ToolStrategy` structured output, invoked via `asyncio.to_thread`.
+Q&A is a small fleet. Each **agent** has: an *element* (its node id), a *description*, an `AGENTS.md` (persistent operating contract, deepagents virtual-FS file), its *tools*, its *skills*, a `<task>`-scaffolded *system prompt*, and a *response schema*. Deterministic agents (scope, checker) are plain nano calls but still carry an `AGENTS.md` + skill for documentation/consistency.
 
-| Feature | Used | Rationale |
+### 3.1 Skills (`src/services/chat/agents/qa_skills/<name>/SKILL.md`)
+
+Open Agent Skills format — frontmatter `name` + `description` + `metadata.version`, then `## When to use` / `## Instructions` / `## Output`.
+
+| Skill | Owned by | Purpose |
 |---|---|---|
-| **Tools** (`search_corpus`) | ✅ core | Retrieval as a callable tool *is* the iterative-retrieval fix. |
-| **Filesystem** (`StoreBackend`, `/sources/`) | ✅ | Each retrieval round / subagent writes hits to `/sources/N.md`; organizer reads accumulated evidence before fusing, instead of re-stuffing context. Context offload. |
-| **Subagents** | ✅ compound path only | One analyst per sub-question: isolated context (sub-question A's chunks don't pollute B's); concurrency targeted (counters added latency) — actual parallelism confirmed in the plan (see §4.4). |
-| **Skills** (`grounded-qa`) | ✅ | Encodes the grounding discipline + the anti-tutor-drift rules. Keeps system prompt lean; mirrors tutor's synthesis-skill pattern. |
-| **Structured output** (`ToolStrategy(QAAnswer)`) | ✅ | Lean schema is the structural guarantee against tutor drift; keeps the SSE/frontend contract unchanged. |
-| **Prompt caching** | ✅ | Free latency/cost win on the stable system-prompt + skill prefix. |
-| **Planning / TodoList** | ❌ skip | A bounded ≤3-round loop does not need a todo list. (Core middleware stays loaded but unprompted — it cannot be removed.) |
-| **Memory** (cross-thread Store) | ❌ skip v1 | Persisting `assumed_known` across turns is the *capability* goal, not the *grounding* goal. Clean future add. |
-| **Sandboxes / HITL** | ❌ skip | No code execution, no approvals in a read-only answer path. |
+| **grounded-qa** | orchestrator, analyst | Bounded agentic retrieval; pertinence to the CENTRAL question; cite every claim with `[n]`; no tutor scaffolding; honesty on corpus-miss. |
+| **synthesize-progression** | orchestrator (organize phase) | Fuse findings/evidence into `thesis → body → conclusion`; **merge or drop repeated information**; thesis = answer-first (1–2 sentences); body = augmented connected detail; conclusion = concise wrap. (Adapted from deep-research outline-first synthesis.) |
+| **critique-coverage** | checker | Judge sufficiency of the answer vs `target_gap` **and** grounding vs `/sources/`; emit `gaps[]` that trigger a re-call. (Adapted from peer-review / scientific-critical-thinking critique loop.) |
+
+### 3.2 AGENTS.md per agent (`src/services/chat/agents/qa_agents/<name>/AGENTS.md`)
+
+Each is a short operating contract loaded into the agent's virtual FS (orchestrator/analyst) or referenced by the deterministic prompt (scope/checker). Covers: mission, hard rules, which skills to invoke, escalation/stop conditions.
+
+### 3.3 The roster
+
+#### Agent A — **Scope** (deterministic, nano)
+- **element:** `scope`
+- **description:** Parse the raw question into `QAScope`; classify `simple`/`compound`; emit `sub_questions` for compound; fuzzy-resolve the named book.
+- **AGENTS.md:** `qa_agents/scope/AGENTS.md` — "Extract, do not answer. Prefer `simple`. `assumed_known` only from explicit signals."
+- **tools:** none (pure LLM parse) + deterministic `resolve_book`.
+- **skills:** none (single-shot).
+- **system prompt** (`QA_SCOPE_PROMPT`, `<role>/<task>/<output_format>/<rules>`):
+  ```
+  <role>You parse a student's question into its precise scope.</role>
+  <task>Input is the student's question. Classify complexity and, when compound,
+  emit focused self-contained sub-questions. Do NOT answer.</task>
+  <output_format>JSON: target_gap, assumed_known[], answer_form,
+  complexity("simple"|"compound"), sub_questions[] (2–4, compound only).</output_format>
+  <rules>Prefer "simple". assumed_known only from explicit "I know…/except…" signals.
+  target_gap is the narrowed question, not the whole topic.</rules>
+  ```
+- **response schema:** `QAScope`. **Fail-open:** parse error → `simple`, whole query as gap.
+
+#### Agent B — **Orchestrator** (deepagent — main)
+- **element:** `orchestrator` (renders as `simple`/`compound`/`organize` nodes).
+- **description:** Owns retrieval (simple loop) or delegation (compound) + organization. On a re-call it receives the checker's `gaps[]` and targets them.
+- **AGENTS.md:** `qa_agents/orchestrator/AGENTS.md` — mission (answer ONE gap), invoke `grounded-qa` to retrieve then `synthesize-progression` to fuse, delegate sub-questions to analysts via the `task` tool, drop non-pertinent findings, never exceed `QA_MAX_ROUNDS`, on re-call address `gaps[]` first.
+- **tools:** `search_corpus` (+ `task` delegation tool, auto-provided by deepagents in the compound config).
+- **skills:** `grounded-qa`, `synthesize-progression`.
+- **system prompt** (`QA_AGENT_PROMPT`, `<role>/<task>/<rules>`):
+  ```
+  <role>You answer ONE specific question, grounded ONLY in retrieved textbook sources,
+  as a thesis → body → conclusion progression.</role>
+  <task>Use grounded-qa to gather evidence into /sources/ (≤ the round cap). For a
+  compound question, delegate each sub-question to its analyst subagent via the task
+  tool. Then use synthesize-progression to FUSE everything into ONE QAAnswer — merge or
+  drop repeated information. If given prior gaps, target them first.</task>
+  <rules>Answer ONLY target_gap; skip assumed_known. PUNCTUAL — no tutor scaffolding,
+  no examples/intuition asides unless answer_form demands it. thesis = direct answer
+  (1–2 sentences); body = augmented connected detail with [n] markers; conclusion =
+  concise wrap. Cite every claim. Honest one-liner + zero citations on corpus-miss.</rules>
+  ```
+- **response schema:** `ToolStrategy(QAAnswer)`.
+
+#### Agent C — **Analyst** (deepagent — subagent, compound only, one per sub_question)
+- **element:** `analyst-{i}`
+- **description:** Research ONE sub-question in isolated context; pertinence-filter against the CENTRAL question; return a grounded `QAFinding`.
+- **AGENTS.md:** `qa_agents/analyst/AGENTS.md` — "Your context is isolated; retrieve only for YOUR sub-question but keep only evidence serving the CENTRAL gap; set `pertinent=false` if off-target; never invent sources."
+- **tools:** `search_corpus` (own instance, isolated `/sources/`).
+- **skills:** `grounded-qa`.
+- **system prompt** (`QA_ANALYST_PROMPT`, `<role>/<task>/<rules>`):
+  ```
+  <role>You research ONE sub-question and report a grounded finding.</role>
+  <task>Call search_corpus for your sub-question, read /sources/, return a QAFinding:
+  sub_question, terse grounded text with [n] markers, citations, and pertinent =
+  whether your evidence serves the CENTRAL question (given in the prompt).</task>
+  <rules>Keep only evidence pertinent to the CENTRAL question; set pertinent=false if
+  off-target. Ground every claim; never invent sources.</rules>
+  ```
+- **response schema:** `QAFinding`.
+
+#### Agent D — **Checker** (deterministic, nano)
+- **element:** `checker`
+- **description:** Judge sufficiency of the drafted answer vs `target_gap` + grounding vs `/sources/`; decide finalize vs re-call.
+- **AGENTS.md:** `qa_agents/checker/AGENTS.md` — "You are the critic. Be specific: name concrete gaps. Re-call only for genuine coverage holes, not stylistic nits. Never add facts."
+- **tools:** none.
+- **skills:** `critique-coverage` (referenced by prompt).
+- **system prompt** (`QA_CHECK_PROMPT`, `<role>/<task>/<output_format>/<rules>`):
+  ```
+  <role>You audit a drafted answer for coverage of the question and grounding in sources.</role>
+  <task>Given target_gap, the draft {thesis, body, conclusion}, and numbered sources,
+  decide if the gap is fully and correctly answered, and whether every claim is supported.</task>
+  <output_format>JSON: sufficient(bool), gaps[] (specific missing/under-covered points,
+  empty when sufficient), grounding{ok, unsupported[], confidence 0..1}.</output_format>
+  <rules>Re-call only for genuine coverage holes. Do not add facts. Do not rewrite the draft.</rules>
+  ```
+- **response schema:** `QACheck`. Drives the re-call loop in `run_qa`.
 
 ---
 
 ## 4. Components
 
-### 4.1 Scope pre-pass — `extract_scope` (deterministic, nano)
-
-Extends today's scope node. One LLM call (`QA_SCOPE_PROMPT`, schema `QAScope`) now also classifies complexity and, when compound, emits the sub-questions.
-
-- `complexity: "simple" | "compound"` — compound when the question has ≥2 distinct facets that each warrant their own retrieval.
-- `sub_questions: list[str]` — present only when `complexity == "compound"`; each is a focused, self-contained retrieval query. Empty for simple.
-- Fail-open: any parse error → `complexity="simple"`, `sub_questions=[]`, `target_gap=whole query`.
-
-### 4.2 `search_corpus` tool
-
-```
-search_corpus(query: str, k: int = QA_TOP_K) -> str
-```
-
-Wraps `retrieval.hybrid_search(query, book_slugs=…, top_k=k, rerank=True, rerank_top_n=k, adjacent_sections=False)`. Side effect: writes each hit to `/sources/<n>.md` in the StoreBackend (dedup by `chunkId`). Returns a compact numbered brief (book · chapter · section · title + short preview) for the agent to reason over. `book_slugs` is bound at agent-construction time (resolved before the agent runs), so the tool signature stays `(query, k)`.
-
-### 4.3 Deepagent — simple path
-
-`create_deep_agent(model, tools=[search_corpus], skills=["/skills/"], backend=StoreBackend, store, response_format=ToolStrategy(QAAnswer))`. System prompt: short pointer to the `grounded-qa` skill. The agent retrieves (≤ `QA_MAX_ROUNDS` rounds), self-checks coverage of `target_gap`, re-queries with a refined query if uncovered, then emits `QAAnswer`.
-
-### 4.4 Deepagent — compound path (subagents)
-
-Main agent is configured with one subagent per `sub_question`:
-
-```python
-subagents = [{
-  "name": f"analyst-{i}",
-  "description": f"Retrieve and ground sub-question: {sq}",
-  "system_prompt": "<grounded analyst — retrieve, pertinence-filter vs the CENTRAL question, return a QAFinding>",
-  "skills": ["/skills/"],          # skills are NOT inherited — passed explicitly
-  "response_format": QAFinding,
-} for i, sq in enumerate(sub_questions)]
-```
-
-Each analyst calls `search_corpus` for its sub-question, keeps only chunks pertinent to the **central** `target_gap` (sets `pertinent`), and returns a `QAFinding`. The main agent (organizer) reads the findings + `/sources/`, drops non-pertinent ones, and fuses into a single lean `QAAnswer`. Subagents are delegated via the deepagents `task` tool; concurrency depends on the harness's delegation semantics — the implementation plan must confirm whether `task` calls run concurrently or sequentially and, if sequential, whether running analysts directly via `asyncio.gather` (outside the agent loop, as `ow_deepagents` does for some paths) better serves the latency goal.
-
-### 4.5 Pertinence filter
-
-Anchored to the **central** `target_gap`, not the sub-questions — a chunk retrieved for a sub-question is kept only if it serves the actual asked gap. Implemented as skill-driven agent reasoning (the analyst sets `QAFinding.pertinent` and the organizer honors it), **not** a separate per-chunk LLM scoring call — YAGNI, keeps cost bounded.
-
-### 4.6 `grounded-qa` skill — `agents/qa_skills/grounded-qa/SKILL.md`
-
-Encodes the discipline:
-- Answer **only** `target_gap`. Skip everything in `assumed_known`.
-- **No tutor scaffolding** — no recommendations, no worked examples, no "intuition" asides, no multi-section structure — unless `answer_form` explicitly is `list`/`derivation`/etc.
-- Re-query rule: if `target_gap` is not covered after a round, refine the query and retry; stop at `QA_MAX_ROUNDS`.
-- Pertinence: keep only evidence on the central question.
-- Cite every claim with `[n]` markers tied to `/sources/`.
-- Honesty: if the corpus does not cover it, say so in one sentence; no fabricated citation.
-
-### 4.7 Verify post-pass — `verify_grounding` (deterministic, nano, advisory)
-
-Unchanged behaviour: audits the draft against `/sources/`, returns `grounding{ok, unsupported[], confidence}`, never suppresses the answer (degrades the badge instead). Fail-open.
+- **`search_corpus(query, k=QA_TOP_K)`** — wraps `hybrid_search(... rerank=True, rerank_top_n=k, adjacent_sections=False)`; writes hits to `/sources/<n>.md` (dedup by `chunkId`); returns a compact numbered brief. `book_slugs` bound at construction.
+- **StoreBackend `/sources/`** — virtual FS; orchestrator + each analyst offload evidence; organize phase reads accumulated evidence rather than re-stuffing context.
+- **Re-call loop** — outer deterministic loop in `run_qa`: orchestrator → checker; on `not sufficient and round < QA_MAX_RECHECK`, re-invoke orchestrator with `gaps[]` appended to the user message; cap → finalize with the last draft + low-confidence badge.
+- **merge/drop repeats** — `synthesize-progression` skill responsibility: overlapping findings deduped; conflicting evidence surfaced, not silently dropped.
 
 ---
 
 ## 5. Schemas (`src/services/chat/schemas/output.py`)
 
 ```python
-class QAScope(BaseModel):            # EXTENDED
+class QAScope(BaseModel):                       # EXTENDED
     target_gap: str
     assumed_known: list[str] = Field(default_factory=list)
     answer_form: Literal["explanation","definition","comparison",
                          "derivation","yes_no","list"] = "explanation"
     complexity: Literal["simple","compound"] = "simple"     # NEW
-    sub_questions: list[str] = Field(default_factory=list)    # NEW (compound only)
+    sub_questions: list[str] = Field(default_factory=list)   # NEW (compound only)
 
-class QAFinding(BaseModel):          # NEW — subagent output
+class QAFinding(BaseModel):                     # NEW — analyst subagent output
     sub_question: str
-    text: str
+    text: str = ""
     citations: list[TutorCitation] = Field(default_factory=list)
     pertinent: bool = True
 
-class QAAnswer(BaseModel):           # UNCHANGED — lean by design
-    text: str
+class QAAnswer(BaseModel):                      # RESHAPED — fixed 3-field progression
+    thesis: str                                  # direct core answer (answer-first)
+    body: str                                    # augmented deep-dive, merged/deduped, [n] markers
+    conclusion: str                              # concise wrap-up
     scope: QAScope
     citations: list[TutorCitation] = Field(default_factory=list)
     math_blocks: list[str] = Field(default_factory=list)
-    grounding: dict = Field(default_factory=dict)
+    grounding: dict = Field(default_factory=dict)   # set by checker
+
+class QACheck(BaseModel):                       # NEW — checker output, drives the loop
+    sufficient: bool
+    gaps: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)   # {ok, unsupported[], confidence}
 ```
 
-`QAAnswer` staying lean (no `sections`/`aspects`/`figures`) is the structural guarantee that Q&A cannot emit a tutor-shaped answer. Re-export the new `QAFinding` from `schemas/__init__.py`.
+`QAAnswer.text` is **removed**. Anti-tutor-drift invariant: `QAAnswer` has exactly `{thesis, body, conclusion}` content fields and **no** `sections`/`aspects`/`figures`. Re-export `QAFinding` + `QACheck` from `schemas/__init__.py`. Corpus-miss → `thesis`=honest sentence, `body`/`conclusion`=`""`.
 
 ---
 
 ## 6. SSE contract
 
-The terminal contract is unchanged so the frontend needs no special-casing:
+Terminal contract unchanged so the frontend needs no special-casing:
 
 ```
-meta → structured_output{schema:"QAAnswer"} → sources_full → retrieval_meta → usage → done
+meta → [progress…] → structured_output{schema:"QAAnswer"} → sources_full → retrieval_meta → usage → done
 ```
 
-Corpus-miss path unchanged (`structured_output{QAAnswer, citations:[]}` → `sources_full{[]}` → `done`).
-
-**Added progress events** (polish): the agent runs via blocking `invoke` (no token streaming, same as today), so during the 2–3s run emit lightweight status events bridged from tool-call callbacks:
-
+Progress events (advisory, bridged from stage callbacks):
 ```
-progress{stage:"retrieving", round:n}                 # simple path
-progress{stage:"analyzing", subQuestion:"…", i, of}   # compound path
+progress{stage:"retrieving", round:n}                  # simple
+progress{stage:"analyzing", subQuestions:[…]}          # compound
+progress{stage:"rechecking", round:n}                  # checker re-call
 ```
 
-These are advisory — the UI shows live progress instead of a bare spinner, and degrades gracefully if absent. They appear between `meta` and `structured_output`.
+Corpus-miss path: `structured_output{QAAnswer thesis=honest, citations:[]}` → `sources_full{[]}` → `done`.
 
 ---
 
 ## 7. Models & cost
 
-nano (`gpt-5.4-nano-2026-03-17`) default for **all** LLM stages: scope, agent loop, each subagent, verify. `stageModels` request field overrides per stage (keys: `scope`, `agent`, `analyst`, `verify`). Iterative retrieval — not model size — does the grounding work.
-
-Cost envelope (rough, nano):
-- **simple:** scope + 1–3 agent turns + verify ≈ 3–5 nano calls.
-- **compound:** scope + N analyst subagents (parallel) + organizer + verify ≈ (4 + N) nano calls. With N typically 2–3, still well under a cent per answer.
-
-`QA_MAX_ROUNDS` and the compound-only gate bound worst-case cost.
+nano default for all LLM stages: scope, orchestrator, each analyst, organize (same agent), checker. `stageModels` overrides per stage (keys: `scope`, `agent`, `analyst`, `check`). Cost envelope (nano): simple ≈ scope + 1–3 orchestrator turns + checker (× ≤ `QA_MAX_RECHECK`); compound ≈ scope + N analysts + organize + checker (× re-calls). Gate + caps bound worst case to well under a cent.
 
 ---
 
@@ -205,11 +242,12 @@ Cost envelope (rough, nano):
 | Flag | Default | Meaning |
 |---|---|---|
 | `QA_TOP_K` | `4` | Hits per `search_corpus` call |
-| `QA_MAX_ROUNDS` | `3` | Max `search_corpus` rounds on the simple path (and per subagent) |
-| `QA_DECOMPOSE` | `1` | Enable the compound path (0 = always simple loop, no subagents) |
-| `QA_SCOPE` | `1` | Enable scope pre-pass (0 = raw query as gap, simple) |
-| `QA_VERIFY` | `1` | Enable verify post-pass |
-| `QA_SCOPE_MODEL` / `QA_AGENT_MODEL` / `QA_ANALYST_MODEL` / `QA_VERIFY_MODEL` | nano | Per-stage model overrides |
+| `QA_MAX_ROUNDS` | `3` | Max `search_corpus` rounds (simple path / per analyst) |
+| `QA_MAX_RECHECK` | `2` | Max checker-driven re-call rounds |
+| `QA_DECOMPOSE` | `1` | Enable compound path (0 = always simple loop) |
+| `QA_SCOPE` | `1` | Enable scope pre-pass |
+| `QA_CHECK` | `1` | Enable checker (0 = single pass, advisory badge only) |
+| `QA_SCOPE_MODEL` / `QA_AGENT_MODEL` / `QA_ANALYST_MODEL` / `QA_CHECK_MODEL` | nano | Per-stage model overrides |
 
 `stageModels` overrides env per call. `"qa"` stays in `settings.use_v2_modes`.
 
@@ -218,10 +256,10 @@ Cost envelope (rough, nano):
 ## 9. Error handling
 
 - **Scope parse fail** → fail-open simple, whole query as gap.
-- **Agent/subagent exception** → fall back to a single deterministic `hybrid_search` + nano generate (today's path) so the stream always yields a `QAAnswer`; log the exception. This guarantees the deepagent rebuild never regresses below the current behaviour.
-- **0 retrieved sources** → honest "not covered in selected books", no fabricated citation (unchanged).
-- **Verify fail** → keep draft, low-confidence badge (unchanged).
-- **`deepagents` import error** → same deterministic fallback as agent exception (deepagents is a prod dep, so this is defensive only).
+- **Orchestrator/analyst exception** → fall back to a single deterministic `hybrid_search` + nano generate into a `QAAnswer{thesis,body,conclusion}` so the stream always yields an answer; log.
+- **Checker exception** → treat as `sufficient=True`, low-confidence badge (advisory fail-open); no infinite loop.
+- **0 retrieved sources** → honest "not covered in selected books", no fabricated citation.
+- **`deepagents` import error** → same deterministic fallback.
 - SSE stream always terminates in `done`.
 
 ---
@@ -230,30 +268,45 @@ Cost envelope (rough, nano):
 
 | Component | Change |
 |---|---|
-| `web/src/types.ts` | `QAScope` += `complexity`, `sub_questions`; new `QAFinding`; `QAAnswer` unchanged |
-| `QAAnswerCard.tsx` | unchanged render (lean answer + scope line + grounding badge); optionally show "answered via N sub-questions" hint from `scope.complexity` |
-| `qaPipeline.ts` + `QAPipelineDiagram.tsx` | reshape modal: `scope → gate → {simple loop ‖ compound subagents} → organize → verify`; per-LLM-stage model dropdowns; `search`/retrieval as fixed data label |
-| `MessageThread.tsx` | progress-event handling (show stage/round); unchanged answer branch on `schema==="QAAnswer"` |
-| `ModePicker.tsx` | unchanged |
+| `web/src/types.ts` | `QAScope` += `complexity`,`sub_questions`; new `QAFinding`,`QACheck`; `QAAnswer` → `thesis`/`body`/`conclusion` (drop `text`) |
+| `QAAnswerCard.tsx` | render the progression: thesis (emphasized) → body → conclusion → grounding badge; optional "answered via N sub-questions" hint |
+| `qaPipeline.ts` + `QAPipelineDiagram.tsx` | reshape: `scope → gate → {simple loop ‖ analyst subagents} → organize → checker` with the **checker→orchestrator re-call loop edge**; per-LLM-stage model dropdowns |
+| `MessageThread.tsx` | handle `progress` (retrieving/analyzing/rechecking); unchanged `schema==="QAAnswer"` branch |
+| `ModePicker.tsx` / `QAModeModal.tsx` | unchanged wiring; modal copy updated to the agentic pipeline |
 
 After the diagram change: open the Q&A `(i)` modal on `:5175` and confirm it matches `docs/common ground/Elements/index.html`.
 
 ---
 
-## 11. Testing
+## 11. Required-elements checklist (verify EACH at the end)
 
-Python (`src/services/chat/tests/`):
-- `test_qa_schema.py` — `QAScope` new fields, `QAFinding`, `QAAnswer` unchanged.
-- `test_qa_scope.py` — complexity classification (simple vs compound) + sub_question extraction; fail-open.
-- `test_qa_tool.py` — `search_corpus` writes `/sources/`, dedups, returns brief.
-- `test_qa_simple.py` — bounded loop ≤ `QA_MAX_ROUNDS`; re-query on miss; corpus-miss honest answer.
-- `test_qa_compound.py` — N subagents → N findings; non-pertinent dropped; organizer emits lean `QAAnswer` (asserts no tutor fields).
-- `test_qa_fallback.py` — agent exception → deterministic fallback still yields `QAAnswer`.
-- `test_qa_run.py` / `test_qa_mode_registry.py` / `test_mode_routing_contract.py` — SSE sequence incl. progress events; registry; exhaustive routing.
+Per the user's request, every item below must be present and verified (the implementation plan maps each to a task + TodoWrite item):
 
-Frontend: `qaPipeline.test.ts` (new node/edge shape), `QAPipelineDiagram.test.tsx`, `QAAnswerCard.test.tsx`, `types.qa.test.ts`.
+**Per-agent artifacts** — for each of {scope, orchestrator, analyst, checker}:
+- [ ] element id wired into pipeline + diagram
+- [ ] description in docs + modal
+- [ ] `AGENTS.md` operating contract (`qa_agents/<name>/AGENTS.md`)
+- [ ] tools assigned (search_corpus / task / none) and bound correctly
+- [ ] skills assigned and loaded into the agent's virtual FS
+- [ ] system prompt with `<role>/<task>/<rules>[/<output_format>]` special tokens
+- [ ] response schema (`QAScope`/`QAAnswer`/`QAFinding`/`QACheck`)
 
-Deepagent invocations are monkeypatched in tests (set `qa.create_deep_agent`), matching the `ow_deepagents` test pattern — no live LLM calls in unit tests.
+**Skills** (Open Agent Skills `SKILL.md`):
+- [ ] `grounded-qa` · [ ] `synthesize-progression` · [ ] `critique-coverage`
+
+**Behavioural requirements:**
+- [ ] thesis → body → conclusion output (3 fixed fields, no tutor fields)
+- [ ] adaptive simple/compound gate
+- [ ] checker re-call loop, env-capped (`QA_MAX_RECHECK`)
+- [ ] merge/drop repeated information in organize
+- [ ] per-claim `[n]` citations + grounding badge
+- [ ] deterministic fallback (never regress below current behaviour)
+- [ ] hard tutor-isolation (grep returns nothing)
+
+**External-skill incorporation (provenance):**
+- [ ] Open Agent Skills SKILL.md format ← scientific-agent-skills
+- [ ] Decompose→Search→Synthesize→Verify + outline-first thesis/body ← deep-research-skills
+- [ ] critique/peer-review loop → checker ← scientific-agent-skills
 
 ---
 
@@ -262,21 +315,22 @@ Deepagent invocations are monkeypatched in tests (set `qa.create_deep_agent`), m
 | Aspect | Path |
 |---|---|
 | Agent logic (rebuilt) | `src/services/chat/agents/qa.py` |
-| Prompts | `src/services/chat/prompts/qa.py` (scope += complexity/sub-questions; generate → grounded-qa rules) |
-| Skill (new) | `src/services/chat/agents/qa_skills/grounded-qa/SKILL.md` |
+| Prompts (`<task>`-scaffolded) | `src/services/chat/prompts/qa.py` (scope/agent/analyst/check) |
+| Skills (3) | `src/services/chat/agents/qa_skills/{grounded-qa,synthesize-progression,critique-coverage}/SKILL.md` |
+| AGENTS.md (4) | `src/services/chat/agents/qa_agents/{scope,orchestrator,analyst,checker}/AGENTS.md` |
 | Schemas | `src/services/chat/schemas/output.py` (+ `__init__` re-export) |
-| Mode id / registration | `src/services/chat/schemas/_core.py`, `src/services/chat/modes.py` |
-| Dispatch | `src/services/chat/router.py` |
+| Mode id / registration | `src/services/chat/schemas/_core.py`, `src/services/chat/modes.py` (no change — regression test only) |
+| Dispatch | `src/services/chat/router.py` (no change — regression test only) |
 | Cost | `src/services/chat/cost.py` |
-| Frontend types / card / modal / thread | `web/src/types.ts`, `QAAnswerCard.tsx`, `qaPipeline.ts`, `QAPipelineDiagram.tsx`, `MessageThread.tsx` |
+| Frontend | `web/src/types.ts`, `QAAnswerCard.tsx`, `qaPipeline.ts`, `QAPipelineDiagram.tsx`, `MessageThread.tsx` |
 | Invariants + changelog | `docs/system/invariants.md`, `docs/system/changelog.md` |
-| Service doc | `docs/services/chat.md` |
-| Feature doc | `docs/services/chat-features/51-qa-mode.md` (rewrite) |
-| Tests | per §11 |
+| Service + feature docs | `docs/services/chat.md`, `docs/services/chat-features/51-qa-mode.md` (rewrite) |
+| Tests | per the plan's §11 |
 
 ---
 
 ## 13. Open questions / future
 
-- **Cross-thread memory** (persist `assumed_known` and prior answers across turns) — deferred; the capability-goal extension, clean to add later via `MemoryMiddleware` + `Store`.
-- **Pertinence as a tool** — if skill-driven pertinence proves too loose in live testing, promote it to a cheap dedicated relevance call. Start without it (YAGNI).
+- **Cross-thread memory** (persist `assumed_known` + prior answers) — deferred; clean future add via `MemoryMiddleware` + `Store`.
+- **Pertinence as a dedicated tool** — if skill-driven pertinence proves loose live, promote to a cheap relevance call. Start without it (YAGNI).
+- **Parallel analyst execution** — the plan must confirm whether `task` delegation runs analysts concurrently or sequentially; if sequential and latency matters, run analysts via `asyncio.gather` outside the agent loop.
