@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Documentation</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  .hero { padding: 48px 0 24px; }
+  .hero h1 { font-size: 48px; }
+  .hero .lede { font-size: 18px; color: var(--fg-muted); max-width: 60ch; margin: 12px 0 24px; }
+  .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 10px 20px; border-radius: 10px; font-family: 'JetBrains Mono', monospace;
+         font-size: 14px; cursor: pointer; transition: transform 200ms var(--easing), box-shadow 200ms var(--easing); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow); text-decoration: none; }
+  .btn-ghost { border: 1px solid var(--border); color: var(--fg); }
+  .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
+  .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .bento .wide { grid-column: span 3; }
+  .bento .tall { grid-row: span 2; }
+  .modes-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .mode-card { border-left: 3px solid var(--accent); }
+  .mode-card.chapter { border-left-color: var(--chapter); }
+  .mode-card h3 { margin: 0 0 6px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 10px; }
+  .strip .chip { font-size: 13px; padding: 6px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+  .links-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 760px) {
+    .bento, .links-grid { grid-template-columns: 1fr; }
+    .bento .wide { grid-column: span 1; }
+    .modes-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body data-base="">
+<aside id="side" class="side"></aside>
+<div class="content">
+  <section class="hero">
+    <h1>stat<span class="accent">RAG</span></h1>
+    <p class="lede">Local-first hybrid Retrieval-Augmented Generation over OCR-processed statistics textbooks. Dense + sparse retrieval, per-field collections, and a multi-mode chat tutor.</p>
+    <span class="pill">current-state · verified from code</span>
+    <div class="cta-row" style="margin-top:20px">
+      <a class="btn btn-primary" href="index.html">Read the overview</a>
+      <a class="btn btn-ghost" href="modes/index.html">Explore the modes</a>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it fits together</h2>
+    <div class="bento">
+      <div class="card wide">
+        <div class="diagram-wrap"><div class="mermaid" data-src="flowchart LR
+  B[&quot;Book (OCR md)&quot;] --&gt; ING[&quot;Ingestion&quot;]
+  ING --&gt; QD[&quot;Qdrant&quot;]
+  QD --&gt; RET[&quot;Retrieval (RRF + rerank)&quot;]
+  RET --&gt; CHAT[&quot;Chat · modes · deep-tutor&quot;]
+  CHAT --&gt; ANS[&quot;Answer (SSE)&quot;]">flowchart LR
+  B["Book (OCR md)"] --> ING["Ingestion"]
+  ING --> QD["Qdrant"]
+  QD --> RET["Retrieval (RRF + rerank)"]
+  RET --> CHAT["Chat · modes · deep-tutor"]
+  CHAT --> ANS["Answer (SSE)"]</div></div>
+        <p class="caption">End-to-end pipeline. See <a href="ingestion.html">Ingestion</a>, <a href="retrieval.html">Retrieval</a>, <a href="chat.html">Chat &amp; deep-tutor</a>.</p>
+      </div>
+      <div class="card"><h3>Hybrid retrieval</h3><p class="sub">Dense (OpenAI 3072d) + sparse BM25, fused with Reciprocal Rank Fusion, optional cross-encoder rerank.</p></div>
+      <div class="card"><h3>Per-field collections</h3><p class="sub"><code>field_textbooks</code> for sections, <code>field_images</code> for figures. Auto-created on first ingest.</p></div>
+      <div class="card"><h3>Deep-tutor pipeline</h3><p class="sub">Query planning → coverage loop → orchestrator-workers synthesis → vision-explain, with inline citations + rendered math.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Four chat modes</h2>
+    <div class="modes-grid">
+      <a class="card mode-card" href="modes/tutor.html"><h3>Tutor</h3><p class="sub">Deepest mode. Multi-author structured tutorial with figures + math.</p><span class="pill">single-agent</span></a>
+      <a class="card mode-card" href="modes/qa.html"><h3>Q&amp;A</h3><p class="sub">Punctual, scoped, sourced answer with a grounding verify pass.</p><span class="pill">multi-agent</span></a>
+      <a class="card mode-card chapter" href="modes/facilitate.html"><h3>Facilitate</h3><p class="sub">Verbose, didactic walkthrough of a whole chapter in reading order.</p><span class="pill">chapter pipeline</span></a>
+      <a class="card mode-card chapter" href="modes/resume.html"><h3>Resume</h3><p class="sub">Compressed recap of a chapter in reading order.</p><span class="pill">chapter pipeline</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Stack at a glance</h2>
+    <div class="strip">
+      <span class="chip">Qdrant 1.12.4</span>
+      <span class="chip">text-embedding-3-large · 3072d</span>
+      <span class="chip">gpt-5.4-nano (default chat)</span>
+      <span class="chip">BM25 sparse · fastembed</span>
+      <span class="chip">Python 3.12</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Browse the docs</h2>
+    <div class="links-grid">
+      <a class="card" href="index.html"><h3>Overview</h3><p class="sub">What it is, stack, Chinese wall.</p></a>
+      <a class="card" href="ingestion.html"><h3>Ingestion</h3><p class="sub">Books → enrich → embed → Qdrant.</p></a>
+      <a class="card" href="retrieval.html"><h3>Retrieval</h3><p class="sub">Hybrid BM25+dense, RRF, rerank.</p></a>
+      <a class="card" href="chat.html"><h3>Chat &amp; deep-tutor</h3><p class="sub">SSE, modes, full pipeline.</p></a>
+      <a class="card" href="models/index.html"><h3>Models</h3><p class="sub">Every LLM the system can call.</p></a>
+      <a class="card" href="modes/index.html"><h3>Modes</h3><p class="sub">The 4 chat modes in depth.</p></a>
+    </div>
+  </section>
+</div>
+<script src="sidebar.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+</body>
+</html>
