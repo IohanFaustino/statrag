@@ -54,6 +54,7 @@ body::after  { background: var(--chapter); bottom: -160px; right: -120px; animat
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   body::before, body::after { animation: none; }
+  .side-sub { animation: none !important; }
   * { transition: none !important; }
 }
 
@@ -78,15 +79,86 @@ a:hover { text-decoration: underline; }
 
 /* layout: fixed sidebar + content */
 .side {
-  position: fixed; top: 0; left: 0; width: 220px; height: 100dvh;
-  padding: 24px 16px; overflow-y: auto;
-  background: rgba(5,5,6,0.7); backdrop-filter: blur(12px);
+  position: fixed; top: 0; left: 0; width: 232px; height: 100dvh;
+  padding: 22px 14px 32px; overflow-y: auto;
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(229,72,77,0.06), transparent 60%),
+    rgba(7,7,9,0.72);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--border); z-index: 20;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
+.side::-webkit-scrollbar { width: 8px; }
+.side::-webkit-scrollbar-track { background: transparent; }
+.side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+.side::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); background-clip: padding-box; }
+
+/* ===== Sidebar nav ===== */
+.side-brand {
+  display: flex; align-items: center; gap: 9px;
+  font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700;
+  letter-spacing: -0.5px; color: var(--fg);
+  padding: 4px 10px 16px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.side-brand::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow), 0 0 12px var(--accent);
+}
+.side-group {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.4px; color: var(--fg-muted);
+  padding: 16px 10px 6px; opacity: 0.65;
+}
+
+/* nav links (flat + sub) share base */
+.side a {
+  position: relative; display: block;
+  padding: 7px 12px; margin: 1px 0; border-radius: 9px;
+  color: var(--fg-muted); font-size: 14px; line-height: 1.35; text-decoration: none;
+  transition: color 180ms var(--easing), background 180ms var(--easing);
+}
+.side a:hover { color: var(--fg); background: var(--surface); text-decoration: none; }
+.side a.active { color: var(--fg); font-weight: 600; background: var(--accent-glow); }
+.side a.active::before {
+  content: ""; position: absolute; left: -1px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 16px; border-radius: 0 3px 3px 0;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent);
+}
+
+/* collapsible group buttons */
+.side-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 12px; margin: 1px 0; border: none; border-radius: 9px;
+  background: none; cursor: pointer; text-align: left;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; font-weight: 500;
+  color: var(--fg-muted);
+  transition: color 180ms var(--easing), background 180ms var(--easing);
+}
+.side-toggle:hover { color: var(--fg); background: var(--surface); }
+.side-toggle.open { color: var(--fg); }
+.side-toggle .caret {
+  display: inline-block; font-size: 10px; line-height: 1; color: var(--fg-muted);
+  transition: transform 220ms var(--easing), color 180ms var(--easing);
+}
+.side-toggle:hover .caret { color: var(--fg); }
+.side-toggle.open .caret { transform: rotate(90deg); color: var(--accent); }
+
+/* nested sub-list with a guide rail */
+.side-sub {
+  display: flex; flex-direction: column;
+  margin: 2px 0 6px 19px; padding-left: 9px;
+  border-left: 1px solid var(--border);
+  animation: sideSubIn 200ms var(--easing);
+}
+.side-sub[hidden] { display: none; }
+.side-sub a { font-size: 13px; padding: 6px 10px; }
+.side-sub a.active::before { left: -10px; }
+@keyframes sideSubIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .content, body > header, body > main {
   max-width: var(--maxw); margin: 0 auto; padding: 40px 32px;
 }
-body { padding-left: 220px; }
+body { padding-left: 232px; }
 .content { padding-top: 8px; }
 
 main section { margin-bottom: 8px; }
