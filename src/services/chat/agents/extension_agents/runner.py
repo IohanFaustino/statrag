@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re as _re
 import time
 from typing import AsyncIterator
 
@@ -19,6 +20,15 @@ from src.services.chat._fences import strip_fences
 from src.services.chat.books import parse_catalog
 from src.services.chat.retrieval import fetch_chapter_sections
 from src.services.chat.schemas import ChatRequest, ExtensionDigest
+
+
+_AUG_LEAK = _re.compile(r"https?://|\[source\]|en\.wikipedia\.org", _re.IGNORECASE)
+
+
+def curated_text_is_clean(point) -> bool:
+    """Invariant guard: curated_text must carry no augmentation artefacts
+    (URLs / source tags). All augmentation belongs in footnotes."""
+    return _AUG_LEAK.search(point.curated_text or "") is None
 
 
 def _max_rounds(req: ChatRequest) -> int:
@@ -149,6 +159,10 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
             break
 
     digest = _parse_digest(text, book=book, chapter=chapter)
+
+    for pt in digest.points:
+        if not curated_text_is_clean(pt):
+            pt.curated_text = _AUG_LEAK.sub("", pt.curated_text).strip()
 
     for pt in digest.points:
         yield {"type": "stage", "stage": "point", "label": pt.title}
