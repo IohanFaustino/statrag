@@ -23,14 +23,23 @@ augmentation must be confined to footnotes by the augmentor.
    gap queries (concept present in the chapter but under-explained, or named but
    not defined elsewhere). One query per line, prefixed with the point title:
    `POINT :: query`.
-4. Delegate `augmentor` tasks for the queries.
+4. Delegate `augmentor` tasks for the queries. You MUST run the augmentor — the
+   whole purpose of this pipeline is footnoted augmentation.
+5. Build the final ExtensionDigest: one ExtensionPoint per curated point, in
+   order. For EACH point, READ /footnotes/*.md and attach every footnote that
+   belongs to that point (marker, body, source, kind). A point with real
+   augmentation must NOT come back with an empty footnotes list. Do not emit the
+   ExtensionDigest until the augmentor has run and footnotes are attached.
 Do not summarize or rewrite the chapter yourself; that is polish's job.
 </task>
 
 <rules>
+- Write ALL output in ENGLISH, regardless of the language of the source text.
 - Never write augmentation into /curated/*; augmentation belongs only in
   /footnotes/* (the augmentor owns this).
 - Deduplicate queries before delegating — merge near-duplicate gaps into one.
+- The final ExtensionDigest MUST carry the augmentor's footnotes on the points;
+  emitting points with no footnotes means the augmentation step was skipped.
 </rules>
 """
 
@@ -78,6 +87,7 @@ ONE point. Drop exercises and tiny/irrelevant sections.
 </task>
 
 <rules>
+- Write ALL output in ENGLISH, regardless of the source text's language.
 - Curate, do not summarize: keep substantive explanation, just remove fluff,
   exercises, and duplication. "not a summary".
 - Preserve intro->conclusion ordering.
@@ -110,6 +120,7 @@ done or unfilled at the end of the file as `# COVERAGE: <query> = done|unfilled`
 </task>
 
 <rules>
+- Write ALL footnote text in ENGLISH, regardless of the source's language.
 - ALL augmentation lives in footnotes — including formulas, inline or display.
   Never rewrite the curated body.
 - Cite every footnote (corpus slug+section or Wikipedia URL). Do not invent.
