@@ -8,23 +8,39 @@
   const PAGES = [
     ["home.html", "Home"],
     ["index.html", "Overview"],
-    ["services/index.html", "Services"],
-    ["ingestion.html", "Ingestion"],
-    ["retrieval.html", "Retrieval"],
-    ["chat.html", "Chat & deep-tutor"],
     ["report.html", "Verification"]
   ];
 
   // Toggle groups: {label, index:[href,label], children:[[href,label]...]}
   const TOGGLES = [
     {
-      label: "Modes",
-      index: ["modes/index.html", "All modes"],
+      label: "Ingestion",
+      index: ["ingestion/index.html", "All ingestion"],
+      children: [
+        ["ingestion/pipeline.html", "Pipeline"],
+        ["ingestion/chunking.html", "Chunking & payload"],
+        ["ingestion/preprocessors.html", "Preprocessors"]
+      ]
+    },
+    {
+      label: "Features",
+      index: ["features/index.html", "All features"],
       children: [
         ["modes/tutor.html", "Tutor"],
         ["modes/qa.html", "Q&A"],
         ["modes/facilitate.html", "Facilitate"],
         ["modes/resume.html", "Resume"]
+      ]
+    },
+    {
+      label: "Services",
+      index: ["services/index.html", "All services"],
+      children: [
+        ["services/core.html", "Core"],
+        ["services/ingestion.html", "Ingestion (code)"],
+        ["services/retrieval.html", "Retrieval"],
+        ["services/chat.html", "Chat"],
+        ["services/eval.html", "Eval"]
       ]
     },
     {
@@ -54,8 +70,9 @@
   const base = document.body.dataset.base || "";
   const path = location.pathname;
   let here;
-  if (path.includes("/modes/")) here = "modes/" + path.split("/").pop();
-  else if (path.includes("/models/")) here = "models/" + path.split("/").pop();
+  const SUBDIRS = ["modes", "models", "ingestion", "features", "services"];
+  const seg = SUBDIRS.find(d => path.includes("/" + d + "/"));
+  if (seg) here = seg + "/" + path.split("/").pop();
   else here = path.split("/").pop() || "index.html";
 
   function link(href, label) {
