@@ -12,7 +12,7 @@
 <div class="content">
 <header>
   <h1>statrag — <span class="accent">Modes</span></h1>
-  <div class="sub">The chat modes you can pick. Each is a registered ModeSpec with its own runner, diagram, default model, and output schema. <span class="pill">4 modes</span></div>
+  <div class="sub">The chat modes you can pick. Each is a registered ModeSpec with its own runner, diagram, default model, and output schema. <span class="pill">5 modes</span></div>
 </header>
 <main>
   <section>
@@ -23,6 +23,7 @@
       <tr><td><a href="qa.html">Q&amp;A</a></td><td>multi-agent (4-node graph)</td><td><code>QAAnswer</code></td><td>Punctual, scoped Q&amp;A. Extracts the precise gap the question asks about (and what it assumes you already know), retrieves a small high-precision set, generates a terse grounded answer, then verifies that every claim is supported.</td></tr>
       <tr><td><a href="facilitate.html">Facilitate</a></td><td>multi-agent (chapter pipeline)</td><td><code>ChapterDigest</code></td><td>An ordered, didactic walkthrough of a whole chapter. Fetches the chapter's sections in the book's own order and teaches each one (verbose map, ~250-400 tokens/section), streaming each block as it finishes so you watch the chapter build top to bottom.</td></tr>
       <tr><td><a href="resume.html">Resume</a></td><td>multi-agent (chapter pipeline)</td><td><code>ChapterDigest</code></td><td>An ordered, compressed recap of a whole chapter. Same structural pipeline as Facilitate, but the map step is terse (~60-100 tokens/section) — a faithful condensed summary in reading order.</td></tr>
+      <tr><td><a href="extension.html">Extension</a></td><td>deepagents topology C</td><td><code>ExtensionDigest</code></td><td>Follows a corpus chapter's structure and augments each section with cross-book + Wikipedia material, emitting curated to-the-point text with footnotes (all augmentation incl. formulas in footnotes only). Exports a self-contained styled HTML ZIP.</td></tr>
     </table>
     <p class="caption">Source of truth: <code>src/services/chat/modes.py</code> (register_all_modes). Click a mode for its diagram, spec, and output fields.</p>
   </section>

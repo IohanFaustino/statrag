@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Extension</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Extension</span> mode <span class="pill">deepagents · topology C</span></h1>
+  <div class="sub">Follows a corpus chapter's formal structure and augments each part with cross-book + Wikipedia material, producing curated to-the-point text with augmented footnotes (including formulas) — plus a self-contained styled-HTML ZIP export.</div>
+</header>
+  <section><div class="card" style="border-left:3px solid var(--accent)"><p style="margin:0"><b>Status:</b> ✓ implemented (2026-06-09) — 763 backend + 207 frontend tests green.</p></div></section>
+<main>
+  <section>
+    <h2>What it serves</h2>
+    <div class="card"><p style="margin:0">Use when you want a structured, augmented reading of a chapter you are studying: keep the book's own order and real content, but enrich each section with what other books and Wikipedia say about the same concepts — as footnotes you can follow or skip. All formulas and source citations live in footnotes; the body stays clean prose.</p></div>
+  </section>
+
+  <section>
+    <h2>Topology C — deterministic shell + agentic core</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
+  U[&quot;User query&quot;] --> RES[&quot;Resolve + confirm gate&quot;]
+  RES -->|&quot;ambiguous&quot;| CLAR[&quot;Clarify, stop&quot;]
+  RES --> FETCH[&quot;Fetch ordered sections\n→ /structure/*&quot;]
+  FETCH --> ORC{{&quot;Extension deep-agent&quot;}}
+  subgraph ORC[&quot;Extension deep-agent (deepagents)&quot;]
+    A[&quot;Analyst × N&quot;] --> P[&quot;Polish → /curated&quot;]
+    P --> Q[&quot;Orchestrator: plan queries\n→ /plan&quot;]
+    Q --> AUG[&quot;Augmentor × N → /footnotes&quot;]
+    AUG --> J[&quot;Judge: complete?&quot;]
+    J -->|&quot;unfilled &amp; budget&quot;| AUG
+  end
+  ORC --> DIG[&quot;ExtensionDigest → SSE points&quot;]
+  DIG --> ZIP[&quot;POST /api/export\nstyled-HTML ZIP&quot;]
+  style J fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style RES fill:#1a1e28,stroke:#58a6ff,color:#fff
+  style CLAR fill:#2a1a1a,stroke:#f85149,color:#fff">flowchart TD
+  U["User query"] --> RES["Resolve + confirm gate"]
+  RES -->|"ambiguous"| CLAR["Clarify, stop"]
+  RES --> FETCH["Fetch ordered sections\n→ /structure/*"]
+  FETCH --> ORC{{"Extension deep-agent"}}
+  subgraph ORC["Extension deep-agent (deepagents)"]
+    A["Analyst × N"] --> P["Polish → /curated"]
+    P --> Q["Orchestrator: plan queries\n→ /plan"]
+    Q --> AUG["Augmentor × N → /footnotes"]
+    AUG --> J["Judge: complete?"]
+    J -->|"unfilled & budget"| AUG
+  end
+  ORC --> DIG["ExtensionDigest → SSE points"]
+  DIG --> ZIP["POST /api/export\nstyled-HTML ZIP"]
+  style J fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style RES fill:#1a1e28,stroke:#58a6ff,color:#fff
+  style CLAR fill:#2a1a1a,stroke:#f85149,color:#fff</div></div>
+    <p class="caption">Topology C: the deterministic runner (scope→resolve→clarify gate→fetch→round loop) wraps the deepagents core (analyst→polish→orchestrator→augmentor→judge). Runner owns the hard cap; deep-agent owns within-round reasoning.</p>
+  </section>
+
+  <section>
+    <h2>Agent roster</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart LR
+  ORC[&quot;Orchestrator\ngpt-5.4 full&quot;] --> AN[&quot;Analyst (×N)\nnano&quot;]
+  ORC --> PL[&quot;Polish\nnano&quot;]
+  ORC --> AU[&quot;Augmentor (×N)\nnano&quot;]
+  ORC --> JU[&quot;Judge\ngpt-5.4 full&quot;]
+  AN -. &quot;retrieve_peek&quot; .- FS[(Corpus)]
+  AU -. &quot;retrieve_corpus&quot; .- FS
+  AU -. &quot;wikipedia_lookup&quot; .- WP[(Wikipedia REST)]
+  style ORC fill:#1a1e28,stroke:#58a6ff,color:#fff
+  style JU fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style AN fill:#241a33,stroke:#9b6bd6,color:#fff
+  style PL fill:#241a33,stroke:#9b6bd6,color:#fff
+  style AU fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart LR
+  ORC["Orchestrator\ngpt-5.4 full"] --> AN["Analyst (×N)\nnano"]
+  ORC --> PL["Polish\nnano"]
+  ORC --> AU["Augmentor (×N)\nnano"]
+  ORC --> JU["Judge\ngpt-5.4 full"]
+  AN -. "retrieve_peek" .- FS[(Corpus)]
+  AU -. "retrieve_corpus" .- FS
+  AU -. "wikipedia_lookup" .- WP[(Wikipedia REST)]
+  style ORC fill:#1a1e28,stroke:#58a6ff,color:#fff
+  style JU fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style AN fill:#241a33,stroke:#9b6bd6,color:#fff
+  style PL fill:#241a33,stroke:#9b6bd6,color:#fff
+  style AU fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
+    <p class="caption">Blue = top model (open reasoning). Green = judge (coverage). Purple = cheap/bounded subagents. Orchestrator and judge share the same agent handle.</p>
+  </section>
+
+  <section>
+    <h2>Agent roster table</h2>
+    <table>
+      <tr><th>Agent</th><th>Default model</th><th>Reads</th><th>Writes</th><th>Tools</th></tr>
+      <tr><td><code>orchestrator</code></td><td>gpt-5.4 full</td><td>/structure/*, /context/*, /curated/*, /footnotes/*</td><td>/plan/queries.md, todos</td><td>write_todos, task, fs</td></tr>
+      <tr><td><code>analyst</code> (×N)</td><td>nano</td><td>/structure/NN.md</td><td>/context/NN.md — concept, key ideas, gaps</td><td>fs, retrieve_peek</td></tr>
+      <tr><td><code>polish</code></td><td>nano</td><td>/context/*</td><td>/curated/timeline.md — clustered, curated points (NOT a summary)</td><td>fs</td></tr>
+      <tr><td><code>augmentor</code> (×N)</td><td>nano</td><td>/plan/queries.md, /curated/timeline.md</td><td>/footnotes/&lt;point&gt;.md</td><td>fs, retrieve_corpus, wikipedia_lookup</td></tr>
+      <tr><td><code>judge</code></td><td>gpt-5.4 full</td><td>/plan/queries.md, /footnotes/*</td><td>re-delegation todos</td><td>fs</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Mode id</th><td><code>extension</code></td></tr>
+      <tr><th>Architecture</th><td>deepagents topology C (deterministic runner + agentic core)</td></tr>
+      <tr><th>Default orchestrator/judge model</th><td>gpt-5.4-2026-03-17 (top)</td></tr>
+      <tr><th>Default analyst/augmentor/polish model</th><td>gpt-5.4-nano-2026-03-17 (cheap)</td></tr>
+      <tr><th>Output schema</th><td><code>ExtensionDigest</code> (book, chapter, points[], unfilled_gaps[])</td></tr>
+      <tr><th>Footnote rule</th><td>ALL augmentation (incl. formulas) → footnotes only; curated_text is clean prose</td></tr>
+      <tr><th>Round cap</th><td><code>EXTENSION_MAX_ROUNDS</code> env (default 3); per-request via <code>extensionMaxRounds</code></td></tr>
+      <tr><th>Augmentation sources</th><td>Cross-book corpus (excludes base book) + Wikipedia REST API (no key)</td></tr>
+      <tr><th>Export</th><td>POST /api/export → ZIP (self-contained styled HTML + sources.json)</td></tr>
+      <tr><th>Isolation</th><td>extension_agents/ + extension_skills/ — zero tutor/qa imports</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Invariants</h2>
+    <table>
+      <tr><th>#</th><th>Rule</th><th>Guard</th></tr>
+      <tr><td>38</td><td>ALL augmentation (incl. formulas) lives in <code>footnotes</code>; <code>curated_text</code> carries no augmentation, URLs, or source tags.</td><td><code>test_extension_invariant.py::test_curated_text_has_no_augmentation_markers</code> + <code>curated_text_is_clean</code></td></tr>
+      <tr><td>39</td><td>Augmentation loop hard-capped at <code>EXTENSION_MAX_ROUNDS</code> (default 3); never loops unbounded.</td><td><code>test_extension_runner.py::test_round_loop_caps</code></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Output fields</h2>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td><code>book</code></td><td>Resolved book slug.</td></tr>
+      <tr><td><code>chapter</code></td><td>Resolved chapter id.</td></tr>
+      <tr><td><code>points[]</code></td><td>Ordered curated points (title + curated_text + footnotes[]). Order = chapter reading order.</td></tr>
+      <tr><td><code>unfilled_gaps[]</code></td><td>Gap queries still unfilled after EXTENSION_MAX_ROUNDS — shown to the user.</td></tr>
+      <tr><td><code>footnotes[].kind</code></td><td>"corpus" or "wikipedia".</td></tr>
+      <tr><td><code>footnotes[].body</code></td><td>Augmenting text, may contain KaTeX-rendered formulas.</td></tr>
+      <tr><td><code>footnotes[].source</code></td><td>Book slug+section or Wikipedia URL (provenance).</td></tr>
+    </table>
+    <p class="caption">schemas/output.py — ExtensionDigest, ExtensionPoint, ExtensionFootnote.</p>
+  </section>
+
+  <section>
+    <h2>Sources</h2>
+    <table>
+      <tr><th>Role</th><th>Path</th></tr>
+      <tr><td>Runner (round loop + SSE)</td><td><code>src/services/chat/agents/extension_agents/runner.py</code></td></tr>
+      <tr><td>Deep-agent builder</td><td><code>src/services/chat/agents/extension_agents/agent.py</code></td></tr>
+      <tr><td>Scope / clarify gate / structure files</td><td><code>src/services/chat/agents/extension_agents/scope.py</code></td></tr>
+      <tr><td>Tools (Wikipedia + corpus)</td><td><code>src/services/chat/agents/extension_agents/tools.py</code></td></tr>
+      <tr><td>XML-tagged prompts</td><td><code>src/services/chat/agents/extension_agents/prompts.py</code></td></tr>
+      <tr><td>Per-stage model resolver</td><td><code>src/services/chat/agents/extension_agents/_models.py</code></td></tr>
+      <tr><td>Export ZIP builder</td><td><code>src/services/chat/agents/extension_agents/export.py</code></td></tr>
+      <tr><td>Skills (curate/gap-augment/judge)</td><td><code>src/services/chat/agents/extension_skills/</code></td></tr>
+      <tr><td>Router dispatch</td><td><code>src/services/chat/router.py → _V2_DISPATCH["extension"]</code></td></tr>
+      <tr><td>Export endpoint</td><td><code>src/services/chat/api.py → POST /api/export</code></td></tr>
+      <tr><td>Frontend card</td><td><code>web/src/components/ExtensionDigestCard.tsx</code></td></tr>
+      <tr><td>Frontend view</td><td><code>web/src/views/ExtensionView.tsx</code></td></tr>
+      <tr><td>Pipeline diagram</td><td><code>web/src/components/ExtensionPipelineDiagram.tsx</code></td></tr>
+    </table>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+</body>
+</html>

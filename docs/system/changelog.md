@@ -2,6 +2,33 @@
 
 Append-only. Latest at top.
 
+## 2026-06-09 — Extension mode (deepagents topology C, cross-book + Wikipedia footnote augmentation, styled-HTML ZIP export)
+
+New chat mode `extension` (mode id `"extension"`). Takes a chapter already in the corpus, follows its structure, and augments each section from other ingested books + Wikipedia, emitting curated to-the-point text with footnote-only augmentation (including formulas).
+
+**Architecture — Topology C:**
+- **Deterministic runner** (`extension_agents/runner.py`): scope → resolve → clarify gate → fetch ordered sections → seed `/structure` virtual files → hard-capped round loop (`EXTENSION_MAX_ROUNDS`, default 3).
+- **Agentic core** (`extension_agents/agent.py`): deepagents orchestrator + three subagents (analyst batch → polish → augmentor batch) over a shared virtual filesystem. Orchestrator/judge default to `gpt-5.4-2026-03-17` (top); analyst/augmentor/polish default to nano.
+- **Judge loop**: orchestrator re-reads coverage markers in `/footnotes/*`; re-delegates only unfilled queries; hard-stops at the round cap and reports `unfilled_gaps` in the digest.
+
+**Key invariants shipped (38 + 39):**
+- `curated_text` is clean prose with no augmentation — all new content (formulas, sources, URLs) lives in `ExtensionPoint.footnotes` only. `curated_text_is_clean` enforces this with auto-strip before emit.
+- Augmentation loop capped at `EXTENSION_MAX_ROUNDS`. Never loops unbounded.
+
+**Output + export:**
+- `ExtensionDigest` (book, chapter, points[], unfilled_gaps[]) — strict-safe Pydantic model (no open-keyed dict fields).
+- `POST /api/export` returns a self-contained styled-HTML ZIP (`extension.html` with embedded CSS + KaTeX CDN + `sources.json` provenance).
+
+**Frontend:** `ExtensionDigestCard.tsx` (ordered points, superscript markers, KaTeX in footnotes, Download ZIP button), `ExtensionPipelineDiagram.tsx` (topology C modal card), `ExtensionView.tsx`, ModePicker entry.
+
+**Isolation:** `extension_agents/` + `extension_skills/{curate-structure,gap-augment,judge-coverage}` — zero imports from tutor/qa.
+
+**Tests:** 763 backend + 207 frontend green. New: `test_extension_schema.py`, `test_extension_models.py`, `test_extension_tools.py`, `test_extension_scope.py`, `test_extension_prompts.py`, `test_extension_skills.py`, `test_extension_agent.py`, `test_extension_runner.py`, `test_extension_invariant.py`, `test_extension_export.py`; `ExtensionDigestCard.test.tsx`, `ExtensionPipelineDiagram.test.tsx`.
+
+**Docs:** `docs/services/chat-features/54-extension-mode.md`, `docs/common ground/Elements/modes/extension.html` (+ features/index.html entry), invariants 38–39, this entry.
+
+---
+
 ## 2026-06-05 — Deep-tutor answer formatting fixes (best-effort + math wrap + prompt + figures)
 
 **Symptoms** (live answer on :5175, "What is the bias-variance tradeoff?"): (A) raw inline LaTeX leaked as literal text (`\tilde y=\tilde β₀+\tilde β₁ x_1.`); (B) sentence-completing defining equations were emitted as `$$display$$`, leaving an orphan `" . [N]"`; (C) `[N]` citation markers wrapped alone on a line after a display block; (D) two near-duplicate `### Figure example` blocks for one aspect, the 2nd with a generic caption. Separately, the strict component-equation validator could hard-fail an answer ("Failed to generate") when neither synth nor the one repair complied.
