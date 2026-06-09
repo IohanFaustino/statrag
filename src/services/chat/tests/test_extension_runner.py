@@ -41,7 +41,7 @@ def test_happy_path_streams_points(monkeypatch):
                         lambda **k: [{"section_id": "7.1", "h2_path": "Intro", "text": "t"}])
     monkeypatch.setattr(R, "_all_slugs", lambda catalog: ["hansen-probability", "ross-probability"])
     async def _run_round(agent, instruction, thread_id):
-        return json.dumps(digest.model_dump()), [], 10, 20
+        return None, json.dumps(digest.model_dump()), [], 10, 20
     monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
     monkeypatch.setattr(R, "_run_round", _run_round)
 
@@ -68,7 +68,7 @@ def test_round_loop_caps(monkeypatch):
     empty = json.dumps(ExtensionDigest(book="b", chapter="ch01", points=[], unfilled_gaps=["q"]).model_dump())
     async def _run_round(agent, instruction, thread_id):
         calls["n"] += 1
-        return empty, ["q"], 1, 1
+        return None, empty, ["q"], 1, 1
     monkeypatch.setattr(R, "_run_round", _run_round)
 
     evs = _events(ChatRequest(message="extend b ch1", mode="extension", extensionMaxRounds=2))

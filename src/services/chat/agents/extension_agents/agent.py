@@ -9,10 +9,12 @@ import os
 
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
+from langchain.agents.structured_output import ToolStrategy
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.core.config import settings
+from src.services.chat.schemas import ExtensionDigest
 from src.services.chat.agents.extension_agents._models import (
     STAGE_DEFAULTS,  # noqa: F401 — re-exported for test convenience
     resolve_stage_model,
@@ -135,4 +137,8 @@ def build_extension_agent(
         skills=[SKILLS_REL, os.path.join(SKILLS_REL, "judge-coverage")],
         backend=FilesystemBackend(root_dir=_REPO_ROOT, virtual_mode=True),
         checkpointer=MemorySaver(),
+        # Enforce the final output shape so the orchestrator returns a parsed
+        # ExtensionDigest (in result["structured_response"]) instead of loose
+        # prose that the runner has to JSON-parse and may fail on.
+        response_format=ToolStrategy(ExtensionDigest, handle_errors=True),
     )

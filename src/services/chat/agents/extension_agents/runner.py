@@ -84,7 +84,11 @@ def _filter_subtopics(sections: list[dict], subtopics: list[str]) -> list[dict]:
 
 async def _run_round(agent, instruction: str, thread_id: str):
     """Invoke the deep-agent for one round. Returns
-    (final_text, unfilled_queries, in_tok, out_tok)."""
+    (structured_response, final_text, unfilled_queries, in_tok, out_tok).
+
+    structured_response is the schema-enforced ExtensionDigest (deepagents
+    response_format=ToolStrategy(ExtensionDigest)); text is the fallback when it
+    is absent."""
     from langchain_core.callbacks import UsageMetadataCallbackHandler
     cb = UsageMetadataCallbackHandler()
     result = await asyncio.to_thread(
@@ -92,6 +96,7 @@ async def _run_round(agent, instruction: str, thread_id: str):
         {"messages": [{"role": "user", "content": instruction}]},
         {"configurable": {"thread_id": thread_id}, "callbacks": [cb]},
     )
+    structured = result.get("structured_response") if isinstance(result, dict) else None
     msgs = result.get("messages", []) if isinstance(result, dict) else []
     text = (msgs[-1].content if msgs else "") or ""
     unfilled = _parse_unfilled(result)
@@ -99,7 +104,25 @@ async def _run_round(agent, instruction: str, thread_id: str):
     for v in (getattr(cb, "usage_metadata", None) or {}).values():
         it += int(v.get("input_tokens", 0) or 0)
         ot += int(v.get("output_tokens", 0) or 0)
-    return text, unfilled, it, ot
+    return structured, text, unfilled, it, ot
+
+
+def _coerce_digest(structured, *, book: str, chapter: str) -> ExtensionDigest | None:
+    """Turn a deepagents structured_response (ExtensionDigest instance or dict)
+    into an ExtensionDigest, backfilling book/chapter if the model omitted them."""
+    if structured is None:
+        return None
+    try:
+        d = structured if isinstance(structured, ExtensionDigest) else ExtensionDigest(
+            **(structured if isinstance(structured, dict) else structured.model_dump())
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    if not d.book:
+        d.book = book
+    if not d.chapter:
+        d.chapter = chapter
+    return d
 
 
 def _parse_unfilled(result) -> list[str]:
@@ -182,13 +205,16 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
                 "re-emit the ExtensionDigest JSON."
             )
         yield {"type": "stage", "stage": "augment", "label": f"Augment · round {r + 1}"}
-        text, unfilled, it, ot = await _run_round(agent, instr, thread_id)
+        structured, text, unfilled, it, ot = await _run_round(agent, instr, thread_id)
         in_tok += it
         out_tok += ot
         if not unfilled:
             break
 
-    digest = _parse_digest(text, book=book, chapter=chapter)
+    # Prefer the schema-enforced structured_response; fall back to JSON-parsing
+    # the final message only if the agent returned no structured output.
+    digest = _coerce_digest(structured, book=book, chapter=chapter) \
+        or _parse_digest(text, book=book, chapter=chapter)
 
     for pt in digest.points:
         if not curated_text_is_clean(pt):
