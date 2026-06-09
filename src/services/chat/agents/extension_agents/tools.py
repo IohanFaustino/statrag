@@ -31,3 +31,42 @@ def wikipedia_lookup(query: str) -> str:
         return "no wikipedia result"
     url = (data.get("content_urls", {}).get("desktop", {}).get("page") or "")
     return f"{extract}\n\n[source] {url}"
+
+
+from src.services.chat.retrieval import hybrid_search  # noqa: E402
+
+
+def _fmt_sources(rows) -> str:
+    parts = []
+    for r in rows:
+        loc = f"{getattr(r, 'book', '?')} §{getattr(r, 'section', '?')}"
+        parts.append(f"[{loc}]\n{getattr(r, 'text', '')}")
+    return "\n\n---\n\n".join(parts) if parts else "no results"
+
+
+def make_retrieve_corpus(*, exclude_book: str, all_slugs: list[str]):
+    """Augmentor tool: cross-book retrieval EXCLUDING the base book."""
+    slugs = [s for s in all_slugs if s != exclude_book]
+
+    @tool
+    def retrieve_corpus(query: str) -> str:
+        """Search OTHER books in the corpus (never the base book) for material
+        that augments a gap. Returns matched passages with book/section tags."""
+        rows, _meta = hybrid_search(query, book_slugs=slugs, top_k=6, rerank=True, rerank_top_n=6)
+        return _fmt_sources(rows)
+
+    return retrieve_corpus
+
+
+def make_retrieve_peek(*, all_slugs: list[str]):
+    """Analyst tool: read-only peek across the corpus to judge what a section
+    covers / is missing. Does not augment."""
+
+    @tool
+    def retrieve_peek(query: str) -> str:
+        """Peek at what the corpus says about a topic (read-only, for gap
+        analysis). Returns matched passages."""
+        rows, _meta = hybrid_search(query, book_slugs=all_slugs, top_k=4, rerank=False)
+        return _fmt_sources(rows)
+
+    return retrieve_peek
