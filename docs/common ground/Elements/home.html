@@ -63,7 +63,7 @@
   QD --> RET["Retrieval (RRF + rerank)"]
   RET --> CHAT["Chat · modes · deep-tutor"]
   CHAT --> ANS["Answer (SSE)"]</div></div>
-        <p class="caption">End-to-end pipeline. See the <a href="services/ingestion.html">Ingestion</a>, <a href="services/retrieval.html">Retrieval</a>, and <a href="services/chat.html">Chat</a> services.</p>
+        <p class="caption">Three layers turn a book into an answer — <a href="ingestion/index.html">Ingestion</a> embeds it, <a href="services/retrieval.html">Retrieval</a> finds it, <a href="features/index.html">Features</a> teach it.</p>
       </div>
       <div class="card"><h3>Hybrid retrieval</h3><p class="sub">Dense (OpenAI 3072d) + sparse BM25, fused with Reciprocal Rank Fusion, optional cross-encoder rerank.</p></div>
       <div class="card"><h3>Per-field collections</h3><p class="sub"><code>field_textbooks</code> for sections, <code>field_images</code> for figures. Auto-created on first ingest.</p></div>
@@ -72,12 +72,32 @@
   </section>
 
   <section>
-    <h2>Four chat modes</h2>
-    <div class="modes-grid">
-      <a class="card mode-card" href="modes/tutor.html"><h3>Tutor</h3><p class="sub">Deepest mode. Multi-author structured tutorial with figures + math.</p><span class="pill">single-agent</span></a>
-      <a class="card mode-card" href="modes/qa.html"><h3>Q&amp;A</h3><p class="sub">Punctual, scoped, sourced answer with a grounding verify pass.</p><span class="pill">multi-agent</span></a>
-      <a class="card mode-card chapter" href="modes/facilitate.html"><h3>Facilitate</h3><p class="sub">Verbose, didactic walkthrough of a whole chapter in reading order.</p><span class="pill">chapter pipeline</span></a>
-      <a class="card mode-card chapter" href="modes/resume.html"><h3>Resume</h3><p class="sub">Compressed recap of a chapter in reading order.</p><span class="pill">chapter pipeline</span></a>
+    <h2>Three layers</h2>
+    <div class="links-grid">
+      <a class="card mode-card" href="ingestion/index.html">
+        <h3>Ingestion</h3>
+        <p class="sub">How an OCR'd book becomes embedded Qdrant points: regex → enrich → chunk → embed → upsert, plus per-field collections and preprocessors.</p>
+        <span class="pill">book → DB</span>
+      </a>
+      <a class="card mode-card" href="features/index.html">
+        <h3>Features</h3>
+        <p class="sub">What users get: the four chat modes (Tutor · Q&amp;A · Facilitate · Resume) and the deep-tutor pipeline that powers them.</p>
+        <span class="pill">user-facing</span>
+      </a>
+      <a class="card mode-card chapter" href="services/index.html">
+        <h3>Services</h3>
+        <p class="sub">How the code is built: the Chinese-wall layers (core · ingestion · retrieval · chat · eval) with diagrams, modules, schemas, and invariants.</p>
+        <span class="pill">architecture</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Also</h2>
+    <div class="strip">
+      <a class="chip" href="index.html">Overview</a>
+      <a class="chip" href="report.html">Verification</a>
+      <a class="chip" href="models/index.html">Models</a>
     </div>
   </section>
 
@@ -92,16 +112,6 @@
     </div>
   </section>
 
-  <section>
-    <h2>Browse the docs</h2>
-    <div class="links-grid">
-      <a class="card" href="index.html"><h3>Overview</h3><p class="sub">What it is, stack, Chinese wall.</p></a>
-      <a class="card" href="services/index.html"><h3>Services</h3><p class="sub">Core, ingestion, retrieval, chat, eval — the architecture layers.</p></a>
-      <a class="card" href="modes/index.html"><h3>Modes</h3><p class="sub">The 4 chat modes in depth.</p></a>
-      <a class="card" href="models/index.html"><h3>Models</h3><p class="sub">Every LLM the system can call.</p></a>
-      <a class="card" href="report.html"><h3>Verification</h3><p class="sub">How the system is checked.</p></a>
-    </div>
-  </section>
 </div>
 <script src="sidebar.js"></script>
 <script>
