@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the per-service doc pages + index.
+"""Generate the services index page.
 
 Source of truth: the repo architecture (Chinese wall in each __init__.py) —
 src/core/, src/ingestion/, src/services/{retrieval,chat,eval}/. Static html only;
@@ -8,8 +8,8 @@ changes:
 
     cd "docs/common ground/Elements/services" && python3 _generate.py
 
-Emits: index.html + <id>.html per service (5). Nav lives in ../sidebar.js
-(hand-maintained) — this script does NOT touch it.
+Emits: index.html only. The 5 detail pages are hand-written rich pages (diagrams + deep-dive + schemas + invariants); this script must NOT overwrite them.
+Nav lives in ../sidebar.js (hand-maintained) — this script does NOT touch it.
 """
 from __future__ import annotations
 from pathlib import Path
@@ -113,40 +113,6 @@ def page_shell(title: str, body: str) -> str:
 """
 
 
-def service_page(s: dict) -> str:
-    mods = "\n      ".join(
-        f'<tr><td><code>{f}</code></td><td>{r}</td></tr>' for f, r in s["modules"]
-    )
-    rel = " · ".join(f'<a href="{h}">{l}</a>' for h, l in s["related"])
-    body = f"""<header>
-  <h1><span class="accent">{s['name']}</span> <span class="pill">{s['layer']}</span></h1>
-  <div class="sub">{s['blurb']}</div>
-</header>
-<main>
-  <section>
-    <h2>Spec</h2>
-    <table>
-      <tr><th>Layer</th><td>{s['layer']}</td></tr>
-      <tr><th>Path</th><td><code>{s['path']}</code></td></tr>
-      <tr><th>Import rule</th><td>{s['imports']}</td></tr>
-      <tr><th>Entrypoint</th><td>{s['entry']}</td></tr>
-    </table>
-    <p class="caption">Chinese-wall rule verified from <code>{s['path']}__init__.py</code>.</p>
-  </section>
-  <section>
-    <h2>Key modules</h2>
-    <table>
-      <tr><th>Module</th><th>Role</th></tr>
-      {mods}
-    </table>
-  </section>
-  <section>
-    <h2>Related</h2>
-    <div class="card"><p style="margin:0">{rel}</p></div>
-  </section>
-</main>"""
-    return page_shell(s["name"], body)
-
 
 def index_page() -> str:
     rows = "\n      ".join(
@@ -173,14 +139,17 @@ def index_page() -> str:
     <div class="card"><p style="margin:0"><b>Core</b> imports nothing in-repo. <b>Tasks</b> (ingestion) and <b>Services</b> (retrieval, chat, eval) import only core — never each other, never ingestion. Encoded in every <code>__init__.py</code>.</p></div>
   </section>
 </main>"""
+    body = body.replace(
+        '<p class="caption">Source of truth',
+        '<p class="caption">Each layer page is a deep-dive: sequence + dataflow diagrams, per-module breakdown, schemas/contracts, and the invariants that govern it. Source of truth',
+        1,
+    )
     return page_shell("Services", body)
 
 
 def main() -> None:
     (HERE / "index.html").write_text(index_page())
-    for s in SERVICES:
-        (HERE / f"{s['id']}.html").write_text(service_page(s))
-    print(f"wrote services/index.html + {len(SERVICES)} service pages")
+    print("wrote services/index.html (detail pages are hand-maintained)")
 
 
 if __name__ == "__main__":

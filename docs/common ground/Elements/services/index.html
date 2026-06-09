@@ -24,7 +24,7 @@
       <tr><td><a href="chat.html">Chat</a></td><td>Service · user-facing</td><td><code>src/services/chat/</code></td><td>The SSE-streaming conversational layer: a FastAPI app exposing the four chat modes over hybrid retrieval, including the deep-tutor pipeline (query planning → coverage → orchestrator-workers → vision).</td></tr>
       <tr><td><a href="eval.html">Eval</a></td><td>Service · placeholder</td><td><code>src/services/eval/</code></td><td>Evaluation scaffolding — dataset building, generation, and metrics for retrieval / answer quality. Present but a placeholder; not wired into the live app.</td></tr>
     </table>
-    <p class="caption">Source of truth: each package <code>__init__.py</code> (import rules) + module listings. Click a service for its modules + entrypoint.</p>
+    <p class="caption">Each layer page is a deep-dive: sequence + dataflow diagrams, per-module breakdown, schemas/contracts, and the invariants that govern it. Source of truth: each package <code>__init__.py</code> (import rules) + module listings. Click a service for its modules + entrypoint.</p>
   </section>
   <section>
     <h2>The Chinese wall</h2>
