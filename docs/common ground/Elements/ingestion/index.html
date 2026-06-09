@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Ingestion</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Ingestion</span> <span class="pill">Task · book → DB</span></h1>
+  <div class="sub">Turns OCR'd statistics textbooks into hybrid-embedded Qdrant points — dense vectors (text-embedding-3-large) + BM25 sparse, one chunk per section.</div>
+</header>
+<main>
+  <section>
+    <h2>Overview</h2>
+    <p>Ingestion is a one-time <strong>Task</strong> (not a Service) that converts preprocessed markdown sources into Qdrant collections. It lives entirely in <code>src/ingestion/</code> and imports only <code>src.core</code>. Six pipeline stages (A–F) run per chapter; preprocessing is a separate offline step that produces <code>*_fixed.md</code> inputs.</p>
+  </section>
+
+  <!-- Pipeline section — copied from top-level ingestion.html -->
+  <section>
+    <h2>Pipeline</h2>
+    <p>Six stages executed by <code>src/ingestion/pipeline.py</code> via <code>run_chapter()</code>. Each stage is labelled A–F in the module docstring (line 3–9).</p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+        data-src="flowchart TD
+  SRC[&quot;Source .md per book/chapter&quot;] --&gt; RGX[&quot;B · Regex pass — normalize structure&lt;br/&gt;(regex_pass.py)&quot;]
+  RGX --&gt; ENR[&quot;C · LLM enrich — synopsis + index_extended&lt;br/&gt;DeepSeek v4-flash default, non-thinking&lt;br/&gt;(llm_enrich.py)&quot;]
+  ENR --&gt; BLD[&quot;D · build_documents — 1 section = 1 chunk&lt;br/&gt;split at 8000 tok · tiktoken cl100k_base&lt;br/&gt;(build_documents.py)&quot;]
+  BLD --&gt; EMB[&quot;E · Dense embed — text-embedding-3-large (OpenAI)&lt;br/&gt;+ BM25 sparse (fastembed Qdrant/bm25)&quot;]
+  BLD --&gt; CAP[&quot;E · Image caption embed&lt;br/&gt;OpenAI text-embedding-3-large on caption text&quot;]
+  EMB --&gt; UP[&quot;E · Qdrant upsert — field_textbooks&quot;]
+  CAP --&gt; UPI[&quot;E · Qdrant upsert — field_images&quot;]
+  UP --&gt; REG[&quot;F · Manifest register — data/parsed/manifest.json&quot;]
+  UPI --&gt; REG">flowchart TD
+  SRC["Source .md per book/chapter"] --&gt; RGX["B · Regex pass — normalize structure&lt;br/&gt;(regex_pass.py)"]
+  RGX --&gt; ENR["C · LLM enrich — synopsis + index_extended&lt;br/&gt;DeepSeek v4-flash default, non-thinking&lt;br/&gt;(llm_enrich.py)"]
+  ENR --&gt; BLD["D · build_documents — 1 section = 1 chunk&lt;br/&gt;split at 8000 tok · tiktoken cl100k_base&lt;br/&gt;(build_documents.py)"]
+  BLD --&gt; EMB["E · Dense embed — text-embedding-3-large (OpenAI)&lt;br/&gt;+ BM25 sparse (fastembed Qdrant/bm25)"]
+  BLD --&gt; CAP["E · Image caption embed&lt;br/&gt;OpenAI text-embedding-3-large on caption text"]
+  EMB --&gt; UP["E · Qdrant upsert — field_textbooks"]
+  CAP --&gt; UPI["E · Qdrant upsert — field_images"]
+  UP --&gt; REG["F · Manifest register — data/parsed/manifest.json"]
+  UPI --&gt; REG</div>
+    </div>
+    <p class="caption">Note: there is no separate "Preprocess" stage inside <code>pipeline.py</code> — preprocessing (e.g. <code>kobo_preproc.py</code>) is a one-time offline step that produces <code>*_fixed.md</code> before ingestion. The pipeline reads the already-preprocessed source directly. Stage A (static yaml + book.json) is handled outside <code>run_chapter()</code>.</p>
+  </section>
+
+  <!-- Per-field collections section — copied from top-level ingestion.html -->
+  <section>
+    <h2>Per-field collections</h2>
+    <p>Collection names are derived from the <code>field</code> key in each book's yaml (<code>src/ingestion/books/&lt;slug&gt;.yaml</code>). The naming function lives in <code>src/core/qdrant_store.py:43-48</code>. Collections are auto-created on first ingest (<code>ensure_text_collection</code> / <code>ensure_image_collection</code>).</p>
+    <table>
+      <tr><th>Collection type</th><th>Name pattern</th><th>Content</th><th>Example (field=econometrics)</th></tr>
+      <tr>
+        <td>Text</td>
+        <td><code>&lt;field&gt;_textbooks</code></td>
+        <td>One point per chunk; dense (3072d) + sparse (BM25) named vectors; payload = section metadata + text</td>
+        <td><code>econometrics_textbooks</code></td>
+      </tr>
+      <tr>
+        <td>Images</td>
+        <td><code>&lt;field&gt;_images</code></td>
+        <td>One point per figure; dense (3072d) named vector on caption text; payload = ImageMetadata fields</td>
+        <td><code>econometrics_images</code></td>
+      </tr>
+    </table>
+    <p class="caption">Source: <code>src/core/qdrant_store.py:43-48</code> (<code>collection_names()</code>); example field from <code>src/ingestion/books/baltagi.yaml:3</code>.</p>
+  </section>
+
+  <section>
+    <h2>In this section</h2>
+    <div class="links-grid">
+      <a class="card" href="pipeline.html">
+        <h3>Pipeline</h3>
+        <div class="sub">Six-stage run_chapter() flow — providers, embeddings, commands.</div>
+      </a>
+      <a class="card" href="chunking.html">
+        <h3>Chunking &amp; payload</h3>
+        <div class="sub">1-section-per-chunk rules, token limits, and full payload field reference.</div>
+      </a>
+      <a class="card" href="preprocessors.html">
+        <h3>Preprocessors</h3>
+        <div class="sub">12 offline book-specific scripts that produce *_fixed.md inputs.</div>
+      </a>
+    </div>
+  </section>
+</main>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="../sidebar.js"></script>
+</body>
+</html>

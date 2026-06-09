@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Ingestion · Chunking &amp; payload</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Ingestion · Chunking &amp; payload</span> <span class="pill">Task · book → DB</span></h1>
+  <div class="sub">1-section-per-chunk rule, token limits (8000 / 8190), and full payload field reference for text and image collections.</div>
+</header>
+<main>
+  <!-- Chunking & payload section — copied verbatim from ingestion.html -->
+  <section>
+    <h2>Chunking &amp; payload</h2>
+    <h3>Chunk rule</h3>
+    <ul>
+      <li><strong>1 section = 1 chunk</strong> (no parent/child split). Source: <code>src/ingestion/build_documents.py:3-5</code>.</li>
+      <li>If a section exceeds <strong>8000 tokens</strong> (<code>TARGET_TOKENS = 8000</code>, <code>build_documents.py:29</code>), it is split into N windows of 8000 tokens with <strong>200-token overlap</strong> (<code>OVERLAP_TOKENS = 200</code>, <code>build_documents.py:30</code>).</li>
+      <li>Hard safety cap: <strong>8190 tokens</strong> (<code>HARD_MAX_TOKENS = 8190</code>) — one below the OpenAI embedding limit of 8191. Oversize chunks are logged as errors (<code>build_documents.py:31</code>).</li>
+      <li>Token counter: <code>tiktoken</code> encoding <strong><code>cl100k_base</code></strong> (<code>build_documents.py:28</code>). Matches the <code>text-embedding-3-large</code> / GPT-4 family tokenizer.</li>
+    </ul>
+
+    <h3>Key payload fields (text collection)</h3>
+    <p>Built in <code>_flat_meta()</code> at <code>src/ingestion/build_documents.py:61-79</code>, plus <code>text</code> and <code>chunk_id</code> added in <code>pipeline.py:108</code>.</p>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>text</code></td><td>str</td><td>Full chunk text (the embedded content)</td></tr>
+      <tr><td><code>chunk_id</code></td><td>str</td><td>Deterministic MD5-based ID for dedup</td></tr>
+      <tr><td><code>book_slug</code></td><td>str</td><td>Book slug (e.g. <code>baltagi</code>)</td></tr>
+      <tr><td><code>book_name</code></td><td>str</td><td>Full book title</td></tr>
+      <tr><td><code>authors</code></td><td>str</td><td>Comma-joined author list</td></tr>
+      <tr><td><code>theme</code></td><td>str</td><td>Book theme (from yaml, e.g. <code>Econometrics</code>)</td></tr>
+      <tr><td><code>chapter_id</code></td><td>str</td><td>Chapter key (e.g. <code>ch01</code>)</td></tr>
+      <tr><td><code>section_id</code></td><td>str</td><td>Unique section identifier</td></tr>
+      <tr><td><code>h1</code></td><td>str</td><td>Top-level chapter header</td></tr>
+      <tr><td><code>h2_path</code></td><td>str</td><td>Section header path (pipe-separated)</td></tr>
+      <tr><td><code>page_from</code> / <code>page_to</code></td><td>int</td><td>Page range (−1 if unknown)</td></tr>
+      <tr><td><code>has_formula</code> / <code>n_formulas</code></td><td>bool / int</td><td>Formula presence flags</td></tr>
+      <tr><td><code>has_image</code></td><td>bool</td><td>Contains image refs</td></tr>
+      <tr><td><code>has_table</code></td><td>bool</td><td>Contains HTML tables</td></tr>
+      <tr><td><code>synopsis</code></td><td>str</td><td>LLM-generated 1–3 sentence summary (truncated at 500 chars)</td></tr>
+      <tr><td><code>index_extended</code></td><td>str</td><td>Comma-joined LLM-generated keywords (up to 20)</td></tr>
+      <tr><td><code>chunk_index</code></td><td>int</td><td>0-based index within the section (0 for non-split sections)</td></tr>
+      <tr><td><code>n_chunks_in_section</code></td><td>int</td><td>Total chunks this section was split into</td></tr>
+      <tr><td><code>token_count</code></td><td>int</td><td>Token count of this chunk</td></tr>
+    </table>
+
+    <h3>Key payload fields (image collection)</h3>
+    <p>From <code>ImageMetadata</code> model at <code>src/ingestion/schema.py:49-66</code>, plus <code>book</code> and <code>theme</code> injected in <code>pipeline.py:144</code>.</p>
+    <table>
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td><code>book_slug</code></td><td>Book slug</td></tr>
+      <tr><td><code>book_name</code></td><td>Full title</td></tr>
+      <tr><td><code>authors</code></td><td>List of authors</td></tr>
+      <tr><td><code>chapter_id</code></td><td>Chapter key</td></tr>
+      <tr><td><code>section</code> (h1)</td><td>Top-level section header</td></tr>
+      <tr><td><code>subsection</code> (h2_path)</td><td>Section path where figure appears</td></tr>
+      <tr><td><code>page</code></td><td>Page number (or null)</td></tr>
+      <tr><td><code>image_name</code></td><td>Filename only</td></tr>
+      <tr><td><code>image_path</code></td><td>Relative path as found in markdown</td></tr>
+      <tr><td><code>image_reference</code></td><td>FIGURE caption text</td></tr>
+      <tr><td><code>theme</code></td><td>Book theme (injected from BookMetadata)</td></tr>
+    </table>
+  </section>
+</main>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="../sidebar.js"></script>
+</body>
+</html>

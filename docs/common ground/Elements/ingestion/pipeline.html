@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Ingestion · Pipeline</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Ingestion · Pipeline</span> <span class="pill">Task · book → DB</span></h1>
+  <div class="sub">Six-stage run_chapter() flow: regex normalisation → LLM enrichment → chunking → embedding → Qdrant upsert → manifest registration.</div>
+</header>
+<main>
+  <!-- Pipeline section — copied verbatim from ingestion.html -->
+  <section>
+    <h2>Pipeline</h2>
+    <p>Six stages executed by <code>src/ingestion/pipeline.py</code> via <code>run_chapter()</code>. Each stage is labelled A–F in the module docstring (line 3–9).</p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+        data-src="flowchart TD
+  SRC[&quot;Source .md per book/chapter&quot;] --&gt; RGX[&quot;B · Regex pass — normalize structure&lt;br/&gt;(regex_pass.py)&quot;]
+  RGX --&gt; ENR[&quot;C · LLM enrich — synopsis + index_extended&lt;br/&gt;DeepSeek v4-flash default, non-thinking&lt;br/&gt;(llm_enrich.py)&quot;]
+  ENR --&gt; BLD[&quot;D · build_documents — 1 section = 1 chunk&lt;br/&gt;split at 8000 tok · tiktoken cl100k_base&lt;br/&gt;(build_documents.py)&quot;]
+  BLD --&gt; EMB[&quot;E · Dense embed — text-embedding-3-large (OpenAI)&lt;br/&gt;+ BM25 sparse (fastembed Qdrant/bm25)&quot;]
+  BLD --&gt; CAP[&quot;E · Image caption embed&lt;br/&gt;OpenAI text-embedding-3-large on caption text&quot;]
+  EMB --&gt; UP[&quot;E · Qdrant upsert — field_textbooks&quot;]
+  CAP --&gt; UPI[&quot;E · Qdrant upsert — field_images&quot;]
+  UP --&gt; REG[&quot;F · Manifest register — data/parsed/manifest.json&quot;]
+  UPI --&gt; REG">flowchart TD
+  SRC["Source .md per book/chapter"] --&gt; RGX["B · Regex pass — normalize structure&lt;br/&gt;(regex_pass.py)"]
+  RGX --&gt; ENR["C · LLM enrich — synopsis + index_extended&lt;br/&gt;DeepSeek v4-flash default, non-thinking&lt;br/&gt;(llm_enrich.py)"]
+  ENR --&gt; BLD["D · build_documents — 1 section = 1 chunk&lt;br/&gt;split at 8000 tok · tiktoken cl100k_base&lt;br/&gt;(build_documents.py)"]
+  BLD --&gt; EMB["E · Dense embed — text-embedding-3-large (OpenAI)&lt;br/&gt;+ BM25 sparse (fastembed Qdrant/bm25)"]
+  BLD --&gt; CAP["E · Image caption embed&lt;br/&gt;OpenAI text-embedding-3-large on caption text"]
+  EMB --&gt; UP["E · Qdrant upsert — field_textbooks"]
+  CAP --&gt; UPI["E · Qdrant upsert — field_images"]
+  UP --&gt; REG["F · Manifest register — data/parsed/manifest.json"]
+  UPI --&gt; REG</div>
+    </div>
+    <p class="caption">Note: there is no separate "Preprocess" stage inside <code>pipeline.py</code> — preprocessing (e.g. <code>kobo_preproc.py</code>) is a one-time offline step that produces <code>*_fixed.md</code> before ingestion. The pipeline reads the already-preprocessed source directly. Stage A (static yaml + book.json) is handled outside <code>run_chapter()</code>.</p>
+  </section>
+
+  <!-- Providers section — copied verbatim from ingestion.html -->
+  <section>
+    <h2>Providers</h2>
+    <p>Three distinct provider roles in the pipeline. <code>--provider</code> controls only enrichment; embeddings and captioning are always OpenAI.</p>
+    <table>
+      <tr><th>Role</th><th>Provider</th><th>Model</th><th>Config key / env var</th><th>Source</th></tr>
+      <tr>
+        <td>LLM enrichment (synopsis + index_extended)</td>
+        <td>DeepSeek (default) or OpenAI</td>
+        <td><code>deepseek-v4-flash</code> (non-thinking, thinking disabled via <code>extra_body</code>)</td>
+        <td><code>RAG_INGEST_DEEPSEEK_MODEL</code> / <code>RAG_DEFAULT_PROVIDER=deepseek</code></td>
+        <td><code>src/core/config.py:49,68</code> · <code>src/ingestion/llm_client.py:36-42</code></td>
+      </tr>
+      <tr>
+        <td>Dense embeddings (text chunks)</td>
+        <td>OpenAI</td>
+        <td><code>text-embedding-3-large</code> (3072d)</td>
+        <td><code>EMBEDDING_MODEL</code></td>
+        <td><code>src/core/config.py:38</code> · <code>src/ingestion/pipeline.py:95</code></td>
+      </tr>
+      <tr>
+        <td>Image caption embedding</td>
+        <td>OpenAI</td>
+        <td><code>text-embedding-3-large</code> (caption text embedded, not vision)</td>
+        <td><code>EMBEDDING_MODEL</code></td>
+        <td><code>src/ingestion/pipeline.py:134-136</code></td>
+      </tr>
+      <tr>
+        <td>Sparse (BM25)</td>
+        <td>fastembed (local)</td>
+        <td><code>Qdrant/bm25</code></td>
+        <td><code>_SPARSE_MODEL</code> constant</td>
+        <td><code>src/ingestion/pipeline.py:53</code></td>
+      </tr>
+    </table>
+    <p class="caption">Thinking is explicitly disabled for DeepSeek enrichment: v4 model IDs default to thinking mode which produces empty <code>content</code> and breaks <code>JsonOutputParser</code>. See <code>src/ingestion/llm_client.py:33-42</code>.</p>
+  </section>
+
+  <!-- Commands section — copied verbatim from ingestion.html -->
+  <section>
+    <h2>Commands</h2>
+    <h3>Ingest a chapter</h3>
+    <pre><code>python -m src.ingestion.pipeline \
+    --book &lt;slug&gt; \
+    --chapter ch01 \
+    [--provider deepseek|openai] \
+    [--force] \
+    [--limit-sections N]</code></pre>
+    <p><code>--force</code> bypasses the manifest skip check (<code>pipeline.py:186-190</code>). <code>--limit-sections N</code> keeps only the first N sections and skips the manifest write — useful for cost-controlled preview (<code>pipeline.py:198-200, 240</code>).</p>
+
+    <h3>Show ingest status</h3>
+    <pre><code>python -m src.ingestion.pipeline --status</code></pre>
+    <p>Reads <code>data/parsed/manifest.json</code> and prints book / chapter / chunks / provider / timestamp for each ingested chapter (<code>pipeline.py:261-268</code>).</p>
+
+    <h3>Image-only ingest (VLM / EPUB markdown)</h3>
+    <pre><code>python -m src.ingestion.ingest_images_only \
+    --book &lt;slug&gt; \
+    --md "/abs/path/to/vlm/book.md" \
+    [--format vlm|epub|auto] \
+    [--dry-run]</code></pre>
+    <p>Skips text-side entirely; reads image refs + captions from VLM or EPUB-converted markdown; embeds caption text; upserts to <code>&lt;field&gt;_images</code>. Idempotent (UUID5 IDs). (<code>src/ingestion/ingest_images_only.py:290-304</code>).</p>
+
+    <h3>Preprocessor (one-time, offline)</h3>
+    <pre><code>python -m src.ingestion.processed.kobo_preproc \
+    --src "/abs/path/to/input.md" \
+    --slug &lt;slug&gt;</code></pre>
+    <p>Converts Packt/kobo EPUB-HTML pandoc exports (span-wrapped text, <code>.pagebreak</code> divs) into clean markdown. Runs pandoc + <code>kobo_filter.lua</code>, then post-processes header merging and blank-line collapsing. Output: <code>src/ingestion/processed/&lt;slug&gt;_fixed.md</code> — point the book yaml <code>source_path</code> here.</p>
+  </section>
+</main>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="../sidebar.js"></script>
+</body>
+</html>
