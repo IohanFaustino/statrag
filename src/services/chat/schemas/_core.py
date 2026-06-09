@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-ModeId = Literal["tutor", "qa", "facilitate", "resume"]
+ModeId = Literal["tutor", "qa", "facilitate", "resume", "extension"]
 ProviderId = Literal["openai", "deepseek", "groq", "google", "alibaba"]
 
 
@@ -142,6 +142,14 @@ class ChatRequest(BaseModel):
     #   synthesizer (Plan D, opt-in, ~45 s blocking; falls back to L0 on failure).
     # ``None`` defers to the ``TUTOR_WORKFLOW`` env default.
     tutorWorkflow: Literal["single", "orchestrator", "orchestrator-deep", "organize"] | None = None
+
+    # Extension mode: hard cap on augmentation re-delegation rounds (judge re-runs
+    # the augmentor for unfilled gap queries). None -> EXTENSION_MAX_ROUNDS env (3).
+    extensionMaxRounds: int | None = Field(default=None, ge=1, le=6)
+
+    # Extension per-stage model overrides. Keys: "orchestrator","analyst",
+    # "polish","augmentor","judge". Unknown stage/model -> stage default.
+    extensionModels: dict[str, str] | None = None
 
 
 class SearchRequest(BaseModel):
