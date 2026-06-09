@@ -53,7 +53,10 @@ def make_retrieve_corpus(*, exclude_book: str, all_slugs: list[str]):
     def retrieve_corpus(query: str) -> str:
         """Search OTHER books in the corpus (never the base book) for material
         that augments a gap. Returns matched passages with book/section tags."""
-        rows, _meta = hybrid_search(query, book_slugs=slugs, top_k=6, rerank=True, rerank_top_n=6)
+        # rerank=False on purpose: the cross-encoder reranker fails to load
+        # inside the deepagents worker thread ("Cannot copy out of meta tensor").
+        # Dense+sparse RRF gives good augmentation candidates without it.
+        rows, _meta = hybrid_search(query, book_slugs=slugs, top_k=6, rerank=False)
         return _fmt_sources(rows)
 
     return retrieve_corpus
