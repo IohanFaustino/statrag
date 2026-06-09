@@ -52,7 +52,7 @@ The structural fetch is deterministic and order-fixed before any LLM runs — ma
 | **analyst** (batched per section) | `gpt-5.4-nano-2026-03-17` (cheap) | `/structure/NN.md` | `/context/NN.md` — concept, key ideas, gaps | fs, `retrieve_peek` (read-only) |
 | **polish** (once) | `gpt-5.4-nano-2026-03-17` (cheap) | `/context/*` | `/curated/timeline.md` — clustered, ordered, curated prose (NOT a summary) | fs |
 | **augmentor** (batched per query) | `gpt-5.4-nano-2026-03-17` (cheap) | `/plan/queries.md`, `/curated/timeline.md` | `/footnotes/<point>.md` | fs, `retrieve_corpus` (cross-book, excludes base book), `wikipedia_lookup` |
-| **judge** (= orchestrator re-reading) | `gpt-5.4-2026-03-17` (top) | `/plan/queries.md`, `/footnotes/*` | re-delegation todos | fs |
+| **judge** (= orchestrator re-reading) | `gpt-5.4-nano-2026-03-17` (cheap) | `/plan/queries.md`, `/footnotes/*` | re-delegation todos | fs |
 
 The orchestrator and judge default to a top model because they own open reasoning (structure understanding, gap-query planning, coverage judgement). Analyst, augmentor, and polish handle bounded extraction/retrieval tasks → nano by default.
 
@@ -122,6 +122,7 @@ ALL augmentation — including formulas (inline `$…$` or display `$$…$$`) �
 | Flag | Default | Meaning |
 |---|---|---|
 | `EXTENSION_MAX_ROUNDS` | `3` | Hard cap on judge re-delegation rounds. Override per-request via `extensionMaxRounds` (int, 1–6). |
+| `EXTENSION_JUDGE_MODEL` | `""` (→ nano) | Override judge stage model independently of orchestrator. |
 
 ---
 
@@ -177,7 +178,8 @@ Test: `test_extension_export.py::test_zip_contains_html_and_sources` + `test_htm
 
 | Component | Path | Role |
 |---|---|---|
-| `ExtensionDigestCard` | `web/src/components/ExtensionDigestCard.tsx` | Renders ordered points; footnote markers as superscripts; footnote bodies render KaTeX (mid-line `$$`→`$` rule honoured). Download ZIP button hits `/api/export`. |
+| `ExtensionDigestCard` | `web/src/components/ExtensionDigestCard.tsx` | Renders ordered points; `renderFootnoteBody` for footnotes (KaTeX math, no citation logic); Wikipedia sources as links; source paths truncated to 40 chars; Download button with loading state; wrapped in `StructuredErrorBoundary`. |
+| `StructuredErrorBoundary` | `web/src/components/StructuredErrorBoundary.tsx` | Ported from sibling branch; degrades malformed digest to inline error notice. |
 | `ExtensionPipelineDiagram` | `web/src/components/ExtensionPipelineDiagram.tsx` | Modal pipeline card — topology C nodes matching the reference graph (`modes/extension.html`). |
 | `ExtensionView` | `web/src/views/ExtensionView.tsx` | Mode view wired into `MessageThread` on `schema === "ExtensionDigest"`. |
 | `ModePicker` | `web/src/components/ModePicker.tsx` | Extension chip: label "Extension", description "Extend a chapter with cross-book + Wikipedia footnotes". |

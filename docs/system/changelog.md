@@ -2,6 +2,22 @@
 
 Append-only. Latest at top.
 
+## 2026-06-09 — Extension mode quality rebuild
+
+**Scope:** `extension_agents/` + `web/src/` Extension components only.
+
+**Prompts:** density target (≥2 footnotes/non-trivial point), gap taxonomy (FORMAL-DEF / FORMULA-DERIV / COMPARATIVE / APPLICATION), augmentor fit rubric (score 1–5), strong ENGLISH enforcement with translate instruction, exact COVERAGE format `# COVERAGE: <query> = done|unfilled`, orphan-footnote merge in orchestrator + judge, polish keeps formal structure/notation.
+
+**Math/text:** `_normalize_math_delimiters` (`\(...\)` → `$...$`, `\[...\]` → `$$...$$` display); `_strip_md_footnote_markers` removes `[^n]` from curated_text; `EXTENSION_SECTION_CHARS` default raised 1200 → 2500.
+
+**Retrieval:** Wikipedia disambiguation fallback via search API on 404; `retrieve_corpus top_k` raised 6 → 10; cross-round dedup via `seen_ids` set shared between runner and tool closure.
+
+**Model tiers:** judge demoted `_TOP` → `_CHEAP` (nano); `_MID` alias introduced; per-stage temperatures (polish 0.3, augmentor 0.2, orchestrator/judge 0.0); `EXTENSION_JUDGE_MODEL` env flag.
+
+**Frontend:** `renderFootnoteBody` replaces `renderInlineWithCites` for footnote bodies; corpus source truncated to 40 chars; Wikipedia footnote rendered as `<a target="_blank">` link; Download button shows loading state + error message; `StructuredErrorBoundary` ported and wraps card; per-point streaming skeleton via `stage{point}` SSE events populating `pendingExtensionPoints` in message state.
+
+---
+
 ## 2026-06-09 — Extension mode (deepagents topology C, cross-book + Wikipedia footnote augmentation, styled-HTML ZIP export)
 
 New chat mode `extension` (mode id `"extension"`). Takes a chapter already in the corpus, follows its structure, and augments each section from other ingested books + Wikipedia, emitting curated to-the-point text with footnote-only augmentation (including formulas).
