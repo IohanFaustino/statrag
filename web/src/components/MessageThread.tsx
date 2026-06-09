@@ -7,6 +7,7 @@ import QAAnswerCard from "./QAAnswerCard";
 import ChapterDigestCard from "./ChapterDigestCard";
 import FacilitateDigestCard from "./FacilitateDigestCard";
 import ClarifyCard from "./ClarifyCard";
+import ExtensionDigestCard, { ExtensionDigest } from "./ExtensionDigestCard";
 import { IconBook, IconDownload } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
@@ -353,6 +354,9 @@ function AssistantMessageView({
             )}
             {msg.structuredOutput.schema === "FacilitateDigest" && (
               <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
+            )}
+            {msg.structuredOutput.schema === "ExtensionDigest" && (
+              <ExtensionDigestCard digest={msg.structuredOutput.data as ExtensionDigest} />
             )}
             {msg.structuredOutput.schema === "Clarify" && (
               <ClarifyCard
