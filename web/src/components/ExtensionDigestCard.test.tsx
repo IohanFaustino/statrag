@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
 import ExtensionDigestCard from "./ExtensionDigestCard";
 import StructuredErrorBoundary from "./StructuredErrorBoundary";
 
@@ -34,4 +34,69 @@ describe("StructuredErrorBoundary", () => {
     );
     expect(getByText("child content")).toBeInTheDocument();
   });
+});
+
+// ─── New UX improvement tests ─────────────────────────────────────────────────
+
+const SAMPLE_DIGEST = {
+  book: "hansen-probability",
+  chapter: "ch07",
+  points: [
+    {
+      title: "Law of Large Numbers",
+      curated_text: "Sample mean converges to $\\mu$ as $n \\to \\infty$.",
+      footnotes: [
+        {
+          marker: "a",
+          body: "Also proven in Ross §5.2 using $\\bar X_n \\to \\mu$ in probability.",
+          source: "ross-probability §5.2 The Weak Law of Large Numbers",
+          kind: "corpus" as const,
+        },
+        {
+          marker: "b",
+          body: "Wikipedia: The law of large numbers is a theorem that describes the result of repeating the same experiment many times.",
+          source: "https://en.wikipedia.org/wiki/Law_of_large_numbers",
+          kind: "wikipedia" as const,
+        },
+      ],
+    },
+  ],
+  unfilled_gaps: [],
+};
+
+it("renders point title", () => {
+  render(<ExtensionDigestCard digest={SAMPLE_DIGEST} />);
+  expect(screen.getByText("Law of Large Numbers")).toBeInTheDocument();
+});
+
+it("renders footnote markers", () => {
+  render(<ExtensionDigestCard digest={SAMPLE_DIGEST} />);
+  expect(screen.getByText("a")).toBeInTheDocument();
+  expect(screen.getByText("b")).toBeInTheDocument();
+});
+
+it("truncates long corpus source to 40 chars", () => {
+  render(<ExtensionDigestCard digest={SAMPLE_DIGEST} />);
+  // Full source is "ross-probability §5.2 The Weak Law of Large Numbers" (51 chars)
+  const sourceEls = document.querySelectorAll(".extension-footnote__source");
+  const corpusSource = Array.from(sourceEls).find(el =>
+    el.textContent?.includes("ross")
+  );
+  expect(corpusSource?.textContent?.includes("…")).toBe(true);
+});
+
+it("renders Wikipedia footnote source as clickable link", () => {
+  render(<ExtensionDigestCard digest={SAMPLE_DIGEST} />);
+  const link = screen.getByRole("link", { name: /wikipedia/i });
+  expect(link).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Law_of_large_numbers");
+  expect(link).toHaveAttribute("target", "_blank");
+});
+
+it("Download button shows loading state while fetching", async () => {
+  global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+  render(<ExtensionDigestCard digest={SAMPLE_DIGEST} />);
+  const btn = screen.getByRole("button", { name: /download/i });
+  fireEvent.click(btn);
+  await waitFor(() => expect(btn).toBeDisabled());
+  vi.restoreAllMocks();
 });
