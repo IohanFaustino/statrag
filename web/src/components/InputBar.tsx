@@ -11,6 +11,7 @@ interface InputBarProps {
   onModeAboutQA?(): void;
   onModeAboutFacilitate?(): void;
   onModeAboutResume?(): void;
+  onModeAboutExtension?(): void;
   onSend(text: string): void;
   /** Disables the textarea + Send button. Does NOT affect the Stop button,
    *  which is always clickable while streaming. */
@@ -27,6 +28,7 @@ export default function InputBar({
   onModeAboutQA,
   onModeAboutFacilitate,
   onModeAboutResume,
+  onModeAboutExtension,
   onSend,
   disabled = false,
   isStreaming = false,
@@ -117,6 +119,7 @@ export default function InputBar({
             onAboutQA={onModeAboutQA}
             onAboutFacilitate={onModeAboutFacilitate}
             onAboutResume={onModeAboutResume}
+            onAboutExtension={onModeAboutExtension}
           />
         </div>
       </div>

@@ -3,7 +3,7 @@ import { STATRAG_MODES } from "./modes";
 
 // MUST stay in sync with CANONICAL_MODES in
 // src/services/chat/tests/test_mode_parity.py — both fail if the sets drift.
-const CANONICAL_MODES = ["tutor", "qa", "facilitate", "resume"];
+const CANONICAL_MODES = ["tutor", "qa", "facilitate", "resume", "extension"];
 
 describe("mode parity (frontend <-> backend)", () => {
   it("STATRAG_MODES ids equal the canonical backend mode set", () => {

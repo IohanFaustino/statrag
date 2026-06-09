@@ -20,6 +20,7 @@ import AboutModelModal from "./components/modals/AboutModelModal";
 import QAModeModal from "./components/modals/QAModeModal";
 import ChapterFacilitateModal from "./components/modals/ChapterFacilitateModal";
 import ChapterResumeModal from "./components/modals/ChapterResumeModal";
+import ExtensionModeModal from "./components/modals/ExtensionModeModal";
 import type { StageKey } from "./data/tutorPipeline";
 import { DEFAULT_TUTOR_WORKFLOW } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
@@ -183,6 +184,7 @@ export default function App() {
   const [qaModalOpen, setQaModalOpen] = useState(false);
   const [facilitateModalOpen, setFacilitateModalOpen] = useState(false);
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
+  const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [stageModels, setStageModels] = usePersistentState<Record<string, string>>(
     "statrag.stageModels",
     DEFAULT_STAGE_MODELS,
@@ -626,6 +628,7 @@ export default function App() {
               onModeAboutQA={() => setQaModalOpen(true)}
               onModeAboutFacilitate={() => setFacilitateModalOpen(true)}
               onModeAboutResume={() => setResumeModalOpen(true)}
+              onModeAboutExtension={() => setExtensionModalOpen(true)}
               onSend={handleSend}
               isStreaming={isStreaming}
               onStop={() => stopStream()}
@@ -712,6 +715,11 @@ export default function App() {
         recommendedModel={recommendedModel}
         onApply={(cfg) => setStageModels((prev) => ({ ...prev, ...cfg.stageModels }))}
         onClose={() => setResumeModalOpen(false)}
+      />
+
+      <ExtensionModeModal
+        open={extensionModalOpen}
+        onClose={() => setExtensionModalOpen(false)}
       />
 
       {/* T21: settings moved into InputBar toolbar via SettingsPicker. */}

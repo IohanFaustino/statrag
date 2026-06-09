@@ -15,6 +15,7 @@ const MODE_ICON_MAP: Record<string, IconComponent> = {
   qa: IconBook, // TODO(icon): swap to a target/zap glyph when added to Icons.tsx
   facilitate: IconBook,
   resume: IconBook,
+  extension: IconBook,
 };
 
 interface ModePickerProps {
@@ -29,9 +30,11 @@ interface ModePickerProps {
   onAboutFacilitate?(): void;
   // Opens the Resume info modal (info icon lives on the Resume card).
   onAboutResume?(): void;
+  // Opens the Extension info modal (info icon lives on the Extension card).
+  onAboutExtension?(): void;
 }
 
-export default function ModePicker({ activeMode, modes, onChange, onAbout, onAboutQA, onAboutFacilitate, onAboutResume }: ModePickerProps) {
+export default function ModePicker({ activeMode, modes, onChange, onAbout, onAboutQA, onAboutFacilitate, onAboutResume, onAboutExtension }: ModePickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -194,6 +197,31 @@ export default function ModePicker({ activeMode, modes, onChange, onAbout, onAbo
                       onClick={(e) => {
                         e.stopPropagation();
                         onAboutResume();
+                        setOpen(false);
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="8" cy="8" r="6.5" />
+                        <path d="M8 7.2v4" strokeLinecap="round" />
+                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              }
+              // The Extension card carries an info (i) button → opens Extension modal.
+              if (m.id === "extension" && onAboutExtension) {
+                return (
+                  <div key={m.id} className="mode-picker__cell">
+                    {item}
+                    <button
+                      type="button"
+                      className="mode-picker__about"
+                      aria-label="About the Extension pipeline"
+                      title="About the Extension pipeline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAboutExtension();
                         setOpen(false);
                       }}
                     >

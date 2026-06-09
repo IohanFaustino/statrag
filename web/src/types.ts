@@ -1,6 +1,6 @@
 // Mirrors src/services/chat/schemas.py — keep in sync.
 
-export type ModeId = "tutor" | "qa" | "facilitate" | "resume";
+export type ModeId = "tutor" | "qa" | "facilitate" | "resume" | "extension";
 
 export type ProviderId = "openai" | "deepseek" | "groq" | "google" | "alibaba";
 
