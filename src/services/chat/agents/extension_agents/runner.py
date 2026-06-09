@@ -233,8 +233,10 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
 
     slugs = _all_slugs(catalog)
     _warm_retrieval([s for s in slugs if s != book])  # main-thread embedder init
+    seen_chunk_ids: set[str] = set()
     agent = build_extension_agent(stage_models=req.extensionModels,
-                                  exclude_book=book, all_slugs=slugs)
+                                  exclude_book=book, all_slugs=slugs,
+                                  seen_ids=seen_chunk_ids)
     thread_id = f"ext-{book}-{chapter}-{int(t0)}"
 
     seed = "\n".join(f"- {p}" for p in structure.keys())

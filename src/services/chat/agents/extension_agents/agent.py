@@ -77,6 +77,7 @@ def build_extension_agent(
     stage_models: dict | None,
     exclude_book: str,
     all_slugs: list[str],
+    seen_ids: set[str] | None = None,
 ):
     """Create the deep-agent.
 
@@ -91,9 +92,15 @@ def build_extension_agent(
         exclude_book: Slug of the book being extended — excluded from corpus
             retrieval so the agent draws only from peer books.
         all_slugs: Complete list of available book slugs (used for peek/corpus).
+        seen_ids: Mutable set of chunk_ids already retrieved — deduped in
+            retrieve_corpus to prevent duplicate footnotes across rounds.
     """
     peek = make_retrieve_peek(all_slugs=all_slugs)
-    corpus = make_retrieve_corpus(exclude_book=exclude_book, all_slugs=all_slugs)
+    corpus = make_retrieve_corpus(
+        exclude_book=exclude_book,
+        all_slugs=all_slugs,
+        seen_ids=seen_ids,
+    )
 
     subagents = [
         {
