@@ -18,6 +18,7 @@ from src.services.chat.schemas import ExtensionDigest
 from src.services.chat.agents.extension_agents._models import (
     STAGE_DEFAULTS,  # noqa: F401 — re-exported for test convenience
     resolve_stage_model,
+    resolve_stage_temperature,
 )
 from src.services.chat.agents.extension_agents.prompts import (
     ANALYST_PROMPT,
@@ -54,20 +55,11 @@ SKILLS_REL = os.path.relpath(SKILLS_DIR, _REPO_ROOT)
 
 
 def _lc_model(stage: str, stage_models: dict | None) -> ChatOpenAI:
-    """Build a concrete ChatOpenAI for a stage with an EXPLICIT api_key.
-
-    settings loads .env but does NOT export to os.environ, so passing a bare
-    model-id string to deepagents (which calls init_chat_model -> env lookup)
-    raises "Missing credentials". We therefore construct the client with the
-    key from settings (same pattern as ow_deepagents). v1 wires OpenAI models
-    only; per-stage non-OpenAI overrides are a follow-up (would route via
-    llm.router base_url/key)."""
+    """Build a ChatOpenAI for a stage with explicit api_key and per-stage temperature."""
     return ChatOpenAI(
         model=resolve_stage_model(stage, stage_models),
-        temperature=0.0,
+        temperature=resolve_stage_temperature(stage),
         api_key=settings.openai_api_key,
-        # The deepagent fans out many calls; ride out 429 TPM spikes with
-        # exponential backoff instead of surfacing a hard error.
         max_retries=6,
     )
 
