@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -22,7 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 from src.services.chat import books, retrieval, runs, store
 from src.services.chat.llm import router as llm_router
 from src.services.chat.router import stream_chat
-from src.services.chat.schemas import ChatRequest
+from src.services.chat.schemas import ChatRequest, ExtensionDigest
 
 # ---------------------------------------------------------------------------
 # App + middleware
@@ -286,6 +286,23 @@ async def chat_cancel(conv_id: str) -> dict:
     """Stop an in-flight detached run (§13). Idempotent — returns
     ``{"cancelled": false}`` when no active run exists."""
     return {"cancelled": runs.cancel(conv_id)}
+
+
+# ---------------------------------------------------------------------------
+# Export endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/export")
+async def export_extension(digest: ExtensionDigest) -> Response:
+    """Return a ZIP with self-contained styled HTML + sources.json for an
+    extension-mode result."""
+    from src.services.chat.agents.extension_agents.export import build_export_zip  # noqa: PLC0415
+    blob = build_export_zip(digest)
+    return Response(
+        content=blob, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{digest.book}-{digest.chapter}-extended.zip"'},
+    )
 
 
 # ---------------------------------------------------------------------------
