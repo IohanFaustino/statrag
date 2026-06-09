@@ -59,7 +59,7 @@
   RTV--&gt;&gt;AG: sources, drafts, figures
   AG--&gt;&gt;A: yield events (meta, token, structured_output, sources_full, …)
   A--&gt;&gt;B2: SSE stream framed as {event, id, data}
-  Note over B2,A: Events in order: meta · token · paragraph_break · math_block · figure · source_chip · structured_output · sources_full · figures_full · retrieval_meta · usage · done (or error + done)">
+  Note over B2,A: Events in order: meta · token · paragraph_break · math_block · source_chip · structured_output · sources_full · figures_full · figures_meta · retrieval_meta · usage · done (or error + done)">
 sequenceDiagram
   participant B as Browser
   participant A as api.py (POST /api/chat)
@@ -83,8 +83,8 @@ sequenceDiagram
     <p class="caption">
       SSE event types emitted (exact strings from <code>api.py</code> line 257 docstring + event-loop body lines 186–215):
       <code>meta</code>, <code>token</code>, <code>paragraph_break</code>, <code>math_block</code>,
-      <code>figure</code>, <code>source_chip</code>, <code>sources_full</code>,
-      <code>figures_full</code>, <code>retrieval_meta</code>, <code>usage</code>,
+      <code>source_chip</code>, <code>sources_full</code>,
+      <code>figures_full</code>, <code>figures_meta</code>, <code>retrieval_meta</code>, <code>usage</code>,
       <code>done</code> — or <code>error</code> + <code>done</code> on failure.
       The special <code>structured_output</code> event (emitted by agents that return a
       typed Pydantic payload, e.g. <code>TutorAnswer</code> / <code>QAAnswer</code>) is also
@@ -866,11 +866,6 @@ flowchart TD
         <td>A display math block extracted from the stream. Persisted as <code>$$tex$$</code>.</td>
       </tr>
       <tr>
-        <td><code>figure</code></td>
-        <td><code>ref</code>, <code>book</code>, <code>chapter</code>, <code>caption</code>, <code>chart</code> (URL)</td>
-        <td>One figure reference to render inline in the answer.</td>
-      </tr>
-      <tr>
         <td><code>source_chip</code></td>
         <td><code>rank</code>, <code>book</code>, <code>chapter</code>, <code>section</code>, <code>score</code>, etc.</td>
         <td>A single source chip to display inline during streaming.</td>
@@ -889,6 +884,11 @@ flowchart TD
         <td><code>figures_full</code></td>
         <td><code>figures</code> (list of <code>FigureRef</code> dicts)</td>
         <td>Always emitted on tutor turns (even with empty list) — invariant 14. Intercepted at <code>api.py:199</code>.</td>
+      </tr>
+      <tr>
+        <td><code>figures_meta</code></td>
+        <td><code>status</code>, <code>reason</code>, <code>candidateCount</code>, <code>approvedCount</code></td>
+        <td>Companion to <code>figures_full</code> (invariant 14). Carries the image-judge outcome: <code>status</code> is a short label (e.g. <code>"ok"</code>, <code>"no_figures"</code>), <code>reason</code> explains why few/no figures were attached, <code>candidateCount</code> is the pool size before judging, <code>approvedCount</code> is the final approved count. Emitted immediately after <code>figures_full</code> on every tutor turn.</td>
       </tr>
       <tr>
         <td><code>retrieval_meta</code></td>
