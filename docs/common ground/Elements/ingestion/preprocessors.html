@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>statrag — Ingestion · Preprocessors</title>
 <link rel="stylesheet" href="../style.css" />
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body data-base="../">
 <aside id="side" class="side"></aside>
@@ -88,19 +87,6 @@
   </section>
 </main>
 </div>
-<script>
-  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
-    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
-      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
-  (async () => {
-    const blocks = [...document.querySelectorAll(".mermaid")];
-    for (let i=0;i<blocks.length;i++){
-      const src = blocks[i].dataset.src || blocks[i].textContent;
-      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
-      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
-    }
-  })();
-</script>
 <script src="../sidebar.js"></script>
 </body>
 </html>
