@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 from src.services.chat.schemas import ChatRequest, ExtensionDigest, ExtensionPoint, ExtensionFootnote
 import src.services.chat.agents.extension_agents.runner as R
@@ -77,3 +78,29 @@ def test_round_loop_caps(monkeypatch):
     assert calls["n"] == 2
     so = next(e for e in evs if e["type"] == "structured_output")
     assert so["data"]["unfilled_gaps"] == ["q"]
+
+
+def test_normalize_math_parens_to_dollar():
+    assert R._normalize_math_delimiters(r"\(E[X]\)") == "$E[X]$"
+
+
+def test_normalize_math_brackets_to_display():
+    result = R._normalize_math_delimiters(r"\[E[X] = \mu\]")
+    assert "$$" in result
+    assert r"\[" not in result
+
+
+def test_normalize_math_no_change_for_clean_text():
+    assert R._normalize_math_delimiters("plain text $x$ here") == "plain text $x$ here"
+
+
+def test_strip_md_footnote_markers():
+    assert R._strip_md_footnote_markers("text[^1] and [^abc]more") == "text and more"
+
+
+def test_strip_md_footnote_markers_no_change_clean():
+    assert R._strip_md_footnote_markers("no markers here") == "no markers here"
+
+
+def test_section_chars_default_is_2500():
+    assert int(os.environ.get("EXTENSION_SECTION_CHARS", "2500")) == 2500

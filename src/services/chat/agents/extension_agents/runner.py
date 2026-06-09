@@ -36,6 +36,26 @@ def _warm_retrieval(slugs: list[str]) -> None:
 
 
 _AUG_LEAK = _re.compile(r"https?://|\[source\]|en\.wikipedia\.org", _re.IGNORECASE)
+_LATEX_PAREN = _re.compile(r'\\\((.+?)\\\)', _re.DOTALL)
+_LATEX_BRACKET = _re.compile(r'\\\[(.+?)\\\]', _re.DOTALL)
+_MD_FOOTNOTE = _re.compile(r'\[\^[^\]]+\]')
+
+
+def _normalize_math_delimiters(text: str) -> str:
+    r"""Convert \(...\) → $...$ and \[...\] → $$...$$ (own line).
+    Applied to curated_text and footnote bodies before emit so the
+    export ZIP and any consumer sees KaTeX-ready delimiters."""
+    if not text:
+        return text
+    text = _LATEX_BRACKET.sub(lambda m: f'\n$$\n{m.group(1)}\n$$\n', text)
+    text = _LATEX_PAREN.sub(lambda m: f'${m.group(1)}$', text)
+    return text
+
+
+def _strip_md_footnote_markers(text: str) -> str:
+    r"""Remove [^n] markdown footnote markers from curated_text.
+    These render literally in React; footnotes use the ExtensionFootnote.marker field."""
+    return _MD_FOOTNOTE.sub('', text) if text else text
 
 
 def curated_text_is_clean(point) -> bool:
@@ -197,7 +217,7 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     # Cap per-section text seeded into the orchestrator prompt: the full prompt
     # is re-sent on every orchestrator turn, so embedding whole sections blows
     # the TPM budget on large chapters. Analysts work from these excerpts.
-    _per_section_cap = int(os.environ.get("EXTENSION_SECTION_CHARS", "1200"))
+    _per_section_cap = int(os.environ.get("EXTENSION_SECTION_CHARS", "2500"))
     for r in range(rounds):
         if r == 0:
             seeded = "\n\n".join(
@@ -233,10 +253,12 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     for pt in digest.points:
         if not curated_text_is_clean(pt):
             pt.curated_text = _AUG_LEAK.sub("", pt.curated_text).strip()
-        # KaTeX mid-line $$ fix on curated body + every footnote body.
         pt.curated_text = _isolate_midline_display(pt.curated_text)
+        pt.curated_text = _normalize_math_delimiters(pt.curated_text)
+        pt.curated_text = _strip_md_footnote_markers(pt.curated_text)
         for fn in pt.footnotes:
             fn.body = _isolate_midline_display(fn.body)
+            fn.body = _normalize_math_delimiters(fn.body)
 
     for pt in digest.points:
         yield {"type": "stage", "stage": "point", "label": pt.title}
