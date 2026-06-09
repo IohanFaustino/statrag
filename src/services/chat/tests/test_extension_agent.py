@@ -18,5 +18,11 @@ def test_builds_agent_with_subagents(monkeypatch):
     names = {s["name"] for s in captured["subagents"]}
     assert names == {"analyst", "polish", "augmentor"}
     from src.services.chat.agents.extension_agents._models import STAGE_DEFAULTS
-    assert captured["model"] == STAGE_DEFAULTS["orchestrator"]
+    # Model is now a concrete ChatOpenAI (explicit api_key, not a bare id string)
+    # so deepagents does not fall back to an env-var lookup that misses .env.
+    orch = captured["model"]
+    model_name = getattr(orch, "model_name", None) or getattr(orch, "model", None)
+    assert model_name == STAGE_DEFAULTS["orchestrator"]
+    # subagent models are concrete clients too (not strings)
+    assert not isinstance(captured["subagents"][0]["model"], str)
     assert any("extension_skills" in s for s in captured["skills"])

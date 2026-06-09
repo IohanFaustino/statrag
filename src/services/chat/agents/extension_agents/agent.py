@@ -9,8 +9,10 @@ import os
 
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 
+from src.core.config import settings
 from src.services.chat.agents.extension_agents._models import (
     STAGE_DEFAULTS,  # noqa: F401 — re-exported for test convenience
     resolve_stage_model,
@@ -44,6 +46,22 @@ assert os.path.isdir(os.path.join(_REPO_ROOT, "src")), (
 )
 
 
+def _lc_model(stage: str, stage_models: dict | None) -> ChatOpenAI:
+    """Build a concrete ChatOpenAI for a stage with an EXPLICIT api_key.
+
+    settings loads .env but does NOT export to os.environ, so passing a bare
+    model-id string to deepagents (which calls init_chat_model -> env lookup)
+    raises "Missing credentials". We therefore construct the client with the
+    key from settings (same pattern as ow_deepagents). v1 wires OpenAI models
+    only; per-stage non-OpenAI overrides are a follow-up (would route via
+    llm.router base_url/key)."""
+    return ChatOpenAI(
+        model=resolve_stage_model(stage, stage_models),
+        temperature=0.0,
+        api_key=settings.openai_api_key,
+    )
+
+
 def build_extension_agent(
     *,
     stage_models: dict | None,
@@ -74,7 +92,7 @@ def build_extension_agent(
                 "Inspect one chapter section; report concept, key ideas, and gaps."
             ),
             "system_prompt": ANALYST_PROMPT,
-            "model": resolve_stage_model("analyst", stage_models),
+            "model": _lc_model("analyst", stage_models),
             "tools": [peek],
             "skills": [os.path.join(SKILLS_DIR, "curate-structure")],
         },
@@ -84,7 +102,7 @@ def build_extension_agent(
                 "Curate per-section analyses into an ordered timeline of points."
             ),
             "system_prompt": POLISH_PROMPT,
-            "model": resolve_stage_model("polish", stage_models),
+            "model": _lc_model("polish", stage_models),
             "tools": [],
             "skills": [os.path.join(SKILLS_DIR, "curate-structure")],
         },
@@ -94,7 +112,7 @@ def build_extension_agent(
                 "Fill gap queries from other books + Wikipedia as footnotes only."
             ),
             "system_prompt": AUGMENTOR_PROMPT,
-            "model": resolve_stage_model("augmentor", stage_models),
+            "model": _lc_model("augmentor", stage_models),
             "tools": [corpus, wikipedia_lookup],
             "skills": [os.path.join(SKILLS_DIR, "gap-augment")],
         },
@@ -102,7 +120,7 @@ def build_extension_agent(
 
     return create_deep_agent(
         name="extension",
-        model=resolve_stage_model("orchestrator", stage_models),
+        model=_lc_model("orchestrator", stage_models),
         system_prompt=ORCHESTRATOR_PROMPT,
         subagents=subagents,
         # Whole skills dir + the orchestrator/judge-specific skill explicitly.
