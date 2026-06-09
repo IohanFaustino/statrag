@@ -36,6 +36,8 @@ When any sub-decision conflicts with this, this principle wins.
 | Scope granularity | Chapter **or** named section(s) (reuse chapter-mode resolve) |
 | Wikipedia tool | Public REST API (`en.wikipedia.org/api/rest_v1`), no key |
 | Confirm gate | Common-ground the book + chapter **before** the deepagent runs (no agentic spend until user confirms) |
+| Per-stage models | `extensionModels` dict (like tutor stage overrides): **orchestrator + judge default to a top model** (gpt-5.4 full / opus-tier); analyst + augmentor default cheap (nano). All user-overridable per stage. |
+| Export | **Shiny styled HTML + assets, zipped** — self-contained, opens standalone in a browser; new `/export` endpoint; ZIP download must work (browser-verified) |
 | Isolation | Own package `extension_agents/` + `extension_skills/`; zero imports from tutor/qa |
 
 ## 3. Architecture — topology C
@@ -68,12 +70,19 @@ One top-level orchestrator + 3 custom subagents, communicating through the
 deepagents shared **virtual filesystem** (StateBackend / in-memory, ephemeral
 per request) and the `write_todos` planning tool.
 
-| Agent | Reads | Writes | Tools |
-|---|---|---|---|
-| **orchestrator** (top) | `/structure/*`, `/context/*`, `/curated/*`, `/footnotes/*` | `/plan/queries.md`, todos | `write_todos`, `task`, fs |
-| **analyst** (subagent, batched per section) | `/structure/NN.md` | `/context/NN.md` — what concept, key ideas, and what is *missing* (gaps to augment) | fs, `retrieve_peek` (read-only) |
-| **polish** (subagent) | `/context/*` | `/curated/timeline.md` — cluster duplicate sections into one, drop exercises + tiny/irrelevant sections, order intro→conclusion, curated to-the-point text (NOT a summary) | fs |
-| **augmentor** (subagent, batched per query) | `/plan/queries.md`, `/curated/timeline.md` | `/footnotes/<point>.md` | fs, `retrieve_corpus` (cross-book, excludes base book), `wikipedia_lookup` |
+| Agent | Default model | Reads | Writes | Tools |
+|---|---|---|---|---|
+| **orchestrator** (top) | **top** (gpt-5.4 full / opus-tier) | `/structure/*`, `/context/*`, `/curated/*`, `/footnotes/*` | `/plan/queries.md`, todos | `write_todos`, `task`, fs |
+| **analyst** (subagent, batched per section) | cheap (nano) | `/structure/NN.md` | `/context/NN.md` — what concept, key ideas, and what is *missing* (gaps to augment) | fs, `retrieve_peek` (read-only) |
+| **polish** (subagent) | mid | `/context/*` | `/curated/timeline.md` — cluster duplicate sections into one, drop exercises + tiny/irrelevant sections, order intro→conclusion, curated to-the-point text (NOT a summary) | fs |
+| **augmentor** (subagent, batched per query) | cheap (nano) | `/plan/queries.md`, `/curated/timeline.md` | `/footnotes/<point>.md` | fs, `retrieve_corpus` (cross-book, excludes base book), `wikipedia_lookup` |
+| **judge** (= orchestrator role) | **top** | `/plan/queries.md`, `/footnotes/*` | re-delegation todos | fs |
+
+Models are set per stage via the `extensionModels` request dict (same mechanism
+as the tutor per-stage overrides). Unknown stage/model → stage default. The
+orchestrator+judge default to a top model because they own the open reasoning
+(structure understanding, gap-query planning, coverage judgement); analyst +
+augmentor are bounded extraction/retrieval tasks → nano by default.
 
 ### Phase order inside the deep-agent
 
@@ -136,6 +145,13 @@ ExtensionDigest:   { book: str, chapter: str, points: list[ExtensionPoint], unfi
 - Streaming: emit each curated point (with its footnotes) as it is finalized, so
   the user sees the document build in order (like chapter mode's per-block
   streaming).
+- **Shiny result + ZIP download**: the rendered result is presented in a polished
+  styled layout. A "Download" control hits a new backend `/export` endpoint that
+  returns a ZIP containing a **self-contained styled HTML** (curated points +
+  KaTeX-rendered footnotes inlined, CSS embedded, opens standalone in a browser)
+  + `sources.json` (footnote provenance: corpus slug/section or Wikipedia URL) +
+  any figures. The ZIP download must actually work (not a stub) and is
+  browser-verified on :5175.
 
 ## 9. Isolation + Chinese wall
 
@@ -154,9 +170,10 @@ ExtensionDigest:   { book: str, chapter: str, points: list[ExtensionPoint], unfi
 | Aspect | Where |
 |---|---|
 | Mode id | `ModeId` Literal in `schemas/_core.py` += `"extension"` |
-| Request knobs | `schemas/_core.py` (e.g. `extensionMaxRounds`) |
+| Request knobs | `schemas/_core.py` (`extensionMaxRounds`, `extensionModels` per-stage dict) |
 | Response schema | `schemas/output.py` — `ExtensionDigest` et al. |
 | Router branch | `src/services/chat/router.py` → `extension_agents.runner.run_extension` |
+| Export endpoint | `src/services/chat/api.py` → `/export` (styled-HTML ZIP) |
 | Backend logic | `extension_agents/` (runner + agent builders + tools) |
 | Prompts | `extension_agents/` prompt module (XML-tagged) |
 | Skills | `extension_skills/{curate-structure,gap-augment,judge-coverage}/SKILL.md` |
@@ -185,6 +202,10 @@ Backend (`src/services/chat/tests/`):
   `curated_text`.
 - ExtensionDigest strict-structured-output safe (no open-key dict, regression
   guard).
+- per-stage model resolution: `extensionModels` override applies; orchestrator+
+  judge default top, analyst+augmentor default nano; unknown → stage default.
+- `/export` endpoint returns a valid ZIP containing the styled HTML +
+  `sources.json`; HTML is self-contained (embedded CSS, KaTeX rendered).
 - prompt schema guard passes for the new prompt module.
 
 Frontend (`web/`):
@@ -197,10 +218,13 @@ Frontend (`web/`):
 - `pytest src/services/chat/tests/ -q` green; new tests + regression guards.
 - `cd web && npx tsc --noEmit && npx vitest run` green.
 - `rag-verify` passes (retrieval tools touched).
-- Browser-verify on **:5175**: select extension mode, write a query, confirm the
-  clarify gate, watch points stream, read real footnotes (corpus + Wikipedia),
-  confirm formulas render in footnotes and not in base text. Modal card matches
-  `extension.html`. Monitor services for errors during the run.
+- **Final test via Chrome MCP** on **:5175**: select extension mode, write a
+  query, confirm the clarify gate (book/chapter), watch points stream, read real
+  footnotes (corpus + Wikipedia), confirm formulas render in footnotes and not in
+  base text. Confirm the **shiny styled result** renders, then click Download and
+  confirm the **ZIP downloads and opens** (standalone HTML works, sources.json
+  present). Modal card matches `extension.html`. Monitor services for errors
+  during the run.
 
 ## 13. Out of scope (YAGNI)
 
