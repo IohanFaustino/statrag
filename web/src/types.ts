@@ -230,6 +230,24 @@ export interface FacilitateDigest {
   grounding: { ok?: boolean; unsupported?: string[]; confidence?: number };
 }
 
+export interface ExtensionFootnote {
+  marker: string;
+  body: string;
+  source: string;
+  kind: "corpus" | "wikipedia";
+}
+export interface ExtensionPoint {
+  title: string;
+  curated_text: string;
+  footnotes: ExtensionFootnote[];
+}
+export interface ExtensionDigest {
+  book: string;
+  chapter: string;
+  points: ExtensionPoint[];
+  unfilled_gaps: string[];
+}
+
 export interface ClarifyCandidate {
   slug: string;
   name: string;
@@ -250,6 +268,7 @@ export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
   | { type: "structured_output"; schema: "FacilitateDigest"; data: FacilitateDigest }
   | { type: "structured_output"; schema: "Clarify"; data: ClarifyData }
+  | { type: "structured_output"; schema: "ExtensionDigest"; data: ExtensionDigest }
   | { type: "structured_output"; schema: string; data: unknown };
 
 // Every chat event carries a monotonic `seq` (§13) when it comes from a

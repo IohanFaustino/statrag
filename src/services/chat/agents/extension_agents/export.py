@@ -36,7 +36,7 @@ def _render_html(digest) -> str:
         parts.append(f"<p>{_html.escape(pt.curated_text)}</p>")
         for fn in pt.footnotes:
             parts.append(
-                f'<div class="fn"><sup>{_html.escape(fn.marker)}</sup> {fn.body} '
+                f'<div class="fn"><sup>{_html.escape(fn.marker)}</sup> {_html.escape(fn.body)} '
                 f'<span class="src">({_html.escape(fn.source)} · {fn.kind})</span></div>'
             )
     if digest.unfilled_gaps:

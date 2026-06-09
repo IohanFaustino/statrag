@@ -105,7 +105,8 @@ def build_extension_agent(
         model=resolve_stage_model("orchestrator", stage_models),
         system_prompt=ORCHESTRATOR_PROMPT,
         subagents=subagents,
-        skills=[SKILLS_DIR],
+        # Whole skills dir + the orchestrator/judge-specific skill explicitly.
+        skills=[SKILLS_DIR, os.path.join(SKILLS_DIR, "judge-coverage")],
         backend=FilesystemBackend(root_dir=_REPO_ROOT, virtual_mode=True),
         checkpointer=MemorySaver(),
     )

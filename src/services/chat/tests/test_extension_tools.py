@@ -35,7 +35,8 @@ def test_retrieve_corpus_excludes_base_book(monkeypatch):
     def _fake_hybrid(query, *, book_slugs=None, top_k=5, rerank=False, rerank_top_n=None, adjacent_sections=False):
         captured["book_slugs"] = book_slugs
         class S:
-            text = "Distributions chapter text"
+            chunk = "Distributions chapter text"
+            excerpt = "Distributions excerpt"
             book = "ross-probability"
             section = "5.1"
             score = 0.9
@@ -53,7 +54,8 @@ def test_retrieve_corpus_excludes_base_book(monkeypatch):
 def test_retrieve_peek_readonly(monkeypatch):
     def _fake_hybrid(query, *, book_slugs=None, top_k=5, rerank=False, rerank_top_n=None, adjacent_sections=False):
         class S:
-            text = "peek"
+            chunk = "peek"
+            excerpt = "peek excerpt"
             book = "b"
             section = "1"
             score = 0.5

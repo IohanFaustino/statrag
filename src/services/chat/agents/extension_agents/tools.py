@@ -40,7 +40,8 @@ def _fmt_sources(rows) -> str:
     parts = []
     for r in rows:
         loc = f"{getattr(r, 'book', '?')} §{getattr(r, 'section', '?')}"
-        parts.append(f"[{loc}]\n{getattr(r, 'text', '')}")
+        body = getattr(r, "chunk", "") or getattr(r, "excerpt", "") or ""
+        parts.append(f"[{loc}]\n{body}")
     return "\n\n---\n\n".join(parts) if parts else "no results"
 
 

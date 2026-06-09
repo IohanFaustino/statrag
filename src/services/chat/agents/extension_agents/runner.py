@@ -17,6 +17,7 @@ from src.services.chat.agents.extension_agents.scope import (
     build_structure_files,
 )
 from src.services.chat._fences import strip_fences
+from src.services.chat.agents.extension_agents.prompts import JUDGE_PROMPT
 from src.services.chat.books import parse_catalog
 from src.services.chat.retrieval import fetch_chapter_sections
 from src.services.chat.schemas import ChatRequest, ExtensionDigest
@@ -29,6 +30,23 @@ def curated_text_is_clean(point) -> bool:
     """Invariant guard: curated_text must carry no augmentation artefacts
     (URLs / source tags). All augmentation belongs in footnotes."""
     return _AUG_LEAK.search(point.curated_text or "") is None
+
+
+def _isolate_midline_display(text: str) -> str:
+    """KaTeX renders ``$$..$$`` as display math only when it OWNS its line; a
+    mid-line ``$$`` leaks raw LaTeX. Convert mid-line ``$$`` to inline ``$`` so
+    KaTeX renders it. A line that is wholly a ``$$..$$`` block is left intact.
+    (Isolated copy — cannot import the tutor helper across the Chinese wall;
+    see invariant on mid-line display math.)"""
+    if not text or "$$" not in text:
+        return text
+    out_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        owns_line = (stripped.startswith("$$") and stripped.endswith("$$")
+                     and stripped.count("$$") == 2 and len(stripped) > 4)
+        out_lines.append(line if owns_line else line.replace("$$", "$"))
+    return "\n".join(out_lines)
 
 
 def _max_rounds(req: ChatRequest) -> int:
@@ -149,8 +167,12 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
                 "plan queries -> augmentor. Then emit the ExtensionDigest JSON."
             )
         else:
-            instr = ("Some gap queries are still unfilled. Re-run the augmentor "
-                     "ONLY for unfilled queries, then re-emit the ExtensionDigest JSON.")
+            instr = (
+                JUDGE_PROMPT
+                + "\n\nSome gap queries are still unfilled. Acting as the Judge "
+                "above: re-run the augmentor ONLY for the unfilled queries, then "
+                "re-emit the ExtensionDigest JSON."
+            )
         yield {"type": "stage", "stage": "augment", "label": f"Augment · round {r + 1}"}
         text, unfilled, it, ot = await _run_round(agent, instr, thread_id)
         in_tok += it
@@ -163,6 +185,10 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     for pt in digest.points:
         if not curated_text_is_clean(pt):
             pt.curated_text = _AUG_LEAK.sub("", pt.curated_text).strip()
+        # KaTeX mid-line $$ fix on curated body + every footnote body.
+        pt.curated_text = _isolate_midline_display(pt.curated_text)
+        for fn in pt.footnotes:
+            fn.body = _isolate_midline_display(fn.body)
 
     for pt in digest.points:
         yield {"type": "stage", "stage": "point", "label": pt.title}
