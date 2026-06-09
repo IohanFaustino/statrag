@@ -5,41 +5,333 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>statrag — Eval</title>
 <link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body data-base="../">
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
   <h1><span class="accent">Eval</span> <span class="pill">Service · placeholder</span></h1>
-  <div class="sub">Evaluation scaffolding — dataset building, generation, and metrics for retrieval / answer quality. Present but a placeholder; not wired into the live app.</div>
+  <div class="sub">Two eval surfaces: a generic <code>src/services/eval/</code> scaffold (dataset / generator / metrics / runner) that is <strong>not yet wired into the live app</strong>, and a set of <strong>live</strong> feature-specific harnesses under <code>src/services/chat/eval/</code> plus a <code>pytest -m quality_images</code> image-quality runner.</div>
 </header>
 <main>
+
+  <!-- ===== SECTION 1: Spec ===== -->
   <section>
     <h2>Spec</h2>
     <table>
       <tr><th>Layer</th><td>Service · placeholder</td></tr>
       <tr><th>Path</th><td><code>src/services/eval/</code></td></tr>
-      <tr><th>Import rule</th><td>Only <code>src.core</code>. Never imports other services or ingestion.</td></tr>
-      <tr><th>Entrypoint</th><td>Placeholder — no stable CLI yet.</td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code>; never other services or ingestion. (The chat-side harnesses <em>do</em> import <code>src.services.chat.*</code> for eval-only use — they are not subject to the service Chinese-wall because they are eval scripts, not service modules.)</td></tr>
+      <tr><th>Entrypoint</th><td>placeholder — no stable CLI yet. <code>generator.py</code> and <code>runner.py</code> expose a <code>main()</code> CLI but neither is part of the normal dev workflow.</td></tr>
     </table>
-    <p class="caption">Chinese-wall rule verified from <code>src/services/eval/__init__.py</code>.</p>
+    <p class="caption">Chinese-wall rule verified from <code>src/services/eval/__init__.py</code> (docstring lines 1–6).</p>
   </section>
+
+  <!-- ===== SECTION 2: Two eval surfaces ===== -->
   <section>
-    <h2>Key modules</h2>
+    <h2>Two eval surfaces</h2>
+    <p>
+      The project has two distinct eval surfaces with very different maturity levels.
+      The diagram below distinguishes them:
+    </p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="flowchart TD
+  subgraph PLACEHOLDER[&quot;src/services/eval/  — SCAFFOLD (not wired)&quot;]
+    D[&quot;dataset.py&#10;JSONL Q/A records&quot;]
+    G[&quot;generator.py&#10;Synthetic Q/A via OpenAI&quot;]
+    M[&quot;metrics.py&#10;context_precision / recall&#10;faithfulness / answer_relevance&quot;]
+    R[&quot;runner.py&#10;HTTP runner → JSON report&quot;]
+    D --&gt; G
+    G --&gt; R
+    M --&gt; R
+  end
+  subgraph LIVE[&quot;src/services/chat/eval/  — LIVE harnesses&quot;]
+    FE[&quot;facilitate_eval.py&#10;teach-node prompt variants&quot;]
+    FR[&quot;facilitate_reasoning_eval.py&#10;CoT vs no-CoT A/B&quot;]
+    OWH[&quot;ow_harness_compare.py&#10;orchestrator-workers L0/L2/L3&quot;]
+    OWD[&quot;ow_deepagents_compare.py&#10;4-arm deepagents ablation&quot;]
+    PC[&quot;planner_chain_compare.py&#10;query-planner model ablation&quot;]
+    SS[&quot;structured_synth_compare.py&#10;structured-synth A/B/C&quot;]
+    TS[&quot;ts_components_compare.py&#10;5-contestant time-series&quot;]
+  end
+  subgraph IQ[&quot;pytest -m quality_images — LIVE image judge&quot;]
+    IQT[&quot;test_image_judge_quality.py&#10;precision / recall / F1 / placement&quot;]
+    IQL[&quot;docs/eval/image_label_instructions.md&#10;ground-truth label CSV&quot;]
+    IQL --&gt; IQT
+  end
+  style PLACEHOLDER fill:#1b1e22,stroke:#d2a24c
+  style LIVE fill:#1b1e22,stroke:#46a758
+  style IQ fill:#1b1e22,stroke:#3b82f6">
+flowchart TD
+  subgraph PLACEHOLDER["src/services/eval/  — SCAFFOLD (not wired)"]
+    D["dataset.py&#10;JSONL Q/A records"]
+    G["generator.py&#10;Synthetic Q/A via OpenAI"]
+    M["metrics.py&#10;context_precision / recall&#10;faithfulness / answer_relevance"]
+    R["runner.py&#10;HTTP runner → JSON report"]
+    D --> G
+    G --> R
+    M --> R
+  end
+  subgraph LIVE["src/services/chat/eval/  — LIVE harnesses"]
+    FE["facilitate_eval.py&#10;teach-node prompt variants"]
+    FR["facilitate_reasoning_eval.py&#10;CoT vs no-CoT A/B"]
+    OWH["ow_harness_compare.py&#10;orchestrator-workers L0/L2/L3"]
+    OWD["ow_deepagents_compare.py&#10;4-arm deepagents ablation"]
+    PC["planner_chain_compare.py&#10;query-planner model ablation"]
+    SS["structured_synth_compare.py&#10;structured-synth A/B/C"]
+    TS["ts_components_compare.py&#10;5-contestant time-series"]
+  end
+  subgraph IQ["pytest -m quality_images — LIVE image judge"]
+    IQT["test_image_judge_quality.py&#10;precision / recall / F1 / placement"]
+    IQL["docs/eval/image_label_instructions.md&#10;ground-truth label CSV"]
+    IQL --> IQT
+  end
+  style PLACEHOLDER fill:#1b1e22,stroke:#d2a24c
+  style LIVE fill:#1b1e22,stroke:#46a758
+  style IQ fill:#1b1e22,stroke:#3b82f6
+      </div>
+    </div>
+    <p class="caption">
+      The scaffold package (<span style="color:#d2a24c">amber</span>) contains real code but is not
+      invoked in the live app. The chat-side harnesses (<span style="color:#46a758">green</span>)
+      are run manually as needed, co-located with the code they test. The image-quality runner
+      (<span style="color:#3b82f6">blue</span>) is opt-in via a pytest marker and requires a
+      human-labelled CSV.
+    </p>
+  </section>
+
+  <!-- ===== SECTION 3: Per-module deep-dive ===== -->
+  <section>
+    <h2>Per-module deep-dive</h2>
+
+    <h3><code>src/services/eval/</code> — scaffold package</h3>
+    <p>
+      All four modules exist and contain real code — they are not empty stubs —
+      but the package as a whole is <strong>not integrated into the live app or a
+      stable CLI workflow</strong>. The <code>__init__.py</code> wall comment says
+      "invokes the chat service via HTTP (not direct module import) to preserve the Chinese wall".
+      The runner is designed for an offline batch run against a live backend URL.
+    </p>
     <table>
-      <tr><th>Module</th><th>Role</th></tr>
-      <tr><td><code>dataset.py</code></td><td>Eval dataset construction.</td></tr>
-      <tr><td><code>generator.py</code></td><td>Candidate / answer generation for scoring.</td></tr>
-      <tr><td><code>metrics.py</code></td><td>Scoring metrics.</td></tr>
-      <tr><td><code>runner.py</code></td><td>Eval run driver.</td></tr>
+      <tr>
+        <th>Module</th>
+        <th>Status</th>
+        <th>Role</th>
+      </tr>
+      <tr>
+        <td><code>dataset.py</code></td>
+        <td>Scaffold — complete</td>
+        <td>Defines <code>QARecord</code> (Pydantic model: id, q, gold_book, gold_chapter, gold_section, gold_chunk_id, gold_answer, tags). Provides <code>load()</code> / <code>save()</code> for JSONL files. No placeholder methods — this module is functional.</td>
+      </tr>
+      <tr>
+        <td><code>generator.py</code></td>
+        <td>Scaffold — complete</td>
+        <td>Generates synthetic Q/A pairs by sampling <code>data/parsed/manifest.json</code>, scrolling Qdrant for a real chunk, and calling OpenAI nano to produce a question + reference answer. CLI: <code>python -m src.services.eval.generator --n 50 --out data/eval/base50.jsonl</code>. Not part of normal dev workflow — requires live Qdrant + API key.</td>
+      </tr>
+      <tr>
+        <td><code>metrics.py</code></td>
+        <td>Scaffold — complete</td>
+        <td>Four metrics: <code>context_precision</code> (deterministic, fraction of retrieved chunks matching gold), <code>context_recall</code> (binary gold-in-set check), <code>faithfulness</code> (async LLM judge: unsupported-claims ratio), <code>answer_relevance</code> (async LLM judge: 0–1 relevance score). All use the nano model as judge. See Schemas section for definitions.</td>
+      </tr>
+      <tr>
+        <td><code>runner.py</code></td>
+        <td>Scaffold — complete</td>
+        <td>Async CLI orchestrator: loads a JSONL set, POSTs each question to the chat backend SSE endpoint, computes all four metrics, writes a timestamped JSON report to <code>data/eval/reports/</code>, and performs a regression gate (5% drop triggers exit code 1). CLI: <code>python -m src.services.eval.runner --set base50 --mode tutor --backend http://localhost:8765</code>. Not run in CI or the default dev workflow.</td>
+      </tr>
+    </table>
+
+    <h3><code>src/services/chat/eval/</code> — live feature-specific harnesses</h3>
+    <p>
+      These are standalone scripts that live next to the chat-service code they test. They import
+      directly from <code>src.services.chat.*</code> (eval-only use — not violating the wall in
+      the sense that they are scripts, not library modules). Each is run manually with
+      <code>pytest</code> markers or <code>python -m</code> as needed; none runs in the default
+      regression lane. Results are written to <code>docs/superpowers/eval/</code> as markdown artifacts.
+    </p>
+    <table>
+      <tr>
+        <th>File</th>
+        <th>Role</th>
+      </tr>
+      <tr>
+        <td><code>facilitate_eval.py</code></td>
+        <td>Offline LLM-judge eval for the <em>facilitate teach</em> node. Runs two prompt variants (shipped v1 vs stricter v2) against hansen ch07 sections 7.1–7.4, judges each on 5 dimensions (clarity, faithfulness, keypoint_coverage, non_expansion, concept_id), 3 runs each, writes ranked markdown table. Marker: <code>facilitate_eval</code>.</td>
+      </tr>
+      <tr>
+        <td><code>facilitate_reasoning_eval.py</code></td>
+        <td>A/B eval: facilitate map+teach <em>with</em> hidden CoT reasoning scratchpad vs without. Swaps prompts/schemas locally — does not modify the shipped pipeline. Marker: <code>facilitate_reasoning</code>.</td>
+      </tr>
+      <tr>
+        <td><code>ow_harness_compare.py</code></td>
+        <td>Orchestrator-workers harness ablation (Plan A baseline). Freezes multi-author sources for 3 cross-book questions, runs the workflow at levels L0 / L2 / L3, judges each answer on faithfulness / coverage / synthesis / coherence (1–5). Step-based CLI: <code>--step freeze | run | judge</code>.</td>
+      </tr>
+      <tr>
+        <td><code>ow_deepagents_compare.py</code></td>
+        <td>Plan C: 4-arm deepagents synthesizer comparison — L0 (current), L3a (bare deepagents), L3b (deepagents + synthesis skill), L4 (deepagents + per-author subagents). 6 questions × 3 runs/arm, full-text judge, real token + cost capture. Requires <code>pip install deepagents</code>.</td>
+      </tr>
+      <tr>
+        <td><code>planner_chain_compare.py</code></td>
+        <td>Ablation for the query-planner chain across nano / gemini-2.5-flash / qwen-plus. Judges the produced plan on decomposition / coverage / targeting / redundancy. No Qdrant required. Step-based CLI.</td>
+      </tr>
+      <tr>
+        <td><code>structured_synth_compare.py</code></td>
+        <td>Lightweight A/B/C comparison for the structured-synth cycle (harness levels 5 / 6 / 7). Scores clean-math violations, component-formula presence, bullet density, latency, and tokens. Provides pure helper functions (<code>count_clean_math_violations</code>, <code>has_component_formulas</code>, <code>count_bullets</code>) importable for other scripts.</td>
+      </tr>
+      <tr>
+        <td><code>ts_components_compare.py</code></td>
+        <td>5-contestant offline eval: "what are the components of a time series?" fed the same frozen RAG context. API contestants (nano, gemini, qwen) called here; Claude agents (sonnet, opus) dispatched by the orchestrator and written to the same work directory. Step-based CLI: retrieve → api → judge.</td>
+      </tr>
     </table>
   </section>
+
+  <!-- ===== SECTION 4: Schemas & contracts ===== -->
   <section>
-    <h2>Related</h2>
-    <div class="card"><p style="margin:0"><a href="../report.html">Verification page</a></p></div>
+    <h2>Schemas &amp; contracts</h2>
+
+    <h3>Eval dataset schema — <code>QARecord</code></h3>
+    <p>
+      Defined in <code>dataset.py</code>. Each record is a Pydantic model persisted as a JSONL line.
+    </p>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td><code>str</code></td><td>Stable 8-char UUID prefix</td></tr>
+      <tr><td><code>q</code></td><td><code>str</code></td><td>Question text</td></tr>
+      <tr><td><code>gold_book</code></td><td><code>str</code></td><td>Expected book slug (e.g. <code>hansen</code>)</td></tr>
+      <tr><td><code>gold_chapter</code></td><td><code>str</code></td><td>Expected chapter id (e.g. <code>ch06</code>)</td></tr>
+      <tr><td><code>gold_section</code></td><td><code>str</code></td><td>h2_path or last-segment label</td></tr>
+      <tr><td><code>gold_chunk_id</code></td><td><code>str | None</code></td><td>Authoritative Qdrant point UUID (optional)</td></tr>
+      <tr><td><code>gold_answer</code></td><td><code>str</code></td><td>2–3 sentence reference answer</td></tr>
+      <tr><td><code>tags</code></td><td><code>list[str]</code></td><td>Mode-relevance tags, e.g. <code>["tutor"]</code></td></tr>
+    </table>
+    <p>Default dataset path: <code>data/eval/base50.jsonl</code>. Reports written to <code>data/eval/reports/</code>. Baselines stored at <code>data/eval/baselines.json</code>.</p>
+
+    <h3>Retrieval + answer metrics — <code>metrics.py</code></h3>
+    <table>
+      <tr><th>Metric</th><th>Type</th><th>Definition</th></tr>
+      <tr>
+        <td><code>context_precision</code></td>
+        <td>Deterministic, synchronous</td>
+        <td>Fraction of retrieved chunks whose <code>chunkId</code> matches <code>gold_chunk_id</code>. Returns 1.0 when no gold id is set (permissive). Range [0, 1].</td>
+      </tr>
+      <tr>
+        <td><code>context_recall</code></td>
+        <td>Deterministic, synchronous</td>
+        <td>1.0 if the gold chunk appears anywhere in the retrieved set, else 0.0. Binary. Returns 1.0 when no gold id (permissive).</td>
+      </tr>
+      <tr>
+        <td><code>faithfulness</code></td>
+        <td>LLM-judge, async</td>
+        <td>Prompts nano model to count total claims in the answer and how many are unsupported by the top-5 retrieved texts. Score = 1 − (unsupported / total). Range [0, 1].</td>
+      </tr>
+      <tr>
+        <td><code>answer_relevance</code></td>
+        <td>LLM-judge, async</td>
+        <td>Prompts nano model to score 0.0–1.0 how well the answer addresses the original question. Clamped to [0, 1].</td>
+      </tr>
+    </table>
+    <p>Runner aggregates produce <code>context_precision_at_10</code>, <code>context_recall</code>, <code>faithfulness</code>, and <code>answer_relevance</code> means, and compare against a per-mode baseline with a 5% regression gate.</p>
+
+    <h3>Image-judge KPIs — <code>pytest -m quality_images</code></h3>
+    <p>
+      Sourced from <code>docs/eval/image_label_instructions.md</code>. A human-labelled CSV
+      (~32 rows, 8 seed queries × 4 image candidates) provides ground truth with two columns:
+      <code>label_include</code> (0/1) and <code>label_aspect</code> (one of:
+      <code>tldr</code>, <code>definition</code>, <code>formal_statement</code>,
+      <code>intuition</code>, <code>examples</code>, <code>trade_offs</code>,
+      <code>further_reading</code>).
+    </p>
+    <table>
+      <tr><th>Metric</th><th>Target</th></tr>
+      <tr><td>Precision (include verdict)</td><td>≥ 0.80</td></tr>
+      <tr><td>Recall (include verdict)</td><td>≥ 0.70</td></tr>
+      <tr><td>F1</td><td>≥ 0.74</td></tr>
+      <tr><td>Placement accuracy (exact match)</td><td>≥ 0.65</td></tr>
+      <tr><td>Latency overhead</td><td>&lt; 2 000 ms median</td></tr>
+      <tr><td>Token overhead</td><td>&lt; 500 / query</td></tr>
+      <tr><td>Vision calls</td><td>≤ 2 / query</td></tr>
+    </table>
+    <p class="caption">
+      KPIs sourced verbatim from <code>docs/eval/image_label_instructions.md</code> §4.
+      Tuning knobs: <code>TUTOR_DEEP_TIER1_INCLUDE</code> / <code>TUTOR_DEEP_TIER1_EXCLUDE</code>
+      thresholds in <code>agents/deep_tutor.py</code>.
+      Runner: <code>.venv/bin/pytest -m quality_images src/services/chat/tests/test_image_judge_quality.py -s</code>.
+      The default <code>pytest src/services/chat/tests/</code> lane deselects the marker so the live
+      API and label CSV are never required for normal regression.
+    </p>
   </section>
+
+  <!-- ===== SECTION 5: Rationale & invariants ===== -->
+  <section>
+    <h2>Rationale &amp; invariants</h2>
+
+    <h3>Why eval is split across two surfaces</h3>
+    <p>
+      The <code>src/services/eval/</code> package was designed as a future generic harness that can
+      evaluate any chat mode end-to-end over HTTP — without importing chat internals. That design
+      is correct and the code is complete, but it has not yet been wired into a scheduled CI lane
+      or an operational workflow. No eval set file (<code>data/eval/base50.jsonl</code>) has been
+      generated yet in the current deployment; the generator requires a live Qdrant + OpenAI API
+      call.
+    </p>
+    <p>
+      Meanwhile, as each chat-service feature was built and ablated, lightweight eval scripts
+      naturally grew next to the code they test, under <code>src/services/chat/eval/</code>.
+      These scripts are intentionally <em>not</em> generic — each is purpose-built for a single
+      pipeline stage or model variant. They write their artifacts to
+      <code>docs/superpowers/eval/</code> for review. The benefit of co-location is that a
+      developer can run <code>python -m src.services.chat.eval.ow_harness_compare --step run</code>
+      immediately after changing the orchestrator-workers stage, without populating any central
+      dataset first.
+    </p>
+    <p>
+      The <code>pytest -m quality_images</code> lane occupies a middle ground: it uses a human-labelled
+      ground-truth CSV (a lightweight offline process) and is opt-in rather than part of the default
+      regression run. This keeps CI fast while still providing a repeatable precision/recall gate
+      for the image judge.
+    </p>
+
+    <h3>Invariants</h3>
+    <p>
+      No numbered invariant in <code>docs/system/invariants.md</code> is specifically dedicated to
+      the eval surface. The relevant operative rule is the Chinese-wall import constraint:
+      <code>src/services/eval/</code> may only import <code>src.core.*</code> and must invoke the
+      chat service over HTTP, never via direct module import. This is documented in
+      <code>src/services/eval/__init__.py</code> and <code>runner.py</code> enforces it by using
+      <code>httpx</code> against a configurable backend URL.
+    </p>
+    <p class="note">
+      The image-label guide lives at <code>docs/eval/image_label_instructions.md</code>.
+      Generate the label CSV with <code>ops/scripts/build_image_label_set.py --out data/eval/image_label_set.csv</code>
+      before running the <code>quality_images</code> marker.
+    </p>
+
+    <div class="card">
+      <p style="margin:0">
+        <strong>Related:</strong>
+        <a href="../report.html">Verification — live collection state</a> &nbsp;·&nbsp;
+        <a href="../services/index.html">Services overview</a> &nbsp;·&nbsp;
+        <a href="../services/chat.html">Chat service deep-dive</a>
+      </p>
+    </div>
+  </section>
+
 </main>
 </div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
 <script src="../sidebar.js"></script>
 </body>
 </html>
