@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import ExtensionDigestCard from "./ExtensionDigestCard";
+import StructuredErrorBoundary from "./StructuredErrorBoundary";
 
 const digest = {
   book: "hansen-probability", chapter: "ch07",
@@ -21,5 +22,16 @@ describe("ExtensionDigestCard", () => {
   it("shows a download control", () => {
     render(<ExtensionDigestCard digest={digest} />);
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
+  });
+});
+
+describe("StructuredErrorBoundary", () => {
+  it("StructuredErrorBoundary renders children normally", () => {
+    const { getByText } = render(
+      <StructuredErrorBoundary>
+        <span>child content</span>
+      </StructuredErrorBoundary>
+    );
+    expect(getByText("child content")).toBeInTheDocument();
   });
 });
