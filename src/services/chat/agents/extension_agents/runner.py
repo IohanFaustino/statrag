@@ -19,8 +19,20 @@ from src.services.chat.agents.extension_agents.scope import (
 from src.services.chat._fences import strip_fences
 from src.services.chat.agents.extension_agents.prompts import JUDGE_PROMPT
 from src.services.chat.books import parse_catalog
-from src.services.chat.retrieval import fetch_chapter_sections
+from src.services.chat.retrieval import fetch_chapter_sections, hybrid_search
 from src.services.chat.schemas import ChatRequest, ExtensionDigest
+
+
+def _warm_retrieval(slugs: list[str]) -> None:
+    """Initialise the dense + sparse embedders (and tqdm's lock) on the MAIN
+    thread. The augmentor later calls retrieve_corpus inside a worker thread
+    (asyncio.to_thread), where fastembed's first-use tqdm/torch init raises
+    ("tqdm has no attribute '_lock'", reranker meta-tensor). Warming here means
+    the cached embedders are reused in-thread without re-initialising."""
+    try:
+        hybrid_search("warmup", book_slugs=slugs or None, top_k=1, rerank=False)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 _AUG_LEAK = _re.compile(r"https?://|\[source\]|en\.wikipedia\.org", _re.IGNORECASE)
@@ -172,8 +184,10 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     sections = _filter_subtopics(sections, res.requested_subtopics)
     structure = build_structure_files(sections)
 
+    slugs = _all_slugs(catalog)
+    _warm_retrieval([s for s in slugs if s != book])  # main-thread embedder init
     agent = build_extension_agent(stage_models=req.extensionModels,
-                                  exclude_book=book, all_slugs=_all_slugs(catalog))
+                                  exclude_book=book, all_slugs=slugs)
     thread_id = f"ext-{book}-{chapter}-{int(t0)}"
 
     seed = "\n".join(f"- {p}" for p in structure.keys())

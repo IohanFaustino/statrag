@@ -43,6 +43,7 @@ def test_happy_path_streams_points(monkeypatch):
     async def _run_round(agent, instruction, thread_id):
         return None, json.dumps(digest.model_dump()), [], 10, 20
     monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
+    monkeypatch.setattr(R, "_warm_retrieval", lambda *a, **k: None)
     monkeypatch.setattr(R, "_run_round", _run_round)
 
     evs = _events(ChatRequest(message="extend hansen ch7", mode="extension"))
@@ -64,6 +65,7 @@ def test_round_loop_caps(monkeypatch):
     monkeypatch.setattr(R, "fetch_chapter_sections", lambda **k: [{"section_id": "1", "h2_path": "i", "text": "t"}])
     monkeypatch.setattr(R, "_all_slugs", lambda catalog: ["b"])
     monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
+    monkeypatch.setattr(R, "_warm_retrieval", lambda *a, **k: None)
     calls = {"n": 0}
     empty = json.dumps(ExtensionDigest(book="b", chapter="ch01", points=[], unfilled_gaps=["q"]).model_dump())
     async def _run_round(agent, instruction, thread_id):
