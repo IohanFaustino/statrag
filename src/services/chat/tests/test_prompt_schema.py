@@ -31,6 +31,7 @@ def _prompt_files() -> list[pathlib.Path]:
     files += [
         ROOT / "agents" / "deep_tutor.py",
         ROOT / "agents" / "image_judge.py",
+        ROOT / "agents" / "extension_agents" / "prompts.py",
     ]
     return [f for f in files if f.exists()]
 
