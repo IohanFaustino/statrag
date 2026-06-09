@@ -1,6 +1,7 @@
 import json
 import os
 import pytest
+from types import SimpleNamespace
 from src.services.chat.schemas import ChatRequest, ExtensionDigest, ExtensionPoint, ExtensionFootnote
 import src.services.chat.agents.extension_agents.runner as R
 
@@ -126,3 +127,13 @@ def test_filter_subtopics_no_match_fallback_all(monkeypatch):
     secs = [{"section_id": "1", "h2_path": "Intro", "text": ""}]
     result = R._filter_subtopics(secs, ["zz_impossible"], book_slug="b")
     assert result == secs
+
+
+def test_filter_subtopics_fuzzy_match_success(monkeypatch):
+    secs = [{"section_id": "7.3", "h2_path": "7.3 Convergence", "text": ""}]
+    monkeypatch.setattr(
+        R, "hybrid_search",
+        lambda *a, **k: ([SimpleNamespace(section="7.3", section_id="")], None)
+    )
+    result = R._filter_subtopics(secs, ["convergence_typo"], book_slug="b")
+    assert result == secs  # fuzzy match found section 7.3

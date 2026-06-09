@@ -107,9 +107,10 @@ def _section_to_dict(s) -> dict:
 def _filter_subtopics(
     sections: list[dict], subtopics: list[str], *, book_slug: str = ""
 ) -> list[dict]:
-    if not subtopics:
+    clean = [t for t in subtopics if t and t.strip()]
+    if not clean:
         return sections
-    needles = [t.lower() for t in subtopics if t]
+    needles = [t.lower() for t in clean]
     # Fast path: exact/substring match on h2_path + section_id.
     kept = [
         s for s in sections
@@ -123,7 +124,7 @@ def _filter_subtopics(
     # Fallback: embedding-based fuzzy match via hybrid_search.
     matched_ids: set[str] = set()
     slugs = [book_slug] if book_slug else None
-    for needle in subtopics:
+    for needle in clean:
         try:
             rows, _ = hybrid_search(needle, book_slugs=slugs, top_k=3, rerank=False)
             for r in rows:
