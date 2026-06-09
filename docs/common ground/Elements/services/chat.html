@@ -5,43 +5,1032 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>statrag — Chat</title>
 <link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body data-base="../">
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
   <h1><span class="accent">Chat</span> <span class="pill">Service · user-facing</span></h1>
-  <div class="sub">The SSE-streaming conversational layer: a FastAPI app exposing the four chat modes over hybrid retrieval, including the deep-tutor pipeline (query planning → coverage → orchestrator-workers → vision).</div>
+  <div class="sub">The SSE-streaming conversational layer: a FastAPI app exposing four chat modes over hybrid retrieval, including the deep-tutor pipeline (query planning → density retrieval → coverage → orchestrator-workers → vision/formula-recovery → structured DeepTutorAnswer).</div>
 </header>
 <main>
+
+  <!-- ===== SECTION 1: Spec ===== -->
   <section>
     <h2>Spec</h2>
     <table>
       <tr><th>Layer</th><td>Service · user-facing</td></tr>
       <tr><th>Path</th><td><code>src/services/chat/</code></td></tr>
-      <tr><th>Import rule</th><td>Only <code>src.core</code>. Reads manifest.json + book YAML as files, never imports ingestion.</td></tr>
-      <tr><th>Entrypoint</th><td><code>uvicorn src.services.chat.api:app</code> (dev: ./scripts/dev.sh → :8766).</td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code>; reads <code>data/parsed/manifest.json</code> and <code>src/ingestion/books/*.yaml</code> as filesystem artifacts, never imports <code>src.ingestion</code> or other services.</td></tr>
+      <tr><th>Entrypoint</th><td><code>uvicorn src.services.chat.api:app</code> — dev: <code>./scripts/dev.sh</code> → FastAPI :8766 + Vite :5175 (proxied).</td></tr>
     </table>
-    <p class="caption">Chinese-wall rule verified from <code>src/services/chat/__init__.py</code>.</p>
+    <p class="caption">Chinese-wall rule verified from <code>src/services/chat/__init__.py</code>: docstring states "Imports only from <code>src.core</code>. Never imports from other services or from <code>src.ingestion</code>. Reads <code>data/parsed/manifest.json</code> and <code>src/ingestion/books/*.yaml</code> as filesystem artifacts only (no module import into ingestion)."</p>
   </section>
+
+  <!-- ===== SECTION 2: Request → SSE ===== -->
   <section>
-    <h2>Key modules</h2>
+    <h2>Request &rarr; SSE</h2>
+    <p>
+      The chat service exposes <code>POST /api/chat</code> as the primary entry point.
+      When a <code>conversationId</code> is present the turn runs as a
+      <strong>detached, resumable run</strong> (§13): generation and persistence complete
+      even if the client disconnects, and the stream can be replayed via
+      <code>GET /api/chat/{id}/stream?after=N</code>. Without a <code>conversationId</code>
+      the legacy connection-bound, ephemeral path is used.
+    </p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="sequenceDiagram
+  participant B as Browser
+  participant A as api.py (POST /api/chat)
+  participant R as router.py (stream_chat)
+  participant D as _V2_DISPATCH (mode runner)
+  participant AG as Agent runner (e.g. deep_tutor)
+  participant RTV as Retrieval + LLM
+  participant B2 as Browser (EventSource)
+
+  B-&gt;&gt;A: POST /api/chat {message, mode, model, conversationId, …}
+  A-&gt;&gt;A: runs.start_run(conv_id, chat_event_gen)
+  A-&gt;&gt;R: stream_chat(req, history)
+  R-&gt;&gt;D: dispatch by req.mode (tutor/qa/facilitate/resume)
+  D-&gt;&gt;AG: run_deep_tutor / run_qa / run_chapter / run_facilitate
+  AG-&gt;&gt;RTV: hybrid retrieval + coverage + workers + LLM draft
+  RTV--&gt;&gt;AG: sources, drafts, figures
+  AG--&gt;&gt;A: yield events (meta, token, structured_output, sources_full, …)
+  A--&gt;&gt;B2: SSE stream framed as {event, id, data}
+  Note over B2,A: Events in order: meta · token · paragraph_break · math_block · figure · source_chip · structured_output · sources_full · figures_full · retrieval_meta · usage · done (or error + done)">
+sequenceDiagram
+  participant B as Browser
+  participant A as api.py (POST /api/chat)
+  participant R as router.py (stream_chat)
+  participant D as _V2_DISPATCH (mode runner)
+  participant AG as Agent runner
+  participant RTV as Retrieval + LLM
+  participant B2 as Browser (EventSource)
+
+  B->>A: POST /api/chat {message, mode, model, conversationId, …}
+  A->>A: runs.start_run(conv_id, chat_event_gen)
+  A->>R: stream_chat(req, history)
+  R->>D: dispatch by req.mode (tutor/qa/facilitate/resume)
+  D->>AG: run_deep_tutor / run_qa / run_chapter / run_facilitate
+  AG->>RTV: hybrid retrieval + coverage + workers + LLM draft
+  RTV-->>AG: sources, drafts, figures
+  AG-->>A: yield events (meta, token, structured_output, sources_full, …)
+  A-->>B2: SSE stream framed as {event, id, data}
+      </div>
+    </div>
+    <p class="caption">
+      SSE event types emitted (exact strings from <code>api.py</code> line 257 docstring + event-loop body lines 186–215):
+      <code>meta</code>, <code>token</code>, <code>paragraph_break</code>, <code>math_block</code>,
+      <code>figure</code>, <code>source_chip</code>, <code>sources_full</code>,
+      <code>figures_full</code>, <code>retrieval_meta</code>, <code>usage</code>,
+      <code>done</code> — or <code>error</code> + <code>done</code> on failure.
+      The special <code>structured_output</code> event (emitted by agents that return a
+      typed Pydantic payload, e.g. <code>TutorAnswer</code> / <code>QAAnswer</code>) is also
+      intercepted by <code>chat_event_gen</code> for persistence. Every event carries a
+      monotonic <code>seq</code> field (used as the SSE <code>id:</code> frame).
+    </p>
+
+    <h3>Additional HTTP endpoints</h3>
     <table>
-      <tr><th>Module</th><th>Role</th></tr>
-      <tr><td><code>api.py</code></td><td>FastAPI app + SSE endpoints (app = FastAPI, uvicorn entry).</td></tr>
-      <tr><td><code>modes.py</code></td><td>ModeSpec registry — tutor / qa / facilitate / resume.</td></tr>
-      <tr><td><code>agents/</code></td><td>Runners: deep_tutor, qa, chapter, orchestrator_workers, coverage, …</td></tr>
-      <tr><td><code>prompts/</code></td><td>Per-stage system prompts.</td></tr>
-      <tr><td><code>schemas/</code></td><td>Request knobs + output models.</td></tr>
-      <tr><td><code>llm/router.py</code></td><td>Provider / model routing (see Models).</td></tr>
+      <tr><th>Endpoint</th><th>Purpose</th></tr>
+      <tr><td><code>GET /api/chat/{conv_id}/stream?after=N</code></td><td>Replay + live-stream a detached run from seq N (§13 resumable runs).</td></tr>
+      <tr><td><code>GET /api/chat/{conv_id}/status</code></td><td>Resume handshake: <code>{exists, active, done, seq}</code>.</td></tr>
+      <tr><td><code>POST /api/chat/{conv_id}/cancel</code></td><td>Stop an in-flight detached run. Idempotent.</td></tr>
+      <tr><td><code>GET /api/figures?path=…</code></td><td>Serve figure images; path-traversal safe (whitelisted roots + extension check).</td></tr>
+      <tr><td><code>GET /api/models</code></td><td>Return all provider/model registry entries (<code>ModelProvider[]</code>).</td></tr>
+      <tr><td><code>GET /api/health</code></td><td>Liveness probe → <code>{status:"ok"}</code>.</td></tr>
     </table>
   </section>
+
+  <!-- ===== SECTION 3: Sub-packages map ===== -->
   <section>
-    <h2>Related</h2>
-    <div class="card"><p style="margin:0"><a href="../chat.html">Chat & deep-tutor page</a> · <a href="../modes/index.html">Modes</a> · <a href="../models/index.html">Models</a></p></div>
+    <h2>Sub-packages</h2>
+    <p>
+      The chat service is organized into nine sub-packages / sibling modules.
+      <code>api.py</code> is the FastAPI entry point; <code>router.py</code> dispatches to per-mode
+      runners; each runner lives in <code>agents/</code>. The runners consume
+      <code>retrievers/</code>, <code>llm/</code>, and <code>tools/</code> as building blocks,
+      while <code>prompts/</code> and <code>schemas/</code> supply the text and type contracts.
+    </p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="flowchart TD
+  API[&quot;api.py\nFastAPI app\nSSE endpoints&quot;]
+  ROUTER[&quot;router.py\nstream_chat\n_V2_DISPATCH&quot;]
+  MODES[&quot;modes.py\nModeSpec / ModeRegistry&quot;]
+  ORCH[&quot;orchestrator.py\nv1 legacy passthrough&quot;]
+
+  subgraph AGENTS[&quot;agents/&quot;]
+    DT[&quot;deep_tutor&quot;]
+    QA[&quot;qa&quot;]
+    CH[&quot;chapter&quot;]
+    FAC[&quot;facilitate&quot;]
+    OW[&quot;orchestrator_workers&quot;]
+    COV[&quot;coverage&quot;]
+    IJ[&quot;image_judge&quot;]
+    FR[&quot;formula_recovery&quot;]
+    FG[&quot;formula_gaps&quot;]
+    FC[&quot;formula_cache&quot;]
+    OWD[&quot;ow_deepagents&quot;]
+    OWH[&quot;ow_harness&quot;]
+    SC[&quot;_scope&quot;]
+  end
+
+  subgraph RTV[&quot;retrievers/&quot;]
+    DEN[&quot;density.py&quot;]
+    DIV[&quot;diversity.py&quot;]
+    IMG[&quot;image_density.py&quot;]
+  end
+
+  subgraph LLM[&quot;llm/&quot;]
+    LR[&quot;router.py&quot;]
+    LS[&quot;structured.py&quot;]
+    LB[&quot;base.py&quot;]
+    OAI[&quot;openai_client&quot;]
+    DSK[&quot;deepseek_client&quot;]
+    GMN[&quot;gemini_client&quot;]
+    GRQ[&quot;groq_client&quot;]
+    QWN[&quot;qwen_client&quot;]
+  end
+
+  subgraph TOOLS[&quot;tools/&quot;]
+    TR[&quot;retrieve&quot;]
+    IF[&quot;inspect_figure&quot;]
+    KGN[&quot;kg_neighbors&quot;]
+    RF[&quot;retrieve_figures&quot;]
+    RPB[&quot;retrieve_per_book&quot;]
+    ET[&quot;extract_terms&quot;]
+  end
+
+  subgraph MISC[&quot;shared modules&quot;]
+    VIS[&quot;vision.py&quot;]
+    KG[&quot;kg.py&quot;]
+    MI[&quot;mode_impls/&quot;]
+    PRO[&quot;prompts/&quot;]
+    SCH[&quot;schemas/&quot;]
+    RET[&quot;retrieval.py&quot;]
+  end
+
+  API --&gt; ROUTER
+  ROUTER --&gt; MODES
+  ROUTER --&gt; ORCH
+  ROUTER --&gt; DT
+  ROUTER --&gt; QA
+  ROUTER --&gt; CH
+  ROUTER --&gt; FAC
+  DT --&gt; OW
+  DT --&gt; COV
+  DT --&gt; IJ
+  DT --&gt; FR
+  OW --&gt; FG
+  OW --&gt; FC
+  OW --&gt; OWH
+  OWH --&gt; OWD
+  QA --&gt; SC
+  CH --&gt; SC
+  FAC --&gt; SC
+  DT --&gt; RTV
+  DT --&gt; LLM
+  QA --&gt; LLM
+  CH --&gt; LLM
+  FAC --&gt; LLM
+  DT --&gt; TOOLS
+  MI --&gt; TOOLS
+  DT --&gt; VIS
+  DT --&gt; KG">
+flowchart TD
+  API["api.py\nFastAPI app\nSSE endpoints"]
+  ROUTER["router.py\nstream_chat\n_V2_DISPATCH"]
+  MODES["modes.py\nModeSpec / ModeRegistry"]
+  ORCH["orchestrator.py\nv1 legacy passthrough"]
+
+  subgraph AGENTS["agents/"]
+    DT["deep_tutor"]
+    QA["qa"]
+    CH["chapter"]
+    FAC["facilitate"]
+    OW["orchestrator_workers"]
+    COV["coverage"]
+    IJ["image_judge"]
+    FR["formula_recovery"]
+    FG["formula_gaps"]
+    FC["formula_cache"]
+    OWD["ow_deepagents"]
+    OWH["ow_harness"]
+    SC["_scope"]
+  end
+
+  subgraph RTV["retrievers/"]
+    DEN["density.py"]
+    DIV["diversity.py"]
+    IMG["image_density.py"]
+  end
+
+  subgraph LLM["llm/"]
+    LR["router.py"]
+    LS["structured.py"]
+    LB["base.py"]
+    OAI["openai_client"]
+    DSK["deepseek_client"]
+    GMN["gemini_client"]
+    GRQ["groq_client"]
+    QWN["qwen_client"]
+  end
+
+  subgraph TOOLS["tools/"]
+    TR["retrieve"]
+    IF["inspect_figure"]
+    KGN["kg_neighbors"]
+    RF["retrieve_figures"]
+    RPB["retrieve_per_book"]
+    ET["extract_terms"]
+  end
+
+  subgraph MISC["shared modules"]
+    VIS["vision.py"]
+    KG["kg.py"]
+    MI["mode_impls/"]
+    PRO["prompts/"]
+    SCH["schemas/"]
+    RET["retrieval.py"]
+  end
+
+  API --> ROUTER
+  ROUTER --> MODES
+  ROUTER --> ORCH
+  ROUTER --> DT
+  ROUTER --> QA
+  ROUTER --> CH
+  ROUTER --> FAC
+  DT --> OW
+  DT --> COV
+  DT --> IJ
+  DT --> FR
+  OW --> FG
+  OW --> FC
+  OW --> OWH
+  OWH --> OWD
+  QA --> SC
+  CH --> SC
+  FAC --> SC
+  DT --> RTV
+  DT --> LLM
+  QA --> LLM
+  CH --> LLM
+  FAC --> LLM
+  DT --> TOOLS
+  MI --> TOOLS
+  DT --> VIS
+  DT --> KG
+      </div>
+    </div>
+    <p class="caption">
+      All imports flow only downward (Chinese-wall). <code>agents/</code> imports from
+      <code>retrievers/</code>, <code>llm/</code>, <code>tools/</code>, <code>retrieval.py</code>,
+      <code>vision.py</code>, <code>kg.py</code>, <code>prompts/</code>, and <code>schemas/</code>.
+      None of these modules import from <code>src.ingestion</code> or any other service.
+      <code>mode_impls/</code> builds v2 LangChain <code>create_agent</code> instances and is used
+      by the v2 tutor runner in <code>router.py</code> (<code>TUTOR_DEEP_MODE=0</code> path).
+    </p>
   </section>
+
+  <!-- ===== SECTION 4: Deep-tutor pipeline ===== -->
+  <section>
+    <h2>Deep-tutor pipeline</h2>
+    <p>
+      The deep-tutor pipeline (<code>agents/deep_tutor.py::run_deep_tutor</code>) is the most
+      complex path in the service. It runs when <code>req.mode == "tutor"</code> and
+      <code>TUTOR_DEEP_MODE != "0"</code>. The canonical pipeline graph and env-var table are
+      documented in <code>docs/services/chat-features/36-deep-tutor.md</code>. The walkthrough
+      below names the stages in execution order.
+    </p>
+
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="flowchart TD
+  Q[&quot;ChatRequest\n(message, bookFilter, stageModels, …)&quot;]
+
+  subgraph PLAN[&quot;Stage 1 — Parallel setup&quot;]
+    EX[&quot;extract_concepts_ex\n(QueryPlan: queries, facets, diversity_target)&quot;]
+    WR[&quot;Wide RRF candidate pull\n(no rerank, ~400ms)&quot;]
+  end
+
+  subgraph SEL[&quot;Stage 2 — Selection&quot;]
+    DEN[&quot;density_score_candidates\n(concept-TF × 0.6 + rrf × 0.4)&quot;]
+    SEC[&quot;Section-chunk expand\n(scroll top_sections=4 × 6 chunks)&quot;]
+    ADJ[&quot;Sibling expansion\n(TUTOR_NEIGHBOR_EXPAND=1)&quot;]
+    RR[&quot;Cross-encoder rerank\n(BAAI/bge-reranker-v2-m3)&quot;]
+    DIV[&quot;Author-diversity round-robin\n(_DIVERSITY_MAX=6, target=auto)&quot;]
+  end
+
+  subgraph COV[&quot;Stage 3 — Coverage&quot;]
+    CK[&quot;coverage.py: assess_coverage\n(grade facets against sources)&quot;]
+    RQ[&quot;Targeted re-query for gaps\n(capped at 1, best-effort)&quot;]
+  end
+
+  subgraph IMG[&quot;Stage 4 — Images&quot;]
+    IC[&quot;image_density.fetch_image_candidates\n(co-location boost)&quot;]
+    IJ[&quot;image_judge: two-tier judge\n(caption LLM + optional vision)&quot;]
+  end
+
+  subgraph DRAFT[&quot;Stage 5 — Draft&quot;]
+    WF{&quot;tutorWorkflow?&quot;}
+    SNG[&quot;_stream_draft: single LLM call\n(DeepTutorAnswer schema)&quot;]
+    OW[&quot;orchestrator_workers\n(plan → workers → L0 synth)&quot;]
+    FRE[&quot;formula_recovery\n(gaps → cache → vision → re-query)&quot;]
+    SY[&quot;L0 structured synthesizer\n(_stream_structured → DeepTutorAnswer)&quot;]
+  end
+
+  subgraph FIN[&quot;Stage 6 — Finalize&quot;]
+    CONV[&quot;_convert_to_tutor_answer\n(DeepTutorAnswer → TutorAnswer)&quot;]
+    CIT[&quot;_reconcile_tutor_citations\n+ _ensure_marker_citations&quot;]
+    EMT[&quot;yield: structured_output, sources_full,\nfigures_full, retrieval_meta, usage, done&quot;]
+  end
+
+  Q --&gt; PLAN
+  EX --&gt; DEN
+  WR --&gt; DEN
+  DEN --&gt; SEC
+  SEC --&gt; ADJ
+  ADJ --&gt; RR
+  RR --&gt; DIV
+  DIV --&gt; CK
+  CK --&gt; RQ
+  RQ --&gt; IC
+  IC --&gt; IJ
+  IJ --&gt; WF
+  WF --&gt;|single| SNG
+  WF --&gt;|orchestrator / orchestrator-deep| OW
+  OW --&gt; FRE
+  FRE --&gt; SY
+  SNG --&gt; CONV
+  SY --&gt; CONV
+  CONV --&gt; CIT
+  CIT --&gt; EMT">
+flowchart TD
+  Q["ChatRequest\n(message, bookFilter, stageModels, …)"]
+
+  subgraph PLAN["Stage 1 — Parallel setup"]
+    EX["extract_concepts_ex\n(QueryPlan: queries, facets, diversity_target)"]
+    WR["Wide RRF candidate pull\n(no rerank, ~400ms)"]
+  end
+
+  subgraph SEL["Stage 2 — Selection"]
+    DEN["density_score_candidates\n(concept-TF × 0.6 + rrf × 0.4)"]
+    SEC["Section-chunk expand\n(scroll top_sections=4 × 6 chunks)"]
+    ADJ["Sibling expansion\n(TUTOR_NEIGHBOR_EXPAND=1)"]
+    RR["Cross-encoder rerank\n(BAAI/bge-reranker-v2-m3)"]
+    DIV["Author-diversity round-robin\n(_DIVERSITY_MAX=6, target=auto)"]
+  end
+
+  subgraph COV["Stage 3 — Coverage"]
+    CK["coverage.py: assess_coverage\n(grade facets against sources)"]
+    RQ["Targeted re-query for gaps\n(capped at 1, best-effort)"]
+  end
+
+  subgraph IMG["Stage 4 — Images"]
+    IC["image_density.fetch_image_candidates\n(co-location boost)"]
+    IJ["image_judge: two-tier judge\n(caption LLM + optional vision)"]
+  end
+
+  subgraph DRAFT["Stage 5 — Draft"]
+    WF{"tutorWorkflow?"}
+    SNG["_stream_draft: single LLM call\n(DeepTutorAnswer schema)"]
+    OW["orchestrator_workers\n(plan → workers → L0 synth)"]
+    FRE["formula_recovery\n(gaps → cache → vision → re-query)"]
+    SY["L0 structured synthesizer\n(_stream_structured → DeepTutorAnswer)"]
+  end
+
+  subgraph FIN["Stage 6 — Finalize"]
+    CONV["_convert_to_tutor_answer\n(DeepTutorAnswer → TutorAnswer)"]
+    CIT["_reconcile_tutor_citations\n+ _ensure_marker_citations"]
+    EMT["yield: structured_output, sources_full,\nfigures_full, retrieval_meta, usage, done"]
+  end
+
+  Q --> PLAN
+  EX --> DEN
+  WR --> DEN
+  DEN --> SEC
+  SEC --> ADJ
+  ADJ --> RR
+  RR --> DIV
+  DIV --> CK
+  CK --> RQ
+  RQ --> IC
+  IC --> IJ
+  IJ --> WF
+  WF -->|single| SNG
+  WF -->|orchestrator / orchestrator-deep| OW
+  OW --> FRE
+  FRE --> SY
+  SNG --> CONV
+  SY --> CONV
+  CONV --> CIT
+  CIT --> EMT
+      </div>
+    </div>
+
+    <h3>Stage walkthrough</h3>
+    <table>
+      <tr><th>Stage</th><th>What runs</th><th>Key details</th></tr>
+      <tr>
+        <td>1a. Concept extraction</td>
+        <td><code>extract_concepts_ex</code> (query planner)</td>
+        <td>Nano LLM call that returns a <code>QueryPlan</code>: additional retrieval queries, grading facets (things the answer must cover), and a recommended <code>diversity_target</code>. Best-effort: failure yields empty plan, falls back to single-query path. Gated <code>TUTOR_MULTI_QUERY</code>.</td>
+      </tr>
+      <tr>
+        <td>1b. Wide candidate pull</td>
+        <td><code>retrieval.hybrid_search</code> (no rerank)</td>
+        <td>Runs in parallel with concept extraction via <code>asyncio.gather</code>. Dense + BM25 RRF across all active per-field Qdrant collections. No cross-encoder yet — the density stage handles that.</td>
+      </tr>
+      <tr>
+        <td>2. Density select + expand</td>
+        <td><code>retrievers/density.py::density_score_candidates</code></td>
+        <td>Scores each candidate by concept-term frequency (alpha=0.6) + normalized RRF score (0.4). Scrolls the top <code>_TOP_SECTIONS</code> (default 4) sections fully. Optionally appends sibling chunks at near-zero score (rerank-gated). Env: <code>TUTOR_DEEP_TOP_SECTIONS</code>, <code>TUTOR_DENSITY_ALPHA</code>, <code>TUTOR_NEIGHBOR_EXPAND</code>.</td>
+      </tr>
+      <tr>
+        <td>2b. Cross-encoder rerank + diversity</td>
+        <td><code>rerankers.py</code> + <code>retrievers/diversity.py</code></td>
+        <td>BAAI/bge-reranker-v2-m3 run via <code>asyncio.to_thread</code>. After rerank, author-diversity round-robin ensures up to <code>_DIVERSITY_MAX=6</code> author groups are represented. Author-aware rerank floor re-inserts the best dropped chunk of any missing author.</td>
+      </tr>
+      <tr>
+        <td>3. Coverage check</td>
+        <td><code>agents/coverage.py::assess_coverage</code></td>
+        <td>Grades each planner facet against the selected sources. Missing facets trigger a targeted re-query (capped at 1 call). Best-effort: any failure → no change. Gated <code>TUTOR_COVERAGE_CHECK</code> (default on).</td>
+      </tr>
+      <tr>
+        <td>4. Image judge</td>
+        <td><code>retrievers/image_density.py</code> → <code>agents/image_judge.py</code></td>
+        <td>Fetches image candidates with co-location boost (same book/chapter as top text sources). Two-tier judge: caption-only nano LLM (cheap, parallel) for all candidates; optional vision (gpt-4o-mini) for borderline confidence (default 0.4–0.7). Up to 2 vision calls per query. Approved figures carry <code>aspect_hint</code> for placement. Env: <code>TUTOR_IMAGE_JUDGE_VISION_MAX</code>.</td>
+      </tr>
+      <tr>
+        <td>5a. Single draft</td>
+        <td><code>_stream_draft</code> (single LLM call)</td>
+        <td>Default when <code>tutorWorkflow="single"</code> (or unset). OpenAI-family models use <code>_stream_structured</code> (native <code>response_format=DeepTutorAnswer</code>); non-OpenAI models use <code>_stream_draft_via_router</code> (<code>json_object</code> path + repair). Optional critique loop gated <code>TUTOR_DEEP_CRITIQUE=1</code> (off by default).</td>
+      </tr>
+      <tr>
+        <td>5b. Orchestrator-workers</td>
+        <td><code>agents/orchestrator_workers.py::run_orchestrator_workers</code></td>
+        <td>When <code>tutorWorkflow="orchestrator"</code> or <code>"orchestrator-deep"</code>. Planner LLM produces a <code>SynthesisPlan</code> (tasks + contrasts); workers run in parallel (one per author); L0 synthesizer integrates briefs into <code>DeepTutorAnswer</code>. Falls back to single draft if fewer than 2 workers succeed.</td>
+      </tr>
+      <tr>
+        <td>5c. Formula recovery</td>
+        <td><code>agents/formula_gaps.py</code> → <code>agents/formula_recovery.py</code></td>
+        <td>Runs between worker briefs and the L0 synth. <code>detect_formula_gaps</code> is pure/deterministic: finds concepts whose defining equation was OCR-dropped to an image placeholder. <code>recover_formulas</code> tries per gap in parallel: <code>formula_cache</code> lookup → vision off the figure → text re-query. Recovered LaTeX injected into synth as <code>&lt;recovered_equations&gt;</code>. Cached globally in <code>formula_cache</code> Qdrant collection (lookup score ≥ 0.93). Completely best-effort.</td>
+      </tr>
+      <tr>
+        <td>6. Finalize</td>
+        <td><code>_convert_to_tutor_answer</code> + citation helpers</td>
+        <td>Converts <code>DeepTutorAnswer</code> → <code>TutorAnswer</code> (assembles <code>text</code> from aspect fields, packs raw aspects into <code>aspects</code> dict). <code>_reconcile_tutor_citations</code> re-indexes inline <code>[N]</code> markers; <code>_ensure_marker_citations</code> synthesizes any missing citation entries. LaTeX escape repair applied before and after JSON parse (invariant 13).</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ===== SECTION 5: Per-module deep-dive ===== -->
+  <section>
+    <h2>Per-module deep-dive</h2>
+
+    <!-- agents/ -->
+    <h3>agents/</h3>
+    <table>
+      <tr><th>File</th><th>Role</th><th>Key entry point</th></tr>
+      <tr>
+        <td><code>deep_tutor.py</code></td>
+        <td>The deep-tutor pipeline runner. Executes all six stages above: parallel concept extraction + wide retrieval, density select, coverage, image judge, draft (single or OW), finalize. Emits the full SSE event sequence.</td>
+        <td><code>run_deep_tutor(req: ChatRequest) -&gt; AsyncIterator[dict]</code></td>
+      </tr>
+      <tr>
+        <td><code>qa.py</code></td>
+        <td>Punctual Q&amp;A four-node pipeline: scope → retrieve → scoped generate → verify/finalise. Emits <code>QAAnswer</code> via <code>structured_output</code>. Corpus miss yields honest no-coverage message with empty citations, never fabricated.</td>
+        <td><code>run_qa(req: ChatRequest) -&gt; AsyncIterator[dict]</code></td>
+      </tr>
+      <tr>
+        <td><code>chapter.py</code></td>
+        <td>Shared runner for <code>facilitate</code> and <code>resume</code> chapter modes. Pipeline: parse-scope → fetch-chapter → resolve-subtopics → map(per-section) → stitch → ground. Block order equals reading order (page_from), never re-sorted.</td>
+        <td><code>run_chapter(req: ChatRequest) -&gt; AsyncIterator[dict]</code></td>
+      </tr>
+      <tr>
+        <td><code>facilitate.py</code></td>
+        <td>Facilitate-mode concept-map-first teaching pipeline. Per section: build concept map (key points + concepts), sub-retrieve explanations same-author-first, rewrite as key-point blocks with <code>[[cN]]</code> anchors, verify grounding. Emits <code>FacilitateDigest</code>.</td>
+        <td><code>run_facilitate(req: ChatRequest) -&gt; AsyncIterator[dict]</code></td>
+      </tr>
+      <tr>
+        <td><code>orchestrator_workers.py</code></td>
+        <td>Orchestrator-workers drafting workflow. Planner → per-author workers in parallel → formula recovery → L0 structured synthesizer. Groups sources by author from <code>diversity.author_key</code>. Falls back to <code>(None, {})</code> when fewer than 2 workers succeed, signalling caller to use single draft.</td>
+        <td><code>run_orchestrator_workers(...) -&gt; tuple[DeepTutorAnswer | None, dict]</code></td>
+      </tr>
+      <tr>
+        <td><code>coverage.py</code></td>
+        <td>CRAG-lite coverage check. After retrieval, grades each planner facet (<code>QueryPlan.facets</code>) against the source pool. For unsupported facets, fires a targeted re-query (capped at 1). Best-effort: any failure → no change. Gated <code>TUTOR_COVERAGE_CHECK</code>.</td>
+        <td><code>assess_coverage(sources, query_plan, client, model) -&gt; list[Source]</code></td>
+      </tr>
+      <tr>
+        <td><code>image_judge.py</code></td>
+        <td>Two-tier pertinence judge for image candidates. Tier 1: caption-only nano LLM in parallel (~150ms each). Tier 2: optional vision LLM (gpt-4o-mini) for borderline confidence 0.4–0.7, capped at 2 calls. Returns approved figures (max 3) with <code>aspect_hint</code> and <code>judge_confidence</code>.</td>
+        <td><code>judge_figures(candidates, query, concepts, ...) -&gt; list[FigureCandidate]</code></td>
+      </tr>
+      <tr>
+        <td><code>formula_recovery.py</code></td>
+        <td>Per-gap formula recovery: cache → vision-on-figure → text re-query. Runs all gaps in parallel via <code>asyncio.gather(return_exceptions=True)</code>. Returns only equations that were found. Any failure is a cache miss.</td>
+        <td><code>recover_formulas(gaps, sources, query) -&gt; list[RecoveredEquation]</code></td>
+      </tr>
+      <tr>
+        <td><code>formula_gaps.py</code></td>
+        <td>Pure, deterministic detector for concepts whose defining equation is OCR-dropped to an image placeholder. No I/O, no LLM. Identifies definitional spans via regex (<code>_DEF_RE</code>) and checks for missing <code>$$…=…$$</code> blocks.</td>
+        <td><code>detect_formula_gaps(sources, query) -&gt; list[GapConcept]</code></td>
+      </tr>
+      <tr>
+        <td><code>formula_cache.py</code></td>
+        <td>Global concept → defining-equation Qdrant cache (<code>formula_cache</code> collection). Stores recovered equations as vector points; lookup gates on cosine score ≥ 0.93. Swallows all exceptions (best-effort). Auto-creates collection on first write.</td>
+        <td><code>cache_lookup(concept) -&gt; str | None</code>, <code>cache_write(concept, latex)</code></td>
+      </tr>
+      <tr>
+        <td><code>ow_deepagents.py</code></td>
+        <td>Eval-only harness level 3: deepagents synthesizer agent. Each AuthorBrief is preloaded as a file into a deepagents agent's virtual filesystem; agent synthesizes free-text (no DeepTutorAnswer schema). Requires optional <code>deepagents</code> install.</td>
+        <td><code>synthesize_with_deepagents(briefs, query, ...) -&gt; str</code></td>
+      </tr>
+      <tr>
+        <td><code>ow_harness.py</code></td>
+        <td>Harness-level scaffold for the OW stage (ablation). Selects harness level from <code>TUTOR_OW_HARNESS</code> (0–7). Level 0/1 = production path (L0 structured synth); levels 5–7 = eval-only deepagents variants. Level 4 rejected → falls through to L0. Any harness failure always falls back to L0.</td>
+        <td><code>select_harness_level() -&gt; int</code>, <code>maybe_traced(fn)</code></td>
+      </tr>
+      <tr>
+        <td><code>_scope.py</code></td>
+        <td>Shared book/chapter/section scope resolver for chapter and Q&amp;A modes. Catalog-in-prompt: parse LLM receives a compact book catalog so fuzzy/paraphrased references resolve to a slug with confidence. Numeric section refs expanded deterministically. <code>maybe_clarify</code> gates on <code>book_confidence &lt; 0.6</code> or ambiguous candidates.</td>
+        <td><code>resolve_book(req, catalog) -&gt; BookResolution</code>, <code>maybe_clarify(...)</code></td>
+      </tr>
+    </table>
+
+    <!-- llm/ -->
+    <h3>llm/</h3>
+    <table>
+      <tr><th>File</th><th>Role</th><th>Key detail</th></tr>
+      <tr>
+        <td><code>router.py</code></td>
+        <td>Provider routing + model registry. <code>get_llm(model_id)</code> returns <code>(BaseLLM, model_id)</code>. <code>aclient_for(model_id)</code> returns a raw <code>AsyncOpenAI</code> client for direct calls. <code>is_structured_output_capable(model_id)</code> is the single source of truth for OpenAI strict json_schema eligibility.</td>
+        <td>Routing rules: <code>deepseek</code>-prefix → DeepSeekChat; Groq set membership → GroqChat; <code>gemini</code>-prefix → GeminiChat; <code>qwen</code>-prefix → QwenChat; else → OpenAIChat. Groq uses set membership (not prefix) to avoid collision with <code>openai/gpt-oss-*</code> IDs.</td>
+      </tr>
+      <tr>
+        <td><code>structured.py</code></td>
+        <td>Per-model structured-output capability gate. Decides <code>JsonMode.SCHEMA</code> (native json_schema) vs <code>JsonMode.OBJECT</code> (json_object + schema hint in system message). OpenAI and Gemini/Qwen support SCHEMA; DeepSeek and current Groq models support OBJECT only.</td>
+        <td><code>json_mode_for(model_id) -&gt; JsonMode</code>; used by <code>apply_structured_output</code> for Q&amp;A and chapter mode LLM calls.</td>
+      </tr>
+      <tr>
+        <td><code>base.py</code></td>
+        <td>Abstract <code>BaseLLM</code> + <code>ChatMessage</code> + <code>LLMError</code>. All concrete clients implement <code>stream(messages, *, model, temperature, max_tokens, response_format) -&gt; AsyncIterator[str]</code>.</td>
+        <td>Common interface consumed by the v1 orchestrator streaming path.</td>
+      </tr>
+      <tr>
+        <td><code>openai_client.py</code></td>
+        <td>OpenAI-family streaming client. Uses <code>openai.AsyncOpenAI</code> with the official API key. Passes <code>response_format</code> verbatim (supports native json_schema strict mode). Default provider for <code>gpt-5.4-nano-2026-03-17</code> and all <code>gpt-*</code> IDs.</td>
+        <td>No quirks; full structured-output support.</td>
+      </tr>
+      <tr>
+        <td><code>deepseek_client.py</code></td>
+        <td>DeepSeek streaming client via OpenAI-compatible API. <strong>Quirk (code-confirmed):</strong> DeepSeek V4 IDs default to THINKING mode, which burns the output budget on hidden reasoning and returns empty <code>content</code> on the structured draft path. <code>_thinking_extra_body</code> disables thinking via <code>extra_body={"thinking": {"type": "disabled"}}</code> for all models except <code>deepseek-reasoner</code>. Gated by env <code>DEEPSEEK_DISABLE_THINKING</code> (default <code>"1"</code> = disable).</td>
+        <td><code>response_format</code> is accepted but DeepSeek ignores native json_schema; orchestrator falls back to repair retry (comment on line 58).</td>
+      </tr>
+      <tr>
+        <td><code>gemini_client.py</code></td>
+        <td>Google Gemini streaming client via OpenAI-compat endpoint. <strong>Quirk (code-confirmed):</strong> uses <code>strict=False</code> in <code>_build_response_format</code> to avoid schema-feature rejections on the compat layer — comment states "same safety net as DeepSeek". Not structured-output capable via strict json_schema.</td>
+        <td><code>_build_response_format</code> always sets <code>strict: false</code>.</td>
+      </tr>
+      <tr>
+        <td><code>groq_client.py</code></td>
+        <td>Groq streaming client via OpenAI-compat API. Chat-only (no ingestion). Routes via set membership (<code>GROQ_MODEL_IDS</code>) to avoid <code>openai/gpt-oss-*</code> prefix collision. Current Groq Llama/gpt-oss models use <code>JsonMode.OBJECT</code>; Groq kimi models use SCHEMA.</td>
+        <td>When draft model is Groq, <code>_maybe_append_groq_addendum</code> appends the Groq-specific prompt rules (invariant 27).</td>
+      </tr>
+      <tr>
+        <td><code>qwen_client.py</code></td>
+        <td>Alibaba Qwen streaming client via DashScope OpenAI-compat endpoint. <strong>Quirk (code-confirmed):</strong> uses <code>strict=False</code> in <code>_build_response_format</code> — same rationale as Gemini ("caller falls back to JSON-repair path if DashScope compat layer rejects the schema"). Not structured-output capable via strict json_schema.</td>
+        <td>Memory note: qwen-plus timed out under <code>response_format=json_schema</code>; free-text + parse fallback is the safe path.</td>
+      </tr>
+    </table>
+
+    <!-- retrievers/ + retrieval.py -->
+    <h3>retrievers/ + retrieval.py</h3>
+    <table>
+      <tr><th>File</th><th>Role</th><th>Key entry point</th></tr>
+      <tr>
+        <td><code>retrieval.py</code></td>
+        <td>Hybrid retrieval primitive. Dense (text-embedding-3-large) + sparse (BM25 via fastembed) prefetched in parallel, fused by Qdrant RRF (k=60). Iterates all active per-field collections. Also exposes <code>search_figures</code> / <code>search_figures_with_scores</code> for image retrieval.</td>
+        <td><code>hybrid_search(query, book_filter, top_k, ...) -&gt; list[Source]</code></td>
+      </tr>
+      <tr>
+        <td><code>retrievers/density.py</code></td>
+        <td>Concept-density retriever. Two stages: coarse hybrid search + concept-TF scoring (alpha=0.6); section expand + cross-encoder rerank. Optionally adds sibling chunks (same parent, page-band ±25) as low-score pseudo-points before reranking.</td>
+        <td><code>density_score_candidates(query, concepts, ...) -&gt; list[Source]</code></td>
+      </tr>
+      <tr>
+        <td><code>retrievers/diversity.py</code></td>
+        <td>Author-perspective diversity round-robin. Groups section keys by <code>author_key</code> (authors_short → authors → book slug). Round-robin by relevance order; year-spread tiebreak for 2nd+ picks from same author. Author-aware rerank floor re-inserts dropped chunks.</td>
+        <td><code>diversify_section_keys(scored_keys, key_meta, target_authors, top_sections) -&gt; list</code></td>
+      </tr>
+      <tr>
+        <td><code>retrievers/image_density.py</code></td>
+        <td>Image candidate retrieval with co-location boost. Calls <code>search_figures_with_scores</code> then adds <code>co_location_boost=0.15</code> to figures whose <code>(book, chapter)</code> matches a top text source. Returns pool=6 candidates.</td>
+        <td><code>fetch_image_candidates(query, text_sources, collections, k=6) -&gt; list[FigureCandidate]</code></td>
+      </tr>
+    </table>
+
+    <!-- tools/ -->
+    <h3>tools/</h3>
+    <table>
+      <tr><th>File</th><th>Role</th><th>Note</th></tr>
+      <tr>
+        <td><code>retrieve.py</code></td>
+        <td>LangChain <code>@tool retrieve</code>: wraps <code>hybrid_search</code> for use by the v2 LangChain <code>create_agent</code> tutor. Returns JSON-serialisable source summaries small enough not to balloon the context window.</td>
+        <td>Used by <code>mode_impls/tutor.py</code> (v2 agent path, <code>TUTOR_DEEP_MODE=0</code>).</td>
+      </tr>
+      <tr>
+        <td><code>inspect_figure.py</code></td>
+        <td>Vision tool: call gpt-4o with an image URL to extract / interpret a figure. Two entry points: <code>inspect_figure</code> (async helper, takes <code>Figure</code>) and <code>inspect_figure_tool</code> (<code>@tool</code>, JSON-serialisable args for LLM agents).</td>
+        <td>Used by <code>formula_recovery.py</code> (equation transcription from OCR-dropped figures) and legacy vision branch.</td>
+      </tr>
+      <tr>
+        <td><code>kg_neighbors.py</code></td>
+        <td><code>@tool kg_neighbors</code>: look up concept-graph neighbours from the <code>concepts_kg</code> Qdrant collection. Returns surrounding concept neighbourhood for prereq / context expansion.</td>
+        <td>LangChain tool; consumed by v2 agents that need prerequisite graph context.</td>
+      </tr>
+      <tr>
+        <td><code>retrieve_figures.py</code></td>
+        <td><code>@tool retrieve_figures</code>: wraps <code>search_figures</code> for LLM agents that need to request figures by query without the orchestrator hardcoding a vision-mode branch.</td>
+        <td>Used by v2 figures/math agents.</td>
+      </tr>
+      <tr>
+        <td><code>retrieve_per_book.py</code></td>
+        <td><code>@tool retrieve_per_book</code>: fan-out retrieval — runs <code>hybrid_search</code> once per requested book via <code>asyncio.gather</code>. Ensures balanced coverage (compare mode: one book cannot dominate).</td>
+        <td>B9 fix for compare mode balance.</td>
+      </tr>
+      <tr>
+        <td><code>extract_terms.py</code></td>
+        <td><code>@tool extract_terms</code>: nano LLM call to pull technical terms from arbitrary text. Used by annotate mode to identify glossable terms before retrieving definitions.</td>
+        <td>Cheap; results feed downstream glossary retrieval.</td>
+      </tr>
+    </table>
+
+    <!-- vision.py, kg.py, mode_impls/, prompts/ -->
+    <h3>vision.py, kg.py, mode_impls/, prompts/</h3>
+    <table>
+      <tr><th>File</th><th>Role</th><th>Key detail</th></tr>
+      <tr>
+        <td><code>vision.py</code></td>
+        <td>Vision gate (ADR-004): score-threshold decision for when to call a vision model on a figure. <code>tau_high</code> (0.62): score ≥ tau_high → include figure, skip vision. <code>tau_low</code> (0.45): tau_low ≤ score &lt; tau_high → call vision. score &lt; tau_low → skip figure. Capped at <code>max_calls=3</code> vision calls per request.</td>
+        <td><code>VisionGateConfig</code> + <code>should_call_vision(figure, score, config) -&gt; bool</code></td>
+      </tr>
+      <tr>
+        <td><code>kg.py</code></td>
+        <td>Knowledge-graph persistence via <code>concepts_kg</code> Qdrant collection (ADR-003). Concept nodes stored as embeddings of their label with prerequisite edges in payload. Supports semantic lookup (similar concepts) + id-based lookup.</td>
+        <td><code>fetch_concepts_by_label(label)</code>, <code>upsert_concept(node, edges)</code></td>
+      </tr>
+      <tr>
+        <td><code>mode_impls/tutor.py</code></td>
+        <td>v2 LangChain <code>create_agent</code> builder for the tutor mode (used when <code>TUTOR_DEEP_MODE=0</code>). Async + process-cached: first request builds the agent inside the active event loop; subsequent requests reuse the cached instance. Uses <code>AsyncSqliteSaver</code> checkpointer.</td>
+        <td><code>async build_agent() -&gt; CompiledGraph</code>; registered in <code>_V2_DISPATCH</code> as <code>_tutor_v2</code>.</td>
+      </tr>
+      <tr>
+        <td><code>mode_impls/_common.py</code></td>
+        <td>Shared helpers for v2 single-agent mode builders. All single-agent modes share the same create_agent shape, the <code>AsyncSqliteSaver</code> checkpointer (keyed by <code>thread_id</code>), and a process-cached factory so the heavy LangGraph compile happens once per process.</td>
+        <td>Builder utilities consumed by <code>tutor.py</code> and other v2 mode builders.</td>
+      </tr>
+      <tr>
+        <td><code>prompts/deep_tutor.py</code></td>
+        <td>Deep-tutor prompt family: <code>EXTRACT_CONCEPTS_PROMPT</code> (concept/query planner), <code>DEEP_TUTOR_INSTRUCTIONS</code> (multi-aspect synthesis system message), <code>COVERAGE_PROMPT</code>, <code>AUTHOR_WORKER_PROMPT</code>, <code>SCHEMA_FILL_PROMPT</code>, <code>SYNTHESIZER_ADDENDUM</code>, <code>ORGANIZER_PREAMBLE</code>, <code>CRITIQUE_PROMPT</code>. All XML-scaffolded.</td>
+        <td>Source of truth for all deep-tutor LLM calls. Consumed by <code>deep_tutor.py</code>, <code>orchestrator_workers.py</code>, <code>coverage.py</code>.</td>
+      </tr>
+      <tr>
+        <td><code>prompts/tutor.py</code></td>
+        <td>v2 tutor system prompt (<code>TUTOR_INSTRUCTIONS</code>). XML-scaffolded with <code>&lt;role&gt;</code>, <code>&lt;task&gt;</code>, <code>&lt;rules&gt;</code>, <code>&lt;output_format&gt;</code>, <code>&lt;citation_template&gt;</code>, <code>&lt;failure_mode&gt;</code> tags. Used by the v2 <code>create_agent</code> path.</td>
+        <td>Consumed by <code>mode_impls/tutor.py</code> and <code>modes.py</code>.</td>
+      </tr>
+      <tr>
+        <td><code>prompts/qa.py</code></td>
+        <td>Q&amp;A mode prompts: <code>QA_SCOPE_PROMPT</code> (scope extraction), <code>QA_GENERATE_PROMPT</code> (scoped generation), <code>QA_VERIFY_PROMPT</code> (grounding verification). All XML-scaffolded with <code>&lt;role&gt;/&lt;task&gt;/&lt;output_format&gt;/&lt;rules&gt;</code>.</td>
+        <td>Consumed by <code>agents/qa.py</code>.</td>
+      </tr>
+      <tr>
+        <td><code>prompts/chapter.py</code></td>
+        <td>Chapter/facilitate mode prompts: parse-scope, resolve-subtopics, two MAP prompts (teach vs compress), stitch, ground, plus facilitate agent map/intro/explain/teach/verify stages. All XML-scaffolded.</td>
+        <td>Consumed by <code>agents/chapter.py</code> and <code>agents/facilitate.py</code>.</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ===== SECTION 6: Schemas & contracts ===== -->
+  <section>
+    <h2>Schemas &amp; contracts</h2>
+
+    <h3>(a) Request knobs — <code>schemas/_core.py</code></h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+      <tr>
+        <td><code>message</code></td>
+        <td><code>str</code></td>
+        <td>The user's question / instruction for this turn.</td>
+      </tr>
+      <tr>
+        <td><code>mode</code></td>
+        <td><code>ModeId</code> = <code>Literal["tutor","qa","facilitate","resume"]</code></td>
+        <td>Which chat pipeline to run. Validated at the API boundary — unknown values are rejected by Pydantic before reaching the router.</td>
+      </tr>
+      <tr>
+        <td><code>model</code></td>
+        <td><code>str</code> default <code>"gpt-5.4-nano-2026-03-17"</code></td>
+        <td>LLM model id. Routed by <code>llm/router.py::get_llm</code> to the correct provider.</td>
+      </tr>
+      <tr>
+        <td><code>conversationId</code></td>
+        <td><code>str | None</code></td>
+        <td>When set, runs as a detached resumable run (§13 invariant 25). Without it, the legacy ephemeral stream is used.</td>
+      </tr>
+      <tr>
+        <td><code>bookFilter</code></td>
+        <td><code>list[str] | "ALL"</code> default <code>"ALL"</code></td>
+        <td>Restrict retrieval to specific book slugs. "ALL" queries all active collections.</td>
+      </tr>
+      <tr>
+        <td><code>stageModels</code></td>
+        <td><code>dict[str, str] | None</code></td>
+        <td>Per-stage model overrides for the tutor pipeline (keys: pipeline stage ids e.g. <code>"expansion"</code>, <code>"draft"</code>, <code>"critique"</code>, <code>"image_judge"</code>). Unknown stages/models ignored, fall back to stage default.</td>
+      </tr>
+      <tr>
+        <td><code>temperature</code></td>
+        <td><code>float | None</code> [0.0, 2.0]</td>
+        <td>User-controllable inference temperature. None defers to the stage default (<code>TUTOR_DEEP_TEMPERATURE</code> = 0.4).</td>
+      </tr>
+      <tr>
+        <td><code>top_k</code></td>
+        <td><code>int | None</code> [1, 20]</td>
+        <td>Retrieval top-k override. None uses the mode default.</td>
+      </tr>
+      <tr>
+        <td><code>rerank</code></td>
+        <td><code>bool | None</code></td>
+        <td>Explicit rerank flag. None defers to the mode's <code>RetrievalFlags.rerank</code>.</td>
+      </tr>
+      <tr>
+        <td><code>diversityAuthors</code></td>
+        <td><code>int | "auto" | None</code></td>
+        <td>Author-diversity target. <code>"auto"</code> = concept-extraction model picks (clamped to env cap); 0/1 = off; N≥2 = hard cap. None = env default.</td>
+      </tr>
+      <tr>
+        <td><code>tutorWorkflow</code></td>
+        <td><code>Literal["single","orchestrator","orchestrator-deep","organize"] | None</code></td>
+        <td>Drafting workflow: <code>"single"</code> = one draft call; <code>"orchestrator"</code> = per-author workers; <code>"orchestrator-deep"</code> = OW + deepagents L0 (Plan D, falls back to L0); <code>"organize"</code> = large-pool organize workflow. None defers to <code>TUTOR_WORKFLOW</code> env.</td>
+      </tr>
+    </table>
+
+    <h3>(b) Response models — <code>schemas/output.py</code></h3>
+    <table>
+      <tr><th>Class</th><th>Mode</th><th>Purpose</th></tr>
+      <tr>
+        <td><code>TutorAnswer</code></td>
+        <td>tutor</td>
+        <td>Structured answer with <code>text</code> (markdown with inline <code>[N]</code> markers), <code>sections</code> (H2 TOC), <code>citations</code> (<code>list[TutorCitation]</code>), <code>math_blocks</code>, <code>figures</code> (<code>list[FigureRef]</code>), <code>aspects</code> (dict of aspect name → string), <code>quality</code> (audit signals).</td>
+      </tr>
+      <tr>
+        <td><code>DeepTutorAnswer</code></td>
+        <td>tutor (deep pipeline)</td>
+        <td>Strongly-typed 6-aspect draft schema used as <code>response_format</code> in the draft pass. Required fields: <code>tldr</code>, <code>definition</code>, <code>formal_statement</code>, <code>example_intuition</code>, <code>applications</code>, <code>further_reading</code> + <code>citations</code>, <code>math_blocks</code>, <code>figures</code>. Has a <code>@model_validator</code> that enforces real <code>$$…$$</code> equations in each <code>### </code> subsection of a mathematical definition (invariant 23). Converted to <code>TutorAnswer</code> before SSE emission.</td>
+      </tr>
+      <tr>
+        <td><code>QAAnswer</code></td>
+        <td>qa</td>
+        <td>Lean punctual Q&amp;A answer: <code>text</code>, <code>scope</code> (<code>QAScope</code>), <code>citations</code>, <code>math_blocks</code>, <code>grounding</code> (verify-node verdict: <code>{ok, unsupported, confidence}</code>).</td>
+      </tr>
+      <tr>
+        <td><code>QAScope</code></td>
+        <td>qa</td>
+        <td>Parsed scope of a punctual question: <code>target_gap</code>, <code>assumed_known</code>, <code>answer_form</code>.</td>
+      </tr>
+      <tr>
+        <td><code>ChapterDigest</code></td>
+        <td>facilitate / resume</td>
+        <td>Ordered chapter digest: <code>mode</code>, <code>scope</code> (<code>ChapterScope</code>), <code>intro</code>, <code>blocks</code> (<code>list[ChapterBlock]</code> in reading order), <code>outro</code>, <code>citations</code>, <code>math_blocks</code>, <code>grounding</code>. Block order == page reading order, never re-sorted.</td>
+      </tr>
+      <tr>
+        <td><code>FacilitateDigest</code></td>
+        <td>facilitate (concept-map path)</td>
+        <td>Chapter digest with concept anchors: <code>blocks</code> contain <code>FacilitateBlock</code> entries (key_points, concepts <code>list[ConceptAnchor]</code>, body). Emitted as <code>structured_output</code> schema <code>"FacilitateDigest"</code>.</td>
+      </tr>
+      <tr>
+        <td><code>SynthesisPlan</code></td>
+        <td>tutor (orchestrator-workers)</td>
+        <td>Planner output: <code>thesis</code>, <code>contrasts</code> (<code>list[AuthorContrast]</code>), <code>tasks</code> (<code>list[WorkerTask]</code>). Planner + Orchestrator are one agent — no second LLM call for the orchestration step.</td>
+      </tr>
+      <tr>
+        <td><code>OrchestratorPlan</code>, <code>AuthorBrief</code></td>
+        <td>tutor (OW)</td>
+        <td>Intermediate schemas for the orchestrator-workers stage. <code>AuthorBrief</code>: one author's treatment (<code>author</code>, <code>summary</code>, <code>key_points</code>, <code>source_ranks</code>). <code>OrchestratorPlan</code>: list of <code>WorkerTask</code>.</td>
+      </tr>
+      <tr>
+        <td><code>TutorCitation</code></td>
+        <td>tutor / qa / chapter</td>
+        <td>Machine-readable per-claim citation span: <code>index</code> (1-based inline marker), <code>chunkId</code>, <code>authors_short</code>, <code>year</code>, <code>book_name</code>, <code>chapter</code>, <code>section</code>, <code>page_from</code>, <code>page_to</code>, <code>quote</code>. Rendered as clickable <code>[¹]</code> badge in the frontend.</td>
+      </tr>
+      <tr>
+        <td><code>FigureRef</code></td>
+        <td>tutor</td>
+        <td>Figure reference with image-judge annotations: <code>ref</code>, <code>book</code>, <code>chapter</code>, <code>caption</code>, <code>url</code>, <code>vision_used</code>, <code>vision_answer</code>, <code>aspect_hint</code>, <code>figure_role</code>, <code>judge_confidence</code>, <code>judge_reason</code>.</td>
+      </tr>
+    </table>
+
+    <h3>(c) SSE event contract</h3>
+    <p>
+      Event types (exact strings from <code>api.py</code> lines 186–215 + docstring line 257).
+      Every event carries a monotonic <code>seq</code> (SSE <code>id:</code> frame). Order is
+      approximately as listed; not all events are emitted on every turn.
+    </p>
+    <table>
+      <tr><th>Event type</th><th>Payload fields</th><th>When emitted</th></tr>
+      <tr>
+        <td><code>meta</code></td>
+        <td><code>mode</code>, <code>books</code>, <code>sourceCount</code>, <code>latencyMs</code>, <code>model</code></td>
+        <td>First event of every turn. Turn metadata / mode announcement.</td>
+      </tr>
+      <tr>
+        <td><code>token</code></td>
+        <td><code>text</code> (string delta)</td>
+        <td>Incremental text fragment from the LLM. Accumulated into <code>assistant_text_buf</code> for persistence.</td>
+      </tr>
+      <tr>
+        <td><code>paragraph_break</code></td>
+        <td>(none)</td>
+        <td>Logical paragraph boundary in the streamed text (rendered as <code>\n\n</code> on persistence).</td>
+      </tr>
+      <tr>
+        <td><code>math_block</code></td>
+        <td><code>tex</code> (LaTeX string)</td>
+        <td>A display math block extracted from the stream. Persisted as <code>$$tex$$</code>.</td>
+      </tr>
+      <tr>
+        <td><code>figure</code></td>
+        <td><code>ref</code>, <code>book</code>, <code>chapter</code>, <code>caption</code>, <code>chart</code> (URL)</td>
+        <td>One figure reference to render inline in the answer.</td>
+      </tr>
+      <tr>
+        <td><code>source_chip</code></td>
+        <td><code>rank</code>, <code>book</code>, <code>chapter</code>, <code>section</code>, <code>score</code>, etc.</td>
+        <td>A single source chip to display inline during streaming.</td>
+      </tr>
+      <tr>
+        <td><code>structured_output</code></td>
+        <td><code>schema</code> (e.g. <code>"TutorAnswer"</code>), <code>data</code> (dict)</td>
+        <td>When a mode produces a typed Pydantic payload. Persisted as structured content so the frontend can re-render the rich layout on conversation reload.</td>
+      </tr>
+      <tr>
+        <td><code>sources_full</code></td>
+        <td><code>sources</code> (list of <code>Source</code> dicts)</td>
+        <td>Complete source list after all retrieval stages. Collected for persistence. Intercepted at <code>api.py:197</code>.</td>
+      </tr>
+      <tr>
+        <td><code>figures_full</code></td>
+        <td><code>figures</code> (list of <code>FigureRef</code> dicts)</td>
+        <td>Always emitted on tutor turns (even with empty list) — invariant 14. Intercepted at <code>api.py:199</code>.</td>
+      </tr>
+      <tr>
+        <td><code>retrieval_meta</code></td>
+        <td><code>meta</code> (<code>RetrievalMetadata</code> dict)</td>
+        <td>Retrieval diagnostics: rewritten query, collections, latency, mode string, score threshold. Intercepted at <code>api.py:201</code>.</td>
+      </tr>
+      <tr>
+        <td><code>usage</code></td>
+        <td><code>durationMs</code>, <code>promptChars</code>, <code>completionChars</code>, <code>estTokens</code></td>
+        <td>Turn cost / duration summary.</td>
+      </tr>
+      <tr>
+        <td><code>done</code></td>
+        <td>(none)</td>
+        <td>Terminal event. Always the last event of a turn (even after <code>error</code>).</td>
+      </tr>
+      <tr>
+        <td><code>error</code></td>
+        <td><code>code</code>, <code>message</code></td>
+        <td>Emitted when an unhandled exception escapes the agent. Followed immediately by <code>done</code>.</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ===== SECTION 7: Rationale & invariants ===== -->
+  <section>
+    <h2>Rationale &amp; invariants</h2>
+
+    <h3>Lockstep rule — a pipeline stage spans six artifact classes</h3>
+    <p>
+      Every stage of the deep-tutor pipeline (concept planner, retrieval, density+rerank,
+      author-diversity, coverage, orchestrator-workers synthesis, vision-explain,
+      formula-recovery) is not one file. Its behavior, its prompt, its request knobs,
+      its diagram node, and its docs are separate artifacts that must stay consistent.
+      Modifying a stage's logic is <strong>incomplete</strong> until all of these reflect the change:
+    </p>
+    <table>
+      <tr><th>Aspect</th><th>Where</th></tr>
+      <tr><td>Backend logic</td><td><code>src/services/chat/agents/deep_tutor.py</code>, <code>orchestrator_workers.py</code>, <code>coverage.py</code></td></tr>
+      <tr><td>Prompts</td><td><code>src/services/chat/prompts/deep_tutor.py</code></td></tr>
+      <tr><td>Request knobs / response schema</td><td><code>schemas/_core.py</code> (request), <code>schemas/output.py</code> (models)</td></tr>
+      <tr><td>Env flags</td><td><code>TUTOR_*</code> env var + table in <code>docs/services/chat-features/36-deep-tutor.md</code></td></tr>
+      <tr><td>Modal card (pipeline diagram users see)</td><td><code>web/src/data/tutorPipeline.ts</code> + <code>web/src/components/PipelineDiagram.tsx</code></td></tr>
+      <tr><td>Backend mermaid graph</td><td><code>docs/services/chat-features/36-deep-tutor.md</code></td></tr>
+      <tr><td>Per-feature doc</td><td><code>docs/services/chat-features/&lt;NN&gt;-&lt;feature&gt;.md</code></td></tr>
+      <tr><td>This reference doc</td><td><code>docs/common ground/Elements/services/chat.html</code></td></tr>
+      <tr><td>Invariants + changelog</td><td><code>docs/system/invariants.md</code>, <code>docs/system/changelog.md</code></td></tr>
+      <tr><td>Tests</td><td><code>src/services/chat/tests/test_*.py</code> + <code>web/src/components/PipelineDiagram.test.tsx</code></td></tr>
+    </table>
+
+    <h3>Why structured output is enforced (and how)</h3>
+    <p>
+      The deep-tutor draft produces a <code>DeepTutorAnswer</code> — a strongly-typed
+      6-aspect schema. <strong>Invariant 36</strong>: strict <code>json_schema</code> structured
+      output is only sent to OpenAI-family models; all other providers (deepseek, qwen,
+      gemini, groq) go through the <code>json_object</code> path with a schema hint appended
+      to the system message. The predicate <code>is_structured_output_capable(model_id)</code>
+      in <code>llm/router.py</code> is the single source of truth and mirrors the provider
+      dispatch exactly.
+    </p>
+    <p>
+      <strong>Invariant 23</strong>: schema-level equation enforcement — every <code>### </code>
+      subsection of a mathematical definition must carry a real <code>$$…$$</code> defining equation.
+      Word-form pseudo-equations like <code>$$\text{Squared bias}+\text{Variance}$$</code> are
+      rejected by <code>DeepTutorAnswer._require_component_equations</code> at validation time;
+      the <code>ValidationError</code> rides the ADR-005 repair path to backfill. Best-effort:
+      the check is skipped under <code>context={"skip_format_checks": True}</code> for the
+      final fallback so a structurally-valid-but-format-imperfect answer renders rather than
+      blanking the turn.
+    </p>
+
+    <h3>Key invariants (from <code>docs/system/invariants.md</code>)</h3>
+    <ul>
+      <li>
+        <strong>Invariant 13</strong> — Every raw model JSON in <code>deep_tutor.py</code> must be
+        pre-processed by <code>_repair_latex_escapes</code> before <code>json.loads</code>. Every
+        aspect string must be post-processed by <code>_repair_latex_post</code> after parse. OpenAI
+        structured-stream silently corrupts single-backslash LaTeX commands
+        (<code>\theta</code> → tab + <code>heta</code>).
+      </li>
+      <li>
+        <strong>Invariant 14</strong> — <code>figures_full</code> SSE event is emitted on EVERY tutor
+        turn (even with empty <code>figures: []</code>). Frontend can rely on event arrival to
+        distinguish "no figures" from "image branch never ran".
+      </li>
+      <li>
+        <strong>Invariant 25</strong> — Detached, resumable runs (§13): a <code>POST /api/chat</code>
+        with a <code>conversationId</code> runs as a background <code>asyncio.Task</code> whose
+        generation and persistence complete even with zero subscribers (client disconnect ≠ cancel).
+        Every SSE event carries a strictly increasing 1-based <code>seq</code>. At most one active
+        run per conversation.
+      </li>
+      <li>
+        <strong>Invariant 28 (Zeroth law)</strong> — Every system prompt in
+        <code>src/services/chat/</code> must be XML-tagged with at minimum
+        <code>&lt;role&gt;</code> + <code>&lt;context&gt;</code> + <code>&lt;task&gt;</code>. Plain-text
+        "you are X" prompts are forbidden — they silently break smaller models.
+      </li>
+      <li>
+        <strong>Invariant 33</strong> — The query planner always returns a <code>QueryPlan</code> and
+        never raises to its caller. Failure degrades: chain → single-call → keyword heuristic.
+      </li>
+      <li>
+        <strong>Invariant 35</strong> — Deep-synthesis live path = L0 structured synth (no
+        schema-fill). The live <code>orchestrator-deep</code> path routes directly to the L0
+        structured synthesizer (<code>_stream_structured</code>) — no <code>_schema_fill</code>
+        re-express pass. deepagents+skill (L5) and structured deepagents agents (L6/7) are eval-only.
+      </li>
+      <li>
+        <strong>Invariant 37</strong> — Formula recovery is gap-triggered + best-effort. The stage
+        never changes a normal answer and never raises to its caller. Recovered LaTeX is injected
+        as <code>&lt;recovered_equations&gt;</code> and used verbatim by the synthesizer. Any
+        failure anywhere → empty block → today's behavior.
+      </li>
+    </ul>
+
+    <div class="card">
+      <p style="margin:0">
+        <strong>Related:</strong>
+        <a href="../features/index.html">Features &amp; modes</a> &nbsp;&middot;&nbsp;
+        <a href="../modes/index.html">Mode deep-dives</a> &nbsp;&middot;&nbsp;
+        <a href="../models/index.html">Model registry</a> &nbsp;&middot;&nbsp;
+        <a href="../services/index.html">Services overview</a>
+      </p>
+    </div>
+  </section>
+
 </main>
 </div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
 <script src="../sidebar.js"></script>
 </body>
 </html>
