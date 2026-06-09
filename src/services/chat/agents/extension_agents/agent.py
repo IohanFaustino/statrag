@@ -64,6 +64,9 @@ def _lc_model(stage: str, stage_models: dict | None) -> ChatOpenAI:
         model=resolve_stage_model(stage, stage_models),
         temperature=0.0,
         api_key=settings.openai_api_key,
+        # The deepagent fans out many calls; ride out 429 TPM spikes with
+        # exponential backoff instead of surfacing a hard error.
+        max_retries=6,
     )
 
 

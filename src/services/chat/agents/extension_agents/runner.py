@@ -157,12 +157,20 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     in_tok = out_tok = 0
     text = ""
     rounds = _max_rounds(req)
+    # Cap per-section text seeded into the orchestrator prompt: the full prompt
+    # is re-sent on every orchestrator turn, so embedding whole sections blows
+    # the TPM budget on large chapters. Analysts work from these excerpts.
+    _per_section_cap = int(os.environ.get("EXTENSION_SECTION_CHARS", "1200"))
     for r in range(rounds):
         if r == 0:
+            seeded = "\n\n".join(
+                f"=== {p} ===\n{c[:_per_section_cap]}"
+                + ("\n…[truncated]" if len(c) > _per_section_cap else "")
+                for p, c in structure.items()
+            )
             instr = (
-                "These /structure files hold the chapter sections (seed them as "
-                f"files first):\n{seed}\n\nFile contents follow:\n" +
-                "\n\n".join(f"=== {p} ===\n{c}" for p, c in structure.items()) +
+                "These /structure files hold the chapter sections:\n"
+                f"{seed}\n\nSection excerpts follow:\n" + seeded +
                 "\n\nRun the full pipeline: analyst per section -> polish -> "
                 "plan queries -> augmentor. Then emit the ExtensionDigest JSON."
             )
