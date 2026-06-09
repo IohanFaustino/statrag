@@ -373,14 +373,14 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
           };
 
         case "stage":
-          if (ev.stage === "point") {
+          if (ev.stage === "point" && ev.label) {
             return {
               ...state,
               messages: updateLastAssistant(state.messages, (msg) => ({
                 ...msg,
                 pendingExtensionPoints: [
                   ...(msg.pendingExtensionPoints ?? []),
-                  ev.label as string,
+                  ev.label,
                 ],
               })),
             };
