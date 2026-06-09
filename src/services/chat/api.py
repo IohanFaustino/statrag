@@ -151,10 +151,17 @@ async def chat_event_gen(req: ChatRequest):
         # rich layout rather than the raw JSON-stringified token stream.
         structured_payload: dict | None = None
         structured_schema: str | None = None
+        _persist_state = {"done": False}
 
         def _persist_assistant(stopped: bool) -> None:
             """Persist the accumulated assistant turn. Precondition: call only
-            after the streaming loop has run (reads buffer locals by reference)."""
+            after the streaming loop has run (reads buffer locals by reference).
+
+            Idempotent: safe to call from both the normal path and the ``finally``
+            guard (which catches client-disconnect ``GeneratorExit`` where the
+            post-loop call is skipped)."""
+            if _persist_state["done"]:
+                return
             if not (req.conversationId and (structured_payload or assistant_text_buf)):
                 return
             if structured_payload is not None:
@@ -178,6 +185,7 @@ async def chat_event_gen(req: ChatRequest):
                     figures=collected_figures,
                     metadata=metadata,
                 )
+                _persist_state["done"] = True
             except Exception:  # noqa: BLE001
                 pass
 
@@ -213,6 +221,11 @@ async def chat_event_gen(req: ChatRequest):
             "message": str(exc),
         }
         yield {"type": "done"}
+    finally:
+        # Client disconnect after the final event raises GeneratorExit at the
+        # suspended yield, skipping the post-loop persist above; this guard
+        # ensures the assistant turn is saved regardless (idempotent).
+        _persist_assistant(stopped=True)
 
 
 def _frame(ev: dict) -> dict:
