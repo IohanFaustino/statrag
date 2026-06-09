@@ -251,6 +251,13 @@ async def _run_resume(req: ChatRequest, history: list[dict] | None) -> AsyncIter
         yield event
 
 
+async def _run_extension(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
+    """Extension runner -> agents.extension_agents.runner.run_extension."""
+    from src.services.chat.agents.extension_agents.runner import run_extension  # noqa: PLC0415
+    async for event in run_extension(req):
+        yield event
+
+
 # Explicit mode -> v2 runner table. Every ModeId MUST appear here; the
 # exhaustiveness test (test_mode_routing_contract.py) fails otherwise, so a new
 # mode cannot ship unrouted.
@@ -259,6 +266,7 @@ _V2_DISPATCH: dict[str, Callable[["ChatRequest", "list[dict] | None"], AsyncGene
     "qa": _run_qa,
     "facilitate": _run_facilitate,
     "resume": _run_resume,
+    "extension": _run_extension,
 }
 
 

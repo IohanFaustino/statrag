@@ -34,6 +34,7 @@ _MODE_TO_PATCH = {
     "qa": ("src.services.chat.agents.qa", "run_qa"),
     "facilitate": ("src.services.chat.agents.facilitate", "run_facilitate"),
     "resume": ("src.services.chat.agents.chapter", "run_chapter"),
+    "extension": ("src.services.chat.agents.extension_agents.runner", "run_extension"),
 }
 
 
