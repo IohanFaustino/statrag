@@ -104,3 +104,25 @@ def test_strip_md_footnote_markers_no_change_clean():
 
 def test_section_chars_default_is_2500():
     assert int(os.environ.get("EXTENSION_SECTION_CHARS", "2500")) == 2500
+
+
+def test_filter_subtopics_exact_match():
+    secs = [
+        {"section_id": "7.1", "h2_path": "7.1 Introduction", "text": ""},
+        {"section_id": "7.4", "h2_path": "7.4 Chebyshev Inequality", "text": ""},
+    ]
+    result = R._filter_subtopics(secs, ["chebyshev"], book_slug="hansen")
+    assert len(result) == 1
+    assert result[0]["section_id"] == "7.4"
+
+
+def test_filter_subtopics_empty_returns_all():
+    secs = [{"section_id": "1", "h2_path": "Intro", "text": ""}]
+    assert R._filter_subtopics(secs, [], book_slug="b") == secs
+
+
+def test_filter_subtopics_no_match_fallback_all(monkeypatch):
+    monkeypatch.setattr(R, "hybrid_search", lambda *a, **k: ([], None))
+    secs = [{"section_id": "1", "h2_path": "Intro", "text": ""}]
+    result = R._filter_subtopics(secs, ["zz_impossible"], book_slug="b")
+    assert result == secs

@@ -104,14 +104,40 @@ def _section_to_dict(s) -> dict:
     }
 
 
-def _filter_subtopics(sections: list[dict], subtopics: list[str]) -> list[dict]:
+def _filter_subtopics(
+    sections: list[dict], subtopics: list[str], *, book_slug: str = ""
+) -> list[dict]:
     if not subtopics:
         return sections
     needles = [t.lower() for t in subtopics if t]
-    kept = [s for s in sections
-            if any(n in (str(s.get("h2_path", "")) + " " + str(s.get("section_id", ""))).lower()
-                   for n in needles)]
-    return kept or sections  # fall back to whole chapter if nothing matched
+    # Fast path: exact/substring match on h2_path + section_id.
+    kept = [
+        s for s in sections
+        if any(
+            n in (str(s.get("h2_path", "")) + " " + str(s.get("section_id", ""))).lower()
+            for n in needles
+        )
+    ]
+    if kept:
+        return kept
+    # Fallback: embedding-based fuzzy match via hybrid_search.
+    matched_ids: set[str] = set()
+    slugs = [book_slug] if book_slug else None
+    for needle in subtopics:
+        try:
+            rows, _ = hybrid_search(needle, book_slugs=slugs, top_k=3, rerank=False)
+            for r in rows:
+                sid = (
+                    getattr(r, "section", "")
+                    or getattr(r, "section_id", "")
+                    or ""
+                )
+                if sid:
+                    matched_ids.add(sid)
+        except Exception:  # noqa: BLE001
+            pass
+    fuzzy_kept = [s for s in sections if str(s.get("section_id", "")) in matched_ids]
+    return fuzzy_kept or sections  # final fallback: whole chapter
 
 
 async def _run_round(agent, instruction: str, thread_id: str):
@@ -201,7 +227,7 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     yield {"type": "stage", "stage": "fetch", "label": f"Fetch {book} {chapter}"}
     raw_sections = fetch_chapter_sections(book_slug=book, chapter_id=chapter)
     sections = [_section_to_dict(s) for s in raw_sections]
-    sections = _filter_subtopics(sections, res.requested_subtopics)
+    sections = _filter_subtopics(sections, res.requested_subtopics, book_slug=book)
     structure = build_structure_files(sections)
 
     slugs = _all_slugs(catalog)
