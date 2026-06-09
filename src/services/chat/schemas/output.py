@@ -552,3 +552,35 @@ class ChapterGroundOut(BaseModel):
     confidence: float = 0.5
 
 
+# ---------------------------------------------------------------------------
+# Mode 5 — extension
+# ---------------------------------------------------------------------------
+
+
+class ExtensionFootnote(BaseModel):
+    """One augmentation note. ALL augmentation (incl. formulas, inline or
+    display LaTeX) lives here, never in curated_text."""
+
+    marker: str
+    body: str
+    source: str
+    kind: Literal["corpus", "wikipedia"]
+
+
+class ExtensionPoint(BaseModel):
+    """One curated point in the ordered timeline."""
+
+    title: str
+    curated_text: str
+    footnotes: list[ExtensionFootnote] = Field(default_factory=list)
+
+
+class ExtensionDigest(BaseModel):
+    """Final extension-mode result: ordered curated points + footnotes."""
+
+    book: str
+    chapter: str
+    points: list[ExtensionPoint] = Field(default_factory=list)
+    unfilled_gaps: list[str] = Field(default_factory=list)
+
+

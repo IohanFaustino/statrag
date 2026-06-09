@@ -58,6 +58,9 @@ from src.services.chat.schemas.output import (  # noqa: F401
     ChapterMapBlock,
     ChapterStitchOut,
     ChapterGroundOut,
+    ExtensionFootnote,
+    ExtensionPoint,
+    ExtensionDigest,
 )
 
 __all__ = [
@@ -108,4 +111,7 @@ __all__ = [
     "ChapterMapBlock",
     "ChapterStitchOut",
     "ChapterGroundOut",
+    "ExtensionFootnote",
+    "ExtensionPoint",
+    "ExtensionDigest",
 ]
