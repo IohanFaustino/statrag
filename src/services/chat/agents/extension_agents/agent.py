@@ -45,6 +45,11 @@ assert os.path.isdir(os.path.join(_REPO_ROOT, "src")), (
     f"_REPO_ROOT={_REPO_ROOT!r} does not contain 'src/'; check __file__ depth"
 )
 
+# deepagents resolves `skills` paths through the FilesystemBackend, i.e.
+# RELATIVE to root_dir (the documented form is ["./skills/"]). Absolute paths
+# are not found in virtual_mode, so express the skills dir relative to the root.
+SKILLS_REL = os.path.relpath(SKILLS_DIR, _REPO_ROOT)
+
 
 def _lc_model(stage: str, stage_models: dict | None) -> ChatOpenAI:
     """Build a concrete ChatOpenAI for a stage with an EXPLICIT api_key.
@@ -94,7 +99,7 @@ def build_extension_agent(
             "system_prompt": ANALYST_PROMPT,
             "model": _lc_model("analyst", stage_models),
             "tools": [peek],
-            "skills": [os.path.join(SKILLS_DIR, "curate-structure")],
+            "skills": [os.path.join(SKILLS_REL, "curate-structure")],
         },
         {
             "name": "polish",
@@ -104,7 +109,7 @@ def build_extension_agent(
             "system_prompt": POLISH_PROMPT,
             "model": _lc_model("polish", stage_models),
             "tools": [],
-            "skills": [os.path.join(SKILLS_DIR, "curate-structure")],
+            "skills": [os.path.join(SKILLS_REL, "curate-structure")],
         },
         {
             "name": "augmentor",
@@ -114,7 +119,7 @@ def build_extension_agent(
             "system_prompt": AUGMENTOR_PROMPT,
             "model": _lc_model("augmentor", stage_models),
             "tools": [corpus, wikipedia_lookup],
-            "skills": [os.path.join(SKILLS_DIR, "gap-augment")],
+            "skills": [os.path.join(SKILLS_REL, "gap-augment")],
         },
     ]
 
@@ -124,7 +129,7 @@ def build_extension_agent(
         system_prompt=ORCHESTRATOR_PROMPT,
         subagents=subagents,
         # Whole skills dir + the orchestrator/judge-specific skill explicitly.
-        skills=[SKILLS_DIR, os.path.join(SKILLS_DIR, "judge-coverage")],
+        skills=[SKILLS_REL, os.path.join(SKILLS_REL, "judge-coverage")],
         backend=FilesystemBackend(root_dir=_REPO_ROOT, virtual_mode=True),
         checkpointer=MemorySaver(),
     )
