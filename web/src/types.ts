@@ -104,6 +104,7 @@ export interface AssistantMessage {
   status: "pending" | "streaming" | "complete" | "error";
   error?: { code: string; message: string };
   stopped?: boolean;
+  pendingExtensionPoints?: string[];
 }
 
 export type Message = UserMessage | AssistantMessage;
@@ -298,4 +299,5 @@ export type ChatEventBody =
   | { type: "error"; code: string; message: string }
   | { type: "clarify"; reason: ClarifyData["reason"]; message: string;
       candidates: ClarifyCandidate[]; chapter_guess: string; sections_guess: string[] }
+  | { type: "stage"; stage: string; label?: string }
   | StructuredOutputEvent;

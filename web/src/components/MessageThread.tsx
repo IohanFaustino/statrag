@@ -356,7 +356,10 @@ function AssistantMessageView({
               <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
             )}
             {msg.structuredOutput.schema === "ExtensionDigest" && (
-              <ExtensionDigestCard digest={msg.structuredOutput.data as ExtensionDigest} />
+              <ExtensionDigestCard
+                digest={msg.structuredOutput.data as ExtensionDigest}
+                pendingPoints={msg.pendingExtensionPoints}
+              />
             )}
             {msg.structuredOutput.schema === "Clarify" && (
               <ClarifyCard
@@ -364,6 +367,17 @@ function AssistantMessageView({
                 onPick={onClarifyPick ?? (() => {})}
               />
             )}
+          </div>
+        )}
+
+        {!msg.structuredOutput && (msg.pendingExtensionPoints?.length ?? 0) > 0 && (
+          <div className="extension-card extension-card--streaming">
+            {msg.pendingExtensionPoints!.map((title, i) => (
+              <section key={i} className="extension-point extension-point--skeleton">
+                <h3 className="extension-point__title">{title}</h3>
+                <div className="extension-point__body extension-point__body--loading" />
+              </section>
+            ))}
           </div>
         )}
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { storeReducer, initialStore, DRAFT_KEY } from "./chat";
 import type { Action } from "./chat";
-import type { ChatEvent, ClarifyData, FacilitateDigest } from "../types";
+import type { AssistantMessage, ChatEvent, ClarifyData, FacilitateDigest } from "../types";
 
 // Helpers ────────────────────────────────────────────────────────────────────
 
@@ -171,5 +171,27 @@ describe("storeReducer (§13 multi-conversation)", () => {
 
     const last = s.byConv["A"].messages.at(-1) as any;
     expect(last.structuredOutput.schema).toBe("FacilitateDigest");
+  });
+
+  it("stage{stage:'point'} appends to pendingExtensionPoints", () => {
+    const s0 = run([send("A"), event("A", { type: "thinking" } as ChatEvent)]);
+    const s1 = storeReducer(s0, event("A", { type: "stage", stage: "point", label: "Law of Large Numbers" }));
+    const lastMsg = s1.byConv["A"].messages.at(-1) as AssistantMessage;
+    expect(lastMsg.pendingExtensionPoints).toEqual(["Law of Large Numbers"]);
+  });
+
+  it("second stage{point} appends to existing pendingExtensionPoints", () => {
+    const s0 = run([send("A"), event("A", { type: "thinking" } as ChatEvent)]);
+    const s1 = storeReducer(s0, event("A", { type: "stage", stage: "point", label: "LLN" }));
+    const s2 = storeReducer(s1, event("A", { type: "stage", stage: "point", label: "CLT" }));
+    const lastMsg = s2.byConv["A"].messages.at(-1) as AssistantMessage;
+    expect(lastMsg.pendingExtensionPoints).toEqual(["LLN", "CLT"]);
+  });
+
+  it("non-point stage events do not modify pendingExtensionPoints", () => {
+    const s0 = run([send("A"), event("A", { type: "thinking" } as ChatEvent)]);
+    const s1 = storeReducer(s0, event("A", { type: "stage", stage: "fetch", label: "Fetch chapter" }));
+    const lastMsg = s1.byConv["A"].messages.at(-1) as AssistantMessage;
+    expect(lastMsg.pendingExtensionPoints).toBeUndefined();
   });
 });
