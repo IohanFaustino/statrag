@@ -7,7 +7,7 @@ from typing import get_args
 
 from src.services.chat.schemas._core import ModeId
 
-CANONICAL_MODES = ["tutor", "qa", "facilitate", "resume"]
+CANONICAL_MODES = ["tutor", "qa", "facilitate", "resume", "extension"]
 
 
 def test_modeid_matches_canonical_list():
