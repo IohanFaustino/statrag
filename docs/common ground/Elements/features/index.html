@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Features</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Features</span> <span class="pill">user-facing</span></h1>
+  <div class="sub">What users actually invoke — four chat modes over one hybrid-retrieval core.</div>
+</header>
+<main>
+  <section>
+    <p>A <em>feature</em> in statrag is a capability the user directly invokes: pick a mode, ask a question (or name a chapter), and the system delivers a structured response. Each mode is a distinct teaching contract — different output shape, different depth, different pipeline — but all of them run on the same hybrid retrieval foundation and the same Qdrant collections.</p>
+    <p>The deep-tutor pipeline is the engine beneath the two search modes (Tutor and Q&amp;A). The chapter modes (Facilitate and Resume) share the same retrieval stack but follow a structural fetch path instead of a question-driven search.</p>
+  </section>
+
+  <section>
+    <h2>Four chat modes</h2>
+    <div class="modes-grid">
+      <a class="card mode-card" href="../modes/tutor.html">
+        <h3>Tutor</h3>
+        <p class="sub">The default, deepest mode. Answers a question with a multi-author, structured tutorial: TL;DR, definition, formal statement, worked example + intuition, applications, and further reading — with inline citations, figures, and rendered math.</p>
+        <span class="pill">single-agent</span>
+      </a>
+      <a class="card mode-card" href="../modes/qa.html">
+        <h3>Q&amp;A</h3>
+        <p class="sub">Punctual, scoped Q&amp;A. Extracts the precise gap the question asks about (and what it assumes you already know), retrieves a small high-precision set, generates a terse grounded answer, then verifies that every claim is supported.</p>
+        <span class="pill">multi-agent</span>
+      </a>
+      <a class="card mode-card chapter" href="../modes/facilitate.html">
+        <h3>Facilitate</h3>
+        <p class="sub">An ordered, didactic walkthrough of a whole chapter. Fetches the chapter's sections in the book's own order and teaches each one (verbose map, ~250-400 tokens/section), streaming each block as it finishes so you watch the chapter build top to bottom.</p>
+        <span class="pill">chapter pipeline</span>
+      </a>
+      <a class="card mode-card chapter" href="../modes/resume.html">
+        <h3>Resume</h3>
+        <p class="sub">An ordered, compressed recap of a whole chapter. Same structural pipeline as Facilitate, but the map step is terse (~60-100 tokens/section) — a faithful condensed summary in reading order.</p>
+        <span class="pill">chapter pipeline</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>The deep-tutor pipeline</h2>
+    <p>When Tutor mode runs, it executes a multi-stage agentic pipeline: a <strong>query planner</strong> decomposes the question into concepts, sub-queries, and facets; <strong>multi-query retrieval</strong> fans out against Qdrant and merges results with Reciprocal Rank Fusion; a <strong>density + rerank</strong> stage applies cross-encoder scoring and <strong>author-diversity</strong> filtering so no single textbook dominates; a <strong>coverage loop</strong> checks whether every facet is represented and re-retrieves for gaps; a <strong>figure judge</strong> selects the most relevant images; the <strong>planner-orchestrator</strong> builds a synthesis plan; <strong>orchestrator-workers</strong> draft per-author sections in parallel, with formula recovery for any OCR-dropped equations; and finally <strong>vision-explain</strong> annotates figure captions before the assembled <code>DeepTutorAnswer</code> is streamed back. Q&amp;A runs a lighter 4-node graph variant of the same core.</p>
+    <div class="card">
+      <p style="margin:0"><a href="../modes/tutor.html">See the full deep-tutor pipeline diagram →</a></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Powered by retrieval</h2>
+    <p>Every mode runs on the same hybrid retrieval stack: dense embeddings (OpenAI <code>text-embedding-3-large</code>, 3072d) fused with sparse BM25 via Reciprocal Rank Fusion, with an optional cross-encoder rerank pass and author-diversity filtering applied on top. The collections are partitioned by field (<code>field_textbooks</code> for sections, <code>field_images</code> for figures) so queries stay within the correct subject area. For the full mechanics, see <a href="../services/retrieval.html">the retrieval deep-dive</a>.</p>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

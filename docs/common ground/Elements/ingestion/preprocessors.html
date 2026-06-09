@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Ingestion · Preprocessors</title>
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Ingestion · Preprocessors</span> <span class="pill">Task · book → DB</span></h1>
+  <div class="sub">12 offline book-specific scripts in <code>src/ingestion/processed/</code> that produce <code>*_fixed.md</code> inputs before the pipeline runs.</div>
+</header>
+<main>
+  <section>
+    <h2>Overview</h2>
+    <p>Preprocessors are one-time <strong>offline</strong> steps — they are not part of the ingestion pipeline itself. Each script transforms a raw OCR or EPUB-converted markdown file into a clean <code>*_fixed.md</code> that the pipeline's regex pass can parse correctly. As noted in <code>pipeline.py</code>, the pipeline reads the already-preprocessed source directly; there is no "Preprocess" stage inside <code>run_chapter()</code>. Point the book yaml's <code>source_path</code> to the resulting <code>*_fixed.md</code>.</p>
+  </section>
+
+  <section>
+    <h2>Preprocessor registry</h2>
+    <table>
+      <tr><th>Preprocessor</th><th>Book / source format</th><th>Role</th></tr>
+      <tr>
+        <td><code>atwan_preproc.py</code></td>
+        <td>Atwan — Time Series Analysis with Python Cookbook</td>
+        <td>Demotes all single-<code>#</code> headers to <code>##</code> so the yaml-supplied chapter_title serves as H1; dedupes consecutive duplicate headers (page-bleed safety) without removing lines.</td>
+      </tr>
+      <tr>
+        <td><code>cerqueira_preproc.py</code></td>
+        <td>Cerqueira &amp; Roque — Deep Learning for Time Series Cookbook (Packt EPUB-MD)</td>
+        <td>Same flat-H1 demote template as Atwan: every <code>#</code> → <code>##</code>, chapter_title becomes H1, consecutive duplicate headers blanked in-place to preserve line ranges.</td>
+      </tr>
+      <tr>
+        <td><code>cunningham_preproc.py</code></td>
+        <td>Cunningham — Causal Inference: The Mixtape</td>
+        <td>Dedupes consecutive duplicate H1s; promotes non-chapter H1s to H2; first content occurrence of each chapter title stays as H1, later repeats (e.g. per-chapter "Conclusion") are demoted.</td>
+      </tr>
+      <tr>
+        <td><code>goodfellow_preproc.py</code></td>
+        <td>Goodfellow et al. — Deep Learning, MIT Press 2016 (EPUB-MD, no <code>#</code> headers)</td>
+        <td>Rewrites TOC-back link lines as proper markdown headers: two-line chapter/part anchors become single <code>#</code> headers; section links (<code>N.N</code>) become <code>##</code>; subsection links (<code>N.N.N</code>) become <code>###</code>. Line numbers preserved.</td>
+      </tr>
+      <tr>
+        <td><code>kobo_preproc.py</code></td>
+        <td>Generic Packt/kobo EPUB-HTML pandoc exports (span-wrapped text, <code>.pagebreak</code> divs)</td>
+        <td>Runs source through pandoc + <code>kobo_filter.lua</code> (unwrap koboSpan spans, emit page comments, remap header levels); then merges lone chapter-number headings with the following title and collapses blank-line runs. Output: <code>&lt;slug&gt;_fixed.md</code>.</td>
+      </tr>
+      <tr>
+        <td><code>mackay_preproc.py</code></td>
+        <td>MacKay — Mathematical Foundations of Machine Learning</td>
+        <td>Demotes all single-<code>#</code> headers (including <code># Chapter N: Title</code> style) to <code>##</code>; pipeline uses yaml-supplied chapter_title as H1. Line numbers preserved.</td>
+      </tr>
+      <tr>
+        <td><code>morgan_preproc.py</code></td>
+        <td>Morgan et al. — Handbook of Causal Analysis</td>
+        <td>Keeps <code># Chapter N</code> lines as H1; merges a bare chapter-number line with the immediately following title line if needed; promotes all other <code>#</code> headers to <code>##</code>; dedupes consecutive duplicate headers.</td>
+      </tr>
+      <tr>
+        <td><code>murphy_preproc.py</code></td>
+        <td>Murphy — Probabilistic Machine Learning: An Introduction (EPUB-MD, no <code>#</code> headers)</td>
+        <td>Rewrites TOC-back link lines (<code>[**N Title**](#toc…)</code>) as proper markdown headers: chapter links → <code># Chapter N Title</code>, section links → <code>##</code>, subsection links → <code>###</code>. Lines preserved.</td>
+      </tr>
+      <tr>
+        <td><code>pesaran_preproc.py</code></td>
+        <td>Pesaran — Time Series and Panel Data Econometrics, OUP 2015 (EPUB-MD)</td>
+        <td>Strips link wrappers from header lines (<code># [N.N Title](#…)</code> → <code># N.N Title</code>) so the pipeline regex recognises the numeric prefix; also removes inline image fragments from header text. Line numbers preserved.</td>
+      </tr>
+      <tr>
+        <td><code>prado_preproc.py</code></td>
+        <td>Lopez de Prado — Advances in Financial Machine Learning (EPUB-MD)</td>
+        <td>Strips leading/trailing <code>*</code> italic wrappers from any header line so numeric depth patterns work at every level (<code>#### *N.N.N.N Title*</code> → <code>#### N.N.N.N Title</code>). Lines preserved.</td>
+      </tr>
+      <tr>
+        <td><code>spark_ts_preproc.py</code></td>
+        <td>Bellouti &amp; Boufares — Time Series Analysis with Spark (Packt EPUB-MD)</td>
+        <td>Demotes every single-<code>#</code> header to <code>##</code>; yaml-supplied chapter_title serves as H1; consecutive duplicates blanked (not removed) to preserve line numbers and yaml line ranges.</td>
+      </tr>
+      <tr>
+        <td><code>stock_watson_preproc.py</code></td>
+        <td>Stock &amp; Watson — MyLab Intro to Econometrics 4e (EPUB-MD)</td>
+        <td>Strips inline <code>&lt;span&gt;</code> tags from header lines to expose clean <code># Chapter N Title</code> and <code># N.N Title</code> patterns; also strips kobo span IDs from body lines.</td>
+      </tr>
+    </table>
+  </section>
+</main>
+</div>
+<script src="../sidebar.js"></script>
+</body>
+</html>

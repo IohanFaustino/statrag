@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Core</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Core</span> <span class="pill">Core · shared infra</span></h1>
+  <div class="sub">The shared system layer — configuration and Qdrant client/store wrapper. Everything else depends on core; core depends on nothing in-repo.</div>
+</header>
+<main>
+
+  <!-- ===== SECTION 1: Spec ===== -->
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Core · shared infra</td></tr>
+      <tr><th>Path</th><td><code>src/core/</code></td></tr>
+      <tr><th>Import rule</th><td>Nothing in the repo — only third-party libs. <code>ingestion/</code> and <code>services/</code> may import from <code>src.core</code>; core never imports from them.</td></tr>
+      <tr><th>Entrypoint</th><td>Imported as <code>src.core.config</code> / <code>src.core.qdrant_store</code> — no CLI.</td></tr>
+    </table>
+    <p class="caption">Chinese-wall rule verified from <code>src/core/__init__.py</code>.</p>
+  </section>
+
+  <!-- ===== SECTION 2: Dataflow ===== -->
+  <section>
+    <h2>Dataflow</h2>
+    <p>
+      Both modules are consumed by all upstream layers. Neither imports anything from within this
+      repository — only third-party libraries (<code>pydantic-settings</code>, <code>qdrant-client</code>).
+      The arrows below show the direction of dependency: <code>ingestion/</code> and every
+      <code>services/*</code> subpackage pull from <code>src.core</code>; the reverse never occurs.
+    </p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="flowchart TD
+  CFG[&quot;config.py&#10;Settings (pydantic-settings)&quot;]
+  QS[&quot;qdrant_store.py&#10;client + collection helpers&quot;]
+  ING[&quot;src/ingestion/&quot;]
+  SVC[&quot;src/services/*&quot;]
+  CFG --&gt; QS
+  CFG --&gt; ING
+  CFG --&gt; SVC
+  QS --&gt; ING
+  QS --&gt; SVC
+  style CFG fill:#1b1e22,stroke:#E5484D
+  style QS fill:#1b1e22,stroke:#E5484D
+  style ING fill:#1b1e22,stroke:#9aa1aa
+  style SVC fill:#1b1e22,stroke:#9aa1aa">
+flowchart TD
+  CFG["config.py&#10;Settings (pydantic-settings)"]
+  QS["qdrant_store.py&#10;client + collection helpers"]
+  ING["src/ingestion/"]
+  SVC["src/services/*"]
+  CFG --> QS
+  CFG --> ING
+  CFG --> SVC
+  QS --> ING
+  QS --> SVC
+  style CFG fill:#1b1e22,stroke:#E5484D
+  style QS fill:#1b1e22,stroke:#E5484D
+  style ING fill:#1b1e22,stroke:#9aa1aa
+  style SVC fill:#1b1e22,stroke:#9aa1aa
+      </div>
+    </div>
+    <p class="caption">
+      Verified from <code>src/core/__init__.py</code> (import-wall comment) and module-level imports in
+      <code>src/core/qdrant_store.py</code> (imports only <code>src.core.config</code>, no other in-repo path).
+    </p>
+  </section>
+
+  <!-- ===== SECTION 3: Per-module deep-dive ===== -->
+  <section>
+    <h2>Per-module deep-dive</h2>
+
+    <h3><code>config.py</code> — centralized runtime configuration</h3>
+    <p>
+      Defines a single <code>Settings</code> class (Pydantic <code>BaseSettings</code>, line&nbsp;20) that
+      loads from a <code>.env</code> file at the project root (<code>ROOT / ".env"</code>, line&nbsp;23–27)
+      with <code>extra="ignore"</code> — unknown env vars are silently dropped rather than raising.
+      The singleton <code>settings = Settings()</code> (line&nbsp;108) is instantiated at import time;
+      every pipeline module imports from this one object so changing a model ID or port requires only
+      a <code>.env</code> edit, no code change.
+    </p>
+    <p>
+      Alongside <code>Settings</code>, four module-level <code>Path</code> constants are defined
+      (lines&nbsp;13–17): <code>ROOT</code>, <code>DATA_DIR</code>, <code>RAW_DIR</code>, and
+      <code>BM25_DIR</code> / <code>BM25_PICKLE</code>. These are used by ingestion to locate on-disk
+      artifacts and are exposed at module level (not as settings fields) because they are always
+      derived from the repository root — not configurable.
+    </p>
+    <p>
+      The <code>parsed_use_v2_modes()</code> method (lines&nbsp;101–105) handles the comma-separated
+      env-string edge case: <code>USE_V2_MODES</code> can arrive from the environment as a plain
+      string (<code>"*"</code>) or as a JSON list; the method normalizes both forms.
+    </p>
+
+    <h4>Key fields in <code>Settings</code> (verified, <code>config.py</code> lines 29–99)</h4>
+    <table>
+      <tr>
+        <th>Field name</th>
+        <th>Env var alias</th>
+        <th>Default</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td><code>openai_api_key</code></td>
+        <td><code>OPENAI_API_KEY</code></td>
+        <td><em>required</em></td>
+        <td>OpenAI key for embeddings, chat, vision. Line&nbsp;29.</td>
+      </tr>
+      <tr>
+        <td><code>deepseek_api_key</code></td>
+        <td><code>DEEPSEEK_API_KEY</code></td>
+        <td><code>""</code></td>
+        <td>DeepSeek chat + ingestion enrichment. Line&nbsp;30.</td>
+      </tr>
+      <tr>
+        <td><code>qdrant_host</code></td>
+        <td><code>QDRANT_HOST</code></td>
+        <td><code>localhost</code></td>
+        <td>Qdrant HTTP host. Line&nbsp;31.</td>
+      </tr>
+      <tr>
+        <td><code>qdrant_port</code></td>
+        <td><code>QDRANT_PORT</code></td>
+        <td><code>6333</code></td>
+        <td>Qdrant REST port (gRPC is disabled). Line&nbsp;32.</td>
+      </tr>
+      <tr>
+        <td><code>qdrant_api_key</code></td>
+        <td><code>QDRANT_API_KEY</code></td>
+        <td><code>""</code></td>
+        <td>Optional auth key for Qdrant. Line&nbsp;33.</td>
+      </tr>
+      <tr>
+        <td><code>qdrant_collection_text</code></td>
+        <td><code>QDRANT_COLLECTION_TEXT</code></td>
+        <td><code>introduction_textbooks</code></td>
+        <td>Default text collection (used by standalone retrieval CLI). Line&nbsp;34.</td>
+      </tr>
+      <tr>
+        <td><code>qdrant_collection_images</code></td>
+        <td><code>QDRANT_COLLECTION_IMAGES</code></td>
+        <td><code>introduction_images</code></td>
+        <td>Default image collection. Line&nbsp;35.</td>
+      </tr>
+      <tr>
+        <td><code>embedding_model</code></td>
+        <td><code>EMBEDDING_MODEL</code></td>
+        <td><code>text-embedding-3-large</code></td>
+        <td>OpenAI embedding model (3072d). Line&nbsp;38.</td>
+      </tr>
+      <tr>
+        <td><code>llm_model</code></td>
+        <td><code>LLM_MODEL</code></td>
+        <td><code>gpt-5.4-nano-2026-03-17</code></td>
+        <td>Default chat model. Line&nbsp;39.</td>
+      </tr>
+      <tr>
+        <td><code>openai_model_nano</code></td>
+        <td><code>OPENAI_MODEL_NANO</code></td>
+        <td><code>gpt-5.4-nano-2026-03-17</code></td>
+        <td>Nano-tier OpenAI model for cost-sensitive calls. Line&nbsp;40.</td>
+      </tr>
+      <tr>
+        <td><code>openai_model_full</code></td>
+        <td><code>OPENAI_MODEL_FULL</code></td>
+        <td><code>gpt-5.4-2026-03-05</code></td>
+        <td>Full-tier OpenAI model. Line&nbsp;41.</td>
+      </tr>
+      <tr>
+        <td><code>deepseek_model</code></td>
+        <td><code>DEEPSEEK_MODEL</code></td>
+        <td><code>deepseek-v4-pro</code></td>
+        <td>Chat-side DeepSeek model (long-context organizer). Line&nbsp;44.</td>
+      </tr>
+      <tr>
+        <td><code>ingest_deepseek_model</code></td>
+        <td><code>RAG_INGEST_DEEPSEEK_MODEL</code></td>
+        <td><code>deepseek-v4-flash</code></td>
+        <td>Ingestion enrichment model (non-thinking, cheap). Line&nbsp;49.</td>
+      </tr>
+      <tr>
+        <td><code>default_provider</code></td>
+        <td><code>RAG_DEFAULT_PROVIDER</code></td>
+        <td><code>deepseek</code></td>
+        <td>RAG-only ingestion provider default. Line&nbsp;68.</td>
+      </tr>
+      <tr>
+        <td><code>dense_weight</code></td>
+        <td><code>DENSE_WEIGHT</code></td>
+        <td><code>0.6</code></td>
+        <td>RRF fusion weight for dense results. Line&nbsp;69.</td>
+      </tr>
+      <tr>
+        <td><code>sparse_weight</code></td>
+        <td><code>SPARSE_WEIGHT</code></td>
+        <td><code>0.4</code></td>
+        <td>RRF fusion weight for sparse (BM25) results. Line&nbsp;70.</td>
+      </tr>
+      <tr>
+        <td><code>reranker_model</code></td>
+        <td><code>RERANKER_MODEL</code></td>
+        <td><code>BAAI/bge-reranker-v2-m3</code></td>
+        <td>Cross-encoder reranker loaded via sentence-transformers. Line&nbsp;72.</td>
+      </tr>
+      <tr>
+        <td><code>rerank_top_k_in</code></td>
+        <td><code>RERANK_TOP_K_IN</code></td>
+        <td><code>50</code></td>
+        <td>Candidate pool size fed into reranker. Line&nbsp;73.</td>
+      </tr>
+      <tr>
+        <td><code>rerank_top_n_out</code></td>
+        <td><code>RERANK_TOP_N_OUT</code></td>
+        <td><code>10</code></td>
+        <td>Output count after reranking. Line&nbsp;74.</td>
+      </tr>
+      <tr>
+        <td><code>groq_api_key</code></td>
+        <td><code>GROQ_API_KEY</code></td>
+        <td><code>""</code></td>
+        <td>Groq chat-only provider key. Line&nbsp;51.</td>
+      </tr>
+      <tr>
+        <td><code>groq_default_model</code></td>
+        <td><code>GROQ_DEFAULT_MODEL</code></td>
+        <td><code>meta-llama/llama-4-scout-17b-16e-instruct</code></td>
+        <td>Default Groq model. Line&nbsp;63–65.</td>
+      </tr>
+      <tr>
+        <td><code>use_v2_modes</code></td>
+        <td><code>USE_V2_MODES</code></td>
+        <td><code>["*"]</code></td>
+        <td>Mode IDs routed to LangChain+LangGraph v2 pipeline; <code>"*"</code> = all. Lines&nbsp;80–88.</td>
+      </tr>
+      <tr>
+        <td><code>checkpointer_db</code></td>
+        <td><code>CHECKPOINTER_DB</code></td>
+        <td><code>data/checkpoints.db</code></td>
+        <td>SQLite path for LangGraph checkpointer (chat history + thread state). Lines&nbsp;90–94.</td>
+      </tr>
+      <tr>
+        <td><code>langsmith_disabled</code></td>
+        <td><code>LANGSMITH_DISABLED</code></td>
+        <td><code>False</code></td>
+        <td>Opt-out of LangSmith auto-tracing (tracing on by default in dev). Lines&nbsp;95–99.</td>
+      </tr>
+    </table>
+
+    <h3><code>qdrant_store.py</code> — Qdrant client and collection bootstrap</h3>
+    <p>
+      Provides three things: a lazily created singleton client, a naming convention function, and two
+      idempotent collection-bootstrap helpers. All three are imported directly by both ingestion and
+      the chat-service retrievers.
+    </p>
+    <p>
+      <strong>Module-level constants</strong> (lines&nbsp;27–30) define the named-vector keys used
+      across the entire system: <code>DENSE_DIM = 3072</code>, <code>TEXT_VECTOR = "text"</code>,
+      <code>SPARSE_VECTOR = "bm25"</code>, <code>IMAGE_VECTOR = "caption"</code>. Any code that
+      reads or writes these vectors imports from here — there is no duplication.
+    </p>
+    <p>
+      <strong><code>client()</code></strong> (lines&nbsp;33–40) is decorated with
+      <code>@lru_cache(maxsize=1)</code> — the first call creates a <code>QdrantClient</code> connecting
+      to <code>settings.qdrant_host:settings.qdrant_port</code> with <code>prefer_grpc=False</code>.
+      The <code>qdrant_api_key</code> is passed only when non-empty (<code>or None</code>). All
+      subsequent calls in the same process reuse the same connection.
+    </p>
+    <p>
+      <strong><code>collection_names(field)</code></strong> (lines&nbsp;43–48) strips and lower-cases
+      the field slug then returns the tuple <code>("{field}_textbooks", "{field}_images")</code>.
+      The field comes from the per-book YAML (<code>src/ingestion/books/&lt;slug&gt;.yaml</code>).
+      Passing an empty string raises <code>ValueError</code> (line&nbsp;47). This function is the
+      single source of truth for the naming convention — callers never construct collection names
+      manually.
+    </p>
+    <p>
+      <strong><code>ensure_text_collection(name)</code></strong> (lines&nbsp;51–65) creates the text
+      collection if it does not already exist. It fetches the set of existing collection names
+      (line&nbsp;53), then calls <code>create_collection</code> with two vector configs: a named dense
+      vector (<code>TEXT_VECTOR</code>, 3072d, cosine distance) and a named sparse vector
+      (<code>SPARSE_VECTOR</code>, BM25, <code>on_disk=False</code>). Existing collections are silently
+      skipped — this makes the function safe to call at the start of every ingest run without extra
+      guards in callers.
+    </p>
+    <p>
+      <strong><code>ensure_image_collection(name)</code></strong> (lines&nbsp;68–79) follows the same
+      pattern but creates a <strong>dense-only</strong> collection using the <code>IMAGE_VECTOR</code>
+      (<code>"caption"</code>) key at 3072d cosine. Image collections have no sparse index because
+      captions are short and lexical BM25 adds no value over the dense embedding of caption text.
+    </p>
+    <p class="note">
+      <strong>Auto-create gotcha:</strong> collections are created on first ingest, not on application
+      startup. A query against a field that has never been ingested will fail with a Qdrant
+      "collection not found" error. The retrieval service handles this by iterating only over
+      collections that actually exist in Qdrant (via <code>client().get_collections()</code>).
+    </p>
+  </section>
+
+  <!-- ===== SECTION 4: Schemas & contracts ===== -->
+  <section>
+    <h2>Schemas &amp; contracts</h2>
+
+    <h3>Qdrant collection schema</h3>
+    <table>
+      <tr>
+        <th>Collection type</th>
+        <th>Name pattern</th>
+        <th>Named vectors</th>
+        <th>Sparse vectors</th>
+        <th>Notes</th>
+      </tr>
+      <tr>
+        <td>Text (sections)</td>
+        <td><code>{field}_textbooks</code></td>
+        <td><code>"text"</code> — 3072d, <code>Distance.COSINE</code></td>
+        <td><code>"bm25"</code> — <code>SparseIndexParams(on_disk=False)</code></td>
+        <td>Payload keys include <code>book</code>, <code>book_slug</code>, <code>page_from</code>,
+            <code>h1</code>, <code>h2_path</code>, <code>synopsis</code>, <code>theme</code>, etc.
+            See <a href="../ingestion/chunking.html">Ingestion → Chunking</a>.</td>
+      </tr>
+      <tr>
+        <td>Images (figures)</td>
+        <td><code>{field}_images</code></td>
+        <td><code>"caption"</code> — 3072d, <code>Distance.COSINE</code></td>
+        <td><em>none</em></td>
+        <td>Dense-only; caption text embedded at ingest time with
+            <code>text-embedding-3-large</code>. Queried via <code>IMAGE_VECTOR</code> constant.</td>
+      </tr>
+    </table>
+    <p class="caption">
+      Schema verified from <code>src/core/qdrant_store.py</code> lines&nbsp;27–30, 56–64, 74–78.
+      <code>DENSE_DIM = 3072</code> (line&nbsp;27), <code>TEXT_VECTOR = "text"</code> (line&nbsp;28),
+      <code>SPARSE_VECTOR = "bm25"</code> (line&nbsp;29), <code>IMAGE_VECTOR = "caption"</code> (line&nbsp;30).
+    </p>
+
+    <h3>Config surface — most-referenced env vars</h3>
+    <table>
+      <tr>
+        <th>Env var</th>
+        <th>Field</th>
+        <th>Default</th>
+        <th>Consumed by</th>
+      </tr>
+      <tr>
+        <td><code>EMBEDDING_MODEL</code></td>
+        <td><code>embedding_model</code></td>
+        <td><code>text-embedding-3-large</code></td>
+        <td>Ingestion embedder, retrieval dense embed</td>
+      </tr>
+      <tr>
+        <td><code>RERANKER_MODEL</code></td>
+        <td><code>reranker_model</code></td>
+        <td><code>BAAI/bge-reranker-v2-m3</code></td>
+        <td><code>src/services/chat/rerankers.py</code></td>
+      </tr>
+      <tr>
+        <td><code>LLM_MODEL</code></td>
+        <td><code>llm_model</code></td>
+        <td><code>gpt-5.4-nano-2026-03-17</code></td>
+        <td>Default chat model across all modes</td>
+      </tr>
+      <tr>
+        <td><code>QDRANT_HOST</code> / <code>QDRANT_PORT</code></td>
+        <td><code>qdrant_host</code> / <code>qdrant_port</code></td>
+        <td><code>localhost</code> / <code>6333</code></td>
+        <td><code>qdrant_store.client()</code></td>
+      </tr>
+      <tr>
+        <td><code>QDRANT_COLLECTION_TEXT</code></td>
+        <td><code>qdrant_collection_text</code></td>
+        <td><code>introduction_textbooks</code></td>
+        <td>Standalone retrieval CLI, one-shot verification script</td>
+      </tr>
+      <tr>
+        <td><code>DENSE_WEIGHT</code> / <code>SPARSE_WEIGHT</code></td>
+        <td><code>dense_weight</code> / <code>sparse_weight</code></td>
+        <td><code>0.6</code> / <code>0.4</code></td>
+        <td>Hybrid RRF fusion prefetch sizing</td>
+      </tr>
+      <tr>
+        <td><code>RAG_DEFAULT_PROVIDER</code></td>
+        <td><code>default_provider</code></td>
+        <td><code>deepseek</code></td>
+        <td>Ingestion enrichment provider (overridable via <code>--provider</code>)</td>
+      </tr>
+      <tr>
+        <td><code>CHECKPOINTER_DB</code></td>
+        <td><code>checkpointer_db</code></td>
+        <td><code>data/checkpoints.db</code></td>
+        <td>LangGraph thread-state SQLite, resumable chat runs</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ===== SECTION 5: Rationale & invariants ===== -->
+  <section>
+    <h2>Rationale &amp; invariants</h2>
+
+    <h3>Why core imports nothing in-repo — the Chinese wall</h3>
+    <p>
+      The rule is stated verbatim in <code>src/core/__init__.py</code> (lines&nbsp;3–7):
+      <em>"core/ depends on NOTHING in the repo (only third-party libs). ingestion/ and services/
+      may import from src.core. core never imports from ingestion or services."</em>
+    </p>
+    <p>
+      There are three concrete benefits to enforcing this wall:
+    </p>
+    <ul>
+      <li>
+        <strong>No import cycles.</strong> Ingestion and services can both import core freely.
+        If core imported either of them, a service importing core would create a cycle and Python
+        would raise an <code>ImportError</code> on startup.
+      </li>
+      <li>
+        <strong>Single source of truth for infra.</strong> All LLM model IDs, ports, collection
+        names, and weights live in one place (<code>Settings</code>). Changing a default requires
+        one <code>.env</code> edit, not a grep across a dozen service files.
+      </li>
+      <li>
+        <strong>Testability.</strong> Because core has no in-repo dependencies, it can be imported
+        and tested in complete isolation — no mocking of ingestion pipelines or chat service state
+        needed. The one-shot verification script in <code>docs/system/invariants.md</code> imports
+        only <code>src.core.qdrant_store.client</code> and <code>src.core.config.settings</code>.
+      </li>
+    </ul>
+    <p>
+      The Chinese wall also bounds how a future new service can go wrong: a badly behaved
+      <code>src/services/new_service/</code> can only harm itself — it cannot corrupt the shared
+      Qdrant schema or the singleton <code>Settings</code> object because those live in core and
+      are read-only at runtime.
+    </p>
+
+    <h3>Relevant invariants from <code>docs/system/invariants.md</code></h3>
+    <p>
+      The invariant document covers over 37 numbered invariants for the ingestion and chat-service
+      layers. The following are the most directly relevant to the core layer:
+    </p>
+    <ul>
+      <li>
+        <strong>Invariant 16</strong> — Image collections (<code>{field}_images</code>) MUST exist
+        before any tutor query routes there; <code>ensure_image_collection</code> runs inside
+        <code>_persist_images</code> (auto-creates). Upserts MUST be chunked at ≤&nbsp;100 points
+        per batch to avoid Qdrant write timeouts.
+      </li>
+      <li>
+        <strong>Invariant 37</strong> — The <code>formula_cache</code> Qdrant collection is
+        auto-created on first write by the formula-recovery stage; lookup gates on score ≥&nbsp;0.93.
+        This follows the same <code>ensure_*_collection</code> pattern provided by
+        <code>qdrant_store.py</code>.
+      </li>
+    </ul>
+    <p>
+      Invariants 1–11 govern ingestion payload shape (field presence, synopsis type, token count)
+      and are verified by the one-shot script that directly calls <code>client()</code> from
+      <code>src.core.qdrant_store</code>. Invariant 12 governs the dark-theme CSS token. Invariants
+      13–36 govern the chat-service pipeline stages. None of these add further constraints on the
+      core module itself beyond the Chinese-wall rule documented in <code>__init__.py</code>.
+    </p>
+
+    <div class="card">
+      <p style="margin:0">
+        <strong>Related:</strong>
+        <a href="../index.html">Overview — Chinese-wall architecture</a> &nbsp;·&nbsp;
+        <a href="../services/index.html">Services overview</a>
+      </p>
+    </div>
+  </section>
+
+</main>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="../sidebar.js"></script>
+</body>
+</html>

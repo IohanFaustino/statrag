@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>statrag — Ingestion (code)</title>
+<link rel="stylesheet" href="../style.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body data-base="../">
+<aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Ingestion (code)</span> <span class="pill">Task · external-input → DB</span></h1>
+  <div class="sub">
+    Code-architecture deep-dive for <code>src/ingestion/</code> — modules, call graph, schemas,
+    import wall, and design rationale. For the operator pipeline (commands, preprocessors, per-book
+    YAML, run logs) see <a href="../ingestion/index.html">the Ingestion hub</a>.
+  </div>
+</header>
+<main>
+
+  <!-- ===== SECTION 1: Spec ===== -->
+  <section>
+    <h2>Spec</h2>
+    <table>
+      <tr><th>Layer</th><td>Task · external-input → DB</td></tr>
+      <tr><th>Path</th><td><code>src/ingestion/</code></td></tr>
+      <tr><th>Import rule</th><td>Only <code>src.core</code> + third-party libs. No imports from
+          <code>services/</code>. Other tasks and services never import from
+          <code>ingestion/</code>.</td></tr>
+      <tr><th>Entrypoint</th><td><code>python -m src.ingestion.pipeline --book &lt;slug&gt;
+          --chapter chNN</code> (<code>pipeline.py</code> line&nbsp;271 <code>main()</code>).
+          Add <code>--status</code> for manifest summary, <code>--force</code> to skip the hash
+          check, <code>--limit-sections N</code> for a preview run that does NOT write the
+          manifest.</td></tr>
+    </table>
+    <p class="caption">
+      Chinese-wall rule verified verbatim from <code>src/ingestion/__init__.py</code>
+      lines&nbsp;1–7.
+    </p>
+  </section>
+
+  <!-- ===== SECTION 2: Call graph ===== -->
+  <section>
+    <h2>Call graph</h2>
+    <p>
+      The main text path enters at <code>pipeline.run_chapter()</code> and flows through six
+      sequential stages (A–F, as labelled in the <code>pipeline.py</code> module docstring,
+      lines&nbsp;4–9). The image side-branch (<code>ingest_images_only</code>) is a standalone
+      CLI that re-uses <code>pipeline._persist_images()</code> and writes a synthetic
+      <code>ManifestEntry</code> with <code>chapter_id="images_only"</code>.
+    </p>
+    <div class="diagram-wrap">
+      <div class="mermaid"
+           data-src="flowchart TD
+  CLI[&quot;CLI: python -m src.ingestion.pipeline&quot;]
+  CLI --&gt; RC[&quot;pipeline.run_chapter()&quot;]
+
+  subgraph A-F [&quot;Stages A–F (pipeline.py)&quot;]
+    RC --&gt; B[&quot;B · regex_pass.parse_chapter()&#10;section stream + H2 hierarchy&quot;]
+    B --&gt; C[&quot;C · llm_enrich.enrich_sections()&#10;via llm_client.get_llm()&quot;]
+    C --&gt; D[&quot;D · build_documents.build()&#10;token-aware chunking (8000 tok)&quot;]
+    D --&gt; E1[&quot;E · _persist_text()&#10;OpenAI dense embed + fastembed BM25&quot;]
+    E1 --&gt; QT[&quot;Qdrant: &lt;field&gt;_textbooks&quot;]
+    D --&gt; EB[&quot;E · _persist_images()&#10;OpenAI dense embed (caption)&quot;]
+    EB --&gt; QI[&quot;Qdrant: &lt;field&gt;_images&quot;]
+    QT --&gt; F[&quot;F · manifest.register()&#10;data/parsed/manifest.json&quot;]
+    QI --&gt; F
+  end
+
+  IMG[&quot;ingest_images_only.py CLI&quot;] --&gt; EB
+  style QT fill:#1b1e22,stroke:#E5484D
+  style QI fill:#1b1e22,stroke:#E5484D
+  style IMG fill:#1b1e22,stroke:#9aa1aa">
+flowchart TD
+  CLI["CLI: python -m src.ingestion.pipeline"]
+  CLI --> RC["pipeline.run_chapter()"]
+
+  subgraph A-F ["Stages A–F (pipeline.py)"]
+    RC --> B["B · regex_pass.parse_chapter()&#10;section stream + H2 hierarchy"]
+    B --> C["C · llm_enrich.enrich_sections()&#10;via llm_client.get_llm()"]
+    C --> D["D · build_documents.build()&#10;token-aware chunking (8000 tok)"]
+    D --> E1["E · _persist_text()&#10;OpenAI dense embed + fastembed BM25"]
+    E1 --> QT["Qdrant: &lt;field&gt;_textbooks"]
+    D --> EB["E · _persist_images()&#10;OpenAI dense embed (caption)"]
+    EB --> QI["Qdrant: &lt;field&gt;_images"]
+    QT --> F["F · manifest.register()&#10;data/parsed/manifest.json"]
+    QI --> F
+  end
+
+  IMG["ingest_images_only.py CLI"] --> EB
+  style QT fill:#1b1e22,stroke:#E5484D
+  style QI fill:#1b1e22,stroke:#E5484D
+  style IMG fill:#1b1e22,stroke:#9aa1aa
+      </div>
+    </div>
+    <p class="caption">
+      Stage labels verified from <code>src/ingestion/pipeline.py</code> lines&nbsp;4–9.
+      <code>_persist_text</code> (line&nbsp;90) and <code>_persist_images</code> (line&nbsp;128)
+      are private helpers in <code>pipeline.py</code>. <code>ingest_images_only</code> imports
+      <code>_persist_images</code> directly (line&nbsp;25).
+    </p>
+  </section>
+
+  <!-- ===== SECTION 3: Per-module deep-dive ===== -->
+  <section>
+    <h2>Per-module deep-dive</h2>
+
+    <h3><code>pipeline.py</code> — orchestrator and CLI</h3>
+    <p>
+      The top-level orchestrator. Its public API is one function:
+      <code>run_chapter(book_slug, chapter_id, *, provider, force, limit_sections)</code>
+      (line&nbsp;169). This function loads the per-book YAML, computes a chapter hash via
+      <code>manifest.text_hash()</code>, checks <code>manifest.should_skip()</code> (skips unless
+      <code>--force</code>), then sequences stages B–F in order. It returns a stats dict (keys:
+      <code>status, sections, chunks, split_sections, oversize, token_histogram, images</code>)
+      so notebooks can inspect the run without parsing logs.
+    </p>
+    <p>
+      The two persist helpers — <code>_persist_text()</code> (line&nbsp;90) and
+      <code>_persist_images()</code> (line&nbsp;128) — are module-private. Each calls
+      <code>ensure_text_collection()</code> / <code>ensure_image_collection()</code> from
+      <code>src.core.qdrant_store</code> (idempotent create-if-absent) before upsert.
+      <code>_persist_images()</code> uses a hard batch cap of <code>BATCH = 100</code>
+      points (line&nbsp;151) to avoid Qdrant write timeouts on large figure sets (600+ images in
+      some books).
+    </p>
+    <p>
+      <strong>Chunk IDs</strong> are UUID5 over <code>"c::{chunk_id}"</code>
+      (<code>_uuid_for()</code>, line&nbsp;86); image IDs are UUID5 over
+      <code>"img::{book_slug}::{image_name}"</code>. Both are deterministic — re-ingesting the
+      same content produces the same Qdrant point IDs, so upsert is idempotent.
+    </p>
+    <p>
+      <strong>CLI flags</strong> (<code>main()</code>, line&nbsp;271):
+      <code>--status</code> calls <code>cmd_status()</code> (line&nbsp;261), which prints a
+      summary from <code>manifest.list_books()</code>;
+      <code>--provider openai|deepseek</code> (default: <code>settings.default_provider</code>);
+      <code>--force</code> bypasses the chapter-hash skip check;
+      <code>--limit-sections N</code> truncates <code>sections</code> before enrichment and
+      suppresses the manifest write (invariant&nbsp;7).
+    </p>
+
+    <h3><code>build_documents.py</code> — Stage D chunker</h3>
+    <p>
+      Implements single-tier, token-aware chunking. Module docstring (line&nbsp;1–13) states the
+      rules: one section = one chunk when the section fits within
+      <code>TARGET_TOKENS</code>; if it exceeds that limit it is split into N windows of
+      <code>TARGET_TOKENS</code> with <code>OVERLAP_TOKENS</code> overlap.
+    </p>
+    <p>
+      <strong>Constants</strong> (lines&nbsp;29–31):
+    </p>
+    <ul>
+      <li><code>TARGET_TOKENS = 8000</code> — split threshold and window size.</li>
+      <li><code>OVERLAP_TOKENS = 200</code> — token overlap between consecutive windows.</li>
+      <li><code>HARD_MAX_TOKENS = 8190</code> — safety cap; any chunk above this logs an
+          <code>ERROR</code> and increments <code>BuildStats.n_oversize</code>. Must be 0 after a
+          clean ingest (invariant&nbsp;6). The OpenAI embedding API hard limit is 8191 tokens.</li>
+    </ul>
+    <p>
+      The encoder is <code>tiktoken.get_encoding("cl100k_base")</code> (line&nbsp;28), matching
+      the <code>text-embedding-3-large</code> / GPT-4 family tokenizer.
+      <code>count_tokens()</code> (line&nbsp;34) passes <code>disallowed_special=()</code> so
+      literal tokens like <code>&lt;|endoftext|&gt;</code> in NLP textbooks encode as normal
+      characters rather than raising.
+    </p>
+    <p>
+      <strong><code>_flat_meta(s, book)</code></strong> (line&nbsp;60) assembles the Qdrant payload
+      dict from a <code>SectionMetadata</code> and <code>BookMetadata</code>. Key fields:
+      <code>book</code>, <code>book_slug</code>, <code>book_name</code>, <code>theme</code>,
+      <code>authors</code>, <code>chapter_id</code>, <code>section_id</code>, <code>h1</code>,
+      <code>h2_path</code>, <code>page_from</code>, <code>page_to</code>, <code>has_formula</code>,
+      <code>has_image</code>, <code>has_table</code>, <code>n_formulas</code>,
+      <code>synopsis</code> (capped at 500 chars), <code>index_extended</code>
+      (first 20, comma-joined). Two additional fields are added per chunk: <code>chunk_index</code>
+      and <code>n_chunks_in_section</code> and <code>token_count</code>.
+    </p>
+    <p>
+      <strong>Deduplication</strong>: <code>build()</code> (line&nbsp;95) de-duplicates chunk IDs
+      before returning — content-addressable IDs (MD5 of text, line&nbsp;56) make re-ingestion
+      the same chapter idempotent; the Qdrant upsert overwrites existing points with identical IDs.
+    </p>
+    <p>
+      <strong><code>BuildStats</code></strong> (dataclass, line&nbsp;82): fields
+      <code>n_sections</code>, <code>n_chunks</code>, <code>n_oversize</code>,
+      <code>split_sections</code>, <code>token_min</code>, <code>token_max</code>,
+      <code>token_mean</code>, <code>token_histogram</code> (six buckets: <code>&lt;1k</code>,
+      <code>1k-2k</code>, <code>2k-4k</code>, <code>4k-6k</code>, <code>6k-8k</code>,
+      <code>&gt;8k</code>), <code>per_section</code>. Serialized to
+      <code>data/parsed/&lt;book&gt;/&lt;chapter&gt;_build_stats.json</code> after every run.
+    </p>
+
+    <h3><code>llm_enrich.py</code> + <code>llm_client.py</code> — Stage C enrichment</h3>
+    <p>
+      <strong><code>llm_enrich.py</code></strong> adds two metadata fields to each
+      <code>SectionMetadata</code>: <code>index_extended</code> (5–15 extra lowercase keywords)
+      and <code>synopsis</code> (1–3 sentence structured summary referencing formulas, figures,
+      and tables by ID). The enrichment prompt (<code>SYSTEM</code> + <code>USER</code>,
+      lines&nbsp;32–65) uses a one-shot JSON example and four strict rules. Rule 1 is "synopsis
+      MUST be a single string, NEVER an array" — enforced defensively in
+      <code>_coerce_synopsis()</code> (line&nbsp;88), which joins a list if the model drifts
+      (invariant&nbsp;8).
+    </p>
+    <p>
+      <strong>Caching</strong> (line&nbsp;75): results are persisted to
+      <code>data/parsed/&lt;book&gt;/cache/&lt;section_id&gt;__&lt;provider&gt;__&lt;hash&gt;.json</code>.
+      The hash is <code>MD5(text + "|" + formulas)</code> (line&nbsp;81), so re-ingesting unchanged
+      sections uses zero LLM tokens. The cache is NOT cleared by <code>--force</code>; to force
+      re-enrichment, delete the cache directory.
+    </p>
+    <p>
+      <strong><code>llm_client.py</code></strong> (line&nbsp;25, <code>get_llm()</code>) returns a
+      <code>langchain_openai.ChatOpenAI</code> instance wired to the chosen provider:
+    </p>
+    <ul>
+      <li>
+        <strong><code>openai</code></strong> → <code>settings.openai_model_nano</code>
+        (<code>gpt-5.4-nano-2026-03-17</code>).
+      </li>
+      <li>
+        <strong><code>deepseek</code></strong> (default) →
+        <code>settings.ingest_deepseek_model</code> (<code>deepseek-v4-flash</code>, line&nbsp;37)
+        via <code>base_url=settings.deepseek_base_url</code>. DeepSeek v4 model IDs default to
+        <em>thinking mode</em> — they spend tokens on <code>reasoning_content</code> and may
+        return empty <code>content</code>, which breaks <code>JsonOutputParser</code>. Thinking
+        is disabled explicitly with <code>extra_body={"thinking": {"type": "disabled"}}</code>
+        (line&nbsp;41). Verified in module comment lines&nbsp;33–36.
+      </li>
+    </ul>
+    <p>
+      Groq is explicitly <strong>out of scope</strong> for ingestion (invariant&nbsp;26 in
+      <code>docs/system/invariants.md</code>); <code>get_llm()</code> only accepts
+      <code>"openai"</code> or <code>"deepseek"</code> (the <code>Provider</code> Literal,
+      line&nbsp;22).
+    </p>
+
+    <h3><code>regex_pass.py</code> — Stage B section parser</h3>
+    <p>
+      A deterministic, streaming line-by-line parser over a markdown chapter slice. It emits one
+      <code>SectionMetadata</code> per H2+ section. The key design choices:
+    </p>
+    <ul>
+      <li>
+        <strong>Page-state tracking</strong>: every <code>&lt;!-- page N --&gt;</code> comment
+        updates <code>current_page</code> (line&nbsp;186). A look-behind scan
+        (<code>_peek_page_before()</code>, line&nbsp;63) initialises the page cursor from lines
+        before the chapter slice, so the first section's <code>page_from</code> is never
+        <code>None</code> (invariant&nbsp;2).
+      </li>
+      <li>
+        <strong>H2-path hierarchy</strong>: numbered headers (e.g. "2.1", "2.1.1") form the
+        backbone stack; unnumbered headers are leaf sub-sections appended to the last numbered
+        ancestor. The path separator is <code>" | "</code> (invariant&nbsp;9). Levels are
+        determined by <code>_numeric_depth()</code> (line&nbsp;93) which counts
+        <code>.</code>/<code>-</code> separators in the numeric prefix.
+      </li>
+      <li>
+        <strong>OCR noise filter</strong>: <code>RE_OCR_HEADER_NOISE</code> (line&nbsp;32) drops
+        headers that are Python REPL output (<code>Out[</code>, <code>In[</code>, <code>&gt;&gt;&gt;</code>)
+        wrongly marked up as headers. OCR page-header bleed
+        (<code>"### N. Statistical Learning"</code>) is stripped before parsing via
+        <code>_strip_ocr_bleed()</code> (line&nbsp;135).
+      </li>
+      <li>
+        <strong>Artifact extraction</strong>: <code>_extract_artifacts()</code> (line&nbsp;112)
+        collects block formulas (<code>$$…$$</code>), inline formulas (<code>$…$</code>), image
+        refs (<code>&lt;img src=&quot;imgs/…&quot;&gt;</code> and
+        <code>![](imgs/…)</code>), HTML tables, and TABLE reference strings into
+        the <code>SectionMetadata</code> lists.
+      </li>
+      <li>
+        <strong>H1 default</strong>: <code>chapter_title</code> from the per-book YAML seeds
+        <code>current_h1</code> (line&nbsp;146) so even chapters without an explicit
+        <code>#</code> header get a non-empty <code>h1</code> (invariant&nbsp;4).
+      </li>
+    </ul>
+    <p>
+      <code>extract_images()</code> (line&nbsp;249) performs a second pass over the parsed sections
+      using <code>RE_IMG_AND_CAPTION</code> (line&nbsp;47) to pair each figure with its nearest
+      <code>&lt;div&gt;FIGURE X.Y…&lt;/div&gt;</code> caption. Unpaired images are matched to
+      orphan captions; images without any caption are assigned <code>"(no caption found)"</code>.
+    </p>
+
+    <h3><code>ingest_images_only.py</code> — standalone image ingest</h3>
+    <p>
+      A separate CLI (<code>python -m src.ingestion.ingest_images_only --book &lt;slug&gt; --md
+      &lt;path&gt;</code>) for VLM-processed or EPUB-converted markdown that has rich figure content
+      but whose text side has already been ingested (or does not use the standard chapter-slice
+      format). It skips the text pipeline entirely.
+    </p>
+    <p>
+      Two extraction paths are available, selected by <code>--format vlm|epub|auto</code>
+      (default <code>auto</code>, which inspects the first image reference pattern):
+    </p>
+    <ul>
+      <li>
+        <strong>VLM format</strong> (<code>extract_vlm_images()</code>, line&nbsp;248): image refs
+        look like <code>![](images/&lt;sha&gt;.jpg)</code>. Captions are assembled from preceding
+        prose and the nearest <code>&lt;details&gt;&lt;summary&gt;…&lt;/summary&gt;…&lt;/details&gt;</code>
+        block (VLM dump output format).
+      </li>
+      <li>
+        <strong>EPUB format</strong> (<code>extract_epub_images()</code>, line&nbsp;188): refs are
+        <code>![alt](markdown/&lt;Title&gt;/media/…/*.jpg)</code>; captions come from the next
+        italicized single-line paragraph (<code>*Figure x.x: …*</code>). Inline-math art files
+        (<code>Art_P*.jpg</code>) are skipped.
+      </li>
+    </ul>
+    <p>
+      Both paths call <code>_is_cover_image()</code> (line&nbsp;61) to drop title-page / cover /
+      endpaper images (filename hint or position in first 3% of file with no preceding prose).
+      After extraction the standard <code>_persist_images()</code> from <code>pipeline.py</code>
+      is called (imported at line&nbsp;25). A <code>ManifestEntry</code> with
+      <code>chapter_id="images_only"</code> and <code>chunk_count=0</code> is written
+      (invariant&nbsp;15). The <code>--dry-run</code> flag logs 3 sample records without
+      upserting.
+    </p>
+
+    <h3><code>manifest.py</code> — Stage F registry</h3>
+    <p>
+      Maintains <code>data/parsed/manifest.json</code> — a flat JSON list of
+      <code>ManifestEntry</code> records, one per (book, chapter) pair. The manifest is the
+      idempotency gate: <code>should_skip()</code> (line&nbsp;54) returns
+      <code>(True, reason)</code> when the <code>(book_slug, chapter_id)</code> pair exists with
+      the same <code>chapter_hash</code> and <code>status="success"</code>. If the chapter
+      content changes (new OCR correction, section addition), the hash differs and re-ingest
+      proceeds.
+    </p>
+    <p>
+      <code>register()</code> (line&nbsp;70) is upsert-style: it removes the previous entry for
+      the same (book, chapter) pair and appends the new one. The file is loaded and saved in full
+      on each call — acceptable because manifest files are small (tens of entries).
+    </p>
+    <p>
+      Hash functions: <code>file_hash(path)</code> (line&nbsp;27) — MD5 over the full source
+      file; <code>text_hash(text)</code> (line&nbsp;36) — MD5 of the chapter slice text string.
+      Both return <code>"md5:&lt;hex&gt;"</code>.
+      <code>list_books()</code> (line&nbsp;86) returns summary dicts for the CLI
+      <code>--status</code> output.
+    </p>
+
+    <h3><code>schema.py</code> — Pydantic models</h3>
+    <p>
+      All Pydantic models for the ingestion layer are defined here (line&nbsp;1, module docstring:
+      "Mirrors ingestion/reference.md schema"). There are four classes:
+      <code>BookMetadata</code>, <code>SectionMetadata</code>, <code>ImageMetadata</code>, and
+      <code>ManifestEntry</code> / <code>Manifest</code>. See the
+      <a href="#schemas-contracts">Schemas &amp; contracts</a> section below for field details.
+    </p>
+  </section>
+
+  <!-- ===== SECTION 4: Schemas & contracts ===== -->
+  <section id="schemas-contracts">
+    <h2>Schemas &amp; contracts</h2>
+
+    <h3>Chunk-record payload (text collection)</h3>
+    <p>
+      Each Qdrant point in <code>&lt;field&gt;_textbooks</code> has a payload assembled by
+      <code>_flat_meta()</code> (<code>build_documents.py</code> line&nbsp;60) plus three
+      per-chunk fields added in the loop (line&nbsp;119):
+      <code>chunk_index</code>, <code>n_chunks_in_section</code>, <code>token_count</code>.
+      The full field-by-field reference (including invariant notes for
+      <code>book</code>&nbsp;/&nbsp;<code>book_slug</code>&nbsp;/&nbsp;<code>book_name</code>
+      triad, <code>page_from</code>&nbsp;&gt;&nbsp;0, synopsis string, theme) lives in
+      <a href="../ingestion/chunking.html">Ingestion → Chunking</a>.
+    </p>
+    <p class="note">
+      Invariant check: <code>book == book_slug != book_name</code> (invariant&nbsp;1);
+      <code>page_from &gt; 0</code> for the first section (invariant&nbsp;2);
+      <code>synopsis</code> is always <code>str</code>, never a list (invariant&nbsp;5);
+      <code>token_count &le; 8190</code> (invariant&nbsp;6); <code>theme</code> non-empty
+      (invariant&nbsp;11).
+    </p>
+
+    <h3><code>ImageMetadata</code> model (<code>schema.py</code> lines&nbsp;49–66)</h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+      <tr><td><code>book_slug</code></td><td><code>str</code></td><td>e.g. <code>"islp"</code></td></tr>
+      <tr><td><code>book_name</code></td><td><code>str</code></td><td>Full title</td></tr>
+      <tr><td><code>authors</code></td><td><code>list[str]</code></td><td>Author list from YAML</td></tr>
+      <tr><td><code>chapter_id</code></td><td><code>str</code></td><td>e.g. <code>"ch02"</code></td></tr>
+      <tr><td><code>section</code></td><td><code>str | None</code></td><td><code>h1</code> — chapter title</td></tr>
+      <tr><td><code>subsection</code></td><td><code>str</code></td><td><code>h2_path</code> — section path</td></tr>
+      <tr><td><code>page</code></td><td><code>int | None</code></td><td>Source page; <code>None</code> in VLM/EPUB ingest</td></tr>
+      <tr><td><code>image_name</code></td><td><code>str</code></td><td>Filename only, e.g. <code>"img_in_chart_box_2_14.jpg"</code></td></tr>
+      <tr><td><code>image_path</code></td><td><code>str</code></td><td>Relative path as found in markdown, e.g. <code>"imgs/…"</code></td></tr>
+      <tr><td><code>image_reference</code></td><td><code>str</code></td><td>FIGURE caption text (or prose fallback)</td></tr>
+    </table>
+    <p class="caption">
+      The embedding caption passed to <code>text-embedding-3-large</code> is
+      <code>"{subsection} — {image_reference}"</code> (<code>pipeline.py</code> line&nbsp;135).
+      The <code>theme</code> field is injected from <code>BookMetadata.theme</code> at persist
+      time (line&nbsp;144) — it is NOT on <code>ImageMetadata</code> itself.
+    </p>
+
+    <h3>Manifest JSON shape</h3>
+    <p>
+      <code>data/parsed/manifest.json</code> is a <code>Manifest</code> object
+      (<code>schema.py</code> line&nbsp;88):
+      <code>{"version": 1, "entries": [...]}</code>. Each entry is a <code>ManifestEntry</code>
+      (lines&nbsp;69–85) with these fields:
+    </p>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+      <tr><td><code>book_slug</code></td><td><code>str</code></td><td>Matches YAML slug</td></tr>
+      <tr><td><code>book_name</code></td><td><code>str</code></td><td>Full book title</td></tr>
+      <tr><td><code>chapter_id</code></td><td><code>str</code></td><td><code>"chNN"</code> or <code>"images_only"</code></td></tr>
+      <tr><td><code>source_path</code></td><td><code>str</code></td><td>Absolute path to source markdown</td></tr>
+      <tr><td><code>source_hash</code></td><td><code>str</code></td><td>MD5 of the full source file</td></tr>
+      <tr><td><code>chapter_hash</code></td><td><code>str</code></td><td>MD5 of the chapter slice text</td></tr>
+      <tr><td><code>ingested_at</code></td><td><code>datetime</code></td><td>UTC timestamp</td></tr>
+      <tr><td><code>provider</code></td><td><code>Literal["deepseek","openai"]</code></td><td>Enrichment LLM provider</td></tr>
+      <tr><td><code>chunk_count</code></td><td><code>int</code></td><td>0 for images-only runs</td></tr>
+      <tr><td><code>parent_count</code></td><td><code>int</code></td><td>Always 0 (parent-doc pattern removed)</td></tr>
+      <tr><td><code>image_count</code></td><td><code>int</code></td><td>Number of image points upserted</td></tr>
+      <tr><td><code>qdrant_collection_text</code></td><td><code>str</code></td><td>e.g. <code>"introduction_textbooks"</code></td></tr>
+      <tr><td><code>qdrant_collection_images</code></td><td><code>str</code></td><td>e.g. <code>"introduction_images"</code></td></tr>
+      <tr><td><code>status</code></td><td><code>Literal["success","partial","failed"]</code></td><td>Skip gate only fires on <code>"success"</code></td></tr>
+    </table>
+    <p class="caption">
+      Schema verified from <code>src/ingestion/schema.py</code> lines&nbsp;69–91.
+      Skip logic verified from <code>src/ingestion/manifest.py</code> lines&nbsp;54–67.
+    </p>
+  </section>
+
+  <!-- ===== SECTION 5: Rationale & invariants ===== -->
+  <section>
+    <h2>Rationale &amp; invariants</h2>
+
+    <h3>Why ingestion is a task, not a service</h3>
+    <p>
+      A <em>task</em> in this codebase is a one-off, offline process that reads external inputs
+      (OCR'd markdown, per-book YAML, preprocessor scripts) and writes to the database. It has
+      no request path, no server, and no users connecting to it at runtime. The pipeline runs
+      once per chapter, is gated by a content hash, and is intentionally separate from all
+      user-facing services.
+    </p>
+    <p>
+      This matters for the import wall: the Services layer (chat, retrieval, eval) must be able
+      to start up, handle requests, and re-deploy without touching or even importing any ingestion
+      code. Ingestion is an upstream artifact producer; services are downstream artifact consumers.
+      Services read the ingestion artifacts as files — <code>src/ingestion/books/&lt;slug&gt;.yaml</code>,
+      <code>data/parsed/manifest.json</code>, the Qdrant collections — and import ONLY
+      <code>src.core</code>. They never import <code>src.ingestion.*</code>.
+    </p>
+    <p>
+      Conversely, <code>src/ingestion/</code> imports only <code>src.core</code> + third-party
+      libraries. This is enforced by the module docstring in <code>__init__.py</code>
+      (lines&nbsp;1–7) and is checked visually in every pipeline module's import block. Violating
+      the wall (e.g. importing from <code>src.services.chat</code>) would create a circular
+      dependency that Python would surface immediately at startup.
+    </p>
+
+    <h3>Relevant invariants from <code>docs/system/invariants.md</code></h3>
+    <ul>
+      <li>
+        <strong>Invariant 3</strong> — One section ≈ one chunk; multi-chunk only when section
+        exceeds 8000 tokens. <code>BuildStats.split_sections</code> must equal the count of
+        sections over that threshold.
+      </li>
+      <li>
+        <strong>Invariant 6</strong> — <code>n_oversize == 0</code> after every ingest.
+        Any chunk above <code>HARD_MAX_TOKENS = 8190</code> would be silently truncated by the
+        OpenAI embedding API.
+      </li>
+      <li>
+        <strong>Invariant 7</strong> — <code>--limit-sections N</code> MUST NOT write the
+        manifest. Pre/post <code>manifest.list_books()</code> length must be unchanged on a
+        preview run.
+      </li>
+      <li>
+        <strong>Invariant 15</strong> — Image-only ingest writes a <code>ManifestEntry</code>
+        with <code>chapter_id="images_only"</code>, <code>chunk_count=0</code>,
+        <code>image_count=N</code>.
+      </li>
+      <li>
+        <strong>Invariant 16</strong> — Image collections must exist before any tutor query routes
+        there; <code>ensure_image_collection</code> runs inside <code>_persist_images</code>
+        (auto-creates). Upserts are chunked at ≤ 100 points per batch.
+      </li>
+    </ul>
+
+    <div class="card">
+      <p style="margin:0">
+        <strong>Operator view:</strong>
+        <a href="../ingestion/index.html">Ingestion hub</a> — pipeline stages, commands,
+        per-book YAML format, preprocessors, and run logs.
+        &nbsp;·&nbsp;
+        <strong>Related:</strong>
+        <a href="../services/index.html">Services overview</a> &nbsp;·&nbsp;
+        <a href="../services/core.html">Core deep-dive</a> (qdrant_store, config).
+      </p>
+    </div>
+  </section>
+
+</main>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
+    themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
+      primaryBorderColor:"#E5484D", lineColor:"#9aa1aa", fontSize:"14px" } });
+  (async () => {
+    const blocks = [...document.querySelectorAll(".mermaid")];
+    for (let i=0;i<blocks.length;i++){
+      const src = blocks[i].dataset.src || blocks[i].textContent;
+      try { const { svg } = await mermaid.render("m"+i, src); blocks[i].innerHTML = svg; }
+      catch(e){ blocks[i].innerHTML = "<pre style='color:#d2a24c'>"+String(e)+"</pre>"; }
+    }
+  })();
+</script>
+<script src="../sidebar.js"></script>
+</body>
+</html>

@@ -20,7 +20,7 @@
     <div class="card"><p style="margin:0">Use for conceptual questions where you want depth, multiple textbook perspectives, formulas, and figures ("What is the bias-variance tradeoff?"). Not for a one-line fact (use Q&amp;A) or for walking a whole chapter (use Facilitate / Resume).</p></div>
   </section>
   <section>
-    <h2>Pipeline</h2>
+    <h2>Agentic workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
   Q[&quot;Question&quot;] --> QP[&quot;Query planner (nano)<br/>concepts + queries + facets&quot;]
   QP --> RET[&quot;Multi-query retrieval -> RRF&quot;]
@@ -47,6 +47,82 @@
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
   style CC fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
     <p class="caption">Full pipeline on the Chat &amp; deep-tutor page. The draft node is the only stage that uses the heavy draft model; everything else is nano.</p>
+  </section>
+  <section>
+    <h2>Functions workflow</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
+  E[&quot;run_deep_tutor()&quot;] --> P[&quot;extract_concepts_chain()<br/>_planner_decompose/expand/consolidate&quot;]
+  P -. &quot;EXTRACT_CONCEPTS / PLANNER_* prompts&quot; .- PR1[(&quot;prompts/deep_tutor.py&quot;)]
+  P --> R[&quot;_multi_query_candidates() / _wide_candidates()&quot;]
+  R --> M[&quot;_rrf_merge()&quot;]
+  M --> DV[&quot;_apply_section_parent_diversity()&quot;]
+  DV --> DS[&quot;_density_select()&quot;]
+  DS --> CV[&quot;coverage.py (COVERAGE_PROMPT)&quot;]
+  CV -. &quot;missing facet&quot; .-> R
+  CV --> FJ[&quot;image_judge.py (figure judge)&quot;]
+  FJ --> SP[&quot;build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)&quot;]
+  SP --> OW[&quot;orchestrator_workers.run_orchestrator_workers()<br/>run_author_worker() x authors -> _schema_fill()&quot;]
+  OW -. &quot;ORCHESTRATOR / AUTHOR_WORKER / CRITIQUE / SCHEMA_FILL&quot; .- PR2[(&quot;prompts/deep_tutor.py&quot;)]
+  OW --> FR[&quot;formula_recovery.py&quot;]
+  FR --> VE[&quot;vision.py (vision-explain)&quot;]
+  VE --> A[&quot;DeepTutorAnswer&quot;]
+  style OW fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style CV fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style PR1 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style PR2 fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
+  E["run_deep_tutor()"] --> P["extract_concepts_chain()<br/>_planner_decompose/expand/consolidate"]
+  P -. "EXTRACT_CONCEPTS / PLANNER_* prompts" .- PR1[("prompts/deep_tutor.py")]
+  P --> R["_multi_query_candidates() / _wide_candidates()"]
+  R --> M["_rrf_merge()"]
+  M --> DV["_apply_section_parent_diversity()"]
+  DV --> DS["_density_select()"]
+  DS --> CV["coverage.py (COVERAGE_PROMPT)"]
+  CV -. "missing facet" .-> R
+  CV --> FJ["image_judge.py (figure judge)"]
+  FJ --> SP["build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)"]
+  SP --> OW["orchestrator_workers.run_orchestrator_workers()<br/>run_author_worker() x authors -> _schema_fill()"]
+  OW -. "ORCHESTRATOR / AUTHOR_WORKER / CRITIQUE / SCHEMA_FILL" .- PR2[("prompts/deep_tutor.py")]
+  OW --> FR["formula_recovery.py"]
+  FR --> VE["vision.py (vision-explain)"]
+  VE --> A["DeepTutorAnswer"]
+  style OW fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style CV fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style PR1 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style PR2 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
+    <p class="caption">Code call-graph — green = LLM-call node, purple = prompt constant, red = synthesis/heavy stage. Verified from the runner source listed below.</p>
+  </section>
+  <section>
+    <h2>Sources, prompts &amp; tools</h2>
+    <h3>Prompts</h3>
+    <table><tr><th>Constant</th><th>Location</th><th>Role</th></tr>
+      <tr><td><code>EXTRACT_CONCEPTS_PROMPT</code></td><td><code>prompts/deep_tutor.py:18</code></td><td>Concept extraction from the question.</td></tr>
+      <tr><td><code>PLANNER_DECOMPOSE_PROMPT / _EXPAND_ / _CONSOLIDATE_</code></td><td><code>prompts/deep_tutor.py:835/878/915</code></td><td>Query-plan chain: decompose, expand, consolidate.</td></tr>
+      <tr><td><code>COVERAGE_PROMPT</code></td><td><code>prompts/deep_tutor.py:624</code></td><td>Coverage check — is every facet covered?</td></tr>
+      <tr><td><code>SYNTHESIS_PLAN_PROMPT</code></td><td><code>prompts/deep_tutor.py:478</code></td><td>Plan the answer before drafting.</td></tr>
+      <tr><td><code>ORCHESTRATOR_PROMPT / AUTHOR_WORKER_PROMPT / CRITIQUE_PROMPT</code></td><td><code>prompts/deep_tutor.py:536/656/743</code></td><td>Orchestrator-workers synthesis + self-critique.</td></tr>
+      <tr><td><code>SCHEMA_FILL_PROMPT</code></td><td><code>prompts/deep_tutor.py:903</code></td><td>Coerce free text into DeepTutorAnswer aspects.</td></tr>
+      <tr><td><code>DEEP_TUTOR_INSTRUCTIONS</code></td><td><code>prompts/deep_tutor.py:133</code></td><td>Persona + hard rules for the synthesizer.</td></tr>
+    </table>
+    <h3>Tools &amp; retrieval calls</h3>
+    <table><tr><th>Function</th><th>Hits</th><th>Purpose</th></tr>
+      <tr><td><code>extract_concepts_chain → planner LLM</code></td><td>nano LLM</td><td>Builds the multi-author query plan.</td></tr>
+      <tr><td><code>_multi_query_candidates / _wide_candidates</code></td><td>Qdrant field_textbooks (dense+BM25)</td><td>Retrieve candidate sections per query.</td></tr>
+      <tr><td><code>_rrf_merge → _density_select → rerank</code></td><td>cross-encoder reranker</td><td>Fuse, diversify by author/section, rerank.</td></tr>
+      <tr><td><code>image_judge</code></td><td>Qdrant field_images + vision LLM</td><td>Pick + judge figures.</td></tr>
+      <tr><td><code>run_orchestrator_workers</code></td><td>draft model (TUTOR_DRAFT_MODEL)</td><td>Per-author synthesis workers + organizer.</td></tr>
+      <tr><td><code>vision-explain</code></td><td>vision LLM</td><td>Explain chosen figures in context.</td></tr>
+    </table>
+    <h3>Source modules</h3>
+    <table><tr><th>Stage</th><th>Path</th></tr>
+      <tr><td>entrypoint</td><td><code>src/services/chat/agents/deep_tutor.py:2439 (run_deep_tutor)</code></td></tr>
+      <tr><td>query plan</td><td><code>src/services/chat/agents/deep_tutor.py:1336/1309/1316/1325</code></td></tr>
+      <tr><td>retrieval + fusion</td><td><code>src/services/chat/agents/deep_tutor.py:1353/1394/1366/1410/1452</code></td></tr>
+      <tr><td>coverage</td><td><code>src/services/chat/agents/coverage.py</code></td></tr>
+      <tr><td>figure judge</td><td><code>src/services/chat/agents/image_judge.py</code></td></tr>
+      <tr><td>synthesis</td><td><code>src/services/chat/agents/orchestrator_workers.py:165 (+ ow_deepagents.py)</code></td></tr>
+      <tr><td>formula recovery</td><td><code>src/services/chat/agents/formula_recovery.py</code></td></tr>
+      <tr><td>vision</td><td><code>src/services/chat/vision.py</code></td></tr>
+    </table>
   </section>
   <section>
     <h2>Spec</h2>

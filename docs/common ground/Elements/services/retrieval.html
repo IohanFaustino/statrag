@@ -4,16 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>statrag — Retrieval</title>
-<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="../style.css" />
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
-<body data-base="">
-<header>
-  <h1>statrag — <span class="accent">Retrieval</span></h1>
-  <div class="sub">Local-first RAG over OCR'd statistics textbooks. <span class="pill">current-state · verified from code</span></div>
-</header>
+<body data-base="../">
 <aside id="side" class="side"></aside>
+<div class="content">
+<header>
+  <h1><span class="accent">Retrieval</span> <span class="pill">Service · DB → results</span></h1>
+  <div class="sub">Hybrid dense + sparse BM25 retrieval over per-field Qdrant collections, fused by Reciprocal Rank Fusion (RRF k=60), cross-encoder reranked, and author-diversity round-robined — the retrieval primitive every chat mode builds on.</div>
+</header>
 <main>
+
   <!-- ===== SECTION 1: Hybrid retrieval pipeline ===== -->
   <section>
     <h2>Hybrid retrieval pipeline</h2>
@@ -112,7 +114,7 @@ flowchart TD
       </tr>
       <tr>
         <td>Final selection</td>
-        <td><code>src/services/chat/agents/deep_tutor.py:600-601</code></td>
+        <td><code>src/services/chat/agents/deep_tutor.py:728-729</code></td>
         <td><code>_TOP_SECTIONS=4</code> (env <code>TUTOR_DEEP_TOP_SECTIONS</code>), <code>_FINAL_TOP_N=8</code> (env <code>TUTOR_DEEP_FINAL_TOP_N</code>). The section budget is expanded to <code>max(top_sections, target_authors)</code> when diversity is active.</td>
       </tr>
     </table>
@@ -185,7 +187,159 @@ flowchart TD
       It does <em>not</em> import from <code>src.services.retrieval</code> (the standalone package).
     </p>
   </section>
+
+  <!-- ===== SECTION 5: Schemas & contracts ===== -->
+  <section>
+    <h2>Schemas &amp; contracts</h2>
+
+    <h3>Tuning knobs</h3>
+    <table>
+      <tr>
+        <th>Param</th>
+        <th>Value</th>
+        <th>Source</th>
+      </tr>
+      <tr>
+        <td>RRF k</td>
+        <td><code>60</code></td>
+        <td>Qdrant <code>FusionQuery</code> default; rank formula = 1/(60+rank). Verified in <code>retrieval.py</code> RRF arms.</td>
+      </tr>
+      <tr>
+        <td><code>rerank_top_k_in</code></td>
+        <td><code>50</code></td>
+        <td><code>src/core/config.py:73</code> — candidate pool size fed to cross-encoder.</td>
+      </tr>
+      <tr>
+        <td><code>rerank_top_n_out</code></td>
+        <td><code>10</code></td>
+        <td><code>src/core/config.py:74</code> — output count after reranking.</td>
+      </tr>
+      <tr>
+        <td><code>reranker_model</code></td>
+        <td><code>BAAI/bge-reranker-v2-m3</code></td>
+        <td><code>src/core/config.py:72</code> — loaded via sentence-transformers; env <code>RERANKER_MODEL</code>.</td>
+      </tr>
+      <tr>
+        <td><code>dense_weight</code> / <code>sparse_weight</code></td>
+        <td><code>0.6</code> / <code>0.4</code></td>
+        <td><code>src/core/config.py:69-70</code> — env <code>DENSE_WEIGHT</code> / <code>SPARSE_WEIGHT</code>. Controls prefetch arm sizing.</td>
+      </tr>
+      <tr>
+        <td><code>_TOP_SECTIONS</code></td>
+        <td><code>4</code></td>
+        <td><code>src/services/chat/agents/deep_tutor.py:728</code> — env <code>TUTOR_DEEP_TOP_SECTIONS</code>. Section budget for density expand.</td>
+      </tr>
+      <tr>
+        <td><code>_FINAL_TOP_N</code></td>
+        <td><code>8</code></td>
+        <td><code>src/services/chat/agents/deep_tutor.py:729</code> — env <code>TUTOR_DEEP_FINAL_TOP_N</code>. Final sources handed to the drafting stage.</td>
+      </tr>
+      <tr>
+        <td><code>_DIVERSITY_MAX</code></td>
+        <td><code>6</code></td>
+        <td><code>src/services/chat/agents/deep_tutor.py:1056</code> — env <code>TUTOR_DIVERSITY_MAX_AUTHORS</code>. Hard cap on distinct author groups. Default resolves to <code>max(_DIVERSITY_TARGET, 6)</code>.</td>
+      </tr>
+      <tr>
+        <td><code>_DIVERSITY_TARGET</code></td>
+        <td><code>3</code> (fallback legacy) / <code>auto</code> (runtime)</td>
+        <td><code>src/services/chat/agents/deep_tutor.py:1055</code> — env <code>TUTOR_DIVERSITY_TARGET_AUTHORS</code>. At runtime the concept-extraction model suggests a count clamped to <code>_DIVERSITY_MAX</code>.</td>
+      </tr>
+    </table>
+
+    <h3>RetrievalFlags surface</h3>
+    <p>
+      The <code>RetrievalFlags</code> object (threaded from the chat request through to the retrieval
+      call) controls query-time behavior. The three query-expansion strategies — <strong>HyDE</strong>
+      (generate a 3-sentence hypothetical passage, embed that instead of the raw question),
+      <strong>multi-query</strong> (N LLM-generated paraphrases, each retrieved independently then
+      RRF-merged), and <strong>decompose</strong> (2-4 sub-questions via the chained planner) — are
+      each opt-in flags. The <code>adjacent_sections</code> flag activates
+      <code>_expand_adjacent()</code> on the <code>hybrid_search</code> primitive (same-section
+      chunk scroll, appended at score 0.001). All flags default to off for the standalone retrieval
+      CLI; the deep-tutor pipeline activates multi-query and adjacent expansion by default.
+    </p>
+  </section>
+
+  <!-- ===== SECTION 6: Rationale & invariants ===== -->
+  <section>
+    <h2>Rationale &amp; invariants</h2>
+
+    <h3>Why two entrypoints</h3>
+    <p>
+      The <strong>standalone service</strong> (<code>src/services/retrieval/</code>) exists as a
+      LangChain-based CLI convenience, purpose-built for ad-hoc exploration and offline testing.
+      It wraps a single named collection (<code>settings.qdrant_collection_text</code>) and
+      delegates chain orchestration to LangChain abstractions. It was built first, as a thin proof
+      of concept.
+    </p>
+    <p>
+      The <strong>in-process chat retrievers</strong> (<code>src/services/chat/retrieval.py</code>
+      + <code>retrievers/</code>) exist because the deep-tutor pipeline outgrew what a LangChain
+      retriever abstraction can express efficiently. They have no LangChain dependency, iterate
+      all per-field collections in parallel, and add four stages that the standalone service does
+      not have: concept-density scoring, sibling/adjacent expansion, cross-encoder reranking, and
+      author-diversity round-robin. Keeping them in-process (not behind an HTTP call) avoids
+      serialization overhead and lets the pipeline pass rich Python objects (scored sections with
+      metadata) between stages without encoding/decoding.
+    </p>
+
+    <h3>Why density-before-rerank</h3>
+    <p>
+      RRF fusion produces a broad candidate pool ranked by lexical + semantic overlap but blind to
+      whether a section actually contains the target concept. The density stage re-scores using a
+      concept-term frequency count (<code>TUTOR_DENSITY_ALPHA=0.6</code> weight), which pushes
+      dense-definition sections to the top <em>before</em> the cross-encoder sees them. This
+      matters because the cross-encoder is expensive (sentence-transformers, CPU) and operates on
+      a hard cap of 50 candidates (<code>rerank_top_k_in</code>). If density were skipped, the
+      reranker would waste its budget on off-topic high-RRF chunks.
+    </p>
+
+    <h3>Why sibling chunks are admitted at near-zero score</h3>
+    <p>
+      Sibling sections are appended at score <code>0.0005</code> — well below any real RRF score.
+      This is intentional: the score signals to the cross-encoder that these are low-confidence
+      candidates. The cross-encoder then assigns them a real relevance score from scratch, and only
+      those that pass the <code>final_top_n</code> cut survive. Near-zero admission means the
+      reranker is the <em>only</em> gate — there is no tuned threshold to maintain, and the behavior
+      degrades gracefully: a sibling that the reranker considers irrelevant simply falls out of the
+      top-N without any special handling.
+    </p>
+
+    <h3>Relevant invariants (from <code>docs/system/invariants.md</code>)</h3>
+    <ul>
+      <li>
+        <strong>Invariant 20</strong> — Adjacent-section expansion (<code>density._fetch_neighbor_chunks</code>,
+        gated <code>TUTOR_NEIGHBOR_EXPAND=1</code>) is <em>rerank-gated + sibling-prefiltered</em>:
+        neighbors are added to the candidate pool as low-score <code>_PseudoPoint</code>s, kept only
+        if same parent and within the page band (±25). The existing cross-encoder rerank +
+        <code>final_top_n</code> cut is the sole gate — no tuned score threshold. The scroll is
+        best-effort: any error returns <code>[]</code> and never blocks selection.
+        <code>TUTOR_DENSITY_ALPHA</code> (0.6) is the concept-TF weight in <code>_section_score</code>;
+        <code>_DIVERSITY_MAX</code> default 6.
+      </li>
+      <li>
+        <strong>Invariant 21</strong> — The author-diversity target is honored end-to-end, not just
+        at the round-robin: <code>_density_select</code> scales the section budget to
+        <code>eff_sections = max(top_sections, target_authors)</code> AND applies an author-aware
+        rerank floor — after the cross-encoder cut (widened to
+        <code>max(final_top_n, target_authors)</code>), the best dropped chunk of each missing author
+        is re-inserted. Without all three (cap ≥ N, section budget expansion, rerank floor) a chosen
+        N silently collapses to ~3.
+      </li>
+    </ul>
+
+    <div class="card">
+      <p style="margin:0">
+        <strong>Related:</strong>
+        <a href="../features/index.html">Features — modes that consume retrieval</a> &nbsp;·&nbsp;
+        <a href="../services/chat.html">Services → Chat deep-dive</a> &nbsp;·&nbsp;
+        <a href="../services/index.html">Services overview</a>
+      </p>
+    </div>
+  </section>
+
 </main>
+</div>
 <script>
   mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose",
     themeVariables:{ primaryColor:"#1b1e22", primaryTextColor:"#e6e8eb",
@@ -199,6 +353,6 @@ flowchart TD
     }
   })();
 </script>
-<script src="sidebar.js"></script>
+<script src="../sidebar.js"></script>
 </body>
 </html>

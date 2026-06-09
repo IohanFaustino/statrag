@@ -20,7 +20,7 @@
     <div class="card"><p style="margin:0">Use to review or skim a chapter you have already studied, or to get the gist of one quickly. Pick Facilitate instead when you want a full teaching walkthrough.</p></div>
   </section>
   <section>
-    <h2>Pipeline</h2>
+    <h2>Agentic workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
   Q[&quot;Chapter request&quot;] --> PS[&quot;parse-scope&quot;]
   PS --> FC[&quot;fetch-chapter (structural, in order)&quot;]
@@ -39,6 +39,51 @@
   GR --> A["ChapterDigest (blocks in order)"]
   style MAP fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
     <p class="caption">Identical pipeline to Facilitate; the map prompt is compact instead of verbose.</p>
+  </section>
+  <section>
+    <h2>Functions workflow</h2>
+    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
+  E[&quot;run_chapter()&quot;] --> PS[&quot;parse_scope() (CHAPTER_PARSE_PROMPT)&quot;]
+  PS --> RS[&quot;resolve_subtopics() (CHAPTER_RESOLVE_PROMPT)&quot;]
+  RS --> MP[&quot;map_sections()<br/>CHAPTER_MAP_RESUME_PROMPT (compact)&quot;]
+  MP --> ST[&quot;stitch() (CHAPTER_STITCH_PROMPT)&quot;]
+  ST --> GR[&quot;ground() (CHAPTER_GROUND_PROMPT)&quot;]
+  GR --> A[&quot;ChapterDigest&quot;]
+  style MP fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
+  E["run_chapter()"] --> PS["parse_scope() (CHAPTER_PARSE_PROMPT)"]
+  PS --> RS["resolve_subtopics() (CHAPTER_RESOLVE_PROMPT)"]
+  RS --> MP["map_sections()<br/>CHAPTER_MAP_RESUME_PROMPT (compact)"]
+  MP --> ST["stitch() (CHAPTER_STITCH_PROMPT)"]
+  ST --> GR["ground() (CHAPTER_GROUND_PROMPT)"]
+  GR --> A["ChapterDigest"]
+  style MP fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
+    <p class="caption">Code call-graph — green = LLM-call node, purple = prompt constant, red = synthesis/heavy stage. Verified from the runner source listed below.</p>
+  </section>
+  <section>
+    <h2>Sources, prompts &amp; tools</h2>
+    <h3>Prompts</h3>
+    <table><tr><th>Constant</th><th>Location</th><th>Role</th></tr>
+      <tr><td><code>CHAPTER_PARSE_PROMPT</code></td><td><code>prompts/chapter.py:15</code></td><td>Parse the chapter request into a ChapterScope.</td></tr>
+      <tr><td><code>CHAPTER_RESOLVE_PROMPT</code></td><td><code>prompts/chapter.py:46</code></td><td>Fuzzy-resolve requested subtopics to headings.</td></tr>
+      <tr><td><code>CHAPTER_MAP_RESUME_PROMPT</code></td><td><code>prompts/chapter.py:90</code></td><td>Compact per-section recap (~60-100 tok).</td></tr>
+      <tr><td><code>CHAPTER_STITCH_PROMPT</code></td><td><code>prompts/chapter.py:114</code></td><td>Link per-section digests into a flowing whole.</td></tr>
+      <tr><td><code>CHAPTER_GROUND_PROMPT</code></td><td><code>prompts/chapter.py:131</code></td><td>Check the digest against the fetched sections.</td></tr>
+    </table>
+    <h3>Tools &amp; retrieval calls</h3>
+    <table><tr><th>Function</th><th>Hits</th><th>Purpose</th></tr>
+      <tr><td><code>fetch chapter sections</code></td><td>Qdrant field_textbooks (structural, in order)</td><td>Fetch the chapter's sections in book order — NOT a relevance search.</td></tr>
+      <tr><td><code>resolve_subtopics</code></td><td>embeddings + nano LLM</td><td>Resolve fuzzy subtopic → heading.</td></tr>
+      <tr><td><code>map_sections / stitch / ground</code></td><td>nano LLM</td><td>Map each section, stitch, ground.</td></tr>
+    </table>
+    <h3>Source modules</h3>
+    <table><tr><th>Stage</th><th>Path</th></tr>
+      <tr><td>entrypoint</td><td><code>src/services/chat/agents/chapter.py:311 (run_chapter)</code></td></tr>
+      <tr><td>parse-scope</td><td><code>src/services/chat/agents/chapter.py:87 (parse_scope)</code></td></tr>
+      <tr><td>resolve-subtopics</td><td><code>src/services/chat/agents/chapter.py:110 (resolve_subtopics)</code></td></tr>
+      <tr><td>map</td><td><code>src/services/chat/agents/chapter.py:197 (map_sections)</code></td></tr>
+      <tr><td>stitch</td><td><code>src/services/chat/agents/chapter.py:260 (stitch)</code></td></tr>
+      <tr><td>ground</td><td><code>src/services/chat/agents/chapter.py:282 (ground)</code></td></tr>
+    </table>
   </section>
   <section>
     <h2>Spec</h2>
