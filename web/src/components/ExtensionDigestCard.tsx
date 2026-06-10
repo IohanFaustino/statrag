@@ -27,11 +27,12 @@ export interface ExtensionDigest {
 // ─── Footnote body renderer ───────────────────────────────────────────────────
 
 /**
- * Renders footnote body: splits on $$...$$ (display) and $...$ (inline),
- * renders via KaTeX. Plain text segments rendered as-is.
- * Does NOT apply [N] citation logic — footnotes use the marker field.
+ * Renders digest text (point titles, curated text, footnote bodies): splits on
+ * $$...$$ (display) and $...$ (inline), renders via KaTeX. Plain text segments
+ * rendered as-is. Does NOT apply [N] citation logic — footnotes use the marker
+ * field.
  */
-function renderFootnoteBody(body: string): React.ReactNode {
+function renderMathText(body: string): React.ReactNode {
   if (!body) return null;
   const parts: React.ReactNode[] = [];
   const segments = body.split(/((?:\$\$[\s\S]*?\$\$|\$[^$\n]+\$))/g);
@@ -151,8 +152,8 @@ function ExtensionDigestCardInner({ digest }: Props) {
       <div className="extension-card__points">
         {digest.points.map((pt, i) => (
           <section key={i} className="extension-point">
-            <h3 className="extension-point__title">{pt.title}</h3>
-            <div className="extension-point__body">{pt.curated_text}</div>
+            <h3 className="extension-point__title">{renderMathText(pt.title)}</h3>
+            <div className="extension-point__body">{renderMathText(pt.curated_text)}</div>
 
             {pt.footnotes.length > 0 && (
               <ul className="extension-point__footnotes">
@@ -160,7 +161,7 @@ function ExtensionDigestCardInner({ digest }: Props) {
                   <li key={j} className="extension-footnote">
                     <sup className="extension-footnote__marker">{fn.marker}</sup>
                     <span className="extension-footnote__body">
-                      {renderFootnoteBody(fn.body)}
+                      {renderMathText(fn.body)}
                     </span>
                     <FootnoteSource fn={fn} />
                   </li>
@@ -176,7 +177,7 @@ function ExtensionDigestCardInner({ digest }: Props) {
           <h4 className="extension-card__gaps-hd">Unfilled gaps</h4>
           <ul>
             {digest.unfilled_gaps.map((gap, i) => (
-              <li key={i}>{gap}</li>
+              <li key={i}>{renderMathText(gap)}</li>
             ))}
           </ul>
         </div>

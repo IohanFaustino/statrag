@@ -290,12 +290,14 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     for pt in digest.points:
         if not curated_text_is_clean(pt):
             pt.curated_text = _AUG_LEAK.sub("", pt.curated_text).strip()
+        pt.title = _normalize_math_delimiters(pt.title)
         pt.curated_text = _isolate_midline_display(pt.curated_text)
         pt.curated_text = _normalize_math_delimiters(pt.curated_text)
         pt.curated_text = _strip_md_footnote_markers(pt.curated_text)
         for fn in pt.footnotes:
             fn.body = _isolate_midline_display(fn.body)
             fn.body = _normalize_math_delimiters(fn.body)
+    digest.unfilled_gaps = [_normalize_math_delimiters(g) for g in digest.unfilled_gaps]
 
     for pt in digest.points:
         yield {"type": "stage", "stage": "point", "label": pt.title}
