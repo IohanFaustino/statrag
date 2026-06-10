@@ -3,14 +3,14 @@ import ExtensionPipelineDiagram from "../ExtensionPipelineDiagram";
 
 const EXTENSION_MODE = {
   title: "Extension mode",
-  blurb: "Deep chapter digest with augmented context",
+  blurb: "Deep chapter digest with augmented footnotes from the wider corpus",
   description:
-    "Extension mode produces a structured chapter digest by running a topology-C agentic pipeline: it resolves the target chapter, dispatches per-section analyst subagents to extract key concepts and formulas, fills coverage gaps via corpus retrieval and Wikipedia, and runs a judge loop to verify completeness before delivering the final ExtensionDigest.",
+    "Extension mode produces a structured chapter digest via a topology-C agentic pipeline. It resolves the target chapter, fetches section structure, dispatches per-section analyst subagents (gap taxonomy: formal-def / formula-deriv / comparative / application), curates a timeline via the polish stage, fills coverage gaps with corpus retrieval and Wikipedia (fit rubric 1–5), then runs a judge loop that verifies completeness, merges orphan footnotes, and enforces footnote density (≥ 2 per non-trivial point) before delivering the final ExtensionDigest.",
   features: [
-    { label: "Topology-C pipeline", detail: "Resolve → fetch structure → per-section analysts → polish → augmentor → judge loop." },
-    { label: "Per-section analysts", detail: "One analyst subagent per section extracts concepts, formulas, and structured notes in parallel." },
-    { label: "Gap augmentation", detail: "Hybrid corpus retrieval and Wikipedia lookup fill coverage gaps flagged by the polishing stage." },
-    { label: "Judge loop", detail: "Capped re-call loop: audits formula completeness and citation coverage before finalising the digest." },
+    { label: "Topology-C pipeline", detail: "Resolve → fetch structure → per-section analysts → polish → augmentor → judge loop. All augmentation lives in footnotes — curated_text is never modified." },
+    { label: "Gap taxonomy", detail: "Analyst classifies each gap as: [FORMAL-DEF] undefined concept, [FORMULA-DERIV] missing derivation, [COMPARATIVE] no cross-book context, or [APPLICATION] no worked example." },
+    { label: "Fit-rubric augmentation", detail: "Augmentor scores each retrieved source 1–5 for relevance. Score 1–2: discarded. Score 3–5: written as footnote (≥ 40 words). Wikipedia disambiguation fallback on 404." },
+    { label: "Judge loop", detail: "Capped re-call loop: parses COVERAGE markers, merges orphan footnotes, verifies all fields are in English, and re-delegates augmentor if any point has 0 footnotes after the first pass." },
   ],
 } as const;
 
