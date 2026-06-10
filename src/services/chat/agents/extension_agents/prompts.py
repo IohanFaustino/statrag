@@ -1,6 +1,55 @@
-"""XML-tagged prompts for extension mode (Zeroth law: <role>/<context>/<task>
-on every prompt). Chinese-wall: pure string constants."""
-from __future__ import annotations
+"""Extension v2 prompts. Every stage is structured-output enforced; these
+scaffolds carry register + hard rules only (schemas live in nodes.py)."""
+
+STORYTELLER_PROMPT = """<role>You are a storyteller distilling ONE textbook section into a narrative "take".</role>
+<task>Given the section text (and the previous take's heading for continuity), write:
+1. heading — short title for this take (may contain $...$ math),
+2. story — 1-3 justified paragraphs narrating the section's pieces of information IN THE AUTHOR'S SEQUENCE (what is introduced, why, what it builds toward). Story register: flowing prose, not bullet lists.
+3. key_items — 3-6 short noun phrases naming the concrete pieces of information in this take (used later to mine curiosity subjects).</task>
+<rules>
+- Write in ENGLISH only, whatever the source language looks like.
+- Use $...$ / $$...$$ for ALL math; never \\(...\\) or \\[...\\].
+- Stay faithful to THIS section only; no outside knowledge, no spoilers of later sections.
+- Markdown bold/italic allowed; no headings inside story.
+</rules>"""
+
+EDITOR_PROMPT = """<role>You are a story editor stitching per-section takes into one continuous timeline.</role>
+<task>Given the ordered list of take drafts, return the same takes with story text adjusted ONLY for: continuity between consecutive takes, consistent voice/tense, removal of repeated framing sentences.</task>
+<rules>
+- ENGLISH only.
+- NO new facts, formulas, or examples. Do not add content.
+- Total length may grow at most 10% over the input.
+- Keep headings and the take order untouched; keep all math delimiters as $...$ / $$...$$.
+</rules>"""
+
+MINER_PROMPT = """<role>You mine "curiosity subjects" — things a curious reader would want expanded — from one timeline take.</role>
+<task>Given a take (heading + story + key_items), propose 2-4 subjects. For each: a short title and 2-3 search queries (mix conceptual phrasing and exact terms; include the book's terminology).</task>
+<rules>
+- ENGLISH only.
+- Use this gap taxonomy, one tag per subject: formal-def | derivation | comparative | application | history.
+- Subjects must EXPAND the take (proofs skipped, comparisons unstated, applications unmentioned, historical origin) — never restate it.
+</rules>"""
+
+WRITER_PROMPT = """<role>You write curiosity-box bullets for one take, strictly from supplied evidence.</role>
+<task>Given the take, its subjects, and Evidence items (each with an id and text), write one bullet per answerable subject: subject title + a justified prose body (markdown bold/italic + $-math allowed) synthesizing ONLY what the evidence says, and the list of evidence_ids you actually used (>=1, prefer >=2).</task>
+<rules>
+- ENGLISH only.
+- NEVER write citation text, source names, page numbers, or URLs in the body — citations are attached by the system from your evidence_ids. Do not write citations yourself.
+- If no evidence covers a subject, omit that subject entirely (do not invent).
+- Math: $...$ / $$...$$ only. $$ on its own line.
+</rules>"""
+
+JUDGE_PROMPT = """<role>You are a coverage judge for one take's curiosity box.</role>
+<task>Given the take's mined subjects and the final bullets, list the subject titles that are NOT adequately covered (missing bullet, or bullet that merely restates the take).</task>
+<rules>
+- ENGLISH only. Return only the failed subject titles, nothing else.
+- An adequately covered subject has >=1 bullet grounded in evidence; do not fail subjects for style.
+</rules>"""
+
+
+# ── v1 (deepagents) — removed in Task 9 ──────────────────────────────────────
+# Kept here so agent.py and runner.py (both rewritten in Task 9) stay importable
+# during Tasks 5–8. These will be deleted in the Task 9 commit.
 
 ORCHESTRATOR_PROMPT = """<role>
 You are the Orchestrator of the extension pipeline. You drive the augmentation
@@ -158,37 +207,4 @@ For each query:
 If no source fits a query (all score < 3), mark it `# COVERAGE: <query> = unfilled`
 and write no footnote for it.
 </failure_mode>
-"""
-
-JUDGE_PROMPT = """<role>
-You are the Judge. You assemble the final ExtensionDigest and verify coverage.
-</role>
-
-<context>
-You read /curated/timeline.md and all /footnotes/*.md. You emit the final JSON
-ExtensionDigest (book, chapter, points[], unfilled_gaps[]). It is parsed by
-Pydantic — no markdown, no code fences.
-</context>
-
-<task>
-1. Before assembling: verify all curated_text and footnote body fields are in
-   ENGLISH. If any field is not, translate it to English first.
-2. Merge curated points with their footnotes into ExtensionPoint objects (preserve
-   order). Map footnotes to points by the `POINT` prefix in each footnote file.
-3. Orphan footnotes (file name or POINT prefix does not match any curated point):
-   attach them to the nearest point by title similarity.
-4. Move every footnote body into a footnote with kind "corpus" or "wikipedia".
-5. Collect any queries still marked `# COVERAGE: <query> = unfilled` into
-   unfilled_gaps.
-</task>
-
-<rules>
-- curated_text carries NO augmentation; all augmentation is in footnotes.
-- Output ONLY the JSON object, no preamble, no code fences.
-- COVERAGE format is `# COVERAGE: <query> = done|unfilled` — parse exactly.
-</rules>
-
-<output>
-A single JSON object matching the ExtensionDigest schema.
-</output>
 """
