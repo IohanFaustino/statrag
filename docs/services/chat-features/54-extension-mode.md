@@ -58,7 +58,7 @@ The orchestrator and judge default to a top model because they own open reasonin
 
 ### Phase order inside the deep-agent
 
-1. **Analyst fan-out (parallel)** — ALL analyst task calls issued in a single orchestrator message (one `task` call per `/structure` file); LangGraph `ToolNode` executes them concurrently via `asyncio.gather` → each writes `/context/NN.md`.
+1. **Analyst fan-out (parallel)** — ALL analyst task calls issued in a single orchestrator message (one `task` call per `/structure` file); LangGraph `ToolNode` executes them concurrently (`asyncio.gather` on the async path; `ThreadPoolExecutor.map` on the sync path) → each writes `/context/NN.md`.
 2. **Polish** — reads all context → writes `/curated/timeline.md` (curated, clustered, ordered points).
 3. **Orchestrator query-gen** — reads timeline + context gaps → writes `/plan/queries.md` (deduplicated open gap queries, format `POINT :: query`).
 4. **Augmentor batch** — one augmentor task per (batch of) queries → RAG corpus + Wikipedia, judges fit before footnoting → `/footnotes/<point>.md`.

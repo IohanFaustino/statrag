@@ -77,7 +77,7 @@ def test_orchestrator_directs_parallel_analyst_fanout():
     """ORCHESTRATOR_PROMPT must explicitly direct the model to issue all analyst
     task calls in a single message so LangGraph ToolNode runs them concurrently."""
     low = P.ORCHESTRATOR_PROMPT.lower()
-    assert "single message" in low or "all.*at once" in low or "parallel" in low
+    assert "single message" in low or "all at once" in low or "parallel" in low
 
 
 def test_orchestrator_parallel_directive_is_in_task_section():
