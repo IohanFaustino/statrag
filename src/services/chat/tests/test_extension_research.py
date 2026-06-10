@@ -8,10 +8,21 @@ from src.services.chat.agents.extension_agents.research import (
 
 
 def _src(**over):
+    """Mirrors real Source shape: chunkId, book, chapter (production field names)."""
+    base = dict(chunk="Chebyshev states that …", book="moss",
+                book_name="Probability", authors="Marcus Moss", year=2020,
+                chapter="ch06", section="6.5.2", page_from=142, page_to=144,
+                chunkId="c-1", score=0.81)
+    base.update(over)
+    return SimpleNamespace(**base)
+
+
+def _src_legacy(**over):
+    """Mirrors old plan-name shape: chunk_id, book_slug, chapter_id (fallback path)."""
     base = dict(chunk="Chebyshev states that …", book_slug="moss",
                 book_name="Probability", authors="Marcus Moss", year=2020,
                 chapter_id="ch06", section="6.5.2", page_from=142, page_to=144,
-                chunk_id="c-1", score=0.81)
+                chunk_id="c-legacy", score=0.75)
     base.update(over)
     return SimpleNamespace(**base)
 
@@ -28,12 +39,43 @@ def test_corpus_evidence_copies_payload_meta_verbatim():
     assert isinstance(e, Evidence) and e.kind == "corpus" and e.subject_id == "s1"
     assert e.meta["book_name"] == "Probability" and e.meta["pages"] == "142–144"
     assert e.meta["section_id"] == "6.5.2" and e.meta["chunk_id"] == "c-1"
+    # Real Source field names correctly read
+    assert e.meta["book_slug"] == "moss"
+    assert e.meta["chapter"] == "ch06"
 
 
 def test_corpus_evidence_dedupes_seen_ids():
+    """Deduplication works via real chunkId field."""
     seen = {"c-1"}
     with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
                return_value=([_src()], None)):
+        ev = corpus_evidence("q", subject_id="s1", exclude_book="x",
+                             all_slugs=["x", "moss"], seen_ids=seen)
+    assert ev == []
+
+
+def test_corpus_evidence_legacy_fallback_chunk_id_book_slug():
+    """Objects with legacy plan-name fields (chunk_id/book_slug/chapter_id) still work."""
+    seen: set[str] = set()
+    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+               return_value=([_src_legacy()], None)):
+        ev = corpus_evidence("tail bounds", subject_id="s1",
+                             exclude_book="hansen-probability",
+                             all_slugs=["hansen-probability", "moss"], seen_ids=seen)
+    assert len(ev) == 1
+    e = ev[0]
+    assert e.meta["chunk_id"] == "c-legacy"
+    assert e.meta["book_slug"] == "moss"
+    assert e.meta["chapter"] == "ch06"
+    # Fallback id was added to seen_ids so a second call dedupes
+    assert "c-legacy" in seen
+
+
+def test_corpus_evidence_dedupes_via_legacy_chunk_id():
+    """Deduplication also works when the object only exposes legacy chunk_id."""
+    seen = {"c-legacy"}
+    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+               return_value=([_src_legacy()], None)):
         ev = corpus_evidence("q", subject_id="s1", exclude_book="x",
                              all_slugs=["x", "moss"], seen_ids=seen)
     assert ev == []

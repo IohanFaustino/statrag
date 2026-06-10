@@ -43,7 +43,8 @@ def corpus_evidence(query: str, *, subject_id: str, exclude_book: str,
         return []
     out: list[Evidence] = []
     for r in rows:
-        cid = getattr(r, "chunk_id", "") or ""
+        # Real Source uses `chunkId`; plan-name fallback for legacy fixtures/mocks.
+        cid = getattr(r, "chunkId", None) or getattr(r, "chunk_id", None) or ""
         if cid and cid in seen_ids:
             continue
         if floor and (getattr(r, "score", 0) or 0) < floor:
@@ -52,15 +53,18 @@ def corpus_evidence(query: str, *, subject_id: str, exclude_book: str,
             seen_ids.add(cid)
         pf, pt = getattr(r, "page_from", None), getattr(r, "page_to", None)
         pages = f"{pf}–{pt}" if pf and pt and pf != pt else (str(pf) if pf else None)
+        # Real Source: book/chapter; plan-name fallbacks for legacy.
+        book_slug = getattr(r, "book", None) or getattr(r, "book_slug", None)
+        chapter = getattr(r, "chapter", None) or getattr(r, "chapter_id", None)
         out.append(Evidence(
             subject_id=subject_id, kind="corpus",
             text=getattr(r, "chunk", "") or getattr(r, "excerpt", "") or "",
             meta={
-                "book_slug": getattr(r, "book_slug", None),
+                "book_slug": book_slug,
                 "book_name": getattr(r, "book_name", None),
                 "authors": getattr(r, "authors", None),
                 "year": getattr(r, "year", None),
-                "chapter": getattr(r, "chapter_id", None),
+                "chapter": chapter,
                 "section_id": getattr(r, "section", None),
                 "pages": pages,
                 "chunk_id": cid or None,
