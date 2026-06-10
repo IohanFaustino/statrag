@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import StoryDigestCard from "./StoryDigestCard";
 import type { StoryDigest } from "../types";
 
@@ -28,10 +28,13 @@ describe("StoryDigestCard", () => {
     expect(story.querySelector("strong")).not.toBeNull();      // markdown in story
   });
 
-  it("curiosity box collapsed by default, expands on toggle, shows chips", () => {
+  it("curiosity box collapsed by default, expands on toggle, shows chips; aria-expanded flips", () => {
     const { container } = render(<StoryDigestCard digest={digest} />);
     expect(container.querySelector(".curiosity-box__items")).toBeNull();
-    fireEvent.click(screen.getByText(/Curiosity box \(1\)/));
+    const toggleBtn = screen.getByText(/Curiosity box \(1\)/);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "true");
     const items = container.querySelector(".curiosity-box__items")!;
     expect(items.querySelector(".katex")).not.toBeNull();      // KaTeX in box
     expect(items.querySelector("strong")).not.toBeNull();      // markdown in box
@@ -39,6 +42,8 @@ describe("StoryDigestCard", () => {
     expect(wiki).toHaveAttribute("href", "https://en.wikipedia.org/wiki/X");
     expect(wiki).toHaveAttribute("target", "_blank");
     expect(items.textContent).toContain("Moss — Probability §6.5.2");
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
   });
 
   it("expand-all / collapse-all toggles every box", () => {
@@ -58,5 +63,73 @@ describe("StoryDigestCard", () => {
   it("shows download control", () => {
     render(<StoryDigestCard digest={digest} />);
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
+  });
+
+  describe("download error UX", () => {
+    beforeEach(() => { vi.spyOn(globalThis, "fetch"); });
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    it("shows alert with status when server returns !ok", async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+      render(<StoryDigestCard digest={digest} />);
+      expect(screen.queryByRole("alert")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /download zip/i }));
+      await waitFor(() =>
+        expect(screen.getByRole("alert").textContent).toContain("Export failed (500)")
+      );
+    });
+
+    it("shows network error alert when fetch rejects", async () => {
+      vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error("Network error"));
+      render(<StoryDigestCard digest={digest} />);
+      fireEvent.click(screen.getByRole("button", { name: /download zip/i }));
+      await waitFor(() =>
+        expect(screen.getByRole("alert").textContent).toContain("Export failed — network error")
+      );
+    });
+
+    it("clears previous error when download starts again", async () => {
+      vi.mocked(globalThis.fetch)
+        .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+        .mockResolvedValueOnce({ ok: false, status: 503 } as Response);
+      render(<StoryDigestCard digest={digest} />);
+      fireEvent.click(screen.getByRole("button", { name: /download zip/i }));
+      await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /download zip/i }));
+      // alert disappears momentarily (cleared at start) then reappears with new error
+      await waitFor(() =>
+        expect(screen.getByRole("alert").textContent).toContain("Export failed (503)")
+      );
+    });
+
+    it("uses dynamic filename from digest book+chapter", async () => {
+      // jsdom does not implement URL.createObjectURL; assign stubs directly
+      URL.createObjectURL = vi.fn(() => "blob:fake");
+      URL.revokeObjectURL = vi.fn();
+      let capturedAnchor: HTMLAnchorElement | undefined;
+      const createElementOrig = document.createElement.bind(document);
+      const createElSpy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = createElementOrig(tag);
+        if (tag === "a") {
+          capturedAnchor = el as HTMLAnchorElement;
+          // stub click+remove so jsdom's DOM invariants aren't triggered
+          (el as HTMLAnchorElement).click = vi.fn();
+          (el as HTMLAnchorElement).remove = vi.fn();
+        }
+        return el;
+      });
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: true,
+        blob: async () => new Blob(["zip"], { type: "application/zip" }),
+      } as Response);
+      render(<StoryDigestCard digest={digest} />);
+      fireEvent.click(screen.getByRole("button", { name: /download zip/i }));
+      await waitFor(() => expect(capturedAnchor).toBeDefined());
+      await waitFor(() => expect(capturedAnchor!.click).toHaveBeenCalled());
+      expect(capturedAnchor!.download).toBe(
+        "hansen-probability-ch07 · 7.4–7.5-extended.zip"
+      );
+      createElSpy.mockRestore();
+    });
   });
 });
