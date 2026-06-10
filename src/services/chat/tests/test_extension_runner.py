@@ -1,9 +1,7 @@
-import json
-import os
 import pytest
 from types import SimpleNamespace
-from src.services.chat.schemas import ChatRequest, ExtensionDigest, ExtensionPoint, ExtensionFootnote
 import src.services.chat.agents.extension_agents.runner as R
+from src.services.chat.schemas import ChatRequest
 
 
 def _events(req):
@@ -18,67 +16,9 @@ def test_clarify_gate_stops_before_agent(monkeypatch):
     async def _ascope(*a, **k):
         return {"type": "clarify", "options": ["a", "b"]}, None
     monkeypatch.setattr(R, "aresolve_scope_or_clarify", _ascope)
-    monkeypatch.setattr(R, "build_extension_agent",
-                        lambda **k: pytest.fail("agent built despite clarify"))
     evs = _events(ChatRequest(message="extend something vague", mode="extension"))
     assert any(e.get("type") == "clarify" for e in evs)
     assert evs[-1]["type"] == "done"
-
-
-def test_happy_path_streams_points(monkeypatch):
-    digest = ExtensionDigest(
-        book="hansen-probability", chapter="ch07",
-        points=[ExtensionPoint(title="LLN", curated_text="sample mean converges",
-                               footnotes=[ExtensionFootnote(marker="1", body="$\\bar X\\to\\mu$",
-                                                            source="ross §5.1", kind="corpus")])],
-        unfilled_gaps=[])
-    monkeypatch.setattr(R, "parse_catalog", lambda: [])
-    async def _ascope(*a, **k):
-        from src.services.chat.schemas import BookResolution
-        return None, BookResolution(book_slug="hansen-probability", book_confidence=0.9,
-                                    book_candidates=["hansen-probability"], chapter_id="ch07",
-                                    requested_subtopics=[])
-    monkeypatch.setattr(R, "aresolve_scope_or_clarify", _ascope)
-    monkeypatch.setattr(R, "fetch_chapter_sections",
-                        lambda **k: [{"section_id": "7.1", "h2_path": "Intro", "text": "t"}])
-    monkeypatch.setattr(R, "_all_slugs", lambda catalog: ["hansen-probability", "ross-probability"])
-    async def _run_round(agent, instruction, thread_id):
-        return None, json.dumps(digest.model_dump()), [], 10, 20
-    monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
-    monkeypatch.setattr(R, "_warm_retrieval", lambda *a, **k: None)
-    monkeypatch.setattr(R, "_run_round", _run_round)
-
-    evs = _events(ChatRequest(message="extend hansen ch7", mode="extension"))
-    types = [e["type"] for e in evs]
-    assert "structured_output" in types
-    so = next(e for e in evs if e["type"] == "structured_output")
-    assert so["schema"] == "ExtensionDigest"
-    assert so["data"]["points"][0]["title"] == "LLN"
-    assert evs[-1]["type"] == "done"
-
-
-def test_round_loop_caps(monkeypatch):
-    monkeypatch.setattr(R, "parse_catalog", lambda: [])
-    async def _ascope(*a, **k):
-        from src.services.chat.schemas import BookResolution
-        return None, BookResolution(book_slug="b", book_confidence=0.9, book_candidates=["b"],
-                                    chapter_id="ch01", requested_subtopics=[])
-    monkeypatch.setattr(R, "aresolve_scope_or_clarify", _ascope)
-    monkeypatch.setattr(R, "fetch_chapter_sections", lambda **k: [{"section_id": "1", "h2_path": "i", "text": "t"}])
-    monkeypatch.setattr(R, "_all_slugs", lambda catalog: ["b"])
-    monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
-    monkeypatch.setattr(R, "_warm_retrieval", lambda *a, **k: None)
-    calls = {"n": 0}
-    empty = json.dumps(ExtensionDigest(book="b", chapter="ch01", points=[], unfilled_gaps=["q"]).model_dump())
-    async def _run_round(agent, instruction, thread_id):
-        calls["n"] += 1
-        return None, empty, ["q"], 1, 1
-    monkeypatch.setattr(R, "_run_round", _run_round)
-
-    evs = _events(ChatRequest(message="extend b ch1", mode="extension", extensionMaxRounds=2))
-    assert calls["n"] == 2
-    so = next(e for e in evs if e["type"] == "structured_output")
-    assert so["data"]["unfilled_gaps"] == ["q"]
 
 
 def test_normalize_math_parens_to_dollar():
@@ -101,10 +41,6 @@ def test_strip_md_footnote_markers():
 
 def test_strip_md_footnote_markers_no_change_clean():
     assert R._strip_md_footnote_markers("no markers here") == "no markers here"
-
-
-def test_section_chars_default_is_2500():
-    assert int(os.environ.get("EXTENSION_SECTION_CHARS", "2500")) == 2500
 
 
 def test_filter_subtopics_exact_match():
@@ -149,88 +85,6 @@ def test_meta_event_emitted_first_with_extension_mode(monkeypatch):
     assert evs[0]["mode"] == "extension"
 
 
-def test_run_round_passes_recursion_limit(monkeypatch):
-    captured = {}
-
-    class FakeAgent:
-        def invoke(self, payload, config):
-            captured.update(config)
-            return {"messages": [], "files": {}}
-
-    monkeypatch.setenv("EXTENSION_RECURSION_LIMIT", "77")
-    import asyncio
-    asyncio.run(R._run_round(FakeAgent(), "instr", "tid"))
-    assert captured["recursion_limit"] == 77
-
-
-def test_run_round_recursion_limit_default_100(monkeypatch):
-    captured = {}
-
-    class FakeAgent:
-        def invoke(self, payload, config):
-            captured.update(config)
-            return {"messages": [], "files": {}}
-
-    monkeypatch.delenv("EXTENSION_RECURSION_LIMIT", raising=False)
-    import asyncio
-    asyncio.run(R._run_round(FakeAgent(), "instr", "tid"))
-    assert captured["recursion_limit"] == 100
-
-
-# ---------------------------------------------------------------------------
-# T3: authoritative scope stamping in _coerce_digest / _parse_digest
-# ---------------------------------------------------------------------------
-
-def test_coerce_digest_overrides_nonempty_model_book_chapter():
-    """Model returned non-empty junk; runner must stamp authoritative values."""
-    digest_in = ExtensionDigest(
-        book="Unknown",
-        chapter="7.4–7.8",
-        points=[],
-        unfilled_gaps=[],
-    )
-    result = R._coerce_digest(digest_in, book="hansen", chapter="ch07 · 7.4–7.5")
-    assert result is not None
-    assert result.book == "hansen"
-    assert result.chapter == "ch07 · 7.4–7.5"
-
-
-def test_coerce_digest_overrides_empty_model_book_chapter():
-    """Model returned empty strings; runner must still stamp authoritative values."""
-    digest_in = ExtensionDigest(book="", chapter="", points=[], unfilled_gaps=[])
-    result = R._coerce_digest(digest_in, book="ross", chapter="ch03")
-    assert result is not None
-    assert result.book == "ross"
-    assert result.chapter == "ch03"
-
-
-def test_coerce_digest_returns_none_for_none_structured():
-    assert R._coerce_digest(None, book="b", chapter="c") is None
-
-
-def test_coerce_digest_returns_none_on_invalid_structured():
-    assert R._coerce_digest(object(), book="b", chapter="c") is None
-
-
-def test_parse_digest_overrides_nonempty_model_book_chapter():
-    """JSON parse path must also stamp authoritative values over model output."""
-    data = ExtensionDigest(
-        book="Unknown", chapter="7.4–7.8", points=[], unfilled_gaps=[]
-    ).model_dump()
-    text = json.dumps(data)
-    result = R._parse_digest(text, book="hansen", chapter="ch07 · 7.4–7.5")
-    assert result.book == "hansen"
-    assert result.chapter == "ch07 · 7.4–7.5"
-
-
-def test_parse_digest_stamps_on_parse_failure():
-    """Garbage JSON must still produce a digest with authoritative scope."""
-    result = R._parse_digest("not json at all }", book="hansen", chapter="ch07")
-    assert result.book == "hansen"
-    assert result.chapter == "ch07"
-    assert "could not parse" in result.unfilled_gaps[0]
-
-
 # ---------------------------------------------------------------------------
 # T3: _scope_label helper
 # ---------------------------------------------------------------------------
@@ -263,51 +117,6 @@ def test_scope_label_no_numeric_prefix_falls_back_to_chapter_id():
 
 def test_scope_label_empty_sections_returns_chapter_id():
     assert R._scope_label("ch07", [], narrowed=True) == "ch07"
-
-
-# ---------------------------------------------------------------------------
-# T5: parallel analyst fan-out directive in round-0 instruction
-# ---------------------------------------------------------------------------
-
-def test_round0_instruction_directs_parallel_analyst_fanout(monkeypatch):
-    """The round-0 instruction string passed to the agent must direct the
-    orchestrator to issue all analyst task calls in a single message."""
-    monkeypatch.setattr(R, "parse_catalog", lambda: [])
-    async def _ascope(*a, **k):
-        from src.services.chat.schemas import BookResolution
-        return None, BookResolution(
-            book_slug="b", book_confidence=0.9, book_candidates=["b"],
-            chapter_id="ch01", requested_subtopics=[],
-        )
-    monkeypatch.setattr(R, "aresolve_scope_or_clarify", _ascope)
-    monkeypatch.setattr(R, "fetch_chapter_sections",
-                        lambda **k: [{"section_id": "1.1", "h2_path": "Intro", "text": "t"}])
-    monkeypatch.setattr(R, "_all_slugs", lambda catalog: ["b"])
-    monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
-    monkeypatch.setattr(R, "_warm_retrieval", lambda *a, **k: None)
-
-    captured_instrs: list[str] = []
-
-    async def _run_round(agent, instruction, thread_id):
-        captured_instrs.append(instruction)
-        digest = ExtensionDigest(book="b", chapter="ch01", points=[], unfilled_gaps=[])
-        return digest, "", [], 0, 0
-
-    monkeypatch.setattr(R, "_run_round", _run_round)
-
-    import asyncio
-
-    async def _collect():
-        return [e async for e in R.run_extension(
-            ChatRequest(message="extend b ch1", mode="extension")
-        )]
-
-    asyncio.run(_collect())
-    assert captured_instrs, "no round-0 instruction was captured"
-    round0 = captured_instrs[0].lower()
-    assert "single message" in round0 or "parallel" in round0, (
-        f"round-0 instruction does not mention parallel fan-out: {captured_instrs[0]!r}"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -371,3 +180,39 @@ def test_scope_label_non_contiguous_range_is_first_to_last():
     ]
     label = R._scope_label("ch07", secs, narrowed=True)
     assert label == "ch07 · 7.2–7.5"
+
+
+# ---------------------------------------------------------------------------
+# Task 8: new v2 run_extension test — pipeline bridge
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_run_extension_emits_meta_first_then_story_digest(monkeypatch):
+    import src.services.chat.agents.extension_agents.runner as R
+    from src.services.chat.schemas.output import StoryDigest, Take
+
+    monkeypatch.setattr(R, "parse_catalog", lambda: [SimpleNamespace(slug="hansen-probability"),
+                                                     SimpleNamespace(slug="moss")])
+    async def fake_resolve(msg, *, catalog, selected_slugs):
+        return None, SimpleNamespace(book_slug="hansen-probability", chapter_id="ch07",
+                                     requested_subtopics=[])
+    monkeypatch.setattr(R, "aresolve_scope_or_clarify", fake_resolve)
+    monkeypatch.setattr(R, "fetch_chapter_sections",
+                        lambda **k: [{"section_id": "7.4", "h2_path": "7.4 C", "text": "A"}])
+    monkeypatch.setattr(R, "_warm_retrieval", lambda slugs: None)
+
+    digest = StoryDigest(book="hansen-probability", chapter="ch07",
+                         takes=[Take(heading="h", story="s")])
+    async def fake_pipeline(**kwargs):
+        kwargs["on_stage"]("story", "Take 1/1 — h")
+        return digest, []
+    monkeypatch.setattr(R, "run_pipeline", fake_pipeline)
+
+    events = [e async for e in R.run_extension(SimpleNamespace(
+        message="Extend 7.4", bookFilter="ALL", model="m", extensionModels=None))]
+    assert events[0]["type"] == "meta" and events[0]["mode"] == "extension"
+    so = next(e for e in events if e["type"] == "structured_output")
+    assert so["schema"] == "StoryDigest" and so["data"]["takes"][0]["heading"] == "h"
+    assert any(e["type"] == "stage" and e["stage"] == "story" for e in events)
+    assert any(e["type"] == "sources_full" for e in events)
+    assert events[-1]["type"] == "done"

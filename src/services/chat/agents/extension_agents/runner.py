@@ -1,29 +1,21 @@
-"""Extension-mode runner: deterministic shell + capped round loop over the
-deepagents core. Emits v1 SSE event dicts.
+"""Extension-mode runner: SSE wrapper around the deterministic v2 pipeline.
 
 Chinese-wall: src.core.* + sibling extension_agents + shared chat infra only."""
 from __future__ import annotations
 
 import asyncio
-import json
-import os
 import re as _re
 import time
 from typing import AsyncIterator
 
-from src.services.chat.agents.extension_agents.agent import build_extension_agent
-from src.services.chat.agents.extension_agents.scope import (
-    aresolve_scope_or_clarify,
-    build_structure_files,
-)
-from src.services.chat._fences import strip_fences
-from src.services.chat.agents.extension_agents.prompts import JUDGE_PROMPT
+from src.services.chat.agents.extension_agents.graph import run_pipeline
+from src.services.chat.agents.extension_agents.scope import aresolve_scope_or_clarify
 from src.services.chat.books import parse_catalog
 from src.services.chat.retrieval import fetch_chapter_sections, hybrid_search
-from src.services.chat.schemas import ChatRequest, ExtensionDigest
+from src.services.chat.schemas import ChatRequest
 
 # ---------------------------------------------------------------------------
-# Module-level helpers (defined after imports)
+# Module-level helpers
 # ---------------------------------------------------------------------------
 
 # Matches a leading section number like "7.4" or "7.4.1" from a section label.
@@ -54,10 +46,6 @@ def _scope_label(chapter_id: str, sections: list[dict], *, narrowed: bool) -> st
 
     When not narrowed (all sections kept), or when numeric prefixes cannot be
     extracted, the label is just *chapter_id* (e.g. ``"ch07"``).
-
-    Note: for multiple sections the range is first–last, which is an
-    approximation when the matched sections are non-contiguous (e.g. 7.2 + 7.5
-    yields ``"ch07 · 7.2–7.5"`` even though 7.3/7.4 were not matched).
     """
     if not narrowed or not sections:
         return chapter_id
@@ -71,11 +59,10 @@ def _scope_label(chapter_id: str, sections: list[dict], *, narrowed: bool) -> st
 
 
 def _warm_retrieval(slugs: list[str]) -> None:
-    """Initialise the dense + sparse embedders (and tqdm's lock) on the MAIN
-    thread. The augmentor later calls retrieve_corpus inside a worker thread
-    (asyncio.to_thread), where fastembed's first-use tqdm/torch init raises
-    ("tqdm has no attribute '_lock'", reranker meta-tensor). Warming here means
-    the cached embedders are reused in-thread without re-initialising."""
+    """Initialise the dense + sparse embedders on the MAIN thread.
+
+    The pipeline calls corpus_evidence inside asyncio.to_thread; warming here
+    means the cached embedders are reused in-thread without re-initialising."""
     try:
         hybrid_search("warmup", book_slugs=slugs or None, top_k=1, rerank=False)
     except Exception:  # noqa: BLE001
@@ -89,9 +76,7 @@ _MD_FOOTNOTE = _re.compile(r'\[\^[^\]]+\]')
 
 
 def _normalize_math_delimiters(text: str) -> str:
-    r"""Convert \(...\) → $...$ and \[...\] → $$...$$ (own line).
-    Applied to curated_text and footnote bodies before emit so the
-    export ZIP and any consumer sees KaTeX-ready delimiters."""
+    r"""Convert \(...\) → $...$ and \[...\] → $$...$$ (own line)."""
     if not text:
         return text
     text = _LATEX_BRACKET.sub(lambda m: f'\n$$\n{m.group(1)}\n$$\n', text)
@@ -100,23 +85,14 @@ def _normalize_math_delimiters(text: str) -> str:
 
 
 def _strip_md_footnote_markers(text: str) -> str:
-    r"""Remove [^n] markdown footnote markers from curated_text.
-    These render literally in React; footnotes use the ExtensionFootnote.marker field."""
+    r"""Remove [^n] markdown footnote markers from text."""
     return _MD_FOOTNOTE.sub('', text) if text else text
-
-
-def curated_text_is_clean(point) -> bool:
-    """Invariant guard: curated_text must carry no augmentation artefacts
-    (URLs / source tags). All augmentation belongs in footnotes."""
-    return _AUG_LEAK.search(point.curated_text or "") is None
 
 
 def _isolate_midline_display(text: str) -> str:
     """KaTeX renders ``$$..$$`` as display math only when it OWNS its line; a
     mid-line ``$$`` leaks raw LaTeX. Convert mid-line ``$$`` to inline ``$`` so
-    KaTeX renders it. A line that is wholly a ``$$..$$`` block is left intact.
-    (Isolated copy — cannot import the tutor helper across the Chinese wall;
-    see invariant on mid-line display math.)"""
+    KaTeX renders it. A line that is wholly a ``$$..$$`` block is left intact."""
     if not text or "$$" not in text:
         return text
     out_lines = []
@@ -126,15 +102,6 @@ def _isolate_midline_display(text: str) -> str:
                      and stripped.count("$$") == 2 and len(stripped) > 4)
         out_lines.append(line if owns_line else line.replace("$$", "$"))
     return "\n".join(out_lines)
-
-
-def _max_rounds(req: ChatRequest) -> int:
-    if req.extensionMaxRounds:
-        return int(req.extensionMaxRounds)
-    try:
-        return max(1, int(os.environ.get("EXTENSION_MAX_ROUNDS", "3")))
-    except ValueError:
-        return 3
 
 
 def _all_slugs(catalog) -> list[str]:
@@ -153,21 +120,9 @@ def _section_to_dict(s) -> dict:
 
 def _needle_matches(needle: str, haystack: str) -> bool:
     """Return True when *needle* occurs in *haystack* with word-boundary
-    protection for section numbers.
-
-    Strategy:
-    1. If the needle begins with a section number (e.g. ``"7.5"`` from
-       ``"7.5 WLLN"``), match by that section-number prefix using a
-       word-boundary regex — this avoids false-positives like ``"7.5"``
-       matching ``"17.5"``, and correctly handles acronym-titled sections
-       where the label text differs from the needle's keyword suffix.
-    2. If no section-number prefix is found, fall back to plain substring
-       matching.
-    """
+    protection for section numbers."""
     sec_num = _extract_section_num(needle)
     if sec_num:
-        # Word-boundary: the number must not be immediately preceded/followed
-        # by another digit or dot (so "7.4" won't match "17.4" or "7.40").
         pattern = r'(?<![.\d])' + _re.escape(sec_num) + r'(?![.\d])'
         return bool(_re.search(pattern, haystack))
     return needle in haystack
@@ -213,96 +168,17 @@ def _filter_subtopics(
     return fuzzy_kept or sections  # final fallback: whole chapter
 
 
-async def _run_round(agent, instruction: str, thread_id: str):
-    """Invoke the deep-agent for one round. Returns
-    (structured_response, final_text, unfilled_queries, in_tok, out_tok).
+# ---------------------------------------------------------------------------
+# v2 SSE entry point
+# ---------------------------------------------------------------------------
 
-    structured_response is the schema-enforced ExtensionDigest (deepagents
-    response_format=ToolStrategy(ExtensionDigest)); text is the fallback when it
-    is absent."""
-    from langchain_core.callbacks import UsageMetadataCallbackHandler
-    cb = UsageMetadataCallbackHandler()
-    # The quality pipeline (≥2 gaps/section, ≥2 footnotes/point, per-source fit
-    # scoring) needs far more graph super-steps than langgraph's default 25.
-    recursion_limit = int(os.environ.get("EXTENSION_RECURSION_LIMIT", "100"))
-    result = await asyncio.to_thread(
-        agent.invoke,
-        {"messages": [{"role": "user", "content": instruction}]},
-        {"configurable": {"thread_id": thread_id}, "callbacks": [cb],
-         "recursion_limit": recursion_limit},
-    )
-    structured = result.get("structured_response") if isinstance(result, dict) else None
-    msgs = result.get("messages", []) if isinstance(result, dict) else []
-    text = (msgs[-1].content if msgs else "") or ""
-    unfilled = _parse_unfilled(result)
-    it = ot = 0
-    for v in (getattr(cb, "usage_metadata", None) or {}).values():
-        it += int(v.get("input_tokens", 0) or 0)
-        ot += int(v.get("output_tokens", 0) or 0)
-    return structured, text, unfilled, it, ot
-
-
-def _coerce_digest(structured, *, book: str, chapter: str) -> ExtensionDigest | None:
-    """Turn a deepagents structured_response (ExtensionDigest instance or dict)
-    into an ExtensionDigest, stamping authoritative book/chapter unconditionally.
-
-    The model frequently emits ``book="Unknown"`` or widens the chapter range
-    (e.g. ``"7.4–7.8"`` when only 7.4–7.5 were requested).  The runner holds
-    the resolved scope and is always authoritative for these two fields."""
-    if structured is None:
-        return None
-    try:
-        d = structured if isinstance(structured, ExtensionDigest) else ExtensionDigest(
-            **(structured if isinstance(structured, dict) else structured.model_dump())
-        )
-    except Exception:  # noqa: BLE001
-        return None
-    # Always override — never trust the model's book/chapter values.
-    d.book = book
-    d.chapter = chapter
-    return d
-
-
-def _parse_unfilled(result) -> list[str]:
-    files = result.get("files", {}) if isinstance(result, dict) else {}
-    unfilled: list[str] = []
-    for path, content in files.items():
-        if "/footnotes/" not in path:
-            continue
-        body = content if isinstance(content, str) else getattr(content, "content", "") or ""
-        for line in body.splitlines():
-            if line.startswith("# COVERAGE:") and "= unfilled" in line:
-                q = line.split("# COVERAGE:", 1)[1].split("=", 1)[0].strip()
-                if q:
-                    unfilled.append(q)
-    return unfilled
-
-
-def _parse_digest(text: str, *, book: str, chapter: str) -> ExtensionDigest:
-    """Parse the agent's final text as a JSON ExtensionDigest.
-
-    Authoritative book/chapter are always stamped after parsing — the model
-    cannot be trusted to return the correct scope values."""
-    raw = strip_fences(text)
-    try:
-        data = json.loads(raw)
-        d = ExtensionDigest(**data)
-    except Exception:  # noqa: BLE001
-        d = ExtensionDigest(book=book, chapter=chapter, points=[],
-                            unfilled_gaps=["could not parse agent output"])
-    # Always override — never trust the model's book/chapter values.
-    d.book = book
-    d.chapter = chapter
-    return d
-
-
-async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
+async def run_extension(req) -> AsyncIterator[dict]:
     t0 = time.time()
     bf = req.bookFilter
     book_slugs = list(bf) if isinstance(bf, list) and bf else []
     yield {"type": "meta", "mode": "extension", "books": book_slugs,
            "sourceCount": 0, "latencyMs": 0, "model": req.model}
-    yield {"type": "stage", "stage": "parse", "label": "Parse + resolve scope"}
+    yield {"type": "stage", "stage": "parse", "label": "Resolve scope"}
     catalog = parse_catalog()
     selected = [] if req.bookFilter == "ALL" else list(req.bookFilter)
     clar, res = await aresolve_scope_or_clarify(req.message, catalog=catalog,
@@ -314,82 +190,43 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
         yield {"type": "done"}
         return
 
-    book = res.book_slug
-    chapter = res.chapter_id
+    book, chapter = res.book_slug, res.chapter_id
     yield {"type": "stage", "stage": "fetch", "label": f"Fetch {book} {chapter}"}
-    raw_sections = fetch_chapter_sections(book_slug=book, chapter_id=chapter)
-    all_sections = [_section_to_dict(s) for s in raw_sections]
+    all_sections = [_section_to_dict(s) for s in
+                    fetch_chapter_sections(book_slug=book, chapter_id=chapter)]
     sections = _filter_subtopics(all_sections, res.requested_subtopics, book_slug=book)
     narrowed = bool(res.requested_subtopics) and len(sections) < len(all_sections)
     chapter_label = _scope_label(chapter, sections, narrowed=narrowed)
-    structure = build_structure_files(sections)
 
     slugs = _all_slugs(catalog)
-    _warm_retrieval([s for s in slugs if s != book])  # main-thread embedder init
-    seen_chunk_ids: set[str] = set()
-    agent = build_extension_agent(stage_models=req.extensionModels,
-                                  exclude_book=book, all_slugs=slugs,
-                                  seen_ids=seen_chunk_ids)
-    thread_id = f"ext-{book}-{chapter}-{int(t0)}"
+    _warm_retrieval([s for s in slugs if s != book])   # embedder+reranker on main thread
 
-    seed = "\n".join(f"- {p}" for p in structure.keys())
-    in_tok = out_tok = 0
-    text = ""
-    rounds = _max_rounds(req)
-    # Cap per-section text seeded into the orchestrator prompt: the full prompt
-    # is re-sent on every orchestrator turn, so embedding whole sections blows
-    # the TPM budget on large chapters. Analysts work from these excerpts.
-    _per_section_cap = int(os.environ.get("EXTENSION_SECTION_CHARS", "2500"))
-    for r in range(rounds):
-        if r == 0:
-            seeded = "\n\n".join(
-                f"=== {p} ===\n{c[:_per_section_cap]}"
-                + ("\n…[truncated]" if len(c) > _per_section_cap else "")
-                for p, c in structure.items()
-            )
-            instr = (
-                "These /structure files hold the chapter sections:\n"
-                f"{seed}\n\nSection excerpts follow:\n" + seeded +
-                "\n\nRun the full pipeline: invoke the analyst subagent for ALL"
-                " sections in a SINGLE message with one task call per section"
-                " (parallel fan-out) -> polish -> plan queries -> augmentor."
-                " Then emit the ExtensionDigest JSON."
-            )
-        else:
-            instr = (
-                JUDGE_PROMPT
-                + "\n\nSome gap queries are still unfilled. Acting as the Judge "
-                "above: re-run the augmentor ONLY for the unfilled queries, then "
-                "re-emit the ExtensionDigest JSON."
-            )
-        yield {"type": "stage", "stage": "augment", "label": f"Augment · round {r + 1}"}
-        structured, text, unfilled, it, ot = await _run_round(agent, instr, thread_id)
-        in_tok += it
-        out_tok += ot
-        if not unfilled:
-            break
+    stage_q: asyncio.Queue[dict] = asyncio.Queue()
 
-    # Prefer the schema-enforced structured_response; fall back to JSON-parsing
-    # the final message only if the agent returned no structured output.
-    digest = _coerce_digest(structured, book=book, chapter=chapter_label) \
-        or _parse_digest(text, book=book, chapter=chapter_label)
+    def on_stage(key: str, label: str) -> None:
+        stage_q.put_nowait({"type": "stage", "stage": key, "label": label})
 
-    for pt in digest.points:
-        if not curated_text_is_clean(pt):
-            pt.curated_text = _AUG_LEAK.sub("", pt.curated_text).strip()
-        pt.title = _normalize_math_delimiters(pt.title)
-        pt.curated_text = _isolate_midline_display(pt.curated_text)
-        pt.curated_text = _normalize_math_delimiters(pt.curated_text)
-        pt.curated_text = _strip_md_footnote_markers(pt.curated_text)
-        for fn in pt.footnotes:
-            fn.body = _isolate_midline_display(fn.body)
-            fn.body = _normalize_math_delimiters(fn.body)
-    digest.unfilled_gaps = [_normalize_math_delimiters(g) for g in digest.unfilled_gaps]
+    task = asyncio.create_task(run_pipeline(
+        book=book, chapter_label=chapter_label, sections=sections,
+        all_slugs=slugs, stage_models=req.extensionModels, on_stage=on_stage))
+    while not task.done() or not stage_q.empty():
+        try:
+            yield await asyncio.wait_for(stage_q.get(), timeout=0.25)
+        except asyncio.TimeoutError:
+            continue
+    digest, evidence = await task
 
-    for pt in digest.points:
-        yield {"type": "stage", "stage": "point", "label": pt.title}
-    yield {"type": "structured_output", "schema": "ExtensionDigest", "data": digest.model_dump()}
-    yield {"type": "sources_full", "sources": []}
+    for pt in digest.takes:          # delimiter safety net
+        pt.heading = _normalize_math_delimiters(pt.heading)
+        pt.story = _normalize_math_delimiters(_isolate_midline_display(pt.story))
+        for it in pt.items:
+            it.body = _normalize_math_delimiters(_isolate_midline_display(it.body))
+
+    yield {"type": "structured_output", "schema": "StoryDigest",
+           "data": digest.model_dump()}
+    yield {"type": "sources_full", "sources": [
+        {"kind": e.kind, **{k: v for k, v in e.meta.items() if v is not None}}
+        for e in evidence]}
     yield {"type": "usage", "durationMs": int((time.time() - t0) * 1000),
-           "inputTokens": in_tok, "outputTokens": out_tok}
+           "inputTokens": 0, "outputTokens": 0}
     yield {"type": "done"}
