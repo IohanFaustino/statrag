@@ -308,3 +308,18 @@ export type ChatEventBody =
       candidates: ClarifyCandidate[]; chapter_guess: string; sections_guess: string[] }
   | { type: "stage"; stage: string; label?: string }
   | StructuredOutputEvent;
+
+// ─── Extension v2 — StoryDigest TS types (mirror schemas/output.py) ──────────
+
+export interface StoryCitation {
+  kind: "corpus" | "wikipedia";
+  label: string;
+  book_slug?: string; book_name?: string; authors?: string; year?: number;
+  chapter?: string; section_id?: string; pages?: string;
+  title?: string; url?: string; chunk_id?: string;
+}
+export interface CuriosityItem { subject: string; body: string; citations: StoryCitation[]; }
+export interface StoryTake { heading: string; story: string; items: CuriosityItem[]; }
+export interface StoryDigest {
+  book: string; chapter: string; takes: StoryTake[]; unfilled_subjects: string[];
+}
