@@ -118,9 +118,11 @@ def render_story_html(digest) -> str:
                 # Build citation label(s)
                 cit_parts: list[str] = []
                 for c in item.citations:
-                    if c.kind == "wikipedia" and getattr(c, "url", None):
+                    url = getattr(c, "url", None)
+                    safe_url = url if (url and url.startswith(("https://", "http://"))) else None
+                    if c.kind == "wikipedia" and safe_url:
                         cit_parts.append(
-                            f'<a class="wiki-ref" href="{_html.escape(c.url)}" '
+                            f'<a class="wiki-ref" href="{_html.escape(safe_url)}" '
                             f'target="_blank" rel="noopener noreferrer">'
                             f'{_html.escape(c.label)}</a>'
                         )

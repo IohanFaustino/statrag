@@ -12,6 +12,7 @@ import mimetypes
 from pathlib import Path
 from typing import AsyncIterator
 
+import pydantic
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -320,13 +321,22 @@ async def export_extension(request: Request) -> Response:
         build_story_export_zip,
         zip_filename,
     )
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="invalid JSON body")
     if "takes" in payload:
-        digest = StoryDigest.model_validate(payload)
+        try:
+            digest = StoryDigest.model_validate(payload)
+        except pydantic.ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
         blob = build_story_export_zip(digest)
         fname = zip_filename(digest.book, digest.chapter)
     else:
-        digest = ExtensionDigest.model_validate(payload)
+        try:
+            digest = ExtensionDigest.model_validate(payload)
+        except pydantic.ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
         blob = build_export_zip(digest)
         fname = f"{digest.book}-{digest.chapter}-extended.zip"
     return Response(
