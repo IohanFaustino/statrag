@@ -32,8 +32,11 @@ Additional live defects traced to the free-form deepagents orchestrator: languag
 
 ## 3. Architecture — deterministic LangGraph pipeline (approach A, chosen)
 
-One async `StateGraph` replaces the deepagents core inside
-`src/services/chat/agents/extension_agents/`. Two pure-code stages carry the trust;
+One deterministic async pipeline replaces the deepagents core inside
+`src/services/chat/agents/extension_agents/` (implementation note: plain
+`asyncio.gather` orchestration in `graph.py` — every stage boundary is
+deterministic, so a langgraph `StateGraph` would add checkpointer/reducer
+machinery without buying control flow). Two pure-code stages carry the trust;
 LLM stages are small, structured-output-enforced, English-pinned. Parallel fan-out via
 langgraph `Send`. Embedder + reranker warmed on the main thread before the graph runs
 (carries the `_warm_retrieval` lesson).
