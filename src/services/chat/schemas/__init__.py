@@ -25,10 +25,6 @@ from src.services.chat.schemas._core import (  # noqa: F401
     Source,
 )
 from src.services.chat.schemas.output import (  # noqa: F401
-    Citation,
-    CuriosityItem,
-    Take,
-    StoryDigest,
     ConceptCitation,
     ConceptEdge,
     ConceptNode,
@@ -65,6 +61,11 @@ from src.services.chat.schemas.output import (  # noqa: F401
     ExtensionFootnote,
     ExtensionPoint,
     ExtensionDigest,
+    # extension v2
+    StoryCitation,
+    CuriosityItem,
+    Take,
+    StoryDigest,
 )
 
 __all__ = [
@@ -82,10 +83,6 @@ __all__ = [
     "SearchRequest",
     "Source",
     # output
-    "Citation",
-    "CuriosityItem",
-    "Take",
-    "StoryDigest",
     "ConceptCitation",
     "ConceptEdge",
     "ConceptNode",
@@ -122,4 +119,9 @@ __all__ = [
     "ExtensionFootnote",
     "ExtensionPoint",
     "ExtensionDigest",
+    # extension v2
+    "StoryCitation",
+    "CuriosityItem",
+    "Take",
+    "StoryDigest",
 ]

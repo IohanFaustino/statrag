@@ -2,7 +2,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.services.chat.schemas.output import Citation, CuriosityItem, StoryDigest, Take
+from src.services.chat.schemas.output import StoryCitation, CuriosityItem, StoryDigest, Take
 
 
 def _corpus_citation(**over):
@@ -10,7 +10,7 @@ def _corpus_citation(**over):
                 book_slug="moss", book_name="Probability", authors="Moss", year=2020,
                 chapter="ch06", section_id="6.5.2", pages="142–144", chunk_id="abc123")
     base.update(over)
-    return Citation(**base)
+    return StoryCitation(**base)
 
 
 def test_corpus_citation_roundtrip():
@@ -19,9 +19,9 @@ def test_corpus_citation_roundtrip():
 
 
 def test_wikipedia_citation_minimal():
-    c = Citation(kind="wikipedia", label="Wikipedia: Chebyshev's inequality",
-                 title="Chebyshev's inequality",
-                 url="https://en.wikipedia.org/wiki/Chebyshev%27s_inequality")
+    c = StoryCitation(kind="wikipedia", label="Wikipedia: Chebyshev's inequality",
+                      title="Chebyshev's inequality",
+                      url="https://en.wikipedia.org/wiki/Chebyshev%27s_inequality")
     assert c.book_slug is None and c.url.startswith("https://")
 
 

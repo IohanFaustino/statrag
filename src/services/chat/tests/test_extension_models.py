@@ -16,11 +16,6 @@ def test_judge_default_is_cheap_not_top():
     assert STAGE_DEFAULTS["judge"] == settings.openai_model_nano
 
 
-def test_mid_alias_exists_and_equals_nano():
-    from src.services.chat.agents.extension_agents._models import _MID, _CHEAP
-    # Both are nano today; having them as separate names enables future bumps.
-    assert _MID == _CHEAP
-
 
 def test_extension_judge_model_env_override(monkeypatch):
     monkeypatch.setenv("EXTENSION_JUDGE_MODEL", "custom-judge-model")

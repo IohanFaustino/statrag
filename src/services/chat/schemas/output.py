@@ -589,7 +589,7 @@ class ExtensionDigest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class Citation(BaseModel):
+class StoryCitation(BaseModel):
     """One reference attached to a curiosity bullet. Fields are copied VERBATIM
     from retrieval payloads by the citation binder — never model-generated
     (invariant: see docs/system/invariants.md, extension v2)."""
@@ -609,11 +609,11 @@ class Citation(BaseModel):
 
 
 class CuriosityItem(BaseModel):
-    """One curiosity-box bullet: a subject expanded from evidence only."""
+    """One curiosity bullet: subject + body derived solely from attached citations."""
 
     subject: str
     body: str
-    citations: list[Citation] = Field(min_length=1)
+    citations: list[StoryCitation] = Field(min_length=1)
 
 
 class Take(BaseModel):

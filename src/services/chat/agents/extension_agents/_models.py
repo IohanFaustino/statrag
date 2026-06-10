@@ -8,7 +8,6 @@ import os
 
 from src.core.config import settings
 
-_MID   = settings.openai_model_nano   # semantically separate from _CHEAP; enables future bumps
 _CHEAP = settings.openai_model_nano   # bounded tasks (all v2 stages default cheap)
 
 STAGE_DEFAULTS: dict[str, str] = {
