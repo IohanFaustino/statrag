@@ -2,6 +2,22 @@
 
 Append-only. Latest at top.
 
+## 2026-06-10 — Extension polish batch: QA guard port, digest markdown, authoritative scope, answer recovery, parallel analysts
+
+**Scope:** 5-task pre-merge batch on `worktree-feat+extension-mode` (subagent-driven; per-task spec + quality reviews).
+
+**T1 — QA black-screen fix ported** (`9508167`, `6b8a449`): `QAAnswer` fields optional + deepagent `thesis/deepening/synthesis` shape; `QAAnswerCard` guards missing `scope`/`grounding` (badge now conditional); ONE `StructuredErrorBoundary` in `MessageThread` wraps ALL structured branches (internal boundary removed from `ExtensionDigestCard` — supersedes the 2026-06-09 "wraps card" arrangement below); `exportStructured.ts` mirrors the dual-shape guards.
+
+**T2 — digest markdown rendering** (`5b48b7c`, `7eee326`): `renderMathText` (shared renderer for titles/curated/footnotes/gaps — supersedes `renderFootnoteBody`) now renders `**bold**`/tight-`*italic*` in non-math segments (word-boundary guard: `x*y*z` stays literal), strips `[^n]` refs, and `stripLeadingMarker` dedupes footnote-body leading markers. Frontend `normalizeMathDelimiters` also converts legacy `\(…\)`/`\[…\]`/lone-`$`-line display blocks from persisted digests (`8888dcb`).
+
+**T3 — authoritative scope** (`cad1236`, `84936c7`): runner ALWAYS stamps `digest.book`/`digest.chapter` (model junk like `"Unknown"`/widened ranges discarded); `_scope_label` derives honest narrowed label from filtered sections (`"ch07 · 7.4–7.5"`); `_needle_matches` adds section-number word-boundary matching (`"7.4"` ≠ `"17.4"`/`"7.40"`; `"7.5 WLLN"` now matches "7.5 Weak Law…").
+
+**T4 — answer recovery** (`4444027`, `032ef33`, `b84e9d4`): one-off `ops/scripts/backfill_extension_conv.py` rebuilt the lost assistant answer for conv `9d9985d3…` from agent-workspace artifacts (timeline + footnotes): 20 points / 20 footnotes (dotted-stem markers kept), bookkeeping lines stripped, `--dry-run` default + backup + idempotency + `--force` replace. Applied + live-verified on :5175.
+
+**T5 — parallel analyst fan-out** (`94cc43f`, `ca3299e`): orchestrator prompt + round-0 instruction direct ALL analyst `task` calls in a single message; langgraph executes parallel tool calls concurrently (async `asyncio.gather`, sync `ThreadPoolExecutor.map` — both verified in installed packages). Wall-clock gain pending next live run.
+
+---
+
 ## 2026-06-09 — Extension mode quality rebuild
 
 **Scope:** `extension_agents/` + `web/src/` Extension components only.
