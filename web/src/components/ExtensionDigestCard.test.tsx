@@ -93,10 +93,52 @@ it("renders Wikipedia footnote source as clickable link", () => {
 });
 
 it("Download button shows loading state while fetching", async () => {
-  global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+  globalThis.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
   render(<ExtensionDigestCard digest={SAMPLE_DIGEST} />);
   const btn = screen.getByRole("button", { name: /download/i });
   fireEvent.click(btn);
   await waitFor(() => expect(btn).toBeDisabled());
   vi.restoreAllMocks();
+});
+
+// ─── Math delimiter normalization (persisted digests predate backend fix) ─────
+
+it("renders \\(...\\) inline math in point titles as KaTeX, not raw text", () => {
+  const d = {
+    ...SAMPLE_DIGEST,
+    points: [{ ...SAMPLE_DIGEST.points[0], title: "Worst-case tail rate (why \\(\\delta^{-2}\\) shows up)" }],
+  };
+  const { container } = render(<ExtensionDigestCard digest={d} />);
+  const title = container.querySelector(".extension-point__title")!;
+  expect(title.textContent).not.toContain("\\(");
+  expect(title.querySelector(".katex")).not.toBeNull();
+});
+
+it("renders \\[...\\] as display math", () => {
+  const d = {
+    ...SAMPLE_DIGEST,
+    points: [{ ...SAMPLE_DIGEST.points[0], curated_text: "Bound: \\[\\mathbb{P}(|X|\\ge t)\\le t^{-2}\\] holds." }],
+  };
+  const { container } = render(<ExtensionDigestCard digest={d} />);
+  expect(container.querySelector(".math-block")).not.toBeNull();
+  expect(container.querySelector(".extension-point__body")!.textContent).not.toContain("\\[");
+});
+
+it("renders $-on-own-line display blocks (newlines inside single-$ pair) as display math", () => {
+  const body = "Then\n\n$\n\\mathbb{E}[Z^2]=\\mathbb{E}[X^2]-\\mu^2=\\operatorname{Var}(X).\n$\n\nFor any $t>0$ the bound holds.";
+  const d = {
+    ...SAMPLE_DIGEST,
+    points: [{ ...SAMPLE_DIGEST.points[0], footnotes: [{ marker: "2", body, source: "wiki", kind: "wikipedia" as const }] }],
+  };
+  const { container } = render(<ExtensionDigestCard digest={d} />);
+  const fn = container.querySelector(".extension-footnote__body")!;
+  expect(fn.textContent).not.toContain("\n$\n");
+  expect(container.querySelector(".extension-footnote__body .math-block")).not.toBeNull();
+});
+
+it("renders unfilled gaps with \\(...\\) math normalized", () => {
+  const d = { ...SAMPLE_DIGEST, unfilled_gaps: ["WLLN under only \\(\\mathbb{E}|X|<\\infty\\): missing proof"] };
+  const { container } = render(<ExtensionDigestCard digest={d} />);
+  const gaps = container.querySelector(".extension-card__gaps")!;
+  expect(gaps.textContent).not.toContain("\\(");
 });

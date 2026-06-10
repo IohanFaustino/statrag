@@ -375,20 +375,22 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
             })),
           };
 
-        case "stage":
-          if (ev.stage === "point" && ev.label) {
+        case "stage": {
+          const label = ev.label;
+          if (ev.stage === "point" && label) {
             return {
               ...state,
               messages: updateLastAssistant(state.messages, (msg) => ({
                 ...msg,
                 pendingExtensionPoints: [
                   ...(msg.pendingExtensionPoints ?? []),
-                  ev.label,
+                  label,
                 ],
               })),
             };
           }
           return state;
+        }
 
         case "structured_output":
           return {

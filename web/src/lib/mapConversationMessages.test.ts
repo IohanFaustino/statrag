@@ -221,4 +221,16 @@ describe("mapConversationMessages — structured content", () => {
     expect(assistants[0].mode).toBe("facilitate"); // from metadata.turnMode
     expect(assistants[1].mode).toBe("tutor");      // fallback to convMode
   });
+
+  it("recognizes the extension mode from metadata.turnMode (badge on reload)", () => {
+    const out = mapConversationMessages({
+      mode: "extension",
+      messages: [
+        { role: "user", content: "extend ch7" },
+        { role: "assistant", content: '{"_schema":"ExtensionDigest","book":"b","chapter":"7","points":[],"unfilled_gaps":[]}', metadata: { turnMode: "extension" } },
+      ],
+    } as never);
+    const assistants = out.filter((m) => m.role === "assistant") as AssistantMessage[];
+    expect(assistants[0].mode).toBe("extension");
+  });
 });

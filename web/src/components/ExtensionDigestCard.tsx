@@ -32,10 +32,25 @@ export interface ExtensionDigest {
  * rendered as-is. Does NOT apply [N] citation logic — footnotes use the marker
  * field.
  */
+/**
+ * Persisted digests (and some model outputs) use LaTeX delimiters the split
+ * regex can't see: \(…\), \[…\], and display blocks written as a lone `$` on
+ * its own line. Normalize all of them to $…$ / $$…$$ before splitting.
+ */
+function normalizeMathDelimiters(body: string): string {
+  return body
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_m, tex) => `$$${tex}$$`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_m, tex) => `$${tex}$`)
+    .replace(
+      /(^|\n)[ \t]*\$[ \t]*\n([\s\S]*?)\n[ \t]*\$[ \t]*(?=\n|$)/g,
+      (_m, pre, tex) => `${pre}$$${tex}$$`,
+    );
+}
+
 function renderMathText(body: string): React.ReactNode {
   if (!body) return null;
   const parts: React.ReactNode[] = [];
-  const segments = body.split(/((?:\$\$[\s\S]*?\$\$|\$[^$\n]+\$))/g);
+  const segments = normalizeMathDelimiters(body).split(/((?:\$\$[\s\S]*?\$\$|\$[^$\n]+\$))/g);
   segments.forEach((seg, i) => {
     if (seg.startsWith("$$") && seg.endsWith("$$") && seg.length > 4) {
       parts.push(<MathBlock key={i} tex={seg.slice(2, -2)} />);

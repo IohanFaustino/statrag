@@ -40,7 +40,7 @@ export interface RawConversationResponse {
 // ---------------------------------------------------------------------------
 
 /** Known conversation modes; anything else falls back to "tutor". */
-const VALID_MODES: ReadonlySet<string> = new Set(["tutor", "qa", "facilitate", "resume"]);
+const VALID_MODES: ReadonlySet<string> = new Set(["tutor", "qa", "facilitate", "resume", "extension"]);
 
 /** Parse a raw mode string into a validated ModeId, falling back to "tutor". */
 export function parseConvMode(raw: unknown): ModeId {
