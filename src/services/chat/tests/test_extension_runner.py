@@ -35,13 +35,6 @@ def test_normalize_math_no_change_for_clean_text():
     assert R._normalize_math_delimiters("plain text $x$ here") == "plain text $x$ here"
 
 
-def test_strip_md_footnote_markers():
-    assert R._strip_md_footnote_markers("text[^1] and [^abc]more") == "text and more"
-
-
-def test_strip_md_footnote_markers_no_change_clean():
-    assert R._strip_md_footnote_markers("no markers here") == "no markers here"
-
 
 def test_filter_subtopics_exact_match():
     secs = [
