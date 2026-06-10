@@ -67,3 +67,28 @@ def test_polish_keeps_formal_structure():
 
 def test_judge_has_english_check():
     assert "english" in P.JUDGE_PROMPT.lower() or "translate" in P.JUDGE_PROMPT.lower()
+
+
+# ---------------------------------------------------------------------------
+# T5: parallel analyst fan-out directive
+# ---------------------------------------------------------------------------
+
+def test_orchestrator_directs_parallel_analyst_fanout():
+    """ORCHESTRATOR_PROMPT must explicitly direct the model to issue all analyst
+    task calls in a single message so LangGraph ToolNode runs them concurrently."""
+    low = P.ORCHESTRATOR_PROMPT.lower()
+    assert "single message" in low or "all.*at once" in low or "parallel" in low
+
+
+def test_orchestrator_parallel_directive_is_in_task_section():
+    """The parallel fan-out instruction must be inside the <task> block, not
+    buried in <rules>, so it is the most salient call-to-action."""
+    task_block = P.ORCHESTRATOR_PROMPT.split("<task>")[1].split("</task>")[0]
+    low = task_block.lower()
+    assert "single message" in low or "parallel" in low
+
+
+def test_orchestrator_bans_sequential_analyst_pattern():
+    """The prompt must also explicitly forbid sending analyst calls one at a time."""
+    low = P.ORCHESTRATOR_PROMPT.lower()
+    assert "one at a time" in low or "not.*one.*at.*a.*time" in low or "not send analyst" in low or "do not send" in low

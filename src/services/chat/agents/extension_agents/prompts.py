@@ -17,8 +17,13 @@ be confined to footnotes.
 </context>
 
 <task>
-1. Delegate one `analyst` task per /structure file to produce /context/NN.md.
-2. Delegate `polish` once to produce /curated/timeline.md.
+1. PARALLEL ANALYST FAN-OUT: Delegate one `analyst` task per /structure file to
+   produce /context/NN.md. Issue ALL analyst task calls in a SINGLE message —
+   one `task` call per section, all at once — so they execute concurrently.
+   Do NOT send analyst calls one at a time; all calls must appear together in
+   the same response turn.
+2. Delegate `polish` once (after all analyst tasks complete) to produce
+   /curated/timeline.md.
 3. Read the context gaps and write /plan/queries.md: a deduplicated list of OPEN
    gap queries. One query per line: `POINT :: query`.
 4. Delegate `augmentor` tasks for the queries. You MUST run the augmentor.

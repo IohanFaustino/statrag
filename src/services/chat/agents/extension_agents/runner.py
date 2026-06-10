@@ -350,8 +350,10 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
             instr = (
                 "These /structure files hold the chapter sections:\n"
                 f"{seed}\n\nSection excerpts follow:\n" + seeded +
-                "\n\nRun the full pipeline: analyst per section -> polish -> "
-                "plan queries -> augmentor. Then emit the ExtensionDigest JSON."
+                "\n\nRun the full pipeline: invoke the analyst subagent for ALL"
+                " sections in a SINGLE message with one task call per section"
+                " (parallel fan-out) -> polish -> plan queries -> augmentor."
+                " Then emit the ExtensionDigest JSON."
             )
         else:
             instr = (

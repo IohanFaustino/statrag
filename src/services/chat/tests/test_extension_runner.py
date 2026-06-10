@@ -266,6 +266,51 @@ def test_scope_label_empty_sections_returns_chapter_id():
 
 
 # ---------------------------------------------------------------------------
+# T5: parallel analyst fan-out directive in round-0 instruction
+# ---------------------------------------------------------------------------
+
+def test_round0_instruction_directs_parallel_analyst_fanout(monkeypatch):
+    """The round-0 instruction string passed to the agent must direct the
+    orchestrator to issue all analyst task calls in a single message."""
+    monkeypatch.setattr(R, "parse_catalog", lambda: [])
+    async def _ascope(*a, **k):
+        from src.services.chat.schemas import BookResolution
+        return None, BookResolution(
+            book_slug="b", book_confidence=0.9, book_candidates=["b"],
+            chapter_id="ch01", requested_subtopics=[],
+        )
+    monkeypatch.setattr(R, "aresolve_scope_or_clarify", _ascope)
+    monkeypatch.setattr(R, "fetch_chapter_sections",
+                        lambda **k: [{"section_id": "1.1", "h2_path": "Intro", "text": "t"}])
+    monkeypatch.setattr(R, "_all_slugs", lambda catalog: ["b"])
+    monkeypatch.setattr(R, "build_extension_agent", lambda **k: object())
+    monkeypatch.setattr(R, "_warm_retrieval", lambda *a, **k: None)
+
+    captured_instrs: list[str] = []
+
+    async def _run_round(agent, instruction, thread_id):
+        captured_instrs.append(instruction)
+        digest = ExtensionDigest(book="b", chapter="ch01", points=[], unfilled_gaps=[])
+        return digest, "", [], 0, 0
+
+    monkeypatch.setattr(R, "_run_round", _run_round)
+
+    import asyncio
+
+    async def _collect():
+        return [e async for e in R.run_extension(
+            ChatRequest(message="extend b ch1", mode="extension")
+        )]
+
+    asyncio.run(_collect())
+    assert captured_instrs, "no round-0 instruction was captured"
+    round0 = captured_instrs[0].lower()
+    assert "single message" in round0 or "parallel" in round0, (
+        f"round-0 instruction does not mention parallel fan-out: {captured_instrs[0]!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # T3: _filter_subtopics regression — realistic Hansen ch07 fixture
 # ---------------------------------------------------------------------------
 
