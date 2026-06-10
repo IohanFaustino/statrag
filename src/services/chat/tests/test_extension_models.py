@@ -4,19 +4,10 @@ from src.services.chat.agents.extension_agents._models import (
 )
 
 
-def test_defaults_top_for_orchestrator_and_judge():
-    assert resolve_stage_model("orchestrator", None) == STAGE_DEFAULTS["orchestrator"]
-    assert resolve_stage_model("judge", None) == STAGE_DEFAULTS["judge"]
-    assert resolve_stage_model("analyst", None) == STAGE_DEFAULTS["analyst"]
-
-
-def test_override_applies():
-    assert resolve_stage_model("analyst", {"analyst": "gpt-5.4-2026-03-17"}) == "gpt-5.4-2026-03-17"
-
-
-def test_unknown_override_falls_back_to_default():
-    assert resolve_stage_model("analyst", {"analyst": ""}) == STAGE_DEFAULTS["analyst"]
-    assert resolve_stage_model("analyst", {"other": "x"}) == STAGE_DEFAULTS["analyst"]
+def test_defaults_exist_for_all_v2_stages():
+    # v1 orchestrator/analyst keys are gone; v2 keys must be present
+    for stage in ("scope", "storyteller", "editor", "miner", "writer", "judge"):
+        assert stage in STAGE_DEFAULTS, f"missing stage: {stage}"
 
 
 def test_judge_default_is_cheap_not_top():
@@ -42,19 +33,24 @@ def test_extension_judge_model_env_empty_uses_default(monkeypatch):
     assert resolve_stage_model("judge", None) == settings.openai_model_nano
 
 
-def test_polish_temperature_is_nonzero():
-    assert STAGE_TEMPERATURES.get("polish", 0.0) > 0.0
-
-
-def test_augmentor_temperature_is_nonzero():
-    assert STAGE_TEMPERATURES.get("augmentor", 0.0) > 0.0
-
-
-def test_orchestrator_temperature_is_zero():
-    assert STAGE_TEMPERATURES.get("orchestrator", 0.0) == 0.0
-
-
 def test_resolve_stage_temperature_returns_float():
-    t = resolve_stage_temperature("polish")
+    t = resolve_stage_temperature("storyteller")
     assert isinstance(t, float)
     assert t > 0.0
+
+
+# ---------------------------------------------------------------------------
+# v2 stage table tests (Tasks 2 assertions verbatim from plan)
+# ---------------------------------------------------------------------------
+
+
+def test_v2_stage_defaults_exist():
+    from src.services.chat.agents.extension_agents._models import STAGE_DEFAULTS
+    assert set(STAGE_DEFAULTS) == {"scope", "storyteller", "editor", "miner", "writer", "judge"}
+
+
+def test_v2_override_and_fallback():
+    from src.services.chat.agents.extension_agents._models import resolve_stage_model, STAGE_DEFAULTS
+    assert resolve_stage_model("storyteller", {"storyteller": "x-model"}) == "x-model"
+    assert resolve_stage_model("editor", None) == STAGE_DEFAULTS["editor"]
+    assert resolve_stage_model("unknown-stage", None)  # falls back, never raises

@@ -8,24 +8,21 @@ import os
 
 from src.core.config import settings
 
-_TOP   = settings.openai_model_full   # orchestrator: open reasoning
-_MID   = settings.openai_model_nano   # polish — semantically separate from _CHEAP
-_CHEAP = settings.openai_model_nano   # analyst, augmentor, judge: bounded tasks
+_MID   = settings.openai_model_nano   # semantically separate from _CHEAP; enables future bumps
+_CHEAP = settings.openai_model_nano   # bounded tasks (all v2 stages default cheap)
 
 STAGE_DEFAULTS: dict[str, str] = {
-    "orchestrator": _TOP,
-    "judge":        _CHEAP,  # judge only parses COVERAGE markers + re-delegates
-    "polish":       _MID,
-    "analyst":      _CHEAP,
-    "augmentor":    _CHEAP,
+    "scope":       _CHEAP,
+    "storyteller": _CHEAP,
+    "editor":      _CHEAP,   # upgradeable via extensionModels["editor"]
+    "miner":       _CHEAP,
+    "writer":      _CHEAP,
+    "judge":       _CHEAP,
 }
 
 STAGE_TEMPERATURES: dict[str, float] = {
-    "orchestrator": 0.0,   # needs consistency for gap planning
-    "judge":        0.0,   # deterministic coverage check
-    "polish":       0.3,   # more varied curation
-    "analyst":      0.0,
-    "augmentor":    0.2,   # better footnote prose variety
+    "scope": 0.0, "storyteller": 0.4, "editor": 0.3,
+    "miner": 0.0, "writer": 0.2, "judge": 0.0,
 }
 
 
