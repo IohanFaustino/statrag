@@ -1,6 +1,6 @@
 """Pure-code researcher: corpus + wikipedia evidence with verbatim payload meta."""
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -149,6 +149,71 @@ def test_corpus_evidence_hybrid_search_raising_returns_empty():
                              exclude_book="hansen-probability",
                              all_slugs=["hansen-probability", "moss"], seen_ids=set())
     assert ev == []
+
+
+def test_wiki_summary_json_sends_user_agent_on_direct_path():
+    """_wiki_summary_json must pass a user-agent header on the direct summary GET.
+
+    Wikipedia returns HTTP 403 without an identifying User-Agent; both GET call
+    paths (direct summary + search-API fallback) must include the header.
+    """
+    from src.services.chat.agents.extension_agents.research import _wiki_summary_json
+
+    ok_payload = {"title": "Chebyshev's inequality", "extract": "In probability…",
+                  "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/C"}}}
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = ok_payload
+
+    with patch("src.services.chat.agents.extension_agents.research.httpx.get",
+               return_value=mock_resp) as mock_get:
+        result = _wiki_summary_json("Chebyshev's inequality")
+
+    assert result is not None
+    assert mock_get.call_count >= 1
+    # The direct-path GET must include a user-agent header.
+    first_call_headers = mock_get.call_args_list[0].kwargs.get("headers", {})
+    assert "user-agent" in first_call_headers, (
+        "Direct summary GET must send a user-agent header to avoid Wikipedia 403"
+    )
+
+
+def test_wiki_summary_json_sends_user_agent_on_search_fallback_path():
+    """_wiki_summary_json must pass a user-agent header on the search-API fallback GET.
+
+    When the direct summary GET returns non-200 the function falls back to the
+    search API (w/api.php).  That call must also carry the User-Agent header.
+    """
+    from src.services.chat.agents.extension_agents.research import _wiki_summary_json
+
+    ok_payload = {"title": "Chebyshev's inequality", "extract": "In probability…",
+                  "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/C"}}}
+
+    miss_resp = MagicMock()
+    miss_resp.status_code = 404   # direct summary miss → triggers fallback
+
+    search_resp = MagicMock()
+    search_resp.status_code = 200
+    search_resp.json.return_value = {"query": {"search": [{"title": "Chebyshev's inequality"}]}}
+
+    hit_resp = MagicMock()
+    hit_resp.status_code = 200
+    hit_resp.json.return_value = ok_payload
+
+    responses = [miss_resp, search_resp, hit_resp]
+
+    with patch("src.services.chat.agents.extension_agents.research.httpx.get",
+               side_effect=responses) as mock_get:
+        result = _wiki_summary_json("Chebyshev inequality")
+
+    # Three GETs: direct miss, search-API, resolved title.
+    assert mock_get.call_count == 3
+    # The search-API call (second GET) must include a user-agent header.
+    search_call_headers = mock_get.call_args_list[1].kwargs.get("headers", {})
+    assert "user-agent" in search_call_headers, (
+        "Search-API fallback GET must send a user-agent header to avoid Wikipedia 403"
+    )
+    assert result is not None
 
 
 def test_corpus_evidence_dedupes_duplicate_chunk_id_within_one_call():

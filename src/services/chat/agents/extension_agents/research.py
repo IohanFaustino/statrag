@@ -17,6 +17,15 @@ import httpx
 
 from src.services.chat.retrieval import hybrid_search
 
+# Wikipedia robot policy requires an identifying User-Agent header; requests
+# without one return HTTP 403 "Please set a user-agent".  Both the REST summary
+# endpoint and the search API (w/api.php) enforce this requirement.
+_WIKI_HEADERS = {
+    "accept": "application/json",
+    # Wikipedia robot policy requires an identifying User-Agent (403 without).
+    "user-agent": "statrag-extension/2.0 (local RAG research tool; contact: local)",
+}
+
 # graph._research_subject fans out corpus_evidence calls via asyncio.to_thread,
 # so multiple threads share the same seen_ids set concurrently.  Without a lock
 # the check-then-add (cid in seen_ids / seen_ids.add) is a TOCTOU race: two
@@ -93,7 +102,7 @@ def _wiki_summary_json(query: str) -> dict | None:
     def _get(title: str) -> dict | None:
         try:
             r = httpx.get(_WIKI_SUMMARY + urllib.parse.quote(title.replace(" ", "_")),
-                          timeout=10.0, headers={"accept": "application/json"})
+                          timeout=10.0, headers=_WIKI_HEADERS)
             return r.json() if r.status_code == 200 else None
         except Exception:  # noqa: BLE001
             _logger.debug("_wiki_summary_json: summary fetch failed for title=%r", title)
@@ -102,7 +111,7 @@ def _wiki_summary_json(query: str) -> dict | None:
     data = _get(query.strip())
     if data is None:
         try:
-            sr = httpx.get(_WIKI_SEARCH, timeout=10.0, params={
+            sr = httpx.get(_WIKI_SEARCH, timeout=10.0, headers=_WIKI_HEADERS, params={
                 "action": "query", "list": "search", "srsearch": query,
                 "format": "json", "srlimit": 1})
             hits = sr.json().get("query", {}).get("search", []) if sr.status_code == 200 else []

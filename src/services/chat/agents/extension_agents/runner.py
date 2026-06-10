@@ -59,12 +59,20 @@ def _scope_label(chapter_id: str, sections: list[dict], *, narrowed: bool) -> st
 
 
 def _warm_retrieval(slugs: list[str]) -> None:
-    """Initialise the dense + sparse embedders on the MAIN thread.
+    """Initialise the dense + sparse embedders AND the cross-encoder reranker on the MAIN thread.
 
     The pipeline calls corpus_evidence inside asyncio.to_thread; warming here
-    means the cached embedders are reused in-thread without re-initialising."""
+    means the cached embedders AND the reranker are materialised on the main
+    thread.  The reranker (CrossEncoderReranker) uses @cached_property on its
+    _model and a module-level singleton (_REGISTRY / get_reranker()), so a
+    main-thread load persists the loaded weights on the shared singleton
+    instance — subsequent worker-thread calls access the already-materialised
+    _model attribute without re-loading.  Without this warm-up, the
+    CrossEncoder's lazy load inside asyncio.to_thread worker threads triggers a
+    torch meta-tensor crash (transformers modeling_utils.to() on an uninitialised
+    device context)."""
     try:
-        hybrid_search("warmup", book_slugs=slugs or None, top_k=1, rerank=False)
+        hybrid_search("warmup", book_slugs=slugs or None, top_k=1, rerank=True, rerank_top_n=1)
     except Exception:  # noqa: BLE001
         pass
 

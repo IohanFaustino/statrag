@@ -1,5 +1,6 @@
 import pytest
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 import src.services.chat.agents.extension_agents.runner as R
 from src.services.chat.schemas import ChatRequest
 
@@ -9,6 +10,21 @@ def _events(req):
     async def _collect():
         return [e async for e in R.run_extension(req)]
     return asyncio.run(_collect())
+
+
+def test_warm_retrieval_calls_hybrid_search_with_rerank_true(monkeypatch):
+    """_warm_retrieval must call hybrid_search with rerank=True to load the
+    CrossEncoder on the main thread, preventing meta-tensor crashes when
+    corpus_evidence later invokes reranking inside asyncio.to_thread workers.
+    """
+    mock_hs = MagicMock(return_value=([], None))
+    monkeypatch.setattr(R, "hybrid_search", mock_hs)
+    R._warm_retrieval(["hansen", "moss"])
+    mock_hs.assert_called_once()
+    call_kwargs = mock_hs.call_args.kwargs
+    assert call_kwargs.get("rerank") is True, (
+        "_warm_retrieval must pass rerank=True to load the CrossEncoder on the main thread"
+    )
 
 
 def test_clarify_gate_stops_before_agent(monkeypatch):
