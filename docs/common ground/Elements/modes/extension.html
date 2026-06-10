@@ -11,49 +11,43 @@
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
-  <h1><span class="accent">Extension</span> mode <span class="pill">topology-C deepagents</span></h1>
-  <div class="sub">Produces a structured chapter digest: curated section text with augmented footnotes drawn from the wider corpus and Wikipedia. All augmentation lives in footnotes — curated_text is never modified.</div>
+  <h1><span class="accent">Extension</span> mode <span class="pill">v2 · deterministic pipeline</span></h1>
+  <div class="sub">Produces a story timeline: one "take" per source section (author's sequence) with a collapsed curiosity box of cited expansion bullets. Every citation is copied verbatim from retrieval payloads by code — LLMs never produce source text.</div>
 </header>
 <main>
   <section>
     <h2>What it serves</h2>
-    <div class="card"><p style="margin:0">Use when you want to read a whole chapter as a clean, enriched document — key concepts preserved with their formal definitions and notation, gaps filled with cross-book comparisons, missing derivations, and worked examples as footnotes. Not for a single question (use Tutor / Q&amp;A) or a linear walkthrough (use Facilitate / Resume).</p></div>
+    <div class="card"><p style="margin:0">Use when you want to read a chapter as a flowing narrative enriched with curiosity bullets drawn from the wider corpus and Wikipedia. Not for a single question (use Tutor / Q&amp;A) or a linear walkthrough (use Facilitate / Resume).</p></div>
   </section>
 
   <section>
-    <h2>Agentic workflow (topology C)</h2>
+    <h2>Pipeline (v2 deterministic)</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
-  U[&quot;User: book + chapter&quot;] --> RS[&quot;Resolve + confirm (nano)&quot;]
-  RS -. &quot;clarify&quot; .-> CL[&quot;Clarify gate&quot;]
-  RS --> FS[&quot;Fetch structure&quot;]
-  FS --> AN[&quot;Analyst × sections (nano)&quot;]
-  AN --> PL[&quot;Polish — curate timeline (nano, temp 0.3)&quot;]
-  PL --> ORC[&quot;Orchestrator (full, temp 0.0)&quot;]
-  ORC --> AUG[&quot;Augmentor (nano, temp 0.2)&quot;]
-  AUG -. &quot;corpus + Wikipedia&quot; .-> RET[(Qdrant + Wikipedia)]
-  ORC --> JDG{&quot;Judge (nano, temp 0.0)&quot;}
-  AUG --> JDG
-  JDG -. &quot;0-footnote point&quot; .-> AUG
-  JDG --> ED[&quot;ExtensionDigest&quot;]
-  style ORC fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style JDG fill:#1f2a1a,stroke:#3fb950,color:#fff
-  style AUG fill:#1a1f2a,stroke:#4d9de0,color:#fff">flowchart TD
-  U["User: book + chapter"] --> RS["Resolve + confirm (nano)"]
-  RS -. "clarify" .-> CL["Clarify gate"]
-  RS --> FS["Fetch structure"]
-  FS --> AN["Analyst × sections (nano)"]
-  AN --> PL["Polish — curate timeline (nano, temp 0.3)"]
-  PL --> ORC["Orchestrator (full, temp 0.0)"]
-  ORC --> AUG["Augmentor (nano, temp 0.2)"]
-  AUG -. "corpus + Wikipedia" .-> RET[(Qdrant + Wikipedia)]
-  ORC --> JDG{"Judge (nano, temp 0.0)"}
-  AUG --> JDG
-  JDG -. "0-footnote point" .-> AUG
-  JDG --> ED["ExtensionDigest"]
-  style ORC fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style JDG fill:#1f2a1a,stroke:#3fb950,color:#fff
-  style AUG fill:#1a1f2a,stroke:#4d9de0,color:#fff</div></div>
-    <p class="caption">Topology C: deterministic shell (resolve → fetch) + agentic core (analyst → polish → orchestrator → augmentor → judge). The judge re-delegates to the augmentor if any non-trivial point has 0 footnotes after the first pass.</p>
+  A[&quot;scope_resolver (nano)&quot;] --> B[&quot;fetch sections&quot;]
+  B -->|&quot;×N parallel&quot;| C[&quot;storyteller (nano, temp 0.4)&quot;]
+  C --> D[&quot;story_editor (nano, temp 0.3)&quot;]
+  D -->|&quot;×take&quot;| E[&quot;subject_miner (nano, temp 0.0)&quot;]
+  E -->|&quot;×subject&quot;| F[&quot;researcher — PURE CODE\nhybrid_search rerank + Wikipedia REST&quot;]
+  F -->|&quot;×take&quot;| G[&quot;curiosity_writer (nano, temp 0.2)&quot;]
+  G --> H[&quot;citation_binder — PURE CODE\nverbatim payload citations&quot;]
+  H --> I[&quot;judge (nano, one retry)&quot;]
+  I --> J[&quot;StoryDigest&quot;]
+  style F fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style H fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style J fill:#1a1f2a,stroke:#4d9de0,color:#fff">flowchart TD
+  A["scope_resolver (nano)"] --> B["fetch sections"]
+  B -->|"×N parallel"| C["storyteller (nano, temp 0.4)"]
+  C --> D["story_editor (nano, temp 0.3)"]
+  D -->|"×take"| E["subject_miner (nano, temp 0.0)"]
+  E -->|"×subject"| F["researcher — PURE CODE\nhybrid_search rerank + Wikipedia REST"]
+  F -->|"×take"| G["curiosity_writer (nano, temp 0.2)"]
+  G --> H["citation_binder — PURE CODE\nverbatim payload citations"]
+  H --> I["judge (nano, one retry)"]
+  I --> J["StoryDigest"]
+  style F fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style H fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style J fill:#1a1f2a,stroke:#4d9de0,color:#fff</div></div>
+    <p class="caption">Green stages are pure-code (no LLM). Researcher deduplicates evidence via <code>seen_ids</code> across subjects. Judge runs one bounded retry round for failed takes only.</p>
   </section>
 
   <section>
@@ -62,87 +56,85 @@
   E[&quot;run_extension()&quot;] --> AR[&quot;aresolve_scope_or_clarify()&quot;]
   AR -. &quot;clarify event&quot; .-> CE[&quot;yield clarify SSE&quot;]
   AR --> FS[&quot;fetch_chapter_sections()&quot;]
-  FS --> FT[&quot;_filter_subtopics()<br/>exact match → hybrid_search fallback&quot;]
-  FT --> BA[&quot;build_extension_agent()&quot;]
-  BA -. &quot;seen_chunk_ids set&quot; .-> TC[&quot;make_retrieve_corpus(seen_ids=…)&quot;]
-  BA --> RR[&quot;_run_round() loop (max rounds)&quot;]
-  RR --> PP[&quot;post-processing loop&quot;]
-  PP -. &quot;curated_text&quot; .-> NM[&quot;_normalize_math_delimiters()<br/>_strip_md_footnote_markers()&quot;]
-  PP -. &quot;footnote bodies&quot; .-> NF[&quot;_normalize_math_delimiters()&quot;]
-  PP --> OUT[&quot;yield structured_output ExtensionDigest&quot;]
-  style BA fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style PP fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
+  FS --> FT[&quot;_filter_subtopics()&quot;]
+  FT --> WR[&quot;_warm_retrieval()&quot;]
+  WR --> PL[&quot;run_pipeline()&quot;]
+  PL -. &quot;on_stage events&quot; .-> SQ[&quot;stage_q (asyncio.Queue)&quot;]
+  SQ --> SS[&quot;yield stage SSE&quot;]
+  PL --> DM[&quot;math delimiter normalization&quot;]
+  DM --> OUT[&quot;yield structured_output StoryDigest&quot;]
+  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style DM fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
   E["run_extension()"] --> AR["aresolve_scope_or_clarify()"]
   AR -. "clarify event" .-> CE["yield clarify SSE"]
   AR --> FS["fetch_chapter_sections()"]
-  FS --> FT["_filter_subtopics()<br/>exact match → hybrid_search fallback"]
-  FT --> BA["build_extension_agent()"]
-  BA -. "seen_chunk_ids set" .-> TC["make_retrieve_corpus(seen_ids=…)"]
-  BA --> RR["_run_round() loop (max rounds)"]
-  RR --> PP["post-processing loop"]
-  PP -. "curated_text" .-> NM["_normalize_math_delimiters()<br/>_strip_md_footnote_markers()"]
-  PP -. "footnote bodies" .-> NF["_normalize_math_delimiters()"]
-  PP --> OUT["yield structured_output ExtensionDigest"]
-  style BA fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style PP fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
-    <p class="caption">Source: <code>src/services/chat/agents/extension_agents/runner.py</code>. The <code>seen_chunk_ids</code> set is shared across rounds to prevent duplicate footnotes.</p>
+  FS --> FT["_filter_subtopics()"]
+  FT --> WR["_warm_retrieval()"]
+  WR --> PL["run_pipeline()"]
+  PL -. "on_stage events" .-> SQ["stage_q (asyncio.Queue)"]
+  SQ --> SS["yield stage SSE"]
+  PL --> DM["math delimiter normalization"]
+  DM --> OUT["yield structured_output StoryDigest"]
+  style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style DM fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
+    <p class="caption">Source: <code>src/services/chat/agents/extension_agents/runner.py</code> + <code>graph.py</code>. Stage events bridge via an <code>asyncio.Queue</code> so the pipeline and the SSE generator run concurrently.</p>
   </section>
 
   <section>
     <h2>Agent roster</h2>
     <table>
       <tr><th>Agent</th><th>Model</th><th>Temp</th><th>Role</th></tr>
-      <tr><td>Orchestrator</td><td><code>gpt-5.4-2026-03-17</code> (full)</td><td>0.0</td><td>Plans gap queries, coordinates subagents, builds final ExtensionDigest</td></tr>
-      <tr><td>Analyst</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>One per section — extracts key concepts and classifies gaps (4-type taxonomy)</td></tr>
-      <tr><td>Polish</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.3</td><td>Curates ordered timeline from section notes, preserving formal structure/notation</td></tr>
-      <tr><td>Augmentor</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.2</td><td>Fills gap queries via corpus (top_k=10, dedup) + Wikipedia (disambiguation fallback), scores relevance 1–5</td></tr>
-      <tr><td>Judge</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>Parses COVERAGE markers, merges orphan footnotes, verifies ENGLISH, re-delegates if 0-footnote point found</td></tr>
+      <tr><td>scope_resolver</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>Book/chapter resolution; runner stamps authoritative <code>digest.book</code>/<code>digest.chapter</code></td></tr>
+      <tr><td>storyteller ×section</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.4</td><td>1 section = 1 take. Narrates section in author's sequence. Degrades to raw summary on parse failure.</td></tr>
+      <tr><td>story_editor</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.3</td><td>Stitches takes — continuity + voice. No new facts; ≤10% growth. Failure → keep drafts.</td></tr>
+      <tr><td>subject_miner ×take</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>Proposes 2–4 curiosity subjects per take. Gap taxonomy: formal-def / derivation / comparative / application / history.</td></tr>
+      <tr><td>researcher ×subject</td><td><em>pure code</em></td><td>—</td><td>Multi-query <code>hybrid_search</code> cross-book (exclude target, rerank ON, score floor, dedup) + Wikipedia REST search → summary.</td></tr>
+      <tr><td>curiosity_writer ×take</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.2</td><td>Writes bullets from evidence only; outputs <code>evidence_ids</code>; forbidden from writing citation text.</td></tr>
+      <tr><td>citation_binder</td><td><em>pure code</em></td><td>—</td><td>Maps <code>evidence_ids</code> → <code>StoryCitation</code> copied verbatim from payloads. Drops uncited bullets → <code>unfilled_subjects</code>.</td></tr>
+      <tr><td>judge ×take</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>Coverage check per take subject. ONE bounded retry round for failed takes.</td></tr>
     </table>
-    <p class="caption">Override judge model: <code>EXTENSION_JUDGE_MODEL</code> env var. Section cap: <code>EXTENSION_SECTION_CHARS</code> (default 2500). Max rounds: <code>EXTENSION_MAX_ROUNDS</code>.</p>
-  </section>
-
-  <section>
-    <h2>Retrieval &amp; text processing</h2>
-    <table>
-      <tr><th>Feature</th><th>Detail</th></tr>
-      <tr><td>Corpus retrieval</td><td>Hybrid dense+sparse (<code>hybrid_search</code>), top_k=10, excluding base book. Cross-round dedup via <code>seen_ids</code> set shared between runner and tool closure.</td></tr>
-      <tr><td>Wikipedia lookup</td><td>Direct title summary → disambiguation fallback via <code>/w/api.php?action=query&amp;list=search</code> on 404. Timeout 10 s.</td></tr>
-      <tr><td>Subtopic filtering</td><td>Exact/substring match on <code>h2_path + section_id</code> → hybrid_search embedding fallback → whole chapter fallback.</td></tr>
-      <tr><td>Math normalizer</td><td><code>_normalize_math_delimiters</code>: <code>\(...\)</code> → <code>$...$</code>, <code>\[...\]</code> → <code>$$...$$</code>. Applied after <code>_isolate_midline_display</code>.</td></tr>
-      <tr><td>Footnote marker cleaner</td><td><code>_strip_md_footnote_markers</code>: removes <code>[^n]</code> from curated_text (React renders them literally).</td></tr>
-    </table>
+    <p class="caption">Override judge model: <code>EXTENSION_JUDGE_MODEL</code> env var. Researcher score floor: <code>EXTENSION_MIN_SCORE</code> (default 0, disabled).</p>
   </section>
 
   <section>
     <h2>Output schema</h2>
     <div class="card">
-<pre style="margin:0;font-size:0.85em">ExtensionDigest
-  book: str
-  chapter: str
-  points: list[ExtensionPoint]
-    title: str
-    curated_text: str          ← source text only, no augmentation
-    footnotes: list[ExtensionFootnote]
-      marker: str              ← "a", "b", "1", "2" …
-      body: str                ← ≥ 40 words, KaTeX-ready ($…$ / $$…$$)
-      source: str              ← book slug + §section, or Wikipedia URL
-      kind: "corpus" | "wikipedia"
-  unfilled_gaps: list[str]     ← queries where no source scored ≥ 3</pre>
+<pre style="margin:0;font-size:0.85em">StoryDigest
+  book: str                       ← runner-stamped (authoritative)
+  chapter: str                    ← honest narrowed label e.g. "ch07 · 7.4–7.5"
+  takes: list[Take]
+    heading: str
+    story: str                    ← justified prose, KaTeX-ready
+    items: list[CuriosityItem]    ← may be []
+      subject: str
+      body: str                   ← from evidence only; no citation text
+      citations: list[StoryCitation]   ← ≥1, binder-enforced
+        kind: "corpus" | "wikipedia"
+        label: str                ← binder-built verbatim render string
+        book_name, authors, year, chapter, section_id, pages  ← corpus fields
+        title, url                ← wikipedia fields
+        chunk_id: str             ← corpus provenance
+  unfilled_subjects: list[str]    ← subjects with zero valid evidence</pre>
     </div>
-    <p class="caption">Invariant #14: all augmentation lives in <code>footnotes[].body</code>. <code>curated_text</code> is never modified. Invariant #38: non-trivial points should have ≥ 2 footnotes (orchestrator enforces via re-delegation, not schema).</p>
+    <p class="caption">Invariant #41: every non-null <code>StoryCitation</code> field is copied verbatim from a retrieval payload or Wikipedia REST response — LLMs never produce citation text. Legacy <code>ExtensionDigest</code> retained for pre-v2 conversations.</p>
   </section>
 
   <section>
     <h2>SSE event sequence</h2>
     <table>
       <tr><th>Event</th><th>Meaning</th></tr>
+      <tr><td><code>meta{mode:"extension"}</code></td><td>Always first — sets the EXTENSION MODE badge</td></tr>
       <tr><td><code>stage{stage:"parse"}</code></td><td>Scope resolution started</td></tr>
-      <tr><td><code>stage{stage:"fetch"}</code></td><td>Chapter structure fetched</td></tr>
-      <tr><td><code>stage{stage:"augment·roundN"}</code></td><td>Augmentor round N running</td></tr>
-      <tr><td><code>stage{stage:"point", label:"&lt;title&gt;"}</code></td><td>One point confirmed — frontend renders skeleton card</td></tr>
-      <tr><td><code>structured_output{schema:"ExtensionDigest"}</code></td><td>Full digest ready — hydrates skeleton cards</td></tr>
-      <tr><td><code>sources_full</code></td><td>Source list for citation panel</td></tr>
-      <tr><td><code>usage</code></td><td>Token/cost accounting</td></tr>
+      <tr><td><code>stage{stage:"fetch"}</code></td><td>Chapter sections fetched</td></tr>
+      <tr><td><code>stage{stage:"story", label:"Take k/N — …"}</code></td><td>One take completed — frontend renders skeleton heading live</td></tr>
+      <tr><td><code>stage{stage:"edit"}</code></td><td>Story editor running</td></tr>
+      <tr><td><code>stage{stage:"research"}</code></td><td>Researcher running across subjects</td></tr>
+      <tr><td><code>stage{stage:"write"}</code></td><td>Curiosity writer running</td></tr>
+      <tr><td><code>stage{stage:"bind"}</code></td><td>Citation binder running</td></tr>
+      <tr><td><code>stage{stage:"judge"}</code></td><td>Coverage judge (+ retry if needed)</td></tr>
+      <tr><td><code>structured_output{schema:"StoryDigest"}</code></td><td>Full digest ready — hydrates timeline card</td></tr>
+      <tr><td><code>sources_full</code></td><td>Evidence list for citation side panel</td></tr>
+      <tr><td><code>usage</code></td><td>Duration accounting (<code>durationMs</code>; token counts placeholder in v2 step 1)</td></tr>
       <tr><td><code>done</code></td><td>Stream closed</td></tr>
     </table>
   </section>
@@ -151,12 +143,12 @@
     <h2>Frontend components</h2>
     <table>
       <tr><th>Component</th><th>Path</th><th>Role</th></tr>
-      <tr><td><code>ExtensionDigestCard</code></td><td><code>web/src/components/ExtensionDigestCard.tsx</code></td><td>Renders ordered points. <code>renderFootnoteBody</code> for KaTeX footnotes. Wikipedia sources as <code>&lt;a&gt;</code> links. Corpus sources truncated to 40 chars. Download ZIP with loading state. Wrapped in <code>StructuredErrorBoundary</code>.</td></tr>
-      <tr><td><code>StructuredErrorBoundary</code></td><td><code>web/src/components/StructuredErrorBoundary.tsx</code></td><td>React error boundary — degrades malformed digest to inline notice without unmounting the tree.</td></tr>
-      <tr><td><code>ExtensionPipelineDiagram</code></td><td><code>web/src/components/ExtensionPipelineDiagram.tsx</code></td><td>Read-only pipeline graph shown in the (i) modal.</td></tr>
-      <tr><td><code>ExtensionModeModal</code></td><td><code>web/src/components/modals/ExtensionModeModal.tsx</code></td><td>Info modal accessible via the (i) button on the Extension mode card.</td></tr>
+      <tr><td><code>StoryDigestCard</code></td><td><code>web/src/components/StoryDigestCard.tsx</code></td><td>Timeline rail (numbered nodes + connecting line), per-take collapsed curiosity toggle (<code>aria-expanded</code>), justified story + boxes, citation chips (📕 corpus, 🌐 wikipedia), expand-all / collapse-all, Download ZIP. Wrapped in <code>StructuredErrorBoundary</code>.</td></tr>
+      <tr><td><code>renderMathText</code></td><td><code>web/src/lib/renderRichText.tsx</code></td><td>Shared renderer: KaTeX math + markdown bold/italic. Used by <code>StoryDigestCard</code> and <code>ExtensionDigestCard</code>.</td></tr>
+      <tr><td><code>ExtensionDigestCard</code></td><td><code>web/src/components/ExtensionDigestCard.tsx</code></td><td>Legacy v1 card — active for <code>schema === "ExtensionDigest"</code> conversations.</td></tr>
+      <tr><td><code>MessageThread</code></td><td><code>web/src/components/MessageThread.tsx</code></td><td>Dispatches <code>StoryDigestCard</code> when <code>structuredOutput.schema === "StoryDigest"</code>.</td></tr>
     </table>
-    <p class="caption">Streaming skeleton: <code>stage{point}</code> SSE events populate <code>msg.pendingExtensionPoints</code> in <code>chat.ts</code> state; <code>MessageThread.tsx</code> renders skeleton cards before the digest arrives.</p>
+    <p class="caption">Streaming skeleton: <code>stage{story}</code> events populate <code>msg.pendingExtensionPoints</code> in <code>chat.ts</code> state (same reducer branch as v1 <code>stage{point}</code>). Persistence: <code>_schema:"StoryDigest"</code> tag; <code>mapConversationMessages</code> revives by schema key.</p>
   </section>
 </main>
 </div>

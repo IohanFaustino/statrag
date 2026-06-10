@@ -2,6 +2,36 @@
 
 Append-only. Latest at top.
 
+## 2026-06-10 — Extension v2: story timeline + curiosity boxes
+
+**Scope:** full replacement of the deepagents extension core on branch `feat/extension-v2-story-curiosity`. 874 backend / 250 frontend tests green.
+
+**Architecture replacement:**
+- Deleted: `agent.py` (deepagents build), `extension_skills/` (3 SKILL.md dirs), `tools.py` deepagent decorators, v1 agent tests (`test_extension_agent.py`, `test_extension_skills.py`).
+- New deterministic async pipeline in `graph.py` (`asyncio.gather` fan-out — no langgraph `StateGraph` needed): `scope_resolver → fetch → storyteller×N → story_editor → subject_miner×take → researcher×subject (pure code) → curiosity_writer×take → citation_binder (pure code) → judge (one retry) → StoryDigest`.
+- All 6 LLM stages default to nano; `EXTENSION_JUDGE_MODEL` env overrides judge. `EXTENSION_MIN_SCORE` env sets researcher corpus score floor.
+
+**Citation verifiability (core change):**
+- New `StoryCitation` Pydantic model (renamed from `Citation` in implementation to avoid collision). Every field copied verbatim from `Evidence.meta` by `binder.py` — no model-generated source text.
+- `citation_binder` drops bullets with zero valid evidence ids and records subjects in `unfilled_subjects`.
+- Property test: `test_binder_property_no_field_outside_evidence` asserts all populated citation fields appear literally in evidence payloads.
+- Invariants 38/39/40 (v1 deepagents concepts) retired; new invariant 41 added.
+
+**New output schema:** `StoryDigest{book, chapter, takes[Take{heading, story, items[CuriosityItem{subject, body, citations[StoryCitation]}]}], unfilled_subjects[]}`. Legacy `ExtensionDigest` retained for pre-v2 conversations.
+
+**Frontend:**
+- `StoryDigestCard.tsx`: timeline rail (numbered nodes + connecting line), per-take collapsed curiosity toggle with `aria-expanded`, justified story + curiosity bodies, citation chips (📕 corpus label, 🌐 wikipedia `<a href>`), expand-all / collapse-all, Download ZIP.
+- `web/src/lib/renderRichText.tsx`: shared `renderMathText` + `stripLeadingMarker` (extracted from `ExtensionDigestCard`; used by both cards).
+- `MessageThread.tsx` dispatches `StoryDigestCard` when `structuredOutput.schema === "StoryDigest"`.
+- `stage{story}` events reuse `pendingExtensionPoints` skeleton mechanism for live take-heading streaming.
+- Persistence: `_schema:"StoryDigest"` tag; `mapConversationMessages` revives any `_schema`-tagged JSON string; old `ExtensionDigest` convs auto-route to legacy card.
+
+**Export:** `render_story_html` (per-take `<ol class="footnotes">`, justified, KaTeX CDN, URL scheme allowlist); `zip_filename` sanitizer (replaces ` · `/`–`/spaces); route detects `"takes"` key → StoryDigest path vs legacy path; route validation returns 400/422 on bad payload.
+
+**Docs:** doc 54 rewritten (v1 stubbed as historical); invariant 41 added (38/39/40 retired); `Elements/modes/extension.html` updated to v2 pipeline; CLAUDE.md pending row updated.
+
+---
+
 ## 2026-06-10 — Extension polish batch: QA guard port, digest markdown, authoritative scope, answer recovery, parallel analysts
 
 **Scope:** 5-task pre-merge batch on `worktree-feat+extension-mode` (subagent-driven; per-task spec + quality reviews).
