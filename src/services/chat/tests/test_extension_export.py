@@ -3,6 +3,7 @@ import json
 import zipfile
 from src.services.chat.agents.extension_agents.export import build_export_zip
 from src.services.chat.schemas import ExtensionDigest, ExtensionPoint, ExtensionFootnote
+from src.services.chat.schemas import StoryDigest, Take, CuriosityItem, StoryCitation
 
 
 def _digest():
@@ -44,3 +45,59 @@ def test_export_endpoint_returns_zip():
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/zip"
     assert len(r.content) > 0
+
+
+def test_export_story_digest_html_structure():
+    from src.services.chat.agents.extension_agents.export import render_story_html
+    d = StoryDigest(book="hansen-probability", chapter="ch07 · 7.4–7.5", takes=[
+        Take(heading="Chebyshev", story="Opens with $\\mu$…", items=[
+            CuriosityItem(subject="Why $\\delta^{-2}$", body="Because…",
+                          citations=[StoryCitation(kind="wikipedia", label="Wikipedia: X",
+                                                   title="X", url="https://en.wikipedia.org/wiki/X")])])])
+    html = render_story_html(d)
+    assert "Chebyshev" in html and "katex" in html.lower()
+    assert "footnote" in html.lower()                      # curiosity as footnotes
+    assert 'href="https://en.wikipedia.org/wiki/X"' in html
+    assert "text-align: justify" in html or "text-align:justify" in html
+
+
+def test_export_filename_sanitized():
+    from src.services.chat.agents.extension_agents.export import zip_filename
+    assert zip_filename("hansen-probability", "ch07 · 7.4–7.5") == \
+        "hansen-probability-ch07-7.4-7.5-extended.zip"
+
+
+def test_export_endpoint_story_digest_returns_zip():
+    """Route-level: StoryDigest payload (has 'takes') triggers v2 path."""
+    from fastapi.testclient import TestClient
+    from src.services.chat.api import app
+    client = TestClient(app)
+    payload = {
+        "book": "hansen-probability",
+        "chapter": "ch07 · 7.4–7.5",
+        "takes": [
+            {
+                "heading": "Chebyshev",
+                "story": "The law states…",
+                "items": [
+                    {
+                        "subject": "Why tail bounds",
+                        "body": "Because variance is finite.",
+                        "citations": [
+                            {"kind": "wikipedia", "label": "Wikipedia: Chebyshev",
+                             "title": "Chebyshev's inequality",
+                             "url": "https://en.wikipedia.org/wiki/Chebyshev%27s_inequality"},
+                        ],
+                    }
+                ],
+            }
+        ],
+        "unfilled_subjects": [],
+    }
+    r = client.post("/api/export", json=payload)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    assert len(r.content) > 0
+    # filename must be sanitized
+    disp = r.headers.get("content-disposition", "")
+    assert "hansen-probability-ch07-7.4-7.5-extended.zip" in disp

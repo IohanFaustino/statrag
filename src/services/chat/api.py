@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -22,7 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 from src.services.chat import books, retrieval, runs, store
 from src.services.chat.llm import router as llm_router
 from src.services.chat.router import stream_chat
-from src.services.chat.schemas import ChatRequest, ExtensionDigest
+from src.services.chat.schemas import ChatRequest, ExtensionDigest, StoryDigest
 
 # ---------------------------------------------------------------------------
 # App + middleware
@@ -307,14 +307,31 @@ async def chat_cancel(conv_id: str) -> dict:
 
 
 @app.post("/api/export")
-async def export_extension(digest: ExtensionDigest) -> Response:
+async def export_extension(request: Request) -> Response:
     """Return a ZIP with self-contained styled HTML + sources.json for an
-    extension-mode result."""
-    from src.services.chat.agents.extension_agents.export import build_export_zip  # noqa: PLC0415
-    blob = build_export_zip(digest)
+    extension-mode result.
+
+    Detects payload schema by key presence:
+    - ``"takes"`` in payload → StoryDigest path (v2), filename via zip_filename.
+    - otherwise → legacy ExtensionDigest path (v1), unchanged behaviour.
+    """
+    from src.services.chat.agents.extension_agents.export import (  # noqa: PLC0415
+        build_export_zip,
+        build_story_export_zip,
+        zip_filename,
+    )
+    payload = await request.json()
+    if "takes" in payload:
+        digest = StoryDigest.model_validate(payload)
+        blob = build_story_export_zip(digest)
+        fname = zip_filename(digest.book, digest.chapter)
+    else:
+        digest = ExtensionDigest.model_validate(payload)
+        blob = build_export_zip(digest)
+        fname = f"{digest.book}-{digest.chapter}-extended.zip"
     return Response(
         content=blob, media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{digest.book}-{digest.chapter}-extended.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
 
 
