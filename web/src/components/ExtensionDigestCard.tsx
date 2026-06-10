@@ -28,8 +28,8 @@ export interface ExtensionDigest {
 /**
  * Renders digest text (point titles, curated text, footnote bodies): splits on
  * $$...$$ (display) and $...$ (inline), renders via KaTeX. Plain text segments
- * rendered as-is. Does NOT apply [N] citation logic — footnotes use the marker
- * field.
+ * get lightweight markdown processing (**bold**, *italic*) and [^n] stripping.
+ * Does NOT apply [N] citation logic — footnotes use the marker field.
  */
 /**
  * Persisted digests (and some model outputs) use LaTeX delimiters the split
@@ -46,6 +46,49 @@ function normalizeMathDelimiters(body: string): string {
     );
 }
 
+/**
+ * Strips a leading duplicated marker from a footnote body.
+ * E.g. body = "2. Some text" with marker = "2" → "Some text".
+ * Supports "marker. " and "marker) " forms.
+ * Only strips when the body actually starts with the exact marker.
+ */
+export function stripLeadingMarker(body: string, marker: string): string {
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return body.replace(new RegExp(`^${escaped}[.)][\\s]+`), "");
+}
+
+/**
+ * Renders inline markdown (bold, italic) in a plain-text segment.
+ * Strategy:
+ *   - **word** → <strong>
+ *   - *word* (tight, no spaces at boundary) → <em>
+ *     NOTE: bare `a * b` (spaces around *) is NOT treated as italic, so
+ *     multiplication-like usage stays literal.
+ *   - [^digits] → removed (stray footnote reference markers)
+ *
+ * Returns an array of ReactNode (mixed strings + elements) suitable for
+ * insertion into a larger parts array.
+ */
+function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[] {
+  // First strip [^n] markers
+  const stripped = text.replace(/\[\^\d+\]/g, "");
+
+  // Split on **…** and *word* (tight: no space after opening *, no space before closing *)
+  // Order matters: match **…** before *…* to avoid partial matches.
+  const mdParts = stripped.split(/(\*\*[^*]+\*\*|\*\S[^*]*\S\*|\*\S\*)/g);
+
+  return mdParts.map((part, j): React.ReactNode => {
+    const k = `${keyPrefix}-md${j}`;
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return <strong key={k}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return <em key={k}>{part.slice(1, -1)}</em>;
+    }
+    return part; // plain string (React renders strings fine in arrays)
+  });
+}
+
 function renderMathText(body: string): React.ReactNode {
   if (!body) return null;
   const parts: React.ReactNode[] = [];
@@ -56,10 +99,21 @@ function renderMathText(body: string): React.ReactNode {
     } else if (seg.startsWith("$") && seg.endsWith("$") && seg.length > 2) {
       parts.push(<MathInline key={i} tex={seg.slice(1, -1)} />);
     } else {
-      parts.push(<span key={i}>{seg}</span>);
+      // Plain text segment: apply inline markdown + [^n] stripping.
+      // Wrap in a span only if there are mixed nodes; otherwise let string flow.
+      const inlineNodes = renderInlineMarkdown(seg, String(i));
+      parts.push(<span key={i}>{inlineNodes}</span>);
     }
   });
   return <>{parts}</>;
+}
+
+/**
+ * Renders a footnote body: strips the leading duplicated marker first, then
+ * delegates to renderMathText for math + markdown processing.
+ */
+function renderFootnoteBody(body: string, marker: string): React.ReactNode {
+  return renderMathText(stripLeadingMarker(body, marker));
 }
 
 // ─── Source display ───────────────────────────────────────────────────────────
@@ -175,7 +229,7 @@ function ExtensionDigestCardInner({ digest }: Props) {
                   <li key={j} className="extension-footnote">
                     <sup className="extension-footnote__marker">{fn.marker}</sup>
                     <span className="extension-footnote__body">
-                      {renderMathText(fn.body)}
+                      {renderFootnoteBody(fn.body, fn.marker)}
                     </span>
                     <FootnoteSource fn={fn} />
                   </li>

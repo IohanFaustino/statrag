@@ -142,3 +142,187 @@ it("renders unfilled gaps with \\(...\\) math normalized", () => {
   const gaps = container.querySelector(".extension-card__gaps")!;
   expect(gaps.textContent).not.toContain("\\(");
 });
+
+// ─── T2: Markdown bold/italic + strip duplicate markers + [^n] refs ───────────
+
+describe("renderMathText — bold/italic rendering", () => {
+  it("renders **bold** as <strong> in curated_text, no literal **", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        curated_text: "Apply the **Markov inequality** to $Z^2$.",
+        footnotes: [],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const body = container.querySelector(".extension-point__body")!;
+    expect(body.querySelector("strong")).not.toBeNull();
+    expect(body.textContent).not.toContain("**");
+  });
+
+  it("renders **bold** interleaved with inline math: both render", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        curated_text: "a **b** $x^2$ c",
+        footnotes: [],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const body = container.querySelector(".extension-point__body")!;
+    expect(body.querySelector("strong")).not.toBeNull();
+    expect(body.querySelector(".katex")).not.toBeNull();
+    expect(body.textContent).not.toContain("**");
+  });
+
+  it("renders **bold** in unfilled_gaps", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      unfilled_gaps: ["Proof via **Borel-Cantelli** lemma still missing."],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const gaps = container.querySelector(".extension-card__gaps")!;
+    expect(gaps.querySelector("strong")).not.toBeNull();
+    expect(gaps.textContent).not.toContain("**");
+  });
+
+  it("renders **bold** in footnote body", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        footnotes: [{
+          marker: "1",
+          body: "Now apply the **Markov inequality** to the nonneg r.v.",
+          source: "ross §5.1",
+          kind: "corpus" as const,
+        }],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const fnBody = container.querySelector(".extension-footnote__body")!;
+    expect(fnBody.querySelector("strong")).not.toBeNull();
+    expect(fnBody.textContent).not.toContain("**");
+  });
+});
+
+describe("stripLeadingMarker — duplicate marker at footnote body start", () => {
+  it("strips leading '2. ' from footnote body when marker is '2'", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        footnotes: [{
+          marker: "2",
+          body: "2. **Chebyshev proof step** details. Let $Z:=X-\\mu$ …",
+          source: "ross §5.3",
+          kind: "corpus" as const,
+        }],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const fnBody = container.querySelector(".extension-footnote__body")!;
+    // textContent should not start with "2."
+    expect(fnBody.textContent?.trimStart()).not.toMatch(/^2\./);
+  });
+
+  it("does NOT strip leading '2. ' when marker is '3' (different marker)", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        footnotes: [{
+          marker: "3",
+          body: "2. This starts with 2 but marker is 3.",
+          source: "ross §5.3",
+          kind: "corpus" as const,
+        }],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const fnBody = container.querySelector(".extension-footnote__body")!;
+    expect(fnBody.textContent?.trimStart()).toMatch(/^2\./);
+  });
+
+  it("strips leading marker with dot then space (e.g. '7.4.1. ' when marker is '7.4.1')", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        footnotes: [{
+          marker: "7.4.1",
+          body: "7.4.1. Full proof of Chebyshev.",
+          source: "ross §5.3",
+          kind: "corpus" as const,
+        }],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const fnBody = container.querySelector(".extension-footnote__body")!;
+    expect(fnBody.textContent?.trimStart()).not.toMatch(/^7\.4\.1/);
+  });
+
+  it("strips leading marker with paren (e.g. '2) ' when marker is '2')", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        footnotes: [{
+          marker: "2",
+          body: "2) Another form of the footnote start.",
+          source: "wiki",
+          kind: "wikipedia" as const,
+        }],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const fnBody = container.querySelector(".extension-footnote__body")!;
+    expect(fnBody.textContent?.trimStart()).not.toMatch(/^2\)/);
+  });
+});
+
+describe("[^n] footnote reference stripping", () => {
+  it("removes [^3] from curated_text rendered output", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        curated_text: "This follows from Markov[^3] as shown above.",
+        footnotes: [],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const body = container.querySelector(".extension-point__body")!;
+    expect(body.textContent).not.toContain("[^");
+  });
+
+  it("removes [^12] from unfilled_gaps rendered output", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      unfilled_gaps: ["Proof of CLT[^12] still missing."],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const gaps = container.querySelector(".extension-card__gaps")!;
+    expect(gaps.textContent).not.toContain("[^");
+  });
+
+  it("removes [^n] from footnote body rendered output", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        footnotes: [{
+          marker: "1",
+          body: "This uses Chebyshev[^1] as cited above.",
+          source: "ross §5.1",
+          kind: "corpus" as const,
+        }],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const fnBody = container.querySelector(".extension-footnote__body")!;
+    expect(fnBody.textContent).not.toContain("[^");
+  });
+});
