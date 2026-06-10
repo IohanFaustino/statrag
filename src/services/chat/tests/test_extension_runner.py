@@ -212,9 +212,21 @@ async def test_run_extension_emits_meta_first_then_story_digest(monkeypatch):
 
     digest = StoryDigest(book="hansen-probability", chapter="ch07",
                          takes=[Take(heading="h", story="s")])
+
+    # Evidence fixtures: one corpus entry, one wikipedia entry.
+    corpus_ev = SimpleNamespace(
+        kind="corpus", text="corpus text here",
+        meta={"book_slug": "moss", "chapter": "ch05", "section_id": "5.2 CLT",
+              "title": "Central Limit Theorem", "chunk_id": "abc123"},
+    )
+    wiki_ev = SimpleNamespace(
+        kind="wikipedia", text="wikipedia excerpt",
+        meta={"title": "Law of large numbers", "url": "https://en.wikipedia.org/wiki/LLN"},
+    )
+
     async def fake_pipeline(**kwargs):
         kwargs["on_stage"]("story", "Take 1/1 — h")
-        return digest, []
+        return digest, [corpus_ev, wiki_ev]
     monkeypatch.setattr(R, "run_pipeline", fake_pipeline)
 
     events = [e async for e in R.run_extension(SimpleNamespace(
@@ -223,5 +235,31 @@ async def test_run_extension_emits_meta_first_then_story_digest(monkeypatch):
     so = next(e for e in events if e["type"] == "structured_output")
     assert so["schema"] == "StoryDigest" and so["data"]["takes"][0]["heading"] == "h"
     assert any(e["type"] == "stage" and e["stage"] == "story" for e in events)
-    assert any(e["type"] == "sources_full" for e in events)
+
+    sf = next(e for e in events if e["type"] == "sources_full")
+    assert sf is not None, "sources_full event must be emitted"
+    srcs = sf["sources"]
+    assert len(srcs) == 2, f"Expected 2 sources, got {len(srcs)}"
+
+    # Every source must satisfy the frontend Source contract fields.
+    for s in srcs:
+        assert isinstance(s["book"], str), f"book must be str, got {type(s['book'])}"
+        assert isinstance(s["chapter"], str), f"chapter must be str"
+        assert isinstance(s["section"], str), f"section must be str"
+        assert isinstance(s["title"], str), f"title must be str"
+        assert isinstance(s["excerpt"], str), f"excerpt must be str"
+        assert isinstance(s["rank"], int), f"rank must be int"
+        assert isinstance(s["score"], float), f"score must be float"
+        # book must never be empty/falsy for corpus evidence with a known slug.
+    assert srcs[0]["book"] == "moss"
+    assert srcs[0]["chapter"] == "ch05"
+    assert srcs[0]["section"] == "5.2 CLT"
+    assert srcs[0]["title"] == "Central Limit Theorem"
+    assert srcs[0]["excerpt"] == "corpus text here"
+    assert srcs[0]["rank"] == 1
+
+    # Wikipedia evidence: book falls back to "wikipedia".
+    assert srcs[1]["book"] == "wikipedia"
+    assert srcs[1]["rank"] == 2
+
     assert events[-1]["type"] == "done"

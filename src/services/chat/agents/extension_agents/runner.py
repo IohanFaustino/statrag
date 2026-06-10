@@ -225,9 +225,30 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
 
     yield {"type": "structured_output", "schema": "StoryDigest",
            "data": digest.model_dump()}
-    yield {"type": "sources_full", "sources": [
-        {"kind": e.kind, **{k: v for k, v in e.meta.items() if v is not None}}
-        for e in evidence]}
+    # Map evidence metas to the frontend Source contract so ContextPanel/SourceCard
+    # never dereferences an undefined field (e.g. src.book.toLowerCase() crashes
+    # when book is absent from raw evidence meta).
+    sources = []
+    for i, e in enumerate(evidence, start=1):
+        m = e.meta if isinstance(e.meta, dict) else {}
+        book_key = (
+            m.get("book_slug")
+            or ("wikipedia" if getattr(e, "kind", "") == "wikipedia" else "corpus")
+        )
+        sources.append({
+            "rank": i,
+            "book": str(book_key),
+            "chapter": str(m.get("chapter") or ""),
+            "section": str(m.get("section_id") or m.get("title") or ""),
+            "title": str(m.get("title") or m.get("section_id") or ""),
+            "excerpt": str(getattr(e, "text", "") or "")[:280],
+            "score": 0.0,
+            "chunkId": str(m.get("chunk_id") or ""),
+            "embedding": "",
+            "chunk": "",
+            "highlights": [],
+        })
+    yield {"type": "sources_full", "sources": sources}
     # token counting not yet wired for v2 pipeline — placeholder zeros
     yield {"type": "usage", "durationMs": int((time.time() - t0) * 1000),
            "inputTokens": 0, "outputTokens": 0}
