@@ -11,6 +11,21 @@ import re as _re
 import time
 from typing import AsyncIterator
 
+from src.services.chat.agents.extension_agents.agent import build_extension_agent
+from src.services.chat.agents.extension_agents.scope import (
+    aresolve_scope_or_clarify,
+    build_structure_files,
+)
+from src.services.chat._fences import strip_fences
+from src.services.chat.agents.extension_agents.prompts import JUDGE_PROMPT
+from src.services.chat.books import parse_catalog
+from src.services.chat.retrieval import fetch_chapter_sections, hybrid_search
+from src.services.chat.schemas import ChatRequest, ExtensionDigest
+
+# ---------------------------------------------------------------------------
+# Module-level helpers (defined after imports)
+# ---------------------------------------------------------------------------
+
 # Matches a leading section number like "7.4" or "7.4.1" from a section label.
 _SECTION_NUM_PREFIX = _re.compile(r'^(\d+(?:[.\-]\d+)+)')
 
@@ -39,6 +54,10 @@ def _scope_label(chapter_id: str, sections: list[dict], *, narrowed: bool) -> st
 
     When not narrowed (all sections kept), or when numeric prefixes cannot be
     extracted, the label is just *chapter_id* (e.g. ``"ch07"``).
+
+    Note: for multiple sections the range is first–last, which is an
+    approximation when the matched sections are non-contiguous (e.g. 7.2 + 7.5
+    yields ``"ch07 · 7.2–7.5"`` even though 7.3/7.4 were not matched).
     """
     if not narrowed or not sections:
         return chapter_id
@@ -49,17 +68,6 @@ def _scope_label(chapter_id: str, sections: list[dict], *, narrowed: bool) -> st
     if len(nums) == 1:
         return f"{chapter_id} · {nums[0]}"
     return f"{chapter_id} · {nums[0]}–{nums[-1]}"
-
-from src.services.chat.agents.extension_agents.agent import build_extension_agent
-from src.services.chat.agents.extension_agents.scope import (
-    aresolve_scope_or_clarify,
-    build_structure_files,
-)
-from src.services.chat._fences import strip_fences
-from src.services.chat.agents.extension_agents.prompts import JUDGE_PROMPT
-from src.services.chat.books import parse_catalog
-from src.services.chat.retrieval import fetch_chapter_sections, hybrid_search
-from src.services.chat.schemas import ChatRequest, ExtensionDigest
 
 
 def _warm_retrieval(slugs: list[str]) -> None:
@@ -148,17 +156,16 @@ def _needle_matches(needle: str, haystack: str) -> bool:
     protection for section numbers.
 
     Strategy:
-    1. If the needle begins with a section number (e.g. ``"7.4"`` or
-       ``"7.4 Chebyshev"``), match by that section-number prefix using a
-       word-boundary regex — this avoids false-positives like ``"7.4"``
-       matching ``"17.4"``, and correctly handles acronym-titled sections
+    1. If the needle begins with a section number (e.g. ``"7.5"`` from
+       ``"7.5 WLLN"``), match by that section-number prefix using a
+       word-boundary regex — this avoids false-positives like ``"7.5"``
+       matching ``"17.5"``, and correctly handles acronym-titled sections
        where the label text differs from the needle's keyword suffix.
     2. If no section-number prefix is found, fall back to plain substring
        matching.
     """
-    m = _SECTION_NUM_PREFIX.match(needle)
-    if m:
-        sec_num = m.group(1)
+    sec_num = _extract_section_num(needle)
+    if sec_num:
         # Word-boundary: the number must not be immediately preceded/followed
         # by another digit or dot (so "7.4" won't match "17.4" or "7.40").
         pattern = r'(?<![.\d])' + _re.escape(sec_num) + r'(?![.\d])'

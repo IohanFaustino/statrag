@@ -303,3 +303,26 @@ def test_filter_subtopics_numeric_needle_no_false_positive():
     result = R._filter_subtopics(secs, ["7.4"], book_slug="b")
     assert len(result) == 1
     assert result[0]["section_id"].startswith("7.4")
+
+
+def test_needle_matches_no_trailing_digit_false_positive():
+    """Needle '7.4' must NOT match section label '7.40 Something'."""
+    # "7.40" has a trailing digit after "7.4" — the word-boundary regex
+    # (?![.\d]) must reject it.
+    assert not R._needle_matches("7.4", "7.40 something")
+
+
+# ---------------------------------------------------------------------------
+# T3: _scope_label non-contiguous range approximation
+# ---------------------------------------------------------------------------
+
+def test_scope_label_non_contiguous_range_is_first_to_last():
+    """Non-contiguous sections (7.2 + 7.5, skipping 7.3/7.4) produce first–last
+    range label.  This is a known approximation: _scope_label uses nums[0]–nums[-1]
+    and does NOT attempt to express gaps (e.g. "7.2 + 7.5")."""
+    secs = [
+        {"section_id": "7.2 Modes of Convergence", "h2_path": "...", "text": ""},
+        {"section_id": "7.5 Weak Law of Large Numbers", "h2_path": "...", "text": ""},
+    ]
+    label = R._scope_label("ch07", secs, narrowed=True)
+    assert label == "ch07 · 7.2–7.5"
