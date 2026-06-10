@@ -6,6 +6,7 @@ The citation binder later builds Citation objects ONLY from these metas, which
 is what makes extension citations verifiable by construction."""
 from __future__ import annotations
 
+import logging
 import os
 import urllib.parse
 import uuid
@@ -14,6 +15,8 @@ from dataclasses import dataclass, field
 import httpx
 
 from src.services.chat.retrieval import hybrid_search
+
+_logger = logging.getLogger(__name__)
 
 _WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/"
 _WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
@@ -35,11 +38,15 @@ def corpus_evidence(query: str, *, subject_id: str, exclude_book: str,
     slugs = [s for s in all_slugs if s != exclude_book]
     if not slugs:
         return []
-    floor = float(os.environ.get("EXTENSION_MIN_SCORE", "0"))
+    try:
+        floor = float(os.environ.get("EXTENSION_MIN_SCORE", "0"))
+    except ValueError:
+        floor = 0.0
     try:
         rows, _ = hybrid_search(query, book_slugs=slugs, top_k=top_n,
                                 rerank=True, rerank_top_n=top_n)
     except Exception:  # noqa: BLE001 — retrieval failure degrades to no evidence
+        _logger.exception("corpus_evidence: hybrid_search failed for subject_id=%r", subject_id)
         return []
     out: list[Evidence] = []
     for r in rows:
@@ -80,6 +87,7 @@ def _wiki_summary_json(query: str) -> dict | None:
                           timeout=10.0, headers={"accept": "application/json"})
             return r.json() if r.status_code == 200 else None
         except Exception:  # noqa: BLE001
+            _logger.debug("_wiki_summary_json: summary fetch failed for title=%r", title)
             return None
 
     data = _get(query.strip())
@@ -92,6 +100,7 @@ def _wiki_summary_json(query: str) -> dict | None:
             if hits:
                 data = _get(hits[0]["title"])
         except Exception:  # noqa: BLE001
+            _logger.debug("_wiki_summary_json: search-API fallback failed for query=%r", query)
             data = None
     return data
 

@@ -54,7 +54,7 @@ def test_binder_property_no_field_outside_evidence():
         allowed |= {str(v) for v in e.meta.values() if v is not None}
     for _, item in items:
         for c in item.citations:
-            for f in ("book_slug", "book_name", "authors", "chapter",
+            for f in ("book_slug", "book_name", "authors", "year", "chapter",
                       "section_id", "pages", "title", "url", "chunk_id"):
                 v = getattr(c, f)
                 if v is not None:

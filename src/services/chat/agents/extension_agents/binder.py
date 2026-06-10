@@ -21,7 +21,8 @@ class BulletDraft:
 def _label(e: Evidence) -> str:
     m = e.meta
     if e.kind == "wikipedia":
-        return f"Wikipedia: {m.get('title', '')}"
+        label = m.get('title') or m.get('url') or 'Wikipedia'
+        return f"Wikipedia: {label}"
     parts = [m.get("authors") or m.get("book_name") or m.get("book_slug") or "corpus"]
     if m.get("book_name") and m.get("authors"):
         parts.append(f"— {m['book_name']}")
