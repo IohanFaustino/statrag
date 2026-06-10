@@ -155,9 +155,10 @@ src/services/chat/agents/extension_agents/
   prompts.py        5 XML-scaffold prompts (storyteller/editor/miner/writer/judge)
   nodes.py          LLM node functions + _ainvoke helper + TakeDraft/Subject/WriterOut/JudgeOut
   graph.py          run_pipeline() — asyncio.gather orchestration
-  runner.py         run_extension() SSE wrapper (scope → pipeline → emit)
+  runner.py         run_extension() SSE wrapper (scope → pipeline → emit); also
+                    _filter_subtopics(), _needle_matches(), _scope_label() helpers
   export.py         render_story_html() + zip_filename() + legacy ExtensionDigest path
-  scope.py          aresolve_scope_or_clarify(), _filter_subtopics(), _needle_matches()
+  scope.py          aresolve_scope_or_clarify(), build_structure_files()
 src/services/chat/schemas/output.py
   StoryCitation, CuriosityItem, Take, StoryDigest   (new v2 models)
   ExtensionDigest, ExtensionPoint, ExtensionFootnote (legacy, retained)
