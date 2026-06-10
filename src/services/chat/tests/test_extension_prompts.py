@@ -13,7 +13,7 @@ def test_all_prompts_use_xml_scaffold_and_pin_english():
 def test_storyteller_story_register_and_sequence():
     low = P.STORYTELLER_PROMPT.lower()
     assert "story" in low and "take" in low
-    assert "author" in low and "sequence" in low or "order" in low
+    assert "author" in low and ("sequence" in low or "order" in low)
 
 
 def test_editor_forbids_new_facts():

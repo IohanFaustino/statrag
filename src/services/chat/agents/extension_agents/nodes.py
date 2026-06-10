@@ -2,8 +2,11 @@
 + model (resolve_stage_model). One parse retry, then graceful degradation."""
 from __future__ import annotations
 
+import json
+import logging
+
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from src.core.config import settings
 
@@ -12,6 +15,14 @@ from .prompts import (EDITOR_PROMPT, JUDGE_PROMPT, MINER_PROMPT,
                       STORYTELLER_PROMPT, WRITER_PROMPT)
 from .binder import BulletDraft
 from .research import Evidence
+
+try:
+    from langchain_core.exceptions import OutputParserException
+except ImportError:
+    class OutputParserException(Exception):  # type: ignore[misc]
+        """Fallback when langchain_core.exceptions is unavailable."""
+
+_logger = logging.getLogger(__name__)
 
 
 # ── structured-output schemas (LLM-facing) ──────────────────────────────────
@@ -64,12 +75,15 @@ async def _ainvoke(stage: str, schema, system: str, user: str, stage_models):
 
 
 async def _with_retry(stage, schema, system, user, stage_models):
+    _PARSE_ERRORS = (ValidationError, json.JSONDecodeError, ValueError, OutputParserException)
     try:
         return await _ainvoke(stage, schema, system, user, stage_models)
-    except Exception:  # noqa: BLE001 — one repair retry
+    except _PARSE_ERRORS:  # one attempt + one repair retry
         return await _ainvoke(stage, schema, system,
                               user + "\n\nREMINDER: answer ONLY with valid structured output.",
                               stage_models)
+    # Any other exception (rate-limit after max_retries=6, auth, network) re-raises
+    # immediately so the node's outer degradation handler deals with it once.
 
 
 # ── node runners ─────────────────────────────────────────────────────────────
@@ -89,6 +103,7 @@ async def run_storyteller(*, idx: int, section: dict, prev_heading: str | None,
 
 
 async def run_editor(drafts: list[TakeDraft], stage_models) -> list[TakeDraft]:
+    """Stitch per-section take drafts into a continuous timeline; returns originals on failure."""
     ordered = sorted(drafts, key=lambda d: d.idx)
     user = "\n\n".join(f"[take {d.idx}] {d.heading}\n{d.story}" for d in ordered)
     try:
@@ -97,12 +112,18 @@ async def run_editor(drafts: list[TakeDraft], stage_models) -> list[TakeDraft]:
             for new, old in zip(out.takes, ordered):
                 new.idx, new.key_items, new.degraded = old.idx, old.key_items, old.degraded
             return out.takes
+        _logger.warning(
+            "story_editor bypassed (count mismatch or failure); keeping storyteller drafts"
+        )
     except Exception:  # noqa: BLE001
-        pass
+        _logger.warning(
+            "story_editor bypassed (count mismatch or failure); keeping storyteller drafts"
+        )
     return ordered  # editor failure → keep drafts
 
 
 async def run_miner(*, take: TakeDraft, stage_models) -> list[Subject]:
+    """Extract 2-4 curiosity subjects from a single take; returns [] on failure."""
     user = (f"TAKE {take.idx}: {take.heading}\n{take.story}\n"
             f"key_items: {', '.join(take.key_items)}")
     try:
@@ -117,6 +138,7 @@ async def run_miner(*, take: TakeDraft, stage_models) -> list[Subject]:
 async def run_writer(*, take_idx: int, take_heading: str, take_story: str,
                      subjects: list[Subject], evidence: list[Evidence],
                      stage_models) -> list[BulletDraft]:
+    """Write one evidence-grounded bullet per answerable subject; returns [] on failure."""
     ev_block = "\n\n".join(f"[{e.id}] ({e.kind}) {e.text[:1500]}" for e in evidence)
     subj_block = "\n".join(f"- ({s.tag}) {s.title}" for s in subjects)
     user = (f"TAKE: {take_heading}\n{take_story}\n\nSUBJECTS:\n{subj_block}"
@@ -131,6 +153,7 @@ async def run_writer(*, take_idx: int, take_heading: str, take_story: str,
 
 async def run_judge(*, take_heading: str, subjects: list[str],
                     bullets_summary: str, stage_models) -> list[str]:
+    """subjects is a list of subject TITLES (list[str]) — callers project Subject.title."""
     user = (f"TAKE: {take_heading}\nSUBJECTS:\n" + "\n".join(f"- {s}" for s in subjects)
             + f"\n\nBULLETS:\n{bullets_summary}")
     try:

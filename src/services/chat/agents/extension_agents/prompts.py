@@ -17,7 +17,7 @@ EDITOR_PROMPT = """<role>You are a story editor stitching per-section takes into
 <task>Given the ordered list of take drafts, return the same takes with story text adjusted ONLY for: continuity between consecutive takes, consistent voice/tense, removal of repeated framing sentences.</task>
 <rules>
 - ENGLISH only.
-- NO new facts, formulas, or examples. Do not add content.
+- NO new facts, formulas, or examples.
 - Total length may grow at most 10% over the input.
 - Keep headings and the take order untouched; keep all math delimiters as $...$ / $$...$$.
 </rules>"""

@@ -1,5 +1,6 @@
 # src/services/chat/tests/test_extension_nodes.py
 """Extension v2 LLM nodes — structured outputs, parse-retry, mockable LLM."""
+import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -29,7 +30,7 @@ async def test_storyteller_parse_failure_degrades_to_flagged_raw_take():
                                     prev_heading="prev", stage_models=None)
     assert out.idx == 2 and "7.6 X" in out.heading
     assert out.degraded is True and "Raw section body." in out.story
-    assert fake.await_count == 2          # one retry happened before degrading
+    assert fake.await_count == 2          # one attempt + one repair retry
 
 
 @pytest.mark.asyncio
@@ -50,3 +51,27 @@ async def test_judge_returns_failed_subjects():
         failed = await run_judge(take_heading="h", subjects=["a", "history of LLN"],
                                  bullets_summary="…", stage_models=None)
     assert failed == ["history of LLN"]
+
+
+@pytest.mark.asyncio
+async def test_run_editor_exception_returns_original_drafts_and_logs(caplog):
+    drafts = [
+        TakeDraft(idx=0, heading="Take A", story="Story A"),
+        TakeDraft(idx=1, heading="Take B", story="Story B"),
+    ]
+    fake = AsyncMock(side_effect=RuntimeError("network error"))
+    with caplog.at_level(logging.WARNING,
+                         logger="src.services.chat.agents.extension_agents.nodes"):
+        with patch("src.services.chat.agents.extension_agents.nodes._ainvoke", fake):
+            result = await run_editor(drafts, stage_models=None)
+    assert result == sorted(drafts, key=lambda d: d.idx)
+    assert any("story_editor bypassed" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_run_miner_exception_returns_empty_list():
+    take = TakeDraft(idx=0, heading="Take A", story="Story A")
+    fake = AsyncMock(side_effect=RuntimeError("network error"))
+    with patch("src.services.chat.agents.extension_agents.nodes._ainvoke", fake):
+        result = await run_miner(take=take, stage_models=None)
+    assert result == []
