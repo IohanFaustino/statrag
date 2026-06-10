@@ -8,7 +8,9 @@ import ChapterDigestCard from "./ChapterDigestCard";
 import FacilitateDigestCard from "./FacilitateDigestCard";
 import ClarifyCard from "./ClarifyCard";
 import ExtensionDigestCard, { ExtensionDigest } from "./ExtensionDigestCard";
+import StoryDigestCard from "./StoryDigestCard";
 import StructuredErrorBoundary from "./StructuredErrorBoundary";
+import type { StoryDigest } from "../types";
 import { IconBook, IconDownload } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
@@ -362,6 +364,9 @@ function AssistantMessageView({
                   digest={msg.structuredOutput.data as ExtensionDigest}
                   pendingPoints={msg.pendingExtensionPoints}
                 />
+              )}
+              {msg.structuredOutput.schema === "StoryDigest" && (
+                <StoryDigestCard digest={msg.structuredOutput.data as unknown as StoryDigest} />
               )}
               {msg.structuredOutput.schema === "Clarify" && (
                 <ClarifyCard

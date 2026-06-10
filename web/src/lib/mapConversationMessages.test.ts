@@ -222,6 +222,63 @@ describe("mapConversationMessages — structured content", () => {
     expect(assistants[1].mode).toBe("tutor");      // fallback to convMode
   });
 
+  it("persisted StoryDigest (object) revives to structuredOutput.schema === 'StoryDigest'", () => {
+    const storyDigest = {
+      _schema: "StoryDigest",
+      book: "hansen-probability",
+      chapter: "ch07 · 7.4–7.5",
+      takes: [{ heading: "Chebyshev", story: "Opens…", items: [] }],
+      unfilled_subjects: [],
+    };
+    const data: RawConversationResponse = {
+      id: "conv-story-object",
+      mode: "extension",
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          content: storyDigest,
+          timestamp: "2024-01-01T12:00:00Z",
+          metadata: { turnMode: "extension" },
+        },
+      ],
+    };
+    const msgs = mapConversationMessages(data);
+    const msg = msgs[0] as AssistantMessage;
+    expect(msg.structuredOutput).toBeDefined();
+    expect(msg.structuredOutput!.schema).toBe("StoryDigest");
+    expect((msg.structuredOutput!.data as { book: string }).book).toBe("hansen-probability");
+    expect((msg.structuredOutput!.data as { _schema?: string })._schema).toBeUndefined();
+  });
+
+  it("persisted StoryDigest (JSON string) revives to structuredOutput.schema === 'StoryDigest'", () => {
+    const storyDigestStr = JSON.stringify({
+      _schema: "StoryDigest",
+      book: "hansen-probability",
+      chapter: "ch07 · 7.4–7.5",
+      takes: [],
+      unfilled_subjects: ["history of LLN"],
+    });
+    const data: RawConversationResponse = {
+      id: "conv-story-string",
+      mode: "extension",
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          content: storyDigestStr,
+          timestamp: "2024-01-01T12:00:00Z",
+          metadata: { turnMode: "extension" },
+        },
+      ],
+    };
+    const msgs = mapConversationMessages(data);
+    const msg = msgs[0] as AssistantMessage;
+    expect(msg.structuredOutput).toBeDefined();
+    expect(msg.structuredOutput!.schema).toBe("StoryDigest");
+    expect((msg.structuredOutput!.data as { book: string }).book).toBe("hansen-probability");
+  });
+
   it("recognizes the extension mode from metadata.turnMode (badge on reload)", () => {
     const out = mapConversationMessages({
       mode: "extension",

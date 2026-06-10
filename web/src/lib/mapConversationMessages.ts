@@ -98,7 +98,7 @@ function reviveContent(raw: unknown): { text: string; structured: Record<string,
     if (s.startsWith("{") && s.endsWith("}")) {
       try {
         const obj = JSON.parse(s);
-        if (obj && typeof obj === "object" && ("text" in obj || "aspects" in obj || "tldr" in obj)) {
+        if (obj && typeof obj === "object" && ("text" in obj || "aspects" in obj || "tldr" in obj || "_schema" in obj)) {
           return fromObject(obj as Record<string, unknown>);
         }
       } catch {

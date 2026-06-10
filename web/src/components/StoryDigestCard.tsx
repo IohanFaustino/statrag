@@ -1,5 +1,4 @@
 import { useState } from "react";
-import StructuredErrorBoundary from "./StructuredErrorBoundary";
 import { renderMathText } from "../lib/renderRichText";
 import type { StoryDigest, StoryCitation } from "../types";
 
@@ -96,5 +95,5 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
 }
 
 export default function StoryDigestCard(props: { digest: StoryDigest }) {
-  return <StructuredErrorBoundary><StoryDigestCardInner {...props} /></StructuredErrorBoundary>;
+  return <StoryDigestCardInner {...props} />;
 }
