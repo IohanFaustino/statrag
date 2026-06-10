@@ -215,3 +215,64 @@ async def test_pipeline_judge_retry_recovers_subject():
     # Item present on the take
     assert len(digest.takes[0].items) == 1
     assert digest.takes[0].items[0].subject == subject_title
+
+
+@pytest.mark.asyncio
+async def test_research_subject_uses_mined_queries_before_title():
+    """wiki_evidence is called with mined queries first; stops at first hit.
+
+    Setup: subject has queries=["weak law of large numbers", "convergence"].
+    Mock: wiki returns [] for "weak law of large numbers", a hit for
+    "convergence", and should NOT be called with the verbose title at all.
+    Assert:
+      - wiki_evidence called exactly 2 times (stops after second query hits).
+      - The Evidence from the second query appears in the pipeline output.
+    """
+    from src.services.chat.agents.extension_agents.graph import _research_subject
+
+    hit_ev = Evidence(
+        id="wiki-hit", subject_id="t0-s0", kind="wikipedia",
+        text="Convergence article text",
+        meta={"title": "Convergence (probability)", "url": "https://en.wikipedia.org/wiki/Convergence"},
+    )
+    wiki_call_queries: list[str] = []
+
+    def _wiki(q: str, *, subject_id: str) -> list[Evidence]:
+        wiki_call_queries.append(q)
+        if q == "convergence":
+            return [Evidence(
+                id=hit_ev.id, subject_id=subject_id, kind=hit_ev.kind,
+                text=hit_ev.text, meta=hit_ev.meta,
+            )]
+        return []
+
+    subj = Subject(
+        id="t0-s0", take_idx=0,
+        title="(application) Consistency vs. Rates: Why WLLN Doesn't Tell You How Large n Must Be",
+        queries=["weak law of large numbers", "convergence"],
+    )
+
+    with contextlib.ExitStack() as st:
+        st.enter_context(patch(
+            "src.services.chat.agents.extension_agents.graph.corpus_evidence",
+            lambda *a, **k: [],
+        ))
+        st.enter_context(patch(
+            "src.services.chat.agents.extension_agents.graph.wiki_evidence",
+            side_effect=_wiki,
+        ))
+        result = await _research_subject(
+            subj,
+            exclude_book="hansen-probability",
+            all_slugs=["hansen-probability"],
+            seen_ids=set(),
+        )
+
+    # Stopped after second query — verbose title never tried
+    assert wiki_call_queries == ["weak law of large numbers", "convergence"], (
+        f"expected 2 calls (stop at first hit), got: {wiki_call_queries}"
+    )
+    # The hit evidence is present in the output
+    wiki_results = [e for e in result if e.kind == "wikipedia"]
+    assert len(wiki_results) == 1
+    assert wiki_results[0].id == hit_ev.id

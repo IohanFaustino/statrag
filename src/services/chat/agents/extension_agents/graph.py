@@ -25,13 +25,26 @@ OnStage = Callable[[str, str], None]
 
 async def _research_subject(s, *, exclude_book: str, all_slugs: list[str],
                              seen_ids: set[str]) -> list[Evidence]:
-    """Threaded corpus search (up to 3 queries) + one wiki lookup per subject."""
+    """Threaded corpus search (up to 3 queries) + one wiki lookup per subject.
+
+    Wiki query strategy: try each of the subject's mined queries (up to 2)
+    before falling back to the verbose subject title.  Mined queries are short,
+    canonical terms ("weak law of large numbers") that Wikipedia resolves
+    reliably; the title is often too long ("(application) Consistency vs. …").
+    We stop at the first query that returns a hit so only ONE wiki Evidence
+    object is produced per subject.
+    """
     out: list[Evidence] = []
     for q in (s.queries or [s.title])[:3]:
         out += await asyncio.to_thread(
             corpus_evidence, q, subject_id=s.id, exclude_book=exclude_book,
             all_slugs=all_slugs, seen_ids=seen_ids, top_n=3)
-    out += await asyncio.to_thread(wiki_evidence, s.title, subject_id=s.id)
+    wiki_hits: list[Evidence] = []
+    for q in [*(s.queries or [])[:2], s.title]:
+        wiki_hits = await asyncio.to_thread(wiki_evidence, q, subject_id=s.id)
+        if wiki_hits:
+            break
+    out += wiki_hits
     return out
 
 
