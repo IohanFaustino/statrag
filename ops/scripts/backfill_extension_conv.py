@@ -7,8 +7,9 @@ The answer content survives as agent-workspace artifacts:
   - footnotes/_final_output.md → ID/TITLE MAPPING (footnote id → topic title)
 
 Usage:
-    python ops/scripts/backfill_extension_conv.py            # dry-run (default)
-    python ops/scripts/backfill_extension_conv.py --apply    # write to DB
+    python ops/scripts/backfill_extension_conv.py                    # dry-run (default)
+    python ops/scripts/backfill_extension_conv.py --apply            # write to DB
+    python ops/scripts/backfill_extension_conv.py --apply --force    # replace existing row
     python ops/scripts/backfill_extension_conv.py --db path/to/other.db --apply
 """
 from __future__ import annotations
@@ -240,25 +241,66 @@ class _FootnoteRaw(NamedTuple):
     kind: str
 
 
+def _stem_to_marker(stem: str) -> str:
+    """Convert a footnote filename stem to a dotted marker string.
+
+    Rules:
+    - Plain integer stem ``"4"`` → ``"4"``
+    - Underscore-separated ``"4_2"`` → ``"4.2"``
+    - Already-dotted ``"7.4.1"`` → ``"7.4.1"`` (unchanged)
+
+    Args:
+        stem: Filename stem (without ``.md`` extension).
+
+    Returns:
+        Dotted marker string used as the footnote's ``marker`` field.
+    """
+    return stem.replace("_", ".")
+
+
+def _integer_prefix(stem: str) -> str | None:
+    """Return the leading integer portion of a stem, or None if absent.
+
+    Used to resolve an id_title_map lookup for compound stems whose full
+    dotted marker has no own mapping entry (they inherit from their integer
+    prefix, e.g. ``"7.4.1"`` inherits mapping id ``"7"``).
+
+    Args:
+        stem: Filename stem, possibly compound.
+
+    Returns:
+        The leading integer as a string (e.g. ``"7"``), or ``None``.
+    """
+    m = re.match(r"^(\d+)", stem)
+    return m.group(1) if m else None
+
+
 def _load_footnotes(footnotes_dir: Path, id_title_map: dict[str, str]) -> list[_FootnoteRaw]:
     """Load all useful footnote files from ``footnotes_dir``.
 
-    Reads each ``N.md`` (and named variants) that is not in the skip list.
-    Extracts the numeric marker from the filename stem.
+    Each non-skipped ``*.md`` file is treated as an independent footnote.
+    The marker is the full dotted stem (underscores → dots), so ``4_2.md``
+    becomes marker ``"4.2"``, ``7.4.1.md`` becomes ``"7.4.1"``, and plain
+    ``4.md`` becomes ``"4"``.  No deduplication by leading integer is
+    performed — every file with real content is kept.
+
+    For id_title_map lookup, compound markers first try the full dotted stem
+    as the key; if absent they fall back to the leading integer prefix (e.g.
+    ``"7.4.1"`` falls back to ``"7"``).
 
     Args:
         footnotes_dir: Path to the footnotes directory.
-        id_title_map: Mapping from marker to topic title (used for dedup
-            detection only; bodies come from the individual files).
+        id_title_map: Mapping from marker to topic title (from
+            ``_final_output.md``).  Compound stems inherit the integer-prefix
+            mapping when the full stem has no own entry.
 
     Returns:
-        List of ``_FootnoteRaw`` namedtuples, one per useful file.
+        List of ``_FootnoteRaw`` namedtuples, one per useful file, sorted by
+        stem for deterministic order.
     """
     results: list[_FootnoteRaw] = []
-    seen_markers: set[str] = set()
 
-    # Collect and sort so that simple numeric stems (1, 2, …) come before
-    # compound ones (4_2, 7.4.1, …) — this gives stable deterministic order.
+    # Sort for deterministic order: plain integers before compound stems.
     files = sorted(footnotes_dir.glob("*.md"), key=lambda p: p.stem)
 
     for fpath in files:
@@ -270,17 +312,11 @@ def _load_footnotes(footnotes_dir: Path, id_title_map: dict[str, str]) -> list[_
         if not raw_body or raw_body.lower() in {"placeholder"}:
             continue
 
-        # Derive marker: use the leading integer from the stem
-        marker_match = re.match(r"^(\d+)", stem)
-        if not marker_match:
+        # Must start with a digit to be a real footnote file.
+        if not re.match(r"^\d", stem):
             continue
-        marker = marker_match.group(1)
 
-        # Skip duplicate markers (prefer the simpler stem, already ordered first)
-        if marker in seen_markers:
-            continue
-        seen_markers.add(marker)
-
+        marker = _stem_to_marker(stem)
         body = strip_leading_marker(raw_body, marker)
         source, kind = extract_source_and_kind(body)
         results.append(_FootnoteRaw(marker=marker, body=body, source=source, kind=kind))
@@ -331,7 +367,13 @@ def assemble_digest(
     # 5. Attach each footnote to its best-matching point
     unmatched_footnotes: list[_FootnoteRaw] = []
     for fn in footnote_raws:
+        # Look up title by full dotted marker first; fall back to integer prefix
+        # for compound stems (e.g. "7.4.1" → try "7.4.1" then "7").
         fn_title = id_title_map.get(fn.marker, "")
+        if not fn_title:
+            int_prefix = fn.marker.split(".")[0]
+            if int_prefix and int_prefix != fn.marker:
+                fn_title = id_title_map.get(int_prefix, "")
         if fn_title:
             idx = match_footnote_to_point(fn_title, raw_points)
         else:
@@ -421,6 +463,22 @@ def _assistant_exists(db_path: Path) -> bool:
             (CONV_ID,),
         ).fetchone()
         return row is not None
+    finally:
+        conn.close()
+
+
+def _delete_assistant_messages(db_path: Path) -> int:
+    """Delete all assistant messages for CONV_ID. Returns the number of rows deleted."""
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        cursor = conn.execute(
+            "DELETE FROM messages WHERE conversation_id=? AND role='assistant'",
+            (CONV_ID,),
+        )
+        count = cursor.rowcount
+        conn.commit()
+        return count
     finally:
         conn.close()
 
@@ -530,6 +588,16 @@ def main(argv: list[str] | None = None) -> None:
         default=str(_TIMELINE_FILE),
         help="Path to the timeline markdown file to use as curated-text source",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help=(
+            "With --apply: if an assistant message already exists, back up the DB, "
+            "delete the existing row(s), and insert the freshly assembled one. "
+            "Has no effect without --apply."
+        ),
+    )
     args = parser.parse_args(argv)
 
     db_path = Path(args.db)
@@ -545,6 +613,28 @@ def main(argv: list[str] | None = None) -> None:
     if not _FINAL_OUTPUT.exists():
         print(f"ERROR: _final_output.md not found at {_FINAL_OUTPUT}", file=sys.stderr)
         sys.exit(1)
+
+    # --- Idempotency check (before artifact assembly) ---
+    already_exists = _assistant_exists(db_path)
+    if already_exists:
+        if not args.apply:
+            if args.force:
+                print(
+                    f"NOTE: assistant message already present — "
+                    f"--apply --force would replace it."
+                )
+            else:
+                print(
+                    f"NOTE: assistant message already present — "
+                    f"--apply would abort (use --apply --force to replace)."
+                )
+        elif not args.force:
+            print(
+                f"\nABORT: An assistant message already exists for conversation {CONV_ID}.\n"
+                "No changes made (idempotent guard). Use --force to replace.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # --- Load artifacts ---
     timeline_text = timeline_path.read_text(encoding="utf-8")
@@ -565,20 +655,16 @@ def main(argv: list[str] | None = None) -> None:
         print("\nDRY RUN — pass --apply to write to the database.")
         return
 
-    # --- Idempotency check ---
-    if _assistant_exists(db_path):
-        print(
-            f"\nABORT: An assistant message already exists for conversation {CONV_ID}.\n"
-            "No changes made (idempotent guard).",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     # --- Backup DB ---
     utc_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup_path = db_path.parent / f"{db_path.name}.bak-{utc_stamp}"
     shutil.copy2(str(db_path), str(backup_path))
     print(f"\nDB backed up to: {backup_path}")
+
+    # --- Force-replace: delete existing row(s) ---
+    if already_exists and args.force:
+        deleted = _delete_assistant_messages(db_path)
+        print(f"Deleted {deleted} existing assistant row(s) for conversation {CONV_ID}.")
 
     # --- Read user timestamp ---
     user_ts = _read_user_timestamp(db_path)

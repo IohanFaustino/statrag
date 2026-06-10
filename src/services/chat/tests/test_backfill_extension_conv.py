@@ -34,8 +34,11 @@ from ops.scripts.backfill_extension_conv import (  # noqa: E402
     CONV_ID,
     _FootnoteRaw,
     _assistant_exists,
+    _delete_assistant_messages,
     _insert_assistant_message,
+    _load_footnotes,
     _read_user_timestamp,
+    _stem_to_marker,
     assemble_digest,
     extract_source_and_kind,
     match_footnote_to_point,
@@ -552,3 +555,231 @@ def test_e2e_content_validates_as_extension_digest(tmp_path: Path) -> None:
     validated = ExtensionDigest(**raw)
     assert validated.book == "hansen-probability"
     assert len(validated.points) >= 1
+
+
+# ---------------------------------------------------------------------------
+# _stem_to_marker
+# ---------------------------------------------------------------------------
+
+
+def test_stem_to_marker_plain_integer() -> None:
+    assert _stem_to_marker("4") == "4"
+
+
+def test_stem_to_marker_underscore_compound() -> None:
+    assert _stem_to_marker("4_2") == "4.2"
+
+
+def test_stem_to_marker_dotted_compound() -> None:
+    # Already dotted stems pass through unchanged
+    assert _stem_to_marker("7.4.1") == "7.4.1"
+
+
+def test_stem_to_marker_large_integer() -> None:
+    assert _stem_to_marker("15") == "15"
+
+
+# ---------------------------------------------------------------------------
+# _load_footnotes — compound stems kept as independent markers
+# ---------------------------------------------------------------------------
+
+
+def test_load_footnotes_compound_stems_not_dropped(tmp_path: Path) -> None:
+    """4.md + 4_2.md + 7.md + 7.4.1.md → 4 footnotes, markers 4/4.2/7/7.4.1."""
+    fn_dir = _make_footnote_dir(
+        tmp_path,
+        {
+            "4.md": "Chebyshev variance bound body.\n\n**Source.** Stock & Watson §4",
+            "4_2.md": "Extended Chebyshev discrete case.\n\n**Source.** Stock & Watson §4.2",
+            "7.md": "WLLN truncation argument.\n\n**Source.** Hansen §7",
+            "7.4.1.md": "[7.4.1]\nChebyshev for WLLN.\n\n**Source.** Hansen §7.4",
+        },
+    )
+    id_title_map: dict[str, str] = {}
+    results = _load_footnotes(fn_dir, id_title_map)
+
+    markers = {fn.marker for fn in results}
+    assert markers == {"4", "4.2", "7", "7.4.1"}, (
+        f"Expected all 4 compound stems kept; got {markers}"
+    )
+    assert len(results) == 4
+
+
+def test_load_footnotes_compound_stem_marker_value() -> None:
+    """Specifically verifies 7.5.1.md yields marker '7.5.1'."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        fn_dir = Path(d)
+        (fn_dir / "7.5.1.md").write_text(
+            "[7.5.1]\nWeak law via vanishing variance.\n\n**Source.** Hansen §7.5",
+            encoding="utf-8",
+        )
+        results = _load_footnotes(fn_dir, {})
+    assert len(results) == 1
+    assert results[0].marker == "7.5.1"
+
+
+def test_load_footnotes_skip_stems_still_skipped(tmp_path: Path) -> None:
+    """_coverage_check, _final_output, 15_done_marker are skipped."""
+    fn_dir = _make_footnote_dir(
+        tmp_path,
+        {
+            "1.md": "Real footnote body.\n\n**Source.** https://example.com",
+            "_coverage_check.md": "some coverage notes",
+            "_final_output.md": "ID/TITLE MAPPING\n1 :: something",
+            "15_done_marker.md": "placeholder",
+        },
+    )
+    results = _load_footnotes(fn_dir, {})
+    assert len(results) == 1
+    assert results[0].marker == "1"
+
+
+def test_load_footnotes_compound_stem_inherits_integer_prefix_mapping(tmp_path: Path) -> None:
+    """Compound stem '7.4.1' inherits mapping topic of integer prefix '7'."""
+    fn_dir = _make_footnote_dir(
+        tmp_path,
+        {
+            "7.4.1.md": "Chebyshev for WLLN body.\n\n**Source.** Hansen §7.4",
+        },
+    )
+    # Only integer prefix '7' is in the mapping, not '7.4.1'
+    id_title_map = {"7": "WLLN with finite variance"}
+    results = _load_footnotes(fn_dir, id_title_map)
+    assert len(results) == 1
+    assert results[0].marker == "7.4.1"
+
+    # Now verify that assemble_digest correctly uses the inherited mapping for
+    # match_footnote_to_point (the fn_title should be "WLLN with finite variance")
+    digest = assemble_digest(
+        timeline_text=MINIMAL_TIMELINE,
+        footnotes_dir=fn_dir,
+        final_output_text="ID/TITLE MAPPING\n\n7 :: WLLN with finite variance\n\nFOOTNOTE TEXTS\n",
+        book="test-book",
+        chapter="ch07",
+    )
+    all_markers = [fn.marker for p in digest.points for fn in p.footnotes]
+    assert "7.4.1" in all_markers, f"Marker '7.4.1' should be in digest; got {all_markers}"
+
+
+# ---------------------------------------------------------------------------
+# --force replace mode (temp DB)
+# ---------------------------------------------------------------------------
+
+
+def test_delete_assistant_messages_removes_rows(tmp_path: Path) -> None:
+    """_delete_assistant_messages removes the assistant row and returns count."""
+    db_path = _make_temp_db(tmp_path)
+    fn_dir = _make_footnote_dir(tmp_path, {})
+    digest = assemble_digest(
+        timeline_text=MINIMAL_TIMELINE,
+        footnotes_dir=fn_dir,
+        final_output_text=MINIMAL_FINAL_OUTPUT,
+    )
+    user_ts = _read_user_timestamp(db_path)
+    _insert_assistant_message(db_path, digest, user_ts)
+    assert _assistant_exists(db_path)
+
+    deleted = _delete_assistant_messages(db_path)
+    assert deleted == 1
+    assert not _assistant_exists(db_path)
+
+
+def test_force_replaces_existing_assistant_row(tmp_path: Path) -> None:
+    """--force via _delete + _insert replaces an existing assistant row."""
+    db_path = _make_temp_db(tmp_path)
+
+    # Build first digest (no footnotes)
+    v1_dir = tmp_path / "v1"
+    v1_dir.mkdir()
+    fn_dir_v1 = _make_footnote_dir(v1_dir, {})
+    digest_v1 = assemble_digest(
+        timeline_text=MINIMAL_TIMELINE,
+        footnotes_dir=fn_dir_v1,
+        final_output_text=MINIMAL_FINAL_OUTPUT,
+    )
+    user_ts = _read_user_timestamp(db_path)
+    _insert_assistant_message(db_path, digest_v1, user_ts)
+    assert _assistant_exists(db_path)
+
+    # Simulate --force: delete old, insert new
+    v2_dir = tmp_path / "v2"
+    v2_dir.mkdir()
+    fn_dir_v2 = _make_footnote_dir(
+        v2_dir,
+        {
+            "4.md": "Body for footnote 4.\n\n**Source.** Stock & Watson §4",
+            "4_2.md": "Body for footnote 4.2.\n\n**Source.** Stock & Watson §4.2",
+            "7.4.1.md": "[7.4.1]\nChebyshev WLLN.\n\n**Source.** Hansen §7.4",
+        },
+    )
+    digest_v2 = assemble_digest(
+        timeline_text=MINIMAL_TIMELINE,
+        footnotes_dir=fn_dir_v2,
+        final_output_text="ID/TITLE MAPPING\n\n4 :: Chebyshev tail\n7 :: WLLN\n\nFOOTNOTE TEXTS\n",
+    )
+    deleted = _delete_assistant_messages(db_path)
+    assert deleted == 1
+    assert not _assistant_exists(db_path)
+
+    new_id = _insert_assistant_message(db_path, digest_v2, user_ts)
+    assert _assistant_exists(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT content FROM messages WHERE id=?", (new_id,)).fetchone()
+    conn.close()
+
+    content = json.loads(row["content"])
+    all_markers = [fn["marker"] for p in content["points"] for fn in p["footnotes"]]
+    # All three compound+plain footnotes must be present
+    assert "4" in all_markers
+    assert "4.2" in all_markers
+    assert "7.4.1" in all_markers
+
+
+def test_force_replace_footnote_total_matches(tmp_path: Path) -> None:
+    """After force-replace, total footnote count equals files in v2 dir."""
+    db_path = _make_temp_db(tmp_path)
+    v1_dir = tmp_path / "v1"
+    v1_dir.mkdir()
+    fn_dir_v1 = _make_footnote_dir(v1_dir, {})
+    digest_v1 = assemble_digest(
+        timeline_text=MINIMAL_TIMELINE,
+        footnotes_dir=fn_dir_v1,
+        final_output_text=MINIMAL_FINAL_OUTPUT,
+    )
+    user_ts = _read_user_timestamp(db_path)
+    _insert_assistant_message(db_path, digest_v1, user_ts)
+
+    # Three distinct footnotes in v2
+    v2_dir = tmp_path / "v2"
+    v2_dir.mkdir()
+    fn_dir_v2 = _make_footnote_dir(
+        v2_dir,
+        {
+            "1.md": "Body one.\n\n**Source.** https://en.wikipedia.org/wiki/One",
+            "2.md": "Body two.\n\n**Source.** Stock & Watson",
+            "7.5.1.md": "[7.5.1]\nWLLN vanishing variance.\n\n**Source.** Hansen §7.5",
+        },
+    )
+    digest_v2 = assemble_digest(
+        timeline_text=MINIMAL_TIMELINE,
+        footnotes_dir=fn_dir_v2,
+        final_output_text="ID/TITLE MAPPING\n\n1 :: Chebyshev proof\n2 :: Convergence\n7 :: WLLN\n\nFOOTNOTE TEXTS\n",
+    )
+    total = sum(len(p.footnotes) for p in digest_v2.points)
+    assert total == 3, f"Expected 3 footnotes after force-replace, got {total}"
+
+    _delete_assistant_messages(db_path)
+    new_id = _insert_assistant_message(db_path, digest_v2, user_ts)
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT content FROM messages WHERE id=?", (new_id,)).fetchone()
+    conn.close()
+
+    content = json.loads(row["content"])
+    all_markers = [fn["marker"] for p in content["points"] for fn in p["footnotes"]]
+    assert "7.5.1" in all_markers
