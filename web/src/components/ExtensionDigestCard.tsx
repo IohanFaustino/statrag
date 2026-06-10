@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import StructuredErrorBoundary from "./StructuredErrorBoundary";
 import { MathInline, MathBlock } from "./Math";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -202,9 +201,5 @@ function ExtensionDigestCardInner({ digest }: Props) {
 }
 
 export default function ExtensionDigestCard(props: Props) {
-  return (
-    <StructuredErrorBoundary>
-      <ExtensionDigestCardInner {...props} />
-    </StructuredErrorBoundary>
-  );
+  return <ExtensionDigestCardInner {...props} />;
 }

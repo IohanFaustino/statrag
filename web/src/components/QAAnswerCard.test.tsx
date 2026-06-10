@@ -105,4 +105,12 @@ describe("QAAnswerCard", () => {
     const html = renderToStaticMarkup(<QAAnswerCard answer={base} />);
     expect(html).not.toContain("qa-card__math-blocks");
   });
+
+  it("does not render grounding badge when grounding field is absent", () => {
+    const answer: QAAnswer = { ...base, grounding: undefined };
+    const html = renderToStaticMarkup(<QAAnswerCard answer={answer} />);
+    expect(html).not.toContain("qa-card__badge");
+    expect(html).not.toContain("grounded");
+    expect(html).not.toContain("partial");
+  });
 });

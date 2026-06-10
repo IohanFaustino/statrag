@@ -42,11 +42,11 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
 
   const bodyNodes = useMemo(
     () => renderInlineWithCites(bodyText, citationsByIndex, hoveredIdx, setHoveredIdx),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bodyText, citationsByIndex, hoveredIdx],
+    [bodyText, citationsByIndex, hoveredIdx, setHoveredIdx],
   );
 
   const assumedKnown = scope?.assumed_known ?? [];
+  const safeMathBlocks = math_blocks ?? [];
 
   return (
     <div className="qa-card">
@@ -63,21 +63,23 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
         </div>
       )}
       <div className="qa-card__body">{bodyNodes}</div>
-      {(math_blocks ?? []).length > 0 && (
+      {safeMathBlocks.length > 0 && (
         <div className="qa-card__math-blocks">
-          {(math_blocks ?? []).map((tex, i) => (
+          {safeMathBlocks.map((tex, i) => (
             <div key={i} className="qa-card__math-block">
               <MathBlock tex={tex} />
             </div>
           ))}
         </div>
       )}
-      <div className={"qa-card__badge" + (grounded ? " is-grounded" : " is-partial")}>
-        {grounded ? "✓ grounded" : "⚠ partial"}
-        {typeof grounding?.confidence === "number" && (
-          <span className="qa-card__conf"> ({Math.round(grounding.confidence * 100)}%)</span>
-        )}
-      </div>
+      {grounding && (
+        <div className={"qa-card__badge" + (grounded ? " is-grounded" : " is-partial")}>
+          {grounded ? "✓ grounded" : "⚠ partial"}
+          {typeof grounding.confidence === "number" && (
+            <span className="qa-card__conf"> ({Math.round(grounding.confidence * 100)}%)</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
