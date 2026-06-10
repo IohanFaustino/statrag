@@ -44,6 +44,7 @@ from ops.scripts.backfill_extension_conv import (  # noqa: E402
     match_footnote_to_point,
     parse_id_title_mapping,
     parse_timeline,
+    strip_bookkeeping,
     strip_leading_marker,
 )
 from src.services.chat.schemas.output import ExtensionDigest  # noqa: E402
@@ -783,3 +784,174 @@ def test_force_replace_footnote_total_matches(tmp_path: Path) -> None:
     content = json.loads(row["content"])
     all_markers = [fn["marker"] for p in content["points"] for fn in p["footnotes"]]
     assert "7.5.1" in all_markers
+
+
+# ---------------------------------------------------------------------------
+# strip_bookkeeping — TDD: failing tests written before implementation
+# ---------------------------------------------------------------------------
+# Real junk patterns from the live footnotes/*.md workspace files.
+
+
+def test_strip_bookkeeping_removes_coverage_line() -> None:
+    """# COVERAGE: … = done tail line is removed."""
+    body = (
+        "Real content about Chebyshev.\n\n"
+        "**Source.** https://en.wikipedia.org/wiki/Chebyshev%27s_inequality\n\n"
+        "# COVERAGE: Chebyshev_WLLN_meaning_explicit :: What is the explicit statement"
+        "/meaning of \"WLLN\"? = done"
+    )
+    result = strip_bookkeeping(body)
+    assert "# COVERAGE:" not in result
+    assert "= done" not in result
+    assert "Real content about Chebyshev." in result
+    assert "wikipedia.org" in result
+
+
+def test_strip_bookkeeping_removes_coverage_unfilled() -> None:
+    """# COVERAGE: … = unfilled is removed."""
+    body = (
+        "Weak law via vanishing variance.\n\n"
+        "Source: moss §6.3\n"
+        "kind: corpus\n\n"
+        "# COVERAGE: Why does the WLLN require only $E|X|<\\infty$"
+        " rather than finite variance? = unfilled\n\n"
+        "# COVERAGE: Why does the WLLN require only $E|X|<\\infty$"
+        " rather than finite variance? = unfilled"
+    )
+    result = strip_bookkeeping(body)
+    assert "# COVERAGE:" not in result
+    assert "= unfilled" not in result
+    assert "Weak law via vanishing variance." in result
+
+
+def test_strip_bookkeeping_removes_marker_heading() -> None:
+    """# Marker lines (standalone heading) are removed."""
+    body = (
+        "Chebyshev proof step details.\n\n"
+        "**Source.** https://en.wikipedia.org/wiki/Chebyshev%27s_inequality\n\n"
+        "# Marker\n"
+        "2\n"
+        "kind: Chebyshev's variance identity"
+    )
+    result = strip_bookkeeping(body)
+    assert "# Marker" not in result
+    assert "Chebyshev proof step details." in result
+
+
+def test_strip_bookkeeping_removes_standalone_kind_line() -> None:
+    """Standalone 'kind: …' lines are removed."""
+    body = (
+        "Chebyshev for WLLN.\n\n"
+        "Source: moss §6.3\n"
+        "kind: corpus\n\n"
+        "# COVERAGE: Something = done"
+    )
+    result = strip_bookkeeping(body)
+    assert "kind: corpus" not in result
+    assert "Chebyshev for WLLN." in result
+
+
+def test_strip_bookkeeping_removes_kind_chebyshev_markov() -> None:
+    """Real pattern: 'kind: Chebyshev/Markov proof' at end."""
+    body = (
+        "Distribution-free Chebyshev body.\n\n"
+        "**Source.** https://en.wikipedia.org/wiki/Chebyshev%27s_inequality\n\n"
+        "kind: Chebyshev/Markov proof\n"
+        "# COVERAGE: Chebyshev_all_distributions_density_gap = done"
+    )
+    result = strip_bookkeeping(body)
+    assert "kind: Chebyshev/Markov proof" not in result
+    assert "# COVERAGE:" not in result
+    assert "Distribution-free Chebyshev body." in result
+    assert "wikipedia.org" in result
+
+
+def test_strip_bookkeeping_preserves_source_line() -> None:
+    """A legit **Source.** line is preserved while # COVERAGE: tail is stripped."""
+    body = (
+        "Chebyshev's inequality controls tails using only the variance.\n\n"
+        "**Source.** Wikipedia: https://en.wikipedia.org/wiki/Chebyshev%27s_inequality\n\n"
+        "# COVERAGE: Chebyshev_… :: Reconstruct the missing variance step"
+        " … = done"
+    )
+    result = strip_bookkeeping(body)
+    # Source line must survive
+    assert "**Source.**" in result
+    assert "wikipedia.org" in result
+    # Junk must be gone
+    assert "# COVERAGE:" not in result
+
+
+def test_strip_bookkeeping_preserves_math() -> None:
+    """Mathematical content (LaTeX) inside the body is untouched."""
+    body = (
+        "Chebyshev: $\\mathbb{P}(|X-\\mu|>t) \\le \\frac{\\operatorname{Var}(X)}{t^2}$.\n\n"
+        "**Source.** Hansen §7.4\n\n"
+        "# COVERAGE: Finite_variance_vs_only_Eabs_relationship :: Conditions are stated"
+        " (i.i.d., E|X|<∞) = done"
+    )
+    result = strip_bookkeeping(body)
+    assert "\\mathbb{P}" in result
+    assert "\\operatorname{Var}" in result
+    assert "# COVERAGE:" not in result
+
+
+def test_strip_bookkeeping_trailing_done_without_coverage_prefix() -> None:
+    """Lines ending with '= done' that are NOT prose are stripped."""
+    body = (
+        "WLLN without finite variance proof.\n\n"
+        "**Source.** https://en.wikipedia.org/wiki/Law_of_large_numbers\n\n"
+        "# COVERAGE: WLLN_without_finite_variance_proof_sketch"
+        " (need an appropriate outline showing E|X|<∞ suffices) = done"
+    )
+    result = strip_bookkeeping(body)
+    assert "= done" not in result
+    assert "WLLN without finite variance proof." in result
+
+
+def test_strip_bookkeeping_empty_body_unchanged() -> None:
+    """Empty string input returns empty string."""
+    assert strip_bookkeeping("") == ""
+
+
+def test_strip_bookkeeping_clean_body_unchanged() -> None:
+    """A body with no junk is returned verbatim (modulo trailing whitespace)."""
+    body = (
+        "Markov's inequality states: for $Y \\ge 0$ and $a>0$,\n"
+        "$\\mathbb{P}(Y\\ge a)\\le \\mathbb{E}[Y]/a$.\n\n"
+        "**Source.** https://en.wikipedia.org/wiki/Markov%27s_inequality"
+    )
+    result = strip_bookkeeping(body)
+    assert "Markov's inequality" in result
+    assert "wikipedia.org" in result
+    # No bookkeeping added or removed
+    assert "# COVERAGE" not in result
+
+
+def test_strip_bookkeeping_load_footnotes_integration(tmp_path: Path) -> None:
+    """_load_footnotes calls strip_bookkeeping so no junk survives in bodies."""
+    fn_dir = _make_footnote_dir(
+        tmp_path,
+        {
+            "2.md": (
+                "2. Chebyshev proof step details.\n\n"
+                "**Source.** https://en.wikipedia.org/wiki/Chebyshev%27s_inequality\n\n"
+                "# Marker\n"
+                "2\n"
+                "kind: Chebyshev's variance identity"
+            ),
+            "14.md": (
+                "14. Chebyshev WLLN statement.\n\n"
+                "**Source.** https://en.wikipedia.org/wiki/Convergence_in_probability\n\n"
+                "# COVERAGE: Chebyshev_WLLN_meaning_explicit :: meaning of WLLN = done"
+            ),
+        },
+    )
+    results = _load_footnotes(fn_dir, {})
+    assert len(results) == 2
+    for fn in results:
+        assert "# COVERAGE:" not in fn.body
+        assert "# Marker" not in fn.body
+        assert "kind: Chebyshev" not in fn.body
+        # Source lines must still be present for extract_source_and_kind to work
+        assert "wikipedia.org" in fn.source

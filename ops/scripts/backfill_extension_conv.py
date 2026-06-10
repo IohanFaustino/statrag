@@ -113,6 +113,55 @@ def strip_leading_marker(body: str, marker: str) -> str:
     return body
 
 
+def strip_bookkeeping(body: str) -> str:
+    """Remove agent-workspace bookkeeping lines from a footnote body.
+
+    Strips the following clearly-marked bookkeeping artifacts that must not
+    appear in user-visible rendered output:
+
+    - Lines starting with ``# COVERAGE:``
+    - Lines starting with ``# Marker``
+    - Standalone lines matching ``^kind:\\s.*$``
+    - Lines that end with ``= done`` or ``= unfilled``
+
+    Trailing blank lines are removed after stripping.  The function is
+    conservative: it only removes lines that unambiguously match the
+    bookkeeping patterns above.  Math, prose, and ``**Source.**`` / ``Source:``
+    citation lines are never touched.
+
+    Ordering contract: call this BEFORE ``extract_source_and_kind`` so that
+    legitimate ``**Source.**`` / ``Source:`` citation lines survive and the
+    source extractor can still find them.
+
+    Args:
+        body: Raw footnote body text (after ``strip_leading_marker``).
+
+    Returns:
+        Body with all bookkeeping lines removed and trailing blank lines
+        stripped.
+    """
+    if not body:
+        return body
+
+    cleaned_lines: list[str] = []
+    for line in body.splitlines():
+        stripped = line.rstrip()
+        # (a) Lines starting with # COVERAGE: or # Marker
+        if re.match(r"^#\s*COVERAGE:", stripped) or re.match(r"^#\s*Marker\b", stripped):
+            continue
+        # (b) Standalone lines matching ^kind:\s.*$
+        if re.match(r"^kind:\s", stripped):
+            continue
+        # (c) Lines ending with = done or = unfilled (coverage-question echoes)
+        if re.search(r"=\s*(done|unfilled)\s*$", stripped):
+            continue
+        cleaned_lines.append(line)
+
+    # Remove trailing blank lines
+    result = "\n".join(cleaned_lines).rstrip()
+    return result
+
+
 def extract_source_and_kind(body: str) -> tuple[str, str]:
     """Extract a source string and kind from a footnote body.
 
@@ -318,6 +367,10 @@ def _load_footnotes(footnotes_dir: Path, id_title_map: dict[str, str]) -> list[_
 
         marker = _stem_to_marker(stem)
         body = strip_leading_marker(raw_body, marker)
+        # Strip agent-workspace bookkeeping BEFORE source extraction so that
+        # legitimate **Source.** / Source: citation lines are still present
+        # when extract_source_and_kind runs.
+        body = strip_bookkeeping(body)
         source, kind = extract_source_and_kind(body)
         results.append(_FootnoteRaw(marker=marker, body=body, source=source, kind=kind))
 
