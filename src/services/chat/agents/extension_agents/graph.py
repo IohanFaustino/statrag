@@ -63,8 +63,11 @@ async def _box_for_takes(
     by_take_sub: dict[int, list] = {t.idx: [] for t in takes}
     for s in subjects:
         by_take_sub[s.take_idx].append(s)
+    # O(S+E) lookup: build subject_id → take_idx map once rather than scanning
+    # subjects for every evidence item (the original O(S×E) next() call).
+    sub_take: dict[str, int] = {s.id: s.take_idx for s in subjects}
     for e in evidence:
-        tk = next((s.take_idx for s in subjects if s.id == e.subject_id), None)
+        tk = sub_take.get(e.subject_id)
         if tk is not None:
             by_take_ev[tk].append(e)
 

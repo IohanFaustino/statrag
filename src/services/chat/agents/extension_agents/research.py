@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import urllib.parse
 import uuid
 from dataclasses import dataclass, field
@@ -15,6 +16,13 @@ from dataclasses import dataclass, field
 import httpx
 
 from src.services.chat.retrieval import hybrid_search
+
+# graph._research_subject fans out corpus_evidence calls via asyncio.to_thread,
+# so multiple threads share the same seen_ids set concurrently.  Without a lock
+# the check-then-add (cid in seen_ids / seen_ids.add) is a TOCTOU race: two
+# threads can both pass the membership check before either adds the id, allowing
+# the same chunk to appear twice in the evidence list.
+_seen_lock = threading.Lock()
 
 _logger = logging.getLogger(__name__)
 
@@ -52,12 +60,13 @@ def corpus_evidence(query: str, *, subject_id: str, exclude_book: str,
     for r in rows:
         # Real Source uses `chunkId`; plan-name fallback for legacy fixtures/mocks.
         cid = getattr(r, "chunkId", None) or getattr(r, "chunk_id", None) or ""
-        if cid and cid in seen_ids:
-            continue
+        if cid:
+            with _seen_lock:
+                if cid in seen_ids:
+                    continue
+                seen_ids.add(cid)
         if floor and (getattr(r, "score", 0) or 0) < floor:
             continue
-        if cid:
-            seen_ids.add(cid)
         pf, pt = getattr(r, "page_from", None), getattr(r, "page_to", None)
         pages = f"{pf}–{pt}" if pf and pt and pf != pt else (str(pf) if pf else None)
         # Real Source: book/chapter; plan-name fallbacks for legacy.

@@ -149,3 +149,24 @@ def test_corpus_evidence_hybrid_search_raising_returns_empty():
                              exclude_book="hansen-probability",
                              all_slugs=["hansen-probability", "moss"], seen_ids=set())
     assert ev == []
+
+
+def test_corpus_evidence_dedupes_duplicate_chunk_id_within_one_call():
+    """Two rows sharing the same chunkId in one call → only first is kept.
+
+    This exercises the atomic check+add under _seen_lock: when two rows arrive
+    in a single hybrid_search result with the same chunkId the second must be
+    dropped even though seen_ids was empty at call time.
+    """
+    seen: set[str] = set()
+    dup1 = _src(chunkId="dup-c1", score=0.9)
+    dup2 = _src(chunkId="dup-c1", score=0.8)   # same id, lower score
+    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+               return_value=([dup1, dup2], None)):
+        ev = corpus_evidence("tail bounds", subject_id="s1",
+                             exclude_book="hansen-probability",
+                             all_slugs=["hansen-probability", "moss"], seen_ids=seen)
+    assert len(ev) == 1
+    assert ev[0].meta["chunk_id"] == "dup-c1"
+    # seen_ids must record the id so subsequent calls also dedupe correctly
+    assert "dup-c1" in seen

@@ -166,8 +166,8 @@ async def test_pipeline_judge_retry_recovers_subject():
 
     def _wiki(q, *, subject_id):
         nonlocal main_wiki_called, retry_wiki_called
-        # First two calls are the main round (one per subject per round)
-        # Second set of calls is the retry round — provide evidence then
+        # There is one subject, so one wiki call per round.
+        # First call is the main round; second call is the retry round — provide evidence then
         if retry_call_count == 0:
             # Still in main round (writer not yet called for retry)
             main_wiki_called += 1
