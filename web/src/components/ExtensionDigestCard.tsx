@@ -26,12 +26,6 @@ export interface ExtensionDigest {
 // ─── Footnote body renderer ───────────────────────────────────────────────────
 
 /**
- * Renders digest text (point titles, curated text, footnote bodies): splits on
- * $$...$$ (display) and $...$ (inline), renders via KaTeX. Plain text segments
- * get lightweight markdown processing (**bold**, *italic*) and [^n] stripping.
- * Does NOT apply [N] citation logic — footnotes use the marker field.
- */
-/**
  * Persisted digests (and some model outputs) use LaTeX delimiters the split
  * regex can't see: \(…\), \[…\], and display blocks written as a lone `$` on
  * its own line. Normalize all of them to $…$ / $$…$$ before splitting.
@@ -54,6 +48,7 @@ function normalizeMathDelimiters(body: string): string {
  */
 export function stripLeadingMarker(body: string, marker: string): string {
   const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // [.)] = separator class (dot or paren); [\s]+ = required whitespace after it
   return body.replace(new RegExp(`^${escaped}[.)][\\s]+`), "");
 }
 
@@ -73,9 +68,11 @@ function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[
   // First strip [^n] markers
   const stripped = text.replace(/\[\^\d+\]/g, "");
 
-  // Split on **…** and *word* (tight: no space after opening *, no space before closing *)
+  // Split on **…** and *word* (tight italic: no space at boundaries, and the
+  // opening * must NOT be preceded by alphanumeric and closing * must NOT be
+  // followed by alphanumeric — prevents mid-word matches like x*y*z).
   // Order matters: match **…** before *…* to avoid partial matches.
-  const mdParts = stripped.split(/(\*\*[^*]+\*\*|\*\S[^*]*\S\*|\*\S\*)/g);
+  const mdParts = stripped.split(/(\*\*[^*]+\*\*|(?<![a-zA-Z0-9])\*\S[^*]*\S\*(?![a-zA-Z0-9])|(?<![a-zA-Z0-9])\*\S\*(?![a-zA-Z0-9]))/g);
 
   return mdParts.map((part, j): React.ReactNode => {
     const k = `${keyPrefix}-md${j}`;
@@ -89,6 +86,12 @@ function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[
   });
 }
 
+/**
+ * Renders digest text (point titles, curated text, footnote bodies): splits on
+ * $$...$$ (display) and $...$ (inline), renders via KaTeX. Plain text segments
+ * get lightweight markdown processing (**bold**, *italic*) and [^n] stripping.
+ * Does NOT apply [N] citation logic — footnotes use the marker field.
+ */
 function renderMathText(body: string): React.ReactNode {
   if (!body) return null;
   const parts: React.ReactNode[] = [];
@@ -100,7 +103,7 @@ function renderMathText(body: string): React.ReactNode {
       parts.push(<MathInline key={i} tex={seg.slice(1, -1)} />);
     } else {
       // Plain text segment: apply inline markdown + [^n] stripping.
-      // Wrap in a span only if there are mixed nodes; otherwise let string flow.
+      // Always wrapped in a span so inline nodes have a stable React key root.
       const inlineNodes = renderInlineMarkdown(seg, String(i));
       parts.push(<span key={i}>{inlineNodes}</span>);
     }

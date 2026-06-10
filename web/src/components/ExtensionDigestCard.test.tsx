@@ -146,6 +146,38 @@ it("renders unfilled gaps with \\(...\\) math normalized", () => {
 // ─── T2: Markdown bold/italic + strip duplicate markers + [^n] refs ───────────
 
 describe("renderMathText — bold/italic rendering", () => {
+  it("does NOT italicize mid-word asterisks like x*y*z (literal asterisks kept)", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        curated_text: "x*y*z stays literal here.",
+        footnotes: [],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const body = container.querySelector(".extension-point__body")!;
+    // No <em> element should be produced
+    expect(body.querySelector("em")).toBeNull();
+    // The asterisks remain in the text content
+    expect(body.textContent).toContain("x*y*z");
+  });
+
+  it("renders *word* as <em> when standalone (not mid-word)", () => {
+    const d = {
+      ...SAMPLE_DIGEST,
+      points: [{
+        ...SAMPLE_DIGEST.points[0],
+        curated_text: "Apply *Chebyshev* here.",
+        footnotes: [],
+      }],
+    };
+    const { container } = render(<ExtensionDigestCard digest={d} />);
+    const body = container.querySelector(".extension-point__body")!;
+    expect(body.querySelector("em")).not.toBeNull();
+    expect(body.textContent).not.toContain("*Chebyshev*");
+  });
+
   it("renders **bold** as <strong> in curated_text, no literal **", () => {
     const d = {
       ...SAMPLE_DIGEST,
