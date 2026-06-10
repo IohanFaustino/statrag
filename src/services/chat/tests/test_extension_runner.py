@@ -137,3 +137,41 @@ def test_filter_subtopics_fuzzy_match_success(monkeypatch):
     )
     result = R._filter_subtopics(secs, ["convergence_typo"], book_slug="b")
     assert result == secs  # fuzzy match found section 7.3
+
+
+def test_meta_event_emitted_first_with_extension_mode(monkeypatch):
+    monkeypatch.setattr(R, "parse_catalog", lambda: [])
+    async def _ascope(*a, **k):
+        return {"type": "clarify", "options": ["a", "b"]}, None
+    monkeypatch.setattr(R, "aresolve_scope_or_clarify", _ascope)
+    evs = _events(ChatRequest(message="extend something", mode="extension"))
+    assert evs[0]["type"] == "meta"
+    assert evs[0]["mode"] == "extension"
+
+
+def test_run_round_passes_recursion_limit(monkeypatch):
+    captured = {}
+
+    class FakeAgent:
+        def invoke(self, payload, config):
+            captured.update(config)
+            return {"messages": [], "files": {}}
+
+    monkeypatch.setenv("EXTENSION_RECURSION_LIMIT", "77")
+    import asyncio
+    asyncio.run(R._run_round(FakeAgent(), "instr", "tid"))
+    assert captured["recursion_limit"] == 77
+
+
+def test_run_round_recursion_limit_default_100(monkeypatch):
+    captured = {}
+
+    class FakeAgent:
+        def invoke(self, payload, config):
+            captured.update(config)
+            return {"messages": [], "files": {}}
+
+    monkeypatch.delenv("EXTENSION_RECURSION_LIMIT", raising=False)
+    import asyncio
+    asyncio.run(R._run_round(FakeAgent(), "instr", "tid"))
+    assert captured["recursion_limit"] == 100

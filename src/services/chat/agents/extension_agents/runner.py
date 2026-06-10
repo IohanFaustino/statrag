@@ -150,10 +150,14 @@ async def _run_round(agent, instruction: str, thread_id: str):
     is absent."""
     from langchain_core.callbacks import UsageMetadataCallbackHandler
     cb = UsageMetadataCallbackHandler()
+    # The quality pipeline (≥2 gaps/section, ≥2 footnotes/point, per-source fit
+    # scoring) needs far more graph super-steps than langgraph's default 25.
+    recursion_limit = int(os.environ.get("EXTENSION_RECURSION_LIMIT", "100"))
     result = await asyncio.to_thread(
         agent.invoke,
         {"messages": [{"role": "user", "content": instruction}]},
-        {"configurable": {"thread_id": thread_id}, "callbacks": [cb]},
+        {"configurable": {"thread_id": thread_id}, "callbacks": [cb],
+         "recursion_limit": recursion_limit},
     )
     structured = result.get("structured_response") if isinstance(result, dict) else None
     msgs = result.get("messages", []) if isinstance(result, dict) else []
@@ -211,6 +215,10 @@ def _parse_digest(text: str, *, book: str, chapter: str) -> ExtensionDigest:
 
 async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     t0 = time.time()
+    bf = req.bookFilter
+    book_slugs = list(bf) if isinstance(bf, list) and bf else []
+    yield {"type": "meta", "mode": "extension", "books": book_slugs,
+           "sourceCount": 0, "latencyMs": 0, "model": req.model}
     yield {"type": "stage", "stage": "parse", "label": "Parse + resolve scope"}
     catalog = parse_catalog()
     selected = [] if req.bookFilter == "ALL" else list(req.bookFilter)

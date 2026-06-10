@@ -349,7 +349,10 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
               const blocks = msg.blocks.filter(
                 (b) => !(b.type === "p" && b.text.trim() === ""),
               );
-              return { ...msg, status: "complete", blocks };
+              // The backend emits `error` followed by `done`; keep the error
+              // status so the error block stays visible.
+              const status = msg.status === "error" ? "error" : "complete";
+              return { ...msg, status, blocks };
             }),
           };
 

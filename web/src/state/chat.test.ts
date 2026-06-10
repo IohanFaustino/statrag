@@ -194,4 +194,25 @@ describe("storeReducer (§13 multi-conversation)", () => {
     const lastMsg = s1.byConv["A"].messages.at(-1) as AssistantMessage;
     expect(lastMsg.pendingExtensionPoints).toBeUndefined();
   });
+
+  it("done after error preserves the error status (error stays visible)", () => {
+    const s0 = run([
+      send("A"),
+      event("A", { type: "error", code: "GraphRecursionError", message: "boom" } as ChatEvent),
+      event("A", { type: "done" } as ChatEvent),
+    ]);
+    const lastMsg = s0.byConv["A"].messages.at(-1) as AssistantMessage;
+    expect(lastMsg.status).toBe("error");
+    expect((lastMsg as any).error?.code).toBe("GraphRecursionError");
+  });
+
+  it("done without prior error completes normally", () => {
+    const s0 = run([
+      send("A"),
+      event("A", { type: "token", text: "hi", seq: 1 }),
+      event("A", { type: "done" } as ChatEvent),
+    ]);
+    const lastMsg = s0.byConv["A"].messages.at(-1) as AssistantMessage;
+    expect(lastMsg.status).toBe("complete");
+  });
 });
