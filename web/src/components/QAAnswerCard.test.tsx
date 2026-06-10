@@ -36,10 +36,28 @@ describe("QAAnswerCard", () => {
   });
 
   it("does not show 'assuming you know' when assumed_known is empty", () => {
+    const explicitScope = { target_gap: "why bias and variance trade off", assumed_known: [], answer_form: "explanation" as const };
     const html = renderToStaticMarkup(
-      <QAAnswerCard answer={{ ...base, scope: { ...base.scope, assumed_known: [] } }} />
+      <QAAnswerCard answer={{ ...base, scope: explicitScope }} />
     );
     expect(html).not.toContain("assuming you know");
+  });
+
+  it("renders a deepagent answer (thesis/deepening/synthesis, no scope) without crashing", () => {
+    const answer: QAAnswer = {
+      thesis: "The bias of an estimator is its expected error.",
+      deepening: "It is defined as E[theta_hat] minus theta.",
+      synthesis: "Unbiased means this quantity is zero.",
+      sub_queries: ["define bias"],
+      citations: [],
+      math_blocks: [],
+      grounding: { ok: true, unsupported: [], confidence: 0.9 },
+    };
+    const html = renderToStaticMarkup(<QAAnswerCard answer={answer} />);
+    expect(html).toContain("expected error");
+    expect(html).toContain("Unbiased means");
+    // No scope → no "Answering:" line, and no crash.
+    expect(html).not.toContain("Answering:");
   });
 
   it("renders inline [1] citation marker as a citation pill (not literal '[1]') when a matching citation exists", () => {

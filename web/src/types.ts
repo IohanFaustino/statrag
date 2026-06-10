@@ -154,11 +154,18 @@ export interface QAScope {
 }
 
 export interface QAAnswer {
-  text: string;
-  scope: QAScope;
-  citations: TutorCitation[];
-  math_blocks: string[];
-  grounding: { ok: boolean; unsupported: string[]; confidence: number };
+  // Legacy (single-call QA) body. Newer deepagent runs persist the answer as
+  // thesis/deepening/synthesis instead; QAAnswerCard handles both shapes.
+  text?: string;
+  scope?: QAScope;
+  // Deepagent QA fields (thesis → body → conclusion progression).
+  thesis?: string;
+  deepening?: string;
+  synthesis?: string;
+  sub_queries?: string[];
+  citations?: TutorCitation[];
+  math_blocks?: string[];
+  grounding?: { ok?: boolean; unsupported?: string[]; confidence?: number };
 }
 
 export interface ResolvedSubtopic {

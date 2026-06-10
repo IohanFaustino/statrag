@@ -8,6 +8,7 @@ import ChapterDigestCard from "./ChapterDigestCard";
 import FacilitateDigestCard from "./FacilitateDigestCard";
 import ClarifyCard from "./ClarifyCard";
 import ExtensionDigestCard, { ExtensionDigest } from "./ExtensionDigestCard";
+import StructuredErrorBoundary from "./StructuredErrorBoundary";
 import { IconBook, IconDownload } from "./Icons";
 
 // ─── Mode icon map ────────────────────────────────────────────────────────────
@@ -343,30 +344,32 @@ function AssistantMessageView({
 
         {msg.structuredOutput && (
           <div className="msg__structured">
-            {msg.structuredOutput.schema === "TutorAnswer" && (
-              <TutorView data={msg.structuredOutput.data as TutorAnswer} />
-            )}
-            {msg.structuredOutput.schema === "QAAnswer" && (
-              <QAAnswerCard answer={msg.structuredOutput.data as QAAnswer} />
-            )}
-            {msg.structuredOutput.schema === "ChapterDigest" && (
-              <ChapterDigestCard digest={msg.structuredOutput.data as ChapterDigest} />
-            )}
-            {msg.structuredOutput.schema === "FacilitateDigest" && (
-              <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
-            )}
-            {msg.structuredOutput.schema === "ExtensionDigest" && (
-              <ExtensionDigestCard
-                digest={msg.structuredOutput.data as ExtensionDigest}
-                pendingPoints={msg.pendingExtensionPoints}
-              />
-            )}
-            {msg.structuredOutput.schema === "Clarify" && (
-              <ClarifyCard
-                data={msg.structuredOutput.data as ClarifyData}
-                onPick={onClarifyPick ?? (() => {})}
-              />
-            )}
+            <StructuredErrorBoundary>
+              {msg.structuredOutput.schema === "TutorAnswer" && (
+                <TutorView data={msg.structuredOutput.data as TutorAnswer} />
+              )}
+              {msg.structuredOutput.schema === "QAAnswer" && (
+                <QAAnswerCard answer={msg.structuredOutput.data as QAAnswer} />
+              )}
+              {msg.structuredOutput.schema === "ChapterDigest" && (
+                <ChapterDigestCard digest={msg.structuredOutput.data as ChapterDigest} />
+              )}
+              {msg.structuredOutput.schema === "FacilitateDigest" && (
+                <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
+              )}
+              {msg.structuredOutput.schema === "ExtensionDigest" && (
+                <ExtensionDigestCard
+                  digest={msg.structuredOutput.data as ExtensionDigest}
+                  pendingPoints={msg.pendingExtensionPoints}
+                />
+              )}
+              {msg.structuredOutput.schema === "Clarify" && (
+                <ClarifyCard
+                  data={msg.structuredOutput.data as ClarifyData}
+                  onPick={onClarifyPick ?? (() => {})}
+                />
+              )}
+            </StructuredErrorBoundary>
           </div>
         )}
 

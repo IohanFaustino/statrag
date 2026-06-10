@@ -9,6 +9,6 @@ describe("qa types", () => {
   it("QAAnswer shape", () => {
     const scope: QAScope = { target_gap: "x", assumed_known: [], answer_form: "explanation" };
     const a: QAAnswer = { text: "t", scope, citations: [], math_blocks: [], grounding: { ok: true, unsupported: [], confidence: 0.9 } };
-    expect(a.scope.target_gap).toBe("x");
+    expect(a.scope?.target_gap).toBe("x");
   });
 });

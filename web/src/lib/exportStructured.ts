@@ -35,13 +35,21 @@ function tutor(d: TutorAnswer): string {
 }
 
 function qa(d: QAAnswer): string {
-  const parts: string[] = [d.text.trim()];
+  // Support both legacy (text) and deepagent (thesis/deepening/synthesis) shapes.
+  const bodyText = typeof d.text === "string" && d.text.trim()
+    ? d.text.trim()
+    : [d.thesis, d.deepening, d.synthesis]
+        .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+        .join("\n\n");
+  const parts: string[] = [bodyText];
   const scope = d.scope;
-  const scopeParts = [`**Scope:** ${scope.target_gap}`];
-  if (scope.assumed_known && scope.assumed_known.length) {
-    scopeParts.push(`assuming you know: ${scope.assumed_known.join(", ")}`);
+  if (scope) {
+    const scopeParts = [`**Scope:** ${scope.target_gap}`];
+    if (scope.assumed_known && scope.assumed_known.length) {
+      scopeParts.push(`assuming you know: ${scope.assumed_known.join(", ")}`);
+    }
+    parts.push(scopeParts.join(" · "));
   }
-  parts.push(scopeParts.join(" · "));
   const cites = citationsSection(d.citations);
   if (cites) parts.push(cites);
   const math = mathSection(d.math_blocks);
