@@ -11,6 +11,45 @@ import re as _re
 import time
 from typing import AsyncIterator
 
+# Matches a leading section number like "7.4" or "7.4.1" from a section label.
+_SECTION_NUM_PREFIX = _re.compile(r'^(\d+(?:[.\-]\d+)+)')
+
+
+def _extract_section_num(section_id: str) -> str | None:
+    """Extract the leading dotted/dashed section number from a section label.
+
+    Examples::
+
+        "7.4 Chebyshev Inequality" -> "7.4"
+        "7.4.1 Sub-section"        -> "7.4.1"
+        "Introduction"             -> None
+    """
+    m = _SECTION_NUM_PREFIX.match(section_id.strip())
+    return m.group(1) if m else None
+
+
+def _scope_label(chapter_id: str, sections: list[dict], *, narrowed: bool) -> str:
+    """Derive a human-readable chapter/section label for the digest header.
+
+    When *narrowed* is True and sections carry recognisable numeric section
+    numbers (e.g. ``"7.4 Chebyshev Inequality"``), the label is:
+
+    * single section  → ``"{chapter_id} · 7.4"``
+    * multiple        → ``"{chapter_id} · 7.4–7.5"``
+
+    When not narrowed (all sections kept), or when numeric prefixes cannot be
+    extracted, the label is just *chapter_id* (e.g. ``"ch07"``).
+    """
+    if not narrowed or not sections:
+        return chapter_id
+    nums = [_extract_section_num(str(s.get("section_id", ""))) for s in sections]
+    nums = [n for n in nums if n]
+    if not nums:
+        return chapter_id
+    if len(nums) == 1:
+        return f"{chapter_id} · {nums[0]}"
+    return f"{chapter_id} · {nums[0]}–{nums[-1]}"
+
 from src.services.chat.agents.extension_agents.agent import build_extension_agent
 from src.services.chat.agents.extension_agents.scope import (
     aresolve_scope_or_clarify,
@@ -104,6 +143,29 @@ def _section_to_dict(s) -> dict:
     }
 
 
+def _needle_matches(needle: str, haystack: str) -> bool:
+    """Return True when *needle* occurs in *haystack* with word-boundary
+    protection for section numbers.
+
+    Strategy:
+    1. If the needle begins with a section number (e.g. ``"7.4"`` or
+       ``"7.4 Chebyshev"``), match by that section-number prefix using a
+       word-boundary regex — this avoids false-positives like ``"7.4"``
+       matching ``"17.4"``, and correctly handles acronym-titled sections
+       where the label text differs from the needle's keyword suffix.
+    2. If no section-number prefix is found, fall back to plain substring
+       matching.
+    """
+    m = _SECTION_NUM_PREFIX.match(needle)
+    if m:
+        sec_num = m.group(1)
+        # Word-boundary: the number must not be immediately preceded/followed
+        # by another digit or dot (so "7.4" won't match "17.4" or "7.40").
+        pattern = r'(?<![.\d])' + _re.escape(sec_num) + r'(?![.\d])'
+        return bool(_re.search(pattern, haystack))
+    return needle in haystack
+
+
 def _filter_subtopics(
     sections: list[dict], subtopics: list[str], *, book_slug: str = ""
 ) -> list[dict]:
@@ -115,7 +177,10 @@ def _filter_subtopics(
     kept = [
         s for s in sections
         if any(
-            n in (str(s.get("h2_path", "")) + " " + str(s.get("section_id", ""))).lower()
+            _needle_matches(
+                n,
+                (str(s.get("h2_path", "")) + " " + str(s.get("section_id", ""))).lower(),
+            )
             for n in needles
         )
     ]
@@ -172,7 +237,11 @@ async def _run_round(agent, instruction: str, thread_id: str):
 
 def _coerce_digest(structured, *, book: str, chapter: str) -> ExtensionDigest | None:
     """Turn a deepagents structured_response (ExtensionDigest instance or dict)
-    into an ExtensionDigest, backfilling book/chapter if the model omitted them."""
+    into an ExtensionDigest, stamping authoritative book/chapter unconditionally.
+
+    The model frequently emits ``book="Unknown"`` or widens the chapter range
+    (e.g. ``"7.4–7.8"`` when only 7.4–7.5 were requested).  The runner holds
+    the resolved scope and is always authoritative for these two fields."""
     if structured is None:
         return None
     try:
@@ -181,10 +250,9 @@ def _coerce_digest(structured, *, book: str, chapter: str) -> ExtensionDigest | 
         )
     except Exception:  # noqa: BLE001
         return None
-    if not d.book:
-        d.book = book
-    if not d.chapter:
-        d.chapter = chapter
+    # Always override — never trust the model's book/chapter values.
+    d.book = book
+    d.chapter = chapter
     return d
 
 
@@ -204,13 +272,21 @@ def _parse_unfilled(result) -> list[str]:
 
 
 def _parse_digest(text: str, *, book: str, chapter: str) -> ExtensionDigest:
+    """Parse the agent's final text as a JSON ExtensionDigest.
+
+    Authoritative book/chapter are always stamped after parsing — the model
+    cannot be trusted to return the correct scope values."""
     raw = strip_fences(text)
     try:
         data = json.loads(raw)
-        return ExtensionDigest(**data)
+        d = ExtensionDigest(**data)
     except Exception:  # noqa: BLE001
-        return ExtensionDigest(book=book, chapter=chapter, points=[],
-                               unfilled_gaps=["could not parse agent output"])
+        d = ExtensionDigest(book=book, chapter=chapter, points=[],
+                            unfilled_gaps=["could not parse agent output"])
+    # Always override — never trust the model's book/chapter values.
+    d.book = book
+    d.chapter = chapter
+    return d
 
 
 async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
@@ -235,8 +311,10 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     chapter = res.chapter_id
     yield {"type": "stage", "stage": "fetch", "label": f"Fetch {book} {chapter}"}
     raw_sections = fetch_chapter_sections(book_slug=book, chapter_id=chapter)
-    sections = [_section_to_dict(s) for s in raw_sections]
-    sections = _filter_subtopics(sections, res.requested_subtopics, book_slug=book)
+    all_sections = [_section_to_dict(s) for s in raw_sections]
+    sections = _filter_subtopics(all_sections, res.requested_subtopics, book_slug=book)
+    narrowed = bool(res.requested_subtopics) and len(sections) < len(all_sections)
+    chapter_label = _scope_label(chapter, sections, narrowed=narrowed)
     structure = build_structure_files(sections)
 
     slugs = _all_slugs(catalog)
@@ -284,8 +362,8 @@ async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
 
     # Prefer the schema-enforced structured_response; fall back to JSON-parsing
     # the final message only if the agent returned no structured output.
-    digest = _coerce_digest(structured, book=book, chapter=chapter) \
-        or _parse_digest(text, book=book, chapter=chapter)
+    digest = _coerce_digest(structured, book=book, chapter=chapter_label) \
+        or _parse_digest(text, book=book, chapter=chapter_label)
 
     for pt in digest.points:
         if not curated_text_is_clean(pt):
