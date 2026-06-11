@@ -42,12 +42,12 @@
   style BD fill:#1a2233,stroke:#4da6ff,color:#fff
   style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style CL fill:#2a1a1a,stroke:#d2624c,color:#fff</div></div>
-    <p class="caption">Five nodes (scope → retrieve → write → bind → verify) + clarify off-ramp. Blue = pure-code node; green = advisory LLM; red = branching off-ramp. Corpus and Wikipedia retrieval run in parallel via <code>asyncio.gather</code>. One redraft if writer emits zero bound markers. Source: <code>agents/qa.py::run_qa_story</code>.</p>
+    <p class="caption">Five nodes (scope → retrieve → write → bind → verify) + clarify off-ramp. Blue = pure-code node; green = advisory LLM; red = branching off-ramp. Corpus and Wikipedia retrieval run in parallel via <code>asyncio.gather</code>. One redraft if writer emits zero bound markers. Source: <code>agents/qa.py::run_qa</code>.</p>
   </section>
   <section>
     <h2>Functions workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
-  E[&quot;run_qa_story()&quot;] --> SC[&quot;extract_scope()&lt;br/&gt;QAScope + wiki_terms&quot;]
+  E[&quot;run_qa()&quot;] --> SC[&quot;extract_scope()&lt;br/&gt;QAScope + wiki_terms&quot;]
   SC -. &quot;QA_SCOPE_PROMPT&quot; .- P1[(&quot;prompts/qa.py&quot;)]
   SC --> RT[&quot;retrieve_evidence()&lt;br/&gt;corpus_evidence(target_gap)&lt;br/&gt;∥ wiki_evidence(target_gap)&lt;br/&gt;∥ wiki_evidence(wiki_terms, ≤2)&quot;]
   RT --> WN[&quot;write_story()&lt;br/&gt;QAStoryDraft — no citation field&quot;]
@@ -65,7 +65,7 @@
   style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
   style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
   style P3 fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
-  E["run_qa_story()"] --> SC["extract_scope()<br/>QAScope + wiki_terms"]
+  E["run_qa()"] --> SC["extract_scope()<br/>QAScope + wiki_terms"]
   SC -. "QA_SCOPE_PROMPT" .- P1[("prompts/qa.py")]
   SC --> RT["retrieve_evidence()<br/>corpus_evidence(target_gap)<br/>∥ wiki_evidence(target_gap)<br/>∥ wiki_evidence(wiki_terms, ≤2)"]
   RT --> WN["write_story()<br/>QAStoryDraft — no citation field"]
@@ -98,16 +98,16 @@
       <tr><td><code>corpus_evidence(target_gap)</code></td><td>Qdrant field_textbooks (dense+BM25) + reranker, top-4</td><td>High-precision corpus retrieval. Evidence ids stamped as <code>c{n}</code> (readable, bindable).</td></tr>
       <tr><td><code>wiki_evidence(target_gap)</code></td><td>Wikipedia REST API (always 1 fetch)</td><td>Wikipedia article for the gap term. Evidence ids stamped as <code>w{n}</code>.</td></tr>
       <tr><td><code>wiki_evidence(wiki_terms[i])</code></td><td>Wikipedia REST API (≤2 fetches, <code>QA_WIKI_TERMS_MAX</code>)</td><td>Supplementary Wikipedia articles for extracted terms. Total wiki fetches ≤3.</td></tr>
-      <tr><td><code>qa_bind(draft, evidence_map)</code></td><td>Pure code — <code>research.py</code></td><td>Rewrite <code>[[eid]]</code>→<code>[n]</code>, build verbatim <code>StoryCitation</code> from <code>Evidence.meta</code>. Invalid eids stripped, prose preserved.</td></tr>
+      <tr><td><code>qa_bind(draft, evidence_map)</code></td><td>Pure code — <code>agents/qa.py</code></td><td>Rewrite <code>[[eid]]</code>→<code>[n]</code>, build verbatim <code>StoryCitation</code> from <code>Evidence.meta</code>. Invalid eids stripped, prose preserved.</td></tr>
       <tr><td><code>verify_story</code></td><td>nano LLM</td><td>Advisory grounding audit.</td></tr>
     </table>
     <h3>Source modules</h3>
     <table><tr><th>Stage</th><th>Path</th></tr>
-      <tr><td>entrypoint</td><td><code>src/services/chat/agents/qa.py (run_qa_story)</code></td></tr>
+      <tr><td>entrypoint</td><td><code>src/services/chat/agents/qa.py (run_qa)</code></td></tr>
       <tr><td>scope</td><td><code>src/services/chat/agents/qa.py (extract_scope)</code></td></tr>
       <tr><td>retrieve</td><td><code>src/services/chat/agents/qa.py (retrieve_evidence)</code></td></tr>
       <tr><td>write</td><td><code>src/services/chat/agents/qa.py (write_story)</code></td></tr>
-      <tr><td>bind (pure code)</td><td><code>src/services/chat/research.py (qa_bind)</code></td></tr>
+      <tr><td>bind (pure code)</td><td><code>src/services/chat/agents/qa.py (qa_bind)</code></td></tr>
       <tr><td>verify</td><td><code>src/services/chat/agents/qa.py (verify_story)</code></td></tr>
       <tr><td>fallback</td><td><code>src/services/chat/agents/qa.py (_fallback_story)</code></td></tr>
       <tr><td>wiki primitives</td><td><code>src/services/chat/research.py (wiki_evidence, StoryCitation)</code></td></tr>

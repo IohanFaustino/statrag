@@ -11,13 +11,13 @@ Append-only. Latest at top.
 - **Scope** extracts `wiki_terms` in addition to `target_gap`/`assumed_known`/`answer_form` — feeds Wikipedia retrieval.
 - **Retrieve** runs `corpus_evidence(target_gap) ∥ wiki_evidence(target_gap) + ≤2 wiki_evidence(wiki_terms)` via `asyncio.gather`; max 3 wiki fetches. Readable `c{n}`/`w{n}` evidence ids so the writer can bind them.
 - **Write** (one LLM call) produces a storytelling narrative (intro 1 paragraph / deepening ≤3 / conclusion 1) with inline `[[eid]]` tokens — no heading structure, no citation field in the writer schema.
-- **Bind** (`qa_bind` in `research.py`) is pure code: rewrites valid `[[eid]]`→`[n]`, builds verbatim `StoryCitation` from `Evidence.meta`; invalid eids → strip marker keep prose; strips `### ` headings; mid-line `$$`→`$`. If writer emits zero bound markers → ONE silent redraft, ship regardless.
+- **Bind** (`qa_bind` in `agents/qa.py`) is pure code: rewrites valid `[[eid]]`→`[n]`, builds verbatim `StoryCitation` from `Evidence.meta`; invalid eids → strip marker keep prose; strips `### ` headings; mid-line `$$`→`$`. If writer emits zero bound markers → ONE silent redraft, ship regardless.
 - **Verify** is advisory (nano) — grounding audit, never aborts.
-- **`_fallback_story`** (pure code) is the exception safety net — corpus-only minimal answer, never regresses to blank.
+- **`_fallback_story`** (nano LLM, never raises) is the exception safety net — corpus-only minimal answer, never regresses to blank.
 
 **Anti-tutor tightened:** `QAStoryAnswer` has EXACTLY 3 fixed string fields (`intro`/`deepening`/`conclusion`) — `sections`/`aspects`/`figures`/`text` structurally impossible. Writer schema `QAStoryDraft` has no citation field. `test_qa_isolation.py` (AST-based, comment-immune) asserts zero imports from `deep_tutor`/`orchestrator_workers`/`ow_deepagents`/`ow_skills`.
 
-**Wikipedia strategy:** corpus-primary; Wikipedia provides context/history/naming. 🌐 citations surface as chips; corpus sources as full 📕 rows in `sources_full`. Shared `research.py` holds wiki + `qa_bind` + `StoryCitation` primitives (borrowed from Extension v2).
+**Wikipedia strategy:** corpus-primary; Wikipedia provides context/history/naming. 🌐 citations surface as chips; corpus sources as full 📕 rows in `sources_full`. Shared `research.py` holds wiki + `StoryCitation` + `_citation` primitives (borrowed from Extension v2); `qa_bind` lives in `agents/qa.py`.
 
 **Legacy:** pre-rebuild `QAAnswer{text}` conversations keep the legacy `QAAnswerCard` renderer (frontend discriminates on `schema`). No DB migration.
 

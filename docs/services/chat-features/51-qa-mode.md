@@ -29,7 +29,7 @@ Q&A is anti-tutor *by construction*, not by instruction:
 
 | Property | Mechanism |
 |---|---|
-| Output schema: `QAStoryAnswer{intro, deepening, conclusion}` | 3 fixed string fields — no `sections`, `aspects`, `figures`, `text`, or `citations` fields EVER |
+| Output schema: `QAStoryAnswer{intro, deepening, conclusion}` | 3 fixed prose string fields — no `sections`, `aspects`, `figures`, or `text` fields EVER (citations are present but pure-code-bound, never model-authored) |
 | Writer schema `QAStoryDraft` has NO citation field | Model cannot author citations even under prompt drift |
 | Citations built by pure-code `qa_bind` from `Evidence.meta` | Verbatim payload only, never model-generated |
 | Heading lint in `qa_bind` | `### ` headings stripped — enforces prose shape |
@@ -95,7 +95,7 @@ Wiki augments without replacing corpus. Rules:
 - **Frontend**: Wikipedia sources surface as 🌐 chips only; corpus sources appear as full citation rows (📕).
 - Disabled by `QA_WIKI=0` (corpus-only mode).
 
-Wiki retrieval uses the shared `src/services/chat/research.py` module (borrowed from Extension v2 — same `wiki_evidence`/`StoryCitation`/`qa_bind` primitives).
+Wiki retrieval uses the shared `src/services/chat/research.py` module (borrowed from Extension v2 — same `wiki_evidence`/`StoryCitation`/`_citation` primitives). `qa_bind` itself is defined in `agents/qa.py`.
 
 ---
 
@@ -176,7 +176,7 @@ Legacy `QAAnswer{text}` conversations keep the legacy `QAAnswerCard` renderer �
 | `QA_TOP_K` | `4` | Corpus sections retrieved (hybrid + rerank, narrow for precision) |
 | `QA_WIKI_TERMS_MAX` | `2` | Maximum extra Wikipedia fetches for `wiki_terms` beyond the target_gap fetch |
 | `QA_SCOPE` | `1` | Enable scope-extraction node (0 = treat raw query as gap, no LLM call) |
-| `QA_VERIFY` | `1` | Enable grounding-verify node (0 = emit draft as-is with `confidence=0.7`) |
+| `QA_VERIFY` | `1` | Enable grounding-verify node (0 = skip the verify call; grounding carries only the binder-stamped keys, no `confidence`) |
 | `QA_WIKI` | `1` | Enable Wikipedia evidence (0 = corpus-only mode) |
 | `QA_SCOPE_MODEL` | nano | Per-node model env override for scope node |
 | `QA_WRITE_MODEL` | nano | Per-node model env override for write node |
@@ -208,9 +208,11 @@ Corpus-miss path (0 retrieved sources):
 
 ```
 meta → progress("retrieving") → structured_output{schema:"QAStoryAnswer",
-       data:{intro:"…cannot answer…", deepening:"…", conclusion:"…", citations:[]}}
-     → sources_full{sources:[]} → done
+       data:{intro:"…cannot answer…", deepening:"", conclusion:"", citations:[]}}
+     → sources_full{sources:[]} → retrieval_meta → usage → done
 ```
+
+(The no-evidence path reuses the same `_emit_sse_tail` helper as the normal path, so it also emits `retrieval_meta` and `usage`; it just skips the `writing`/`binding` progress events.)
 
 Clarify path (ambiguous book):
 
@@ -243,7 +245,7 @@ Q&A maintains hard isolation from the tutor pipeline:
 
 - `src/services/chat/agents/qa.py` imports **zero** modules from `deep_tutor`, `orchestrator_workers`, `ow_deepagents`, or `ow_skills`.
 - `src/services/chat/agents/qa_skills/` and `src/services/chat/agents/qa_agents/` are the Q&A-only namespaces.
-- Shared infra lives in `research.py` (wiki primitives, `qa_bind`, `StoryCitation`) — this is the **only** cross-mode file; it does NOT import from tutor modules.
+- Shared infra lives in `research.py` (wiki primitives, `StoryCitation`, `_citation`) — this is the **only** cross-mode file; it does NOT import from tutor modules. (`qa_bind` is defined in `agents/qa.py`, not `research.py`.)
 - Verified by `src/services/chat/tests/test_qa_isolation.py` (AST-based walk, comment-immune).
 
 ---
