@@ -126,6 +126,24 @@ Model ladder (cost discipline): cheap/fast for mechanical; standard for
 integration and reviews; most capable ONLY for architecture judgment and the
 final holistic review. Escalate on BLOCKED-for-reasoning, never by default.
 
+### Advisor seats — counsel without delegation of authority
+
+Besides workers and reviewers there are **advisors**: top-model consultation
+seats you call with a brief and get structured counsel back. They never
+implement and never decide — you do. Available:
+
+- `creative_Advisor.md` — design counsel: you have an idea and want extra
+  insight, alternatives with trade-offs, a failure-mode map, and a cut list.
+  Consult BEFORE writing a spec or when a design dead-ends.
+- `debug_Advisor.md` — (companion seat) consult when you cannot localize a
+  defect after your own differential-debugging pass.
+
+Dispatch with: goal, what exists, observed defects, hard constraints, your
+own draft idea if any, and repo paths for grounding. Expect back: verdict →
+recommended mechanism → alternatives → failure modes → cuts → assumptions →
+decomposition hint. Treat the counsel like a review: an input to YOUR
+verdict.
+
 ## Parallelism rules
 
 - **Never two implementers with overlapping files.** Disjoint trees
