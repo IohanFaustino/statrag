@@ -191,9 +191,9 @@ Per-field requirements (target lengths are minimums; longer is fine):
 
 - ``definition`` (280-380 words): define the central concept(s) as a
   guided build-up organized into ``### `` SUBSECTIONS.
-  - OPEN WITH ONE FRAMING SENTENCE (before any header) telling the reader
-    the path this section takes — e.g. "We define each component, then tie
-    them together through the error they produce."
+  - OPEN WITH ONE FRAMING SENTENCE (before any header) that anchors to the
+    synthesis thesis and bridges into this section — e.g. "The tradeoff the
+    thesis identifies hinges on how bias and variance respond to flexibility."
   - THEN ONE ``### `` SUBSECTION PER NAMED COMPONENT. When the concept
     decomposes (e.g. bias, then variance), emit ``### Bias`` then
     ``### Variance`` (use the real component names), each defining the
@@ -261,8 +261,11 @@ Per-field requirements (target lengths are minimums; longer is fine):
   - Never present a paraphrase as if it were a verbatim quote.
 
 - ``example_intuition`` (340-480 words): a merged "Example & Intuition"
-  section that teaches through cases, then distils the lesson. Structure
-  it in three explicit moves:
+  section that teaches through cases, then distils the lesson.
+  OPEN WITH ONE FRAMING SENTENCE that carries the definition (or formal
+  result) forward into the worked cases — e.g. "With bias and variance
+  defined, three cases make the tradeoff concrete." Structure in three
+  explicit moves:
   1. DESCRIBE THREE CASES. Lay out three concrete scenarios that span the
      behaviour of the concept — e.g. an under-flexible case, a balanced
      case, and an over-flexible case for a tradeoff; or three contrasting
@@ -287,8 +290,9 @@ Per-field requirements (target lengths are minimums; longer is fine):
 
 - ``applications`` (300-360 words): REAL, SPECIFIC cases where the concept
   is applied — drawn from the sources, NOT generic field labels.
-  - Open with one framing sentence ("The sources apply this in concrete
-    cases:").
+  - OPEN WITH ONE FRAMING SENTENCE that carries the worked cases from
+    ``example_intuition`` forward into practice — e.g. "Those three cases
+    made the mechanism clear; the sources show where it has been applied."
   - Then ONE ``### `` subsection per case with a short bold lead sentence +
     bold lead-in bullets (one claim per line). Name a SPECIFIC case the source
     reports — a named method/model, dataset, study, experiment, or worked
@@ -307,7 +311,10 @@ Per-field requirements (target lengths are minimums; longer is fine):
   - Prefer 2-4 cases; where a case also reveals a caveat or failure mode,
     note it in one clause.
 
-- ``further_reading`` (80-140 words): two parts.
+- ``further_reading`` (80-140 words):
+  OPEN WITH ONE FRAMING SENTENCE that carries the applications thread
+  forward and points outward — e.g. "Those applied cases sit at the edge
+  of the corpus; these connections take the topic further." Two parts:
   1. Adjacent concepts and the strongest textbook citations to read next.
   2. A short bullet list of 2-3 OPEN or RELATED RESEARCH QUESTIONS that
      extend this topic — phrase each as a real question a researcher
@@ -455,7 +462,8 @@ NARRATIVE CONTRACT (one continuous story, intro excluded):
 - The TL;DR introduction stands alone. Do not thread it.
 - The five body beats form ONE story developing the <thesis> you are given.
   Each body beat OPENS with a clause that carries the previous beat's idea
-  forward, and CLOSES with a clause that sets up the next beat.
+  forward, and CLOSES with a clause that sets up what follows (Beat 5 has
+  no next beat — its close points the reader outward beyond the corpus).
 - Vary the bridge: echo a key term, pose the question the next beat answers,
   or carry the running example forward. NEVER open two beats with the same
   phrase, and never use the formula "Now that we …".

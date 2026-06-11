@@ -171,10 +171,10 @@ class DeepTutorAnswer(BaseModel):
     definition: str = Field(
         ...,
         description=(
-            "BEAT 1 (Define). OPENS from the prior thesis statement (not from "
-            "the intro). Defines the concept; component subsections each carry "
-            "their $$display equation$$. CLOSE by setting up why we next make "
-            "it precise / see it work."
+            "BEAT 1 (Define). OPENS by anchoring to the prior synthesis thesis "
+            "(not the TL;DR intro). Defines the concept; component subsections "
+            "each carry their $$display equation$$. CLOSE by setting up why we "
+            "next make it precise / see it work."
         ),
     )
     formal_statement: str = Field(

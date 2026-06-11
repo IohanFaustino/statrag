@@ -31,4 +31,7 @@ def test_instructions_have_narrative_contract_and_no_orchestrator_tasks():
     txt = P.DEEP_TUTOR_INSTRUCTIONS.lower()
     assert "thread" in txt or "narrative" in txt
     assert "tl;dr" in txt or "introduction" in txt
-    assert "tasks" not in P.SYNTHESIS_PLAN_PROMPT.lower() or "worker" not in P.SYNTHESIS_PLAN_PROMPT.lower()
+    # the planner no longer decomposes work into parallel worker tasks
+    assert '"focus"' not in P.SYNTHESIS_PLAN_PROMPT
+    assert '"source_ranks"' not in P.SYNTHESIS_PLAN_PROMPT
+    assert "worker" not in P.SYNTHESIS_PLAN_PROMPT.lower()
