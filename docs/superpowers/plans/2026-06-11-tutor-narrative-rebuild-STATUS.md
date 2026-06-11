@@ -10,8 +10,8 @@ Implementers: `voltagent-lang:python-pro` (sonnet). Reviewers: general-purpose (
 | 1 | Deletion sweep + formula-recovery rewire | ✅ done (spec✅ quality✅) | `448a4d9` + cleanup `62d6d3d` | 7 variants → 1 draft; OW/deepagents/organize/harness deleted; `tutorWorkflow` knob gone; formula recovery rewired into `_stream_draft` via `_recover_equations_block`. |
 | 2 | Seam validator `agents/seams.py` (pure code) | ✅ done (spec✅ quality✅) | `1cb4d30` + fixes `5432496` | expanded `_GENERIC` (fixed "into" false-match); splitter ignores abbreviations; `_last_sentence` thin-anchor fallback (WATCHLIST). |
 | 3 | Narrative prompt + per-beat Field descriptions | ✅ done (spec✅ quality✅ + re-review) | `9950b53` + fix `5bb928a` | bridge-opener contract on all 4 threaded beats reconciled w/ Field descriptions; worker-tasks stripped from SYNTHESIS_PLAN_PROMPT; tightened plan-task test. |
-| 4 | Wire seam guard + bounded redraft + thesis injection | ⏳ next | — | T4 Step 6 = verify TutorView final-payload-overwrites-stream (BLOCKING). |
-| 5 | Non-interference tests (equations/citations/figures) | ⏳ | — | |
+| 4 | Wire seam guard + bounded redraft + thesis injection | ✅ done (spec✅ quality✅ + I1 fix) | `76796ed` + fix `a7def86` | seam guard wired in run_deep_tutor; ONE non-streamed redraft; composite acceptance (no lang/boilerplate regress); thesis `<thesis>` injected; quality scores merged. BLOCKING Step 6 RESOLVED by orchestrator: TutorView renders final `structured_output.data.text` (TutorView.tsx:139), not streamed tokens → silent redraft valid. |
+| 5 | Non-interference tests (equations/citations/figures) | ⏳ next | — | |
 | 6 | Frontend lockstep (scrub knob, collapse diagram) | ⏳ | — | |
 | 7 | Docs/HTML/invariants/changelog lockstep | ⏳ | — | |
 | 8 | Live verify (:5175 + Google MCP as user) | ⏳ orchestrator-run | — | |
