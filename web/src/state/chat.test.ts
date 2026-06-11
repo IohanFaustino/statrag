@@ -180,6 +180,13 @@ describe("storeReducer (§13 multi-conversation)", () => {
     expect(lastMsg.pendingExtensionPoints).toEqual(["Law of Large Numbers"]);
   });
 
+  it("stage{stage:'story'} appends to pendingExtensionPoints (v2 skeleton)", () => {
+    const s0 = run([send("A"), event("A", { type: "thinking" } as unknown as ChatEvent)]);
+    const s1 = storeReducer(s0, event("A", { type: "stage", stage: "story", label: "Take 1/5 — Chebyshev" }));
+    const lastMsg = s1.byConv["A"].messages.at(-1) as AssistantMessage;
+    expect(lastMsg.pendingExtensionPoints).toEqual(["Take 1/5 — Chebyshev"]);
+  });
+
   it("second stage{point} appends to existing pendingExtensionPoints", () => {
     const s0 = run([send("A"), event("A", { type: "thinking" } as unknown as ChatEvent)]);
     const s1 = storeReducer(s0, event("A", { type: "stage", stage: "point", label: "LLN" }));

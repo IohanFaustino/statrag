@@ -2749,3 +2749,26 @@ select:focus-visible {
   color: var(--accent-primary);
   font-weight: 600;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   StoryDigestCard — timeline rail, curiosity boxes, citation chips
+   ────────────────────────────────────────────────────────────────── */
+.story-take { display: flex; gap: 14px; }
+.story-take__rail { display: flex; flex-direction: column; align-items: center; }
+.story-take__num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-secondary);
+  color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.story-take__line { width: 2px; flex: 1; background: color-mix(in srgb, var(--accent-secondary) 30%, transparent); }
+.story-take__body { flex: 1; padding-bottom: 18px; min-width: 0; }
+.story-take__story, .curiosity-item__body { text-align: justify; }
+.curiosity-box { border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent);
+  border-radius: 8px; padding: 8px 12px; margin-top: 8px;
+  background: color-mix(in srgb, var(--accent-secondary) 5%, transparent); }
+.curiosity-box__toggle { background: none; border: none; color: inherit; font-weight: 700; cursor: pointer; }
+.curiosity-box__items { margin: 8px 0 0; padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--accent-secondary) 25%, transparent); list-style: none; }
+.curiosity-item { margin-bottom: 10px; }
+.curiosity-item__subject { font-weight: 700; }
+.citation-chip { display: inline-block; border: 1px solid var(--border-subtle); border-radius: 10px;
+  padding: 1px 8px; margin: 4px 4px 0 0; font-size: 11px; }
+.citation-chip--wiki { color: var(--accent-secondary); text-decoration: none; }
+

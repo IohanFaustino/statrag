@@ -38,7 +38,7 @@ function SourceCard({
   src: Source;
   onOpen?: (s: Source) => void;
 }) {
-  const bookKey = src.book.toLowerCase();
+  const bookKey = (src.book || "").toLowerCase();
   return (
     <button
       className="source-card"
@@ -48,7 +48,7 @@ function SourceCard({
       <div className="source-card__hd">
         <span className={`book-tag book-tag--${bookKey}`}>
           <span className={`dot dot--${bookKey}`} />
-          {src.book === "HANSEN" ? "Hansen" : src.book}
+          {src.book === "HANSEN" ? "Hansen" : (src.book || "?")}
         </span>
         <span className="source-card__hd-right">
           <span className="source-card__rank">#{src.rank}</span>

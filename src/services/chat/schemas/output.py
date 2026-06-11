@@ -18,8 +18,8 @@ from pydantic import BaseModel, Field, ValidationInfo, model_validator
 # ---------------------------------------------------------------------------
 
 
-class Citation(BaseModel):
-    """Traceable reference to a textbook section."""
+class ConceptCitation(BaseModel):
+    """Traceable reference to a textbook section (used by ConceptNode)."""
 
     book: str  # slug, e.g. "islp"
     chapter: str  # e.g. "ch02"
@@ -497,7 +497,7 @@ class ConceptNode(BaseModel):
 
     id: str
     label: str
-    source: Citation | None = None
+    source: ConceptCitation | None = None
 
 
 class ConceptEdge(BaseModel):
@@ -582,5 +582,54 @@ class ExtensionDigest(BaseModel):
     chapter: str
     points: list[ExtensionPoint] = Field(default_factory=list)
     unfilled_gaps: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Mode 5 v2 — extension (story + curiosity)
+# ---------------------------------------------------------------------------
+
+
+class StoryCitation(BaseModel):
+    """One reference attached to a curiosity bullet. Fields are copied VERBATIM
+    from retrieval payloads by the citation binder — never model-generated
+    (invariant: see docs/system/invariants.md, extension v2)."""
+
+    kind: Literal["corpus", "wikipedia"]
+    label: str
+    book_slug: str | None = None
+    book_name: str | None = None
+    authors: str | None = None
+    year: int | None = None
+    chapter: str | None = None
+    section_id: str | None = None
+    pages: str | None = None
+    title: str | None = None
+    url: str | None = None
+    chunk_id: str | None = None
+
+
+class CuriosityItem(BaseModel):
+    """One curiosity bullet: subject + body derived solely from attached citations."""
+
+    subject: str
+    body: str
+    citations: list[StoryCitation] = Field(min_length=1)
+
+
+class Take(BaseModel):
+    """One timeline take (1 source section), story register."""
+
+    heading: str
+    story: str
+    items: list[CuriosityItem] = Field(default_factory=list)
+
+
+class StoryDigest(BaseModel):
+    """Extension v2 result: story timeline + per-take curiosity boxes."""
+
+    book: str
+    chapter: str
+    takes: list[Take] = Field(default_factory=list)
+    unfilled_subjects: list[str] = Field(default_factory=list)
 
 

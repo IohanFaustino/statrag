@@ -377,7 +377,7 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
 
         case "stage": {
           const label = ev.label;
-          if (ev.stage === "point" && label) {
+          if ((ev.stage === "point" || ev.stage === "story") && label) {
             return {
               ...state,
               messages: updateLastAssistant(state.messages, (msg) => ({

@@ -1,176 +1,121 @@
-# Feature 54 — Extension Mode (cross-book + Wikipedia footnote augmentation)
+# Feature 54 — Extension Mode (story timeline + curiosity boxes)
 
-**Branch:** `feat/extension-mode`
-**Date:** 2026-06-09
-**Spec:** [`docs/superpowers/specs/2026-06-09-extension-mode-design.md`](../../superpowers/specs/2026-06-09-extension-mode-design.md)
-**Plan:** [`docs/superpowers/plans/2026-06-09-extension-mode.md`](../../superpowers/plans/2026-06-09-extension-mode.md)
+**Branch:** `feat/extension-v2-story-curiosity`
+**Date:** 2026-06-10
+**Spec:** [`docs/superpowers/specs/2026-06-10-extension-v2-story-curiosity-design.md`](../../superpowers/specs/2026-06-10-extension-v2-story-curiosity-design.md)
+**Plan:** [`docs/superpowers/plans/2026-06-10-extension-v2-story-curiosity.md`](../../superpowers/plans/2026-06-10-extension-v2-story-curiosity.md)
 
 ---
 
 ## Purpose
 
-Extension mode takes a chapter (or named section) of a book **already in the corpus**, follows its formal structure, and **augments** each part with material from other sources — other ingested books (cross-book) and Wikipedia.
+Extension mode takes a chapter (or named section) already in the corpus and produces a **story timeline**: one "take" per source section (following the author's sequence), each with a collapsed **curiosity box** of expansion bullets drawn from the wider corpus and Wikipedia. Every citation is copied verbatim by code from retrieval payloads — LLMs never produce source text.
 
-The deliverable is **curated to-the-point text + augmented footnotes**. It is NOT a summary. The base concepts are kept as real, direct prose (pruned of exercises and tiny/irrelevant sections, with duplicate sections clustered into one); every piece of new material — including formulas, inline or display LaTeX — lives only in **footnotes**, never woven into the base text (invariant: §Footnote-only augmentation below).
+**Core principle:**
 
-**Core principle (governs all conflicts):**
-
-> The final output is a direct, to-the-point curated text + augmented footnotes. It is not necessarily a summary.
+> Story first, curiosity optional. The timeline is the reading surface; curiosity boxes are collapsed by default and toggled per take.
 
 ---
 
-## Architecture — Topology C
+## Architecture — v2 deterministic pipeline
 
-Extension follows **Topology C**: a deterministic shell wraps an agentic core. The shell (runner) is responsible for scope resolution, the human clarify gate, and the hard-capped round loop; the agentic core (deepagents) owns within-round reasoning.
+Extension v2 replaces the v1 deepagents core with a deterministic async orchestration in `graph.py`. Two pure-code stages (researcher + citation binder) carry the trust; LLM stages are small, structured-output-enforced, and English-pinned. Parallel fan-out via `asyncio.gather`.
 
 ```mermaid
 flowchart TD
-  U[User query] --> RES[Resolve + confirm gate]
-  RES -->|ambiguous| CLAR[Clarify, stop]
-  RES --> FETCH[Fetch ordered sections -> /structure]
-  FETCH --> ORC{{Extension deep-agent}}
-  subgraph ORC
-    A[Analyst x N] --> P[Polish -> /curated]
-    P --> Q[Orchestrator: plan queries -> /plan]
-    Q --> AUG[Augmentor x N -> /footnotes]
-    AUG --> J[Judge: complete?]
-    J -->|unfilled & budget| AUG
-  end
-  ORC --> DIG[ExtensionDigest -> SSE points]
-  DIG --> ZIP[/api/export: styled-HTML ZIP]
+    A[scope_resolver] --> B[fetch sections]
+    B -->|Send ×N| C[storyteller nano]
+    C --> D[story_editor nano]
+    D -->|×take| E[subject_miner nano]
+    E -->|×subject| F[researcher — PURE CODE\nhybrid_search rerank + Wikipedia REST]
+    F -->|×take| G[curiosity_writer nano]
+    G --> H[citation_binder — PURE CODE\nverbatim payload citations]
+    H --> I[judge nano — one retry]
+    I --> J[StoryDigest]
 ```
 
-The structural fetch is deterministic and order-fixed before any LLM runs — matching how chapter mode works (the chapter's section order determines the answer order; embedding retrieval is only for fuzzy subtopic→section resolution, never for main-content fetch). Agentic spend and the judge re-delegation loop are reserved for the genuinely open work: gap-query planning and augmentation.
+### Agent roster
 
----
+| Agent | Harness | Model (default) | Temp |
+|---|---|---|---|
+| `scope_resolver` | `aresolve_scope_or_clarify` + `_needle_matches` section matching; runner stamps authoritative `digest.book`/`digest.chapter` | nano | 0.0 |
+| `storyteller` ×section | Input: section text + previous take heading. Output: `TakeDraft{heading, story, key_items[]}`. Story register, author's sequence, ENGLISH pinned. Degradation: parse failure → raw section summary (flagged). | nano, parallel | 0.4 |
+| `story_editor` | Stitches takes into one continuous voice. Hard rules: NO new facts; ≤10% length growth. Editor failure → keep drafts. | nano | 0.3 |
+| `subject_miner` ×take | Curiosity subjects from take + key_items. Gap taxonomy: `formal-def / derivation / comparative / application / history`. Output: `Subject{title, queries[2–3], tag}`. | nano, parallel | 0.0 |
+| `researcher` ×subject | **Pure code — no LLM.** Multi-query `hybrid_search` cross-book (exclude target book, rerank ON, `EXTENSION_MIN_SCORE` floor, `seen_ids` dedupe) + Wikipedia REST (search → summary; title + URL + extract). Output: `Evidence{id, kind, text, meta}`. | — | — |
+| `curiosity_writer` ×take | Writes bullets FROM evidence only; each bullet lists `evidence_ids`; forbidden to write citation text. | nano, parallel | 0.2 |
+| `citation_binder` | **Pure code — no LLM.** Maps `evidence_ids` → `StoryCitation` objects copied **verbatim** from `Evidence.meta` (book_name/authors/year/chapter/section_id/pages for corpus; title+URL for Wikipedia) + `chunk_id` provenance. Bullets with zero valid ids dropped → `unfilled_subjects`. | — | — |
+| `judge` ×take | Coverage check (each subject answered, ≥1 bullet). ONE bounded retry of miner→researcher→writer for failed takes, then accept with gaps listed. | nano; env override: `EXTENSION_JUDGE_MODEL` | 0.0 |
 
-## Agent Roster
-
-| Agent | Default model | Reads | Writes | Tools |
-|---|---|---|---|---|
-| **orchestrator** (top-level) | `gpt-5.4-2026-03-17` (top) | `/structure/*`, `/context/*`, `/curated/*`, `/footnotes/*` | `/plan/queries.md`, todos | `write_todos`, `task`, fs |
-| **analyst** (batched per section) | `gpt-5.4-nano-2026-03-17` (cheap) | `/structure/NN.md` | `/context/NN.md` — concept, key ideas, gaps | fs, `retrieve_peek` (read-only) |
-| **polish** (once) | `gpt-5.4-nano-2026-03-17` (cheap) | `/context/*` | `/curated/timeline.md` — clustered, ordered, curated prose (NOT a summary) | fs |
-| **augmentor** (batched per query) | `gpt-5.4-nano-2026-03-17` (cheap) | `/plan/queries.md`, `/curated/timeline.md` | `/footnotes/<point>.md` | fs, `retrieve_corpus` (cross-book, excludes base book), `wikipedia_lookup` |
-| **judge** (= orchestrator re-reading) | `gpt-5.4-nano-2026-03-17` (cheap) | `/plan/queries.md`, `/footnotes/*` | re-delegation todos | fs |
-
-The orchestrator and judge default to a top model because they own open reasoning (structure understanding, gap-query planning, coverage judgement). Analyst, augmentor, and polish handle bounded extraction/retrieval tasks → nano by default.
-
-### Phase order inside the deep-agent
-
-1. **Analyst fan-out (parallel)** — ALL analyst task calls issued in a single orchestrator message (one `task` call per `/structure` file); LangGraph `ToolNode` executes them concurrently (`asyncio.gather` on the async path; `ThreadPoolExecutor.map` on the sync path) → each writes `/context/NN.md`.
-2. **Polish** — reads all context → writes `/curated/timeline.md` (curated, clustered, ordered points).
-3. **Orchestrator query-gen** — reads timeline + context gaps → writes `/plan/queries.md` (deduplicated open gap queries, format `POINT :: query`).
-4. **Augmentor batch** — one augmentor task per (batch of) queries → RAG corpus + Wikipedia, judges fit before footnoting → `/footnotes/<point>.md`.
-5. **Judge** (orchestrator) — reads `/plan/queries.md` against `/footnotes/*`. Marks each query `done` or `unfilled`. If any are `unfilled` and budget remains → re-delegates a fresh augmentor batch for the unfilled queries only.
-
----
-
-## Judge Loop + Termination
-
-The judge is the orchestrator re-reading `/plan/queries.md` against `/footnotes/*`. Each augmentor file ends with `# COVERAGE: <query> = done|unfilled` lines that the runner parses.
-
-- **Env cap:** `EXTENSION_MAX_ROUNDS` (default `3`).
-- Hard stop on cap → return the partial result and explicitly report which gaps were left unfilled in `ExtensionDigest.unfilled_gaps`. Never loops unbounded.
-
----
-
-## Tools
-
-| Tool | Location | Purpose |
-|---|---|---|
-| `retrieve_peek(query)` | `extension_agents/tools.py` | Read-only corpus peek for the analyst to judge what is present or missing. Wraps `hybrid_search`. |
-| `make_retrieve_corpus(exclude_book, all_slugs)` | `extension_agents/tools.py` | Augmentor's cross-book retrieval factory; **excludes the base book's slug**. Under `rerank=True` result count = `rerank_top_n` — passed explicitly to narrow. |
-| `wikipedia_lookup(query)` | `extension_agents/tools.py` | Public REST API (`en.wikipedia.org/api/rest_v1/page/summary/...`), no key. Returns the lead extract + article URL. Augmentor judges fit before footnoting. |
-
----
-
-## Output Schema
-
-```python
-# src/services/chat/schemas/output.py
-class ExtensionFootnote(BaseModel):
-    marker: str
-    body: str          # augmenting text; may contain $…$ / $$…$$ LaTeX
-    source: str        # corpus slug+section or Wikipedia URL
-    kind: Literal["corpus", "wikipedia"]
-
-class ExtensionPoint(BaseModel):
-    title: str
-    curated_text: str  # carries NO augmentation; only base content
-    footnotes: list[ExtensionFootnote]
-
-class ExtensionDigest(BaseModel):
-    book: str
-    chapter: str
-    points: list[ExtensionPoint]
-    unfilled_gaps: list[str]   # gap queries not filled within EXTENSION_MAX_ROUNDS
-```
-
-**Strict-safe**: all fields are closed-key lists — no open-keyed `dict` fields anywhere. Safe for OpenAI strict structured outputs.
-
----
-
-## Footnote-only Invariant (hard rule)
-
-ALL augmentation — including formulas (inline `$…$` or display `$$…$$`) — appears **only in `footnotes`**. `curated_text` carries no new material, no URLs, no source tags. This is enforced at both prompt level (augmentor prompt `<rules>`) and code level (`curated_text_is_clean` in `runner.py`, which strips leaked URLs before emit). Test guard: `test_extension_invariant.py::test_curated_text_has_no_augmentation_markers` + `curated_text_is_clean`.
-
----
-
-## Env Flags
+### Env flags
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `EXTENSION_MAX_ROUNDS` | `3` | Hard cap on judge re-delegation rounds. Override per-request via `extensionMaxRounds` (int, 1–6). |
-| `EXTENSION_JUDGE_MODEL` | `""` (→ nano) | Override judge stage model independently of orchestrator. |
+| `EXTENSION_JUDGE_MODEL` | `""` (→ nano) | Override judge stage model independently. |
+| `EXTENSION_MIN_SCORE` | `0` (disabled) | Researcher corpus evidence score floor; float, e.g. `0.5`. |
 
 ---
 
-## Request Knobs (`ChatRequest`)
+## Output schema
 
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `extensionMaxRounds` | `int \| None` | `None` → env default (`3`) | Cap the judge re-delegation loop for this request (1–6). |
-| `extensionModels` | `dict[str, str] \| None` | `None` → all stage defaults | Per-stage model overrides. Keys: `"orchestrator"`, `"analyst"`, `"polish"`, `"augmentor"`, `"judge"`. Values = model ids. Unknown stage/model → stage default. |
+```python
+class StoryCitation(BaseModel):
+    kind: Literal["corpus", "wikipedia"]
+    label: str                    # binder-built render string (verbatim payload fields)
+    book_slug: str | None = None
+    book_name: str | None = None
+    authors: str | None = None
+    year: int | None = None
+    chapter: str | None = None
+    section_id: str | None = None
+    pages: str | None = None
+    title: str | None = None      # wikipedia
+    url: str | None = None        # wikipedia
+    chunk_id: str | None = None   # corpus provenance
 
-### `extensionModels` stage defaults
+class CuriosityItem(BaseModel):
+    subject: str
+    body: str                     # prose w/ $-math; from evidence only
+    citations: list[StoryCitation]  # ≥1, binder-enforced
 
-| Stage key | Default model | Rationale |
-|---|---|---|
-| `orchestrator` | `gpt-5.4-2026-03-17` | Open reasoning — gap planning + structure understanding |
-| `judge` | `gpt-5.4-2026-03-17` | Coverage judgement |
-| `polish` | `gpt-5.4-nano-2026-03-17` | Bounded curation task |
-| `analyst` | `gpt-5.4-nano-2026-03-17` | Bounded extraction |
-| `augmentor` | `gpt-5.4-nano-2026-03-17` | Bounded retrieval + footnote writing |
+class Take(BaseModel):
+    heading: str
+    story: str                    # justified prose, KaTeX-ready
+    items: list[CuriosityItem]    # may be []
+
+class StoryDigest(BaseModel):
+    book: str                     # runner-stamped (authoritative)
+    chapter: str                  # honest narrowed label (e.g. "ch07 · 7.4–7.5")
+    takes: list[Take]
+    unfilled_subjects: list[str]  # subjects binder could not cite
+```
+
+Legacy `ExtensionDigest` is retained for pre-v2 conversations (schema-keyed dispatch).
+
+**Citation verifiability:** every non-null `StoryCitation` field is copied verbatim from a retrieval payload or Wikipedia REST response by `binder.py` — LLMs never produce citation text. The invariant is property-tested: `test_extension_binder.py::test_binder_property_no_field_outside_evidence`. See invariants.md §41.
 
 ---
 
-## SSE Event Sequence
+## SSE event sequence
 
 ```
-stage{parse} → stage{fetch} → stage{augment · round N} (per round)
-  → stage{point · <title>} (per point) → structured_output{schema:"ExtensionDigest"}
-  → sources_full{sources:[]} → usage → done
+meta {mode:"extension", model, books}              ← always first (badge)
+stage {stage:"parse"}    stage {stage:"fetch"}
+stage {stage:"story", label:"Take k/N — <heading>"}   ×N  (streamed as each lands)
+stage {stage:"edit"}     stage {stage:"research"}
+stage {stage:"write"}    stage {stage:"bind"}     stage {stage:"judge"}
+structured_output {schema:"StoryDigest", data}
+sources_full {sources:[…]}
+usage    done
 ```
 
-Clarify-gate path (book/chapter ambiguous):
+Clarify-gate path (scope ambiguous):
 
 ```
-stage{parse} → clarify{type:"clarify", options:[…]} → usage{inputTokens:0} → done
+meta → stage{parse} → clarify{type:"clarify", options:[…]} → usage → done
 ```
 
----
-
-## Export Endpoint
-
-`POST /api/export` — accepts an `ExtensionDigest` JSON body, returns a ZIP (`application/zip`) with:
-
-- **`extension.html`** — self-contained styled HTML: curated points, footnotes rendered with KaTeX (CDN linked), embedded CSS, opens standalone in any browser.
-- **`sources.json`** — footnote provenance array: `[{point, marker, source, kind}, …]`.
-
-`Content-Disposition`: `attachment; filename="<book>-<chapter>-extended.zip"`.
-
-Test: `test_extension_export.py::test_zip_contains_html_and_sources` + `test_html_is_self_contained`.
+Token accounting: `usage` emits `durationMs` only (token counts are placeholder zeros in v2 step 1; callback-based accounting removed).
 
 ---
 
@@ -178,67 +123,65 @@ Test: `test_extension_export.py::test_zip_contains_html_and_sources` + `test_htm
 
 | Component | Path | Role |
 |---|---|---|
-| `ExtensionDigestCard` | `web/src/components/ExtensionDigestCard.tsx` | Renders ordered points; `renderFootnoteBody` for footnotes (KaTeX math, no citation logic); Wikipedia sources as links; source paths truncated to 40 chars; Download button with loading state; wrapped in `StructuredErrorBoundary`. |
-| `StructuredErrorBoundary` | `web/src/components/StructuredErrorBoundary.tsx` | Ported from sibling branch; degrades malformed digest to inline error notice. |
-| `ExtensionPipelineDiagram` | `web/src/components/ExtensionPipelineDiagram.tsx` | Modal pipeline card — topology C nodes matching the reference graph (`modes/extension.html`). |
-| `ExtensionView` | `web/src/views/ExtensionView.tsx` | Mode view wired into `MessageThread` on `schema === "ExtensionDigest"`. |
-| `ModePicker` | `web/src/components/ModePicker.tsx` | Extension chip: label "Extension", description "Extend a chapter with cross-book + Wikipedia footnotes". |
+| `StoryDigestCard` | `web/src/components/StoryDigestCard.tsx` | Timeline rail (numbered nodes), per-take collapsed curiosity toggle, justified story + boxes, citation chips (📕 corpus, 🌐 wiki), expand/collapse-all, Download ZIP. Wrapped in `StructuredErrorBoundary`. |
+| `renderMathText` | `web/src/lib/renderRichText.tsx` | Shared renderer: KaTeX math + markdown (bold/italic). Used by both `StoryDigestCard` and `ExtensionDigestCard`. |
+| `ExtensionDigestCard` | `web/src/components/ExtensionDigestCard.tsx` | Legacy v1 card — still active for `schema === "ExtensionDigest"` conversations. |
+| `MessageThread` | `web/src/components/MessageThread.tsx` | Dispatches `StoryDigestCard` when `structuredOutput.schema === "StoryDigest"`. |
 
-Streaming: each curated point (with its footnotes) is emitted as a `stage{point}` event as it is finalized, so the user watches the document build in order.
+Streaming skeleton: `stage{story}` events populate `msg.pendingExtensionPoints` (same reducer branch as `stage{point}` from v1) so take headings appear live before the full digest arrives.
 
----
-
-## Isolation (Chinese wall)
-
-- Package: `src/services/chat/agents/extension_agents/` (runner, agent, tools, scope, prompts, export, model resolver).
-- Skills: `src/services/chat/agents/extension_skills/{curate-structure,gap-augment,judge-coverage}/SKILL.md`.
-- Imports **only** `src.core.*` and shared chat infra (`_scope`, `retrieval`, `books`, `llm.router`, `schemas`, `_fences`). **Zero** imports from `deep_tutor*`, `qa*`, `ow_*`.
-- All prompts XML-tagged with `<role>/<context>/<task>` minimum, plus `<rules>/<failure_mode>/<output>` per stage (invariant 28). Guard: `test_extension_prompts.py::test_every_prompt_is_xml_tagged`.
+Persistence: content stored as `StoryDigest` JSON + `_schema:"StoryDigest"` tag; `mapConversationMessages` revives by `_schema` — old `ExtensionDigest` conversations auto-route to the legacy card.
 
 ---
 
-## Synced-Artifacts Checklist
+## Export endpoint
 
-A logic change to extension mode is incomplete until **all** of these reflect it:
+`POST /api/export` accepts either `StoryDigest` (detected by `"takes"` key) or legacy `ExtensionDigest`. ZIP contains:
 
-| Aspect | Path |
-|---|---|
-| Mode id | `src/services/chat/schemas/_core.py` (`ModeId` Literal) |
-| Request knobs | `src/services/chat/schemas/_core.py` (`extensionMaxRounds`, `extensionModels`) |
-| Response schema | `src/services/chat/schemas/output.py` (`ExtensionDigest` et al.) |
-| Router branch | `src/services/chat/router.py` → `_V2_DISPATCH["extension"]` |
-| Export endpoint | `src/services/chat/api.py` → `POST /api/export` |
-| Backend logic | `extension_agents/runner.py`, `agent.py`, `tools.py`, `scope.py`, `export.py` |
-| Prompts | `extension_agents/prompts.py` (XML-tagged constants) |
-| Per-stage model resolver | `extension_agents/_models.py` (`STAGE_DEFAULTS`, `resolve_stage_model`) |
-| Skills | `extension_skills/{curate-structure,gap-augment,judge-coverage}/SKILL.md` |
-| Env flag | `EXTENSION_MAX_ROUNDS` |
-| Modal card | `web/src/components/ExtensionPipelineDiagram.tsx` |
-| Frontend view | `web/src/views/ExtensionView.tsx` + `ExtensionDigestCard.tsx` |
-| ModePicker | `web/src/components/ModePicker.tsx` |
-| Reference graph | `docs/common ground/Elements/modes/extension.html` (+ features/index.html entry) |
-| Invariants + changelog | `docs/system/invariants.md`, `docs/system/changelog.md` |
-| CLAUDE.md | mode list + recent-docs pointer |
-| Tests | `test_extension_schema.py`, `test_extension_models.py`, `test_extension_tools.py`, `test_extension_scope.py`, `test_extension_prompts.py`, `test_extension_skills.py`, `test_extension_agent.py`, `test_extension_runner.py`, `test_extension_invariant.py`, `test_extension_export.py`; `ExtensionDigestCard.test.tsx`, `ExtensionPipelineDiagram.test.tsx` |
+- **`extension.html`** — self-contained styled HTML: justified story prose, KaTeX (CDN), per-take `<ol class="footnotes">` (curiosity items as numbered footnotes; corpus chip = label text, Wikipedia chip = `<a href>`).
+- **`sources.json`** — evidence list (citations flattened).
+
+`Content-Disposition` filename sanitized: ` · `→`-`, `–`/`—`→`-`, spaces→`-`, collapse `--`. Example: `hansen-probability-ch07-7.4-7.5-extended.zip`.
 
 ---
 
-## Test Coverage
+## File map
 
-**Backend** (`src/services/chat/tests/`):
+```
+src/services/chat/agents/extension_agents/
+  _models.py        Stage defaults: scope/storyteller/editor/miner/writer/judge (all nano)
+  research.py       Evidence + corpus_evidence() + wiki_evidence()  — pure code
+  binder.py         bind_citations() — pure code, verbatim payload citations
+  prompts.py        5 XML-scaffold prompts (storyteller/editor/miner/writer/judge)
+  nodes.py          LLM node functions + _ainvoke helper + TakeDraft/Subject/WriterOut/JudgeOut
+  graph.py          run_pipeline() — asyncio.gather orchestration
+  runner.py         run_extension() SSE wrapper (scope → pipeline → emit); also
+                    _filter_subtopics(), _needle_matches(), _scope_label() helpers
+  export.py         render_story_html() + zip_filename() + legacy ExtensionDigest path
+  scope.py          aresolve_scope_or_clarify(), build_structure_files()
+src/services/chat/schemas/output.py
+  StoryCitation, CuriosityItem, Take, StoryDigest   (new v2 models)
+  ExtensionDigest, ExtensionPoint, ExtensionFootnote (legacy, retained)
+src/services/chat/tests/
+  test_story_schema.py, test_extension_models.py, test_extension_research.py,
+  test_extension_binder.py, test_extension_prompts.py, test_extension_nodes.py,
+  test_extension_graph.py, test_extension_runner.py, test_extension_export.py
+web/src/
+  lib/renderRichText.tsx          shared renderMathText + stripLeadingMarker
+  components/StoryDigestCard.tsx  timeline rail + toggle curiosity boxes
+  components/StoryDigestCard.test.tsx
+  types.ts                        StoryCitation, CuriosityItem, StoryTake, StoryDigest
+  styles/app.css                  rail/toggle/justify/chips styles
+```
 
-- `test_extension_schema.py` — `ModeId` accepts `"extension"`; knobs default / accept values; `ExtensionDigest` shape; strict-safe schema (no open-keyed dict).
-- `test_extension_models.py` — stage defaults (orchestrator/judge = top, analyst/augmentor = cheap); override applies; unknown override falls back.
-- `test_extension_tools.py` — `wikipedia_lookup` returns extract + URL, handles missing; `retrieve_corpus` excludes base book; `retrieve_peek` read-only.
-- `test_extension_scope.py` — structure files are ordered with `NN_` prefix; resolve returns clarify dict when ambiguous.
-- `test_extension_prompts.py` — every prompt has `<role>/<context>/<task>`; augmentor states footnote-only rule; polish states curate-not-summarize.
-- `test_extension_skills.py` — three SKILL.md files with YAML frontmatter (`name:`, `description:`).
-- `test_extension_agent.py` — builder wires analyst/polish/augmentor subagents; orchestrator model = top default; skills paths present.
-- `test_extension_runner.py` — clarify gate stops before agent build; happy path streams `structured_output{schema:"ExtensionDigest"}`; round loop caps at `extensionMaxRounds`.
-- `test_extension_invariant.py` — `curated_text_is_clean` returns `True` for clean body, `False` for URL-leaked body.
-- `test_extension_export.py` — ZIP contains `extension.html` + `sources.json`; HTML is self-contained (embedded CSS, KaTeX, no external files).
+---
 
-**Frontend** (`web/src/`):
+## v1 (replaced — historical stub)
 
-- `ExtensionDigestCard.test.tsx` — renders points, titles, curated text, footnotes; shows Download button.
-- `ExtensionPipelineDiagram.test.tsx` — topology C stage labels all present.
+Extension v1 used a **deepagents topology-C** architecture: a deterministic runner (scope → fetch → hard-capped round loop) wrapping an agentic core (`agent.py`) with orchestrator + 3 subagents (analyst → polish → augmentor), producing an `ExtensionDigest` (curated_text + footnotes). Its prompts, skills (`extension_skills/`), `agent.py`, and `tools.py` were deleted when v2 shipped.
+
+**v1 artifacts are in git history on branch `feat/extension-mode`** (merged into `feat/component-equation-enforcement` 2026-06-10). The original doc 54 text was the v1 description; this file replaces it.
+
+Key v1 files removed: `agents/extension_agents/agent.py`, `agents/extension_skills/{curate-structure,gap-augment,judge-coverage}/SKILL.md`, `tests/test_extension_agent.py`, `tests/test_extension_skills.py`.
+
+v1 invariants (38/39/40) are retired by v2 — see `docs/system/invariants.md`.
