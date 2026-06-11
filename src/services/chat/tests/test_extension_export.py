@@ -67,6 +67,166 @@ def test_export_filename_sanitized():
         "hansen-probability-ch07-7.4-7.5-extended.zip"
 
 
+# ---------------------------------------------------------------------------
+# Filename sanitizer edge cases — unicode and whitespace
+# ---------------------------------------------------------------------------
+
+def test_zip_filename_unicode_middot():
+    """Middle-dot · (U+00B7) without surrounding spaces must become -."""
+    from src.services.chat.agents.extension_agents.export import zip_filename
+    assert zip_filename("book", "ch07·7.4") == "book-ch07-7.4-extended.zip"
+
+
+def test_zip_filename_en_dash():
+    """En-dash – (U+2013) in chapter label must become -."""
+    from src.services.chat.agents.extension_agents.export import zip_filename
+    assert zip_filename("hansen", "ch07 – 7.5") == "hansen-ch07-7.5-extended.zip"
+
+
+def test_zip_filename_em_dash():
+    """Em-dash — (U+2014) must become -."""
+    from src.services.chat.agents.extension_agents.export import zip_filename
+    assert zip_filename("book", "ch01 — intro") == "book-ch01-intro-extended.zip"
+
+
+def test_zip_filename_spaces_only():
+    """Plain spaces must become single dashes."""
+    from src.services.chat.agents.extension_agents.export import zip_filename
+    assert zip_filename("my book", "ch 01") == "my-book-ch-01-extended.zip"
+
+
+def test_zip_filename_full_live_case():
+    """Exact filename produced for the live 'hansen-ch07 · 7.4–7.5' digest."""
+    from src.services.chat.agents.extension_agents.export import zip_filename
+    result = zip_filename("hansen", "ch07 · 7.4–7.5")
+    assert result == "hansen-ch07-7.4-7.5-extended.zip"
+    # Confirm no unicode chars survive
+    import re
+    assert re.fullmatch(r"[a-z0-9._\-]+", result), f"Non-ASCII chars in: {result!r}"
+
+
+def test_sanitize_slug_no_repeated_dashes():
+    """Adjacent separators must collapse to a single dash."""
+    from src.services.chat.agents.extension_agents.export import _sanitize_slug
+    assert _sanitize_slug("ch07  ·  7.4") == "ch07-7.4"
+
+
+def test_sanitize_slug_lowercase():
+    """Result must be fully lowercased."""
+    from src.services.chat.agents.extension_agents.export import _sanitize_slug
+    assert _sanitize_slug("Hansen-CH07") == "hansen-ch07"
+
+
+# ---------------------------------------------------------------------------
+# Logging helper — _ensure_pkg_logging
+# ---------------------------------------------------------------------------
+
+def test_ensure_pkg_logging_sets_level():
+    """_ensure_pkg_logging() must set the package logger level to INFO."""
+    import logging
+    from src.services.chat.agents.extension_agents import runner
+
+    original = runner._pkg_log_configured
+    runner._pkg_log_configured = False
+    pkg = logging.getLogger(runner._PKG_LOGGER_NAME)
+    # Temporarily strip handlers so we can observe the function's behaviour.
+    saved_handlers = pkg.handlers[:]
+    saved_level = pkg.level
+    saved_propagate = pkg.propagate
+    for h in pkg.handlers[:]:
+        pkg.removeHandler(h)
+
+    try:
+        runner._ensure_pkg_logging()
+        assert pkg.level == logging.INFO, \
+            f"expected INFO ({logging.INFO}), got {pkg.level}"
+    finally:
+        for h in pkg.handlers[:]:
+            pkg.removeHandler(h)
+        for h in saved_handlers:
+            pkg.addHandler(h)
+        pkg.level = saved_level
+        pkg.propagate = saved_propagate
+        runner._pkg_log_configured = original
+
+
+def test_ensure_pkg_logging_adds_handler_when_no_ancestor_handlers():
+    """When no ancestor logger has a real handler, a StreamHandler is attached."""
+    import logging
+    from src.services.chat.agents.extension_agents import runner
+
+    original_sentinel = runner._pkg_log_configured
+    runner._pkg_log_configured = False
+
+    pkg = logging.getLogger(runner._PKG_LOGGER_NAME)
+    saved_handlers = pkg.handlers[:]
+    saved_propagate = pkg.propagate
+    saved_level = pkg.level
+    for h in pkg.handlers[:]:
+        pkg.removeHandler(h)
+
+    # Temporarily strip root logger handlers to simulate bare uvicorn startup.
+    root = logging.root
+    saved_root_handlers = root.handlers[:]
+    for h in root.handlers[:]:
+        root.removeHandler(h)
+
+    try:
+        runner._ensure_pkg_logging()
+        assert any(isinstance(h, logging.StreamHandler) for h in pkg.handlers), \
+            "expected a StreamHandler on the package logger when no ancestor handler exists"
+        assert pkg.propagate is False, \
+            "propagate must be False when we own the handler (prevents double-print)"
+    finally:
+        for h in pkg.handlers[:]:
+            pkg.removeHandler(h)
+        for h in saved_handlers:
+            pkg.addHandler(h)
+        pkg.level = saved_level
+        pkg.propagate = saved_propagate
+        for h in saved_root_handlers:
+            root.addHandler(h)
+        runner._pkg_log_configured = original_sentinel
+
+
+def test_ensure_pkg_logging_skips_handler_when_root_has_handler():
+    """When root already has a handler (uvicorn-style), no extra handler is added."""
+    import logging
+    from src.services.chat.agents.extension_agents import runner
+
+    original_sentinel = runner._pkg_log_configured
+    runner._pkg_log_configured = False
+
+    pkg = logging.getLogger(runner._PKG_LOGGER_NAME)
+    saved_handlers = pkg.handlers[:]
+    saved_propagate = pkg.propagate
+    saved_level = pkg.level
+    for h in pkg.handlers[:]:
+        pkg.removeHandler(h)
+
+    # Simulate a uvicorn root handler.
+    root = logging.root
+    fake_root_handler = logging.StreamHandler()
+    root.addHandler(fake_root_handler)
+
+    try:
+        runner._ensure_pkg_logging()
+        # No handler should be added to the package logger itself
+        assert not pkg.handlers, \
+            "must NOT add a handler when root already has one"
+        # But level must still be set
+        assert pkg.level == logging.INFO
+    finally:
+        root.removeHandler(fake_root_handler)
+        for h in pkg.handlers[:]:
+            pkg.removeHandler(h)
+        for h in saved_handlers:
+            pkg.addHandler(h)
+        pkg.level = saved_level
+        pkg.propagate = saved_propagate
+        runner._pkg_log_configured = original_sentinel
+
+
 def test_export_endpoint_story_digest_returns_zip():
     """Route-level: StoryDigest payload (has 'takes') triggers v2 path."""
     from fastapi.testclient import TestClient

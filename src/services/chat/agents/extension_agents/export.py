@@ -42,23 +42,38 @@ _KATEX_SCRIPT = (
 # Filename sanitizer
 # ---------------------------------------------------------------------------
 
+def _sanitize_slug(s: str) -> str:
+    """Sanitize a book slug or chapter label to ``[a-z0-9._-]`` only.
+
+    Replacements (applied in order):
+    - Unicode middle-dot ``·`` (U+00B7) and en-dash ``–`` (U+2013) and
+      em-dash ``—`` (U+2014) → ``-``
+    - Any remaining whitespace → ``-``
+    - Any character outside ``[a-z0-9._-]`` → ``-``
+    - Two-or-more consecutive ``-`` → single ``-``
+    - Leading/trailing ``-`` stripped
+    """
+    s = s.replace("·", "-").replace("–", "-").replace("—", "-")
+    s = s.replace(" ", "-")
+    s = re.sub(r"[^a-z0-9._\-]", "-", s.lower())
+    s = re.sub(r"-{2,}", "-", s)
+    return s.strip("-")
+
+
 def zip_filename(book: str, chapter: str) -> str:
     """Return a sanitized ZIP filename for a digest.
 
-    Book is preserved as-is (already slugified). Chapter is sanitized:
-    ` · ` → `-`, `–`/`—` → `-`, spaces → `-`, collapse multiple `-`.
+    Both *book* and *chapter* are passed through :func:`_sanitize_slug` so the
+    result contains only ``[a-z0-9._-]``.
 
     Example::
 
         zip_filename("hansen-probability", "ch07 · 7.4–7.5")
         # → "hansen-probability-ch07-7.4-7.5-extended.zip"
     """
-    ch = chapter
-    ch = ch.replace(" · ", "-")
-    ch = ch.replace("–", "-").replace("—", "-")
-    ch = ch.replace(" ", "-")
-    ch = re.sub(r"-{2,}", "-", ch)
-    return f"{book}-{ch}-extended.zip"
+    b = _sanitize_slug(book)
+    ch = _sanitize_slug(chapter)
+    return f"{b}-{ch}-extended.zip"
 
 
 # ---------------------------------------------------------------------------

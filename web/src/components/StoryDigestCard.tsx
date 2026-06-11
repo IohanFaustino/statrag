@@ -99,6 +99,18 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
     setOpen((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
   const withItems = digest.takes.map((t, i) => [t, i] as const).filter(([t]) => t.items.length > 0);
 
+  /**
+   * Sanitize a book slug or chapter label to [a-z0-9._-] only.
+   * Mirrors the Python `_sanitize_slug` function in export.py.
+   */
+  const sanitizeSlug = (s: string): string => {
+    let r = s.replace(/·/g, "-").replace(/–/g, "-").replace(/—/g, "-");
+    r = r.replace(/ /g, "-");
+    r = r.toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+    r = r.replace(/-{2,}/g, "-");
+    return r.replace(/^-+|-+$/g, "");
+  };
+
   const download = async () => {
     setIsDownloading(true);
     setDownloadError(null);
@@ -109,7 +121,8 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `${digest.book}-${digest.chapter}-extended.zip`;
+      const fname = `${sanitizeSlug(digest.book)}-${sanitizeSlug(digest.chapter)}-extended.zip`;
+      a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     } catch {
       setDownloadError("Export failed — network error");

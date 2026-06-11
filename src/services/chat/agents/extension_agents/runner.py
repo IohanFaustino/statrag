@@ -25,6 +25,49 @@ from src.services.chat.schemas import ChatRequest
 # other tests' caplog).
 _pkg_log_configured = False
 
+_PKG_LOGGER_NAME = "src.services.chat.agents.extension_agents"
+
+
+def _ensure_pkg_logging() -> None:
+    """Ensure INFO records from the extension_agents package reach the console.
+
+    Under uvicorn's default config the root logger has NO real handler — only
+    ``logging.lastResort`` (level WARNING), so propagated INFO records are
+    silently dropped.  This function (called once, lazily) attaches a
+    StreamHandler directly to the package logger when neither it nor any
+    ancestor already has a real handler, and sets ``propagate = False`` to
+    prevent future double-printing if a parent logger later gains a handler.
+
+    The function is idempotent when called multiple times; the module-level
+    ``_pkg_log_configured`` sentinel prevents duplicate calls from
+    ``run_extension``, but the function itself is safe to call directly in
+    tests via the sentinel reset.
+    """
+    pkg = logging.getLogger(_PKG_LOGGER_NAME)
+    pkg.setLevel(logging.INFO)
+
+    # Walk up the logger hierarchy to check for real (non-lastResort) handlers.
+    node: logging.Logger | logging.PlaceHolder | None = pkg
+    has_real_handler = False
+    while isinstance(node, logging.Logger):
+        if node.handlers:
+            has_real_handler = True
+            break
+        if not node.propagate:
+            break
+        parent_name = node.name.rsplit(".", 1)[0] if "." in node.name else ""
+        node = logging.getLogger(parent_name) if parent_name else logging.root
+        if node is logging.root:
+            if node.handlers:
+                has_real_handler = True
+            break
+
+    if not has_real_handler:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        pkg.addHandler(handler)
+        pkg.propagate = False
+
 # Matches a leading section number like "7.4" or "7.4.1" from a section label.
 _SECTION_NUM_PREFIX = _re.compile(r'^(\d+(?:[.\-]\d+)+)')
 
@@ -182,15 +225,10 @@ def _filter_subtopics(
 
 async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
     # Ensure diagnostic INFO logs from the extension_agents package reach the
-    # uvicorn console.  Uvicorn installs its own root-level handler on startup;
-    # application loggers propagate to it, but their effective level defaults to
-    # WARNING.  Setting the package logger to INFO here (once, lazily) lets
-    # _research_subject and _box_for_takes emit per-subject summaries without
-    # touching global basicConfig, adding a duplicate handler, or mutating
-    # logger state during pytest collection.
+    # uvicorn console.  See _ensure_pkg_logging() for full rationale.
     global _pkg_log_configured
     if not _pkg_log_configured:
-        logging.getLogger("src.services.chat.agents.extension_agents").setLevel(logging.INFO)
+        _ensure_pkg_logging()
         _pkg_log_configured = True
 
     t0 = time.time()

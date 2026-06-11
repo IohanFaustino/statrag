@@ -247,7 +247,7 @@ describe("StoryDigestCard", () => {
       await waitFor(() => expect(capturedAnchor).toBeDefined());
       await waitFor(() => expect(capturedAnchor!.click).toHaveBeenCalled());
       expect(capturedAnchor!.download).toBe(
-        "hansen-probability-ch07 · 7.4–7.5-extended.zip"
+        "hansen-probability-ch07-7.4-7.5-extended.zip"
       );
       createElSpy.mockRestore();
     });
