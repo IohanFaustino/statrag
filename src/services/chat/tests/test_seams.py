@@ -81,3 +81,22 @@ def test_figure_reference_does_not_break_seam():
     res = check_seams(beats, thesis="")
     assert res.passed is True
     assert res.scores["seam_continuity"] == 1.0
+
+
+def test_display_math_between_prose_does_not_break_seam():
+    # A $$…$$ block embedded between two connected prose sentences must not
+    # break seam continuity — math is stripped so the prose connection survives.
+    beats = _beats(
+        definition=(
+            "Bias is the systematic error of a model."
+            " $$\\mathrm{Bias}=\\mathbb{E}[\\hat{f}]-f$$"
+            " This bias drives underfitting."
+        ),
+        example_intuition=(
+            "That bias is visible when a linear model fits curved data."
+            " Variance then captures the remaining spread."
+        ),
+    )
+    res = check_seams(beats, thesis="bias variance underfitting")
+    assert res.passed is True
+    assert res.scores["seam_continuity"] == 1.0

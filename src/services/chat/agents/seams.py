@@ -30,6 +30,10 @@ _EN_STOP = {
 _LANG_FLOOR = 0.06  # >=6% of tokens must be English function words
 
 _WORD_RE = re.compile(r"[A-Za-zÀ-ſ]+")
+# Matches display ($$…$$) and inline ($…$) LaTeX regions.  Must be applied
+# before any prose-level analysis so math tokens never pollute sentence
+# splitting, lemma overlap, or language-ratio calculation.
+_MATH_RE = re.compile(r"\$\$.+?\$\$|\$[^$]+?\$", re.DOTALL)
 # Split only at a boundary followed by whitespace + an uppercase letter so that
 # abbreviations like "Fig. 7." or "e.g. linear" stay as single units.
 # NOTE: _lang_ratio / the _LANG_FLOOR is calibrated for paragraph-length beats,
@@ -67,6 +71,12 @@ class SeamResult:
     scores: dict[str, float] = field(default_factory=dict)
 
 
+def _strip_math(text: str) -> str:
+    """Remove display ($$…$$) and inline ($…$) LaTeX so math tokens never
+    pollute seam prose (sentence splitting, lemma overlap, language ratio)."""
+    return _MATH_RE.sub(" ", text)
+
+
 def _tokens(text: str) -> list[str]:
     return [w.lower() for w in _WORD_RE.findall(text)]
 
@@ -76,6 +86,7 @@ def _content_lemmas(text: str) -> set[str]:
 
 
 def _sentences(text: str) -> list[str]:
+    text = _strip_math(text)
     parts = [s.strip() for s in _SENT_SPLIT.split(text.strip()) if s.strip()]
     return parts
 
@@ -105,7 +116,7 @@ def _leading_trigram(text: str) -> str:
 
 
 def _lang_ratio(text: str) -> float:
-    toks = _tokens(text)
+    toks = _tokens(_strip_math(text))
     if not toks:
         return 1.0
     return sum(1 for t in toks if t in _EN_STOP) / len(toks)
