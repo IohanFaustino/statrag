@@ -59,13 +59,36 @@ What stays yours: verification commands (test runs, status polls, queries),
 git mechanics at the boundary (merge, conflict resolution in status/doc
 files), status registration, user gates, and Law 1.
 
+## Superpowers — the skills are your operating system
+
+When the superpowers plugin is available, you do NOT improvise workflow —
+you invoke the skill and follow it exactly. Skills are rigid guardrails
+distilled from more sessions than you have context for; shortcutting them
+is how batches rot. If even 1% chance a skill applies, invoke it before
+acting. Phase → skill map:
+
+| Phase | Skill | Notes |
+|---|---|---|
+| Idea → design | `superpowers:brainstorming` | One question at a time, 2–3 approaches, design sections w/ per-section approval, spec to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, self-review, USER review gate. The creative advisor seat complements this (counsel before/while designing) — it never replaces the user's approval gate. |
+| Design → tasks | `superpowers:writing-plans` | Bite-sized tasks (2–5 min, TDD), full code in steps, no placeholders; plan to `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`. This is the artifact the plan gate requires. |
+| Isolation | `superpowers:using-git-worktrees` | Create/verify the isolated workspace BEFORE the first dispatch. Respect provenance: superpowers owns only `.worktrees/`, `worktrees/`, `~/.config/superpowers/worktrees/`; harness-owned worktrees are never removed. |
+| Execution | `superpowers:subagent-driven-development` | The roster pattern below IS this skill: its `implementer-prompt.md` / `spec-reviewer-prompt.md` / `code-quality-reviewer-prompt.md` templates are the dispatch baseline — read them from the skill, then add your context curation on top. Same-session execution. |
+| Execution (parallel session) | `superpowers:executing-plans` | Alternative when work moves to a separate session; don't mix the two in one batch. |
+| Inside subagents | `superpowers:test-driven-development` | Implementers follow TDD; your dispatch prompt says so. |
+| Reviews | `superpowers:requesting-code-review` | The quality reviewer's template; give it BASE_SHA/HEAD_SHA. |
+| Closure | `superpowers:finishing-a-development-branch` | Tests → environment detect → exactly-4 options (or 3 detached) → execute choice → cleanup rules. Never freelance the merge. |
+
+Priority: user instructions (CLAUDE.md / direct) > skills > defaults. If a
+project's CLAUDE.md contradicts a skill, the project wins — note the
+deviation in your status record.
+
 ## Before you dispatch — the plan gate
 
 Orchestration starts before the first dispatch. Check, in order:
 
 1. **Is there an approved plan with decomposed tasks?** No plan → stop and
-   produce one first (design/brainstorm → spec → written plan with full task
-   text per task). Dispatching against vibes produces confident garbage.
+   produce one first via the skills (`brainstorming` → user-approved spec →
+   `writing-plans`). Dispatching against vibes produces confident garbage.
 2. **Are the tasks mostly independent and bite-sized?** Tightly coupled
    tasks fight each other across fresh contexts — restructure the plan or
    execute the coupled core as one task.
@@ -343,9 +366,10 @@ Operational habits:
    surface-level checks (pixels actually painted) — they fail independently.
 4. Project/domain invariant gates (whatever the repo defines — e.g. a
    `verify` skill) — report pre-existing violations, don't silently fix.
-5. Branch finishing: fresh full suites, present the standard options
-   (merge / PR / keep / discard — recommended first), execute choice, then
-   **re-run the suites on the merged result** before declaring done.
+5. Branch finishing via `superpowers:finishing-a-development-branch`: fresh
+   full suites, present the standard options (merge / PR / keep / discard —
+   recommended first), execute choice, then **re-run the suites on the
+   merged result** before declaring done.
 6. Register reality: status row updated to final state, memory updated,
    worktree provenance respected (harness-owned worktrees are NEVER removed;
    a worktree holding a checked-out branch keeps that branch alive).
@@ -365,6 +389,8 @@ Operational habits:
 | "I'll clean the worktree up" | Provenance check. Harness-owned → never remove. |
 | "User feedback can wait until after this batch" | Fold it into the open fix tasks now; it's cheaper while the roster is warm. |
 | "No plan, but the tasks are obvious" | Plan gate. Write it down first. |
+| "I know this skill, no need to invoke it" | Skills evolve; invoke and read the current version. |
+| "The skill checklist is overkill here" | Simple things become complex. Follow it. |
 | "Dispatch someone to figure out why it's broken" | Diagnose to hypotheses first; dispatch verifications, not expeditions. |
 | "grep found nothing, so it's not there" | Tool contradicts another observation → re-measure via independent channel. |
 | "The data layer is green, render must be fine" | Layers fail independently. Walk the whole chain. |
