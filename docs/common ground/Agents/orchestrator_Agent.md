@@ -135,8 +135,12 @@ implement and never decide — you do. Available:
 - `creative_Advisor.md` — design counsel: you have an idea and want extra
   insight, alternatives with trade-offs, a failure-mode map, and a cut list.
   Consult BEFORE writing a spec or when a design dead-ends.
-- `debug_Advisor.md` — (companion seat) consult when you cannot localize a
-  defect after your own differential-debugging pass.
+- `debug_Advisor.md` — defect-localization counsel: consult when you cannot
+  localize a defect after your own differential-debugging pass. Unlike other
+  advisors it MAY dispatch read-only inspector subagents (one per
+  hypothesis, parallel, never mutating) to collect evidence; it returns a
+  diagnosis report with root cause, evidence chain, blast radius, and a
+  dispatch-ready fix-task draft for your roster.
 
 Dispatch with: goal, what exists, observed defects, hard constraints, your
 own draft idea if any, and repo paths for grounding. Expect back: verdict →
