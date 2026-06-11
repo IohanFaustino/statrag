@@ -23,6 +23,7 @@ from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.llm.structured import apply_structured_output
 from src.services.chat.prompts.qa import (
+    QA_FALLBACK_PROMPT,
     QA_GENERATE_PROMPT,
     QA_SCOPE_PROMPT,
     QA_STORY_WRITE_PROMPT,
@@ -473,6 +474,131 @@ def qa_bind(
         math_blocks=draft.math_blocks,
         grounding={"unbound_markers": unbound, "lints": lints},
     )
+
+
+async def verify_story(
+    answer: QAStoryAnswer,
+    sources: list[Source],
+    *,
+    model: str | None = None,
+) -> QAStoryAnswer:
+    """Advisory grounding audit for a QAStoryAnswer.
+
+    Sends the three prose fields + sources to the LLM and merges the verdict
+    (ok/unsupported/confidence) into ``answer.grounding`` WITHOUT changing any
+    prose field. Prior grounding keys (e.g. unbound_markers, lints) are
+    preserved.
+
+    Fail-open: on any exception the original answer is returned with an
+    advisory-pass grounding update (confidence=0.5, prior keys kept). Never
+    raises.
+    """
+    chosen = model or settings.openai_model_nano
+    user = (
+        f"intro:\n{answer.intro}\n\n"
+        f"deepening:\n{answer.deepening}\n\n"
+        f"conclusion:\n{answer.conclusion}\n\n"
+        f"sources:\n{_sources_block(sources)}"
+    )
+    try:
+        raw = await _chat(
+            [
+                {"role": "system", "content": QA_VERIFY_PROMPT},
+                {"role": "user", "content": user},
+            ],
+            model=chosen,
+            max_tokens=500,
+            schema=QAVerifyOut,
+        )
+        data = json.loads(strip_fences(raw))
+        merged = {
+            **answer.grounding,
+            "ok": bool(data.get("ok", False)),
+            "unsupported": [str(x) for x in (data.get("unsupported") or [])],
+            "confidence": float(data.get("confidence", 0.5)),
+        }
+        return answer.model_copy(update={"grounding": merged})
+    except Exception:  # noqa: BLE001
+        logger.exception("qa.verify_story failed; advisory pass, prose intact")
+        merged = {
+            **answer.grounding,
+            "ok": answer.grounding.get("ok", True),
+            "confidence": 0.5,
+        }
+        return answer.model_copy(update={"grounding": merged})
+
+
+async def _fallback_story(
+    scope: QAScope,
+    sources: list[Source],
+    *,
+    model: str | None = None,
+) -> QAStoryAnswer:
+    """Corpus-only regression-safety generator.
+
+    Called when ``write_story`` throws or produces unparseable output. Uses the
+    simpler ``QA_FALLBACK_PROMPT`` that emits plain prose (no [[eid]] tokens),
+    so citation binding is skipped entirely (citations=[]).
+
+    Returns a ``QAStoryAnswer`` with grounding stamped ok=True/fallback=True.
+    NEVER raises — it is the last line of defence. On total failure it returns
+    a minimal honest answer rather than propagating the exception.
+    """
+    chosen = model or settings.openai_model_nano
+    user = (
+        f"target_gap: {scope.target_gap}\n\n"
+        f"sources:\n{_sources_block(sources)}"
+    )
+    messages = [
+        {"role": "system", "content": QA_FALLBACK_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+    async def _one() -> dict:
+        raw = await _chat(messages, model=chosen, max_tokens=1200, schema=QAStoryDraft)
+        return json.loads(strip_fences(raw))
+
+    try:
+        try:
+            data = await _one()
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("qa._fallback_story first parse failed; repair retry")
+            data = await _one()
+
+        return QAStoryAnswer(
+            intro=str(data.get("intro", "")),
+            deepening=str(data.get("deepening", "")),
+            conclusion=str(data.get("conclusion", "")),
+            scope=scope,
+            citations=[],
+            math_blocks=[str(m) for m in (data.get("math_blocks") or []) if str(m).strip()],
+            grounding={
+                "ok": True,
+                "unsupported": [],
+                "confidence": 0.6,
+                "unbound_markers": 0,
+                "lints": [],
+                "fallback": True,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("qa._fallback_story failed; returning degenerate honest answer")
+        return QAStoryAnswer(
+            intro="The sources retrieved do not contain enough information to answer this question.",
+            deepening="",
+            conclusion="",
+            scope=scope,
+            citations=[],
+            math_blocks=[],
+            grounding={
+                "ok": True,
+                "unsupported": [],
+                "confidence": 0.0,
+                "unbound_markers": 0,
+                "lints": [],
+                "fallback": True,
+            },
+        )
 
 
 async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
