@@ -65,6 +65,95 @@ describe("StoryDigestCard", () => {
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
   });
 
+  // ─── Paragraph rendering ──────────────────────────────────────────────────
+
+  it("story with \\n\\n renders as 2 paragraph elements, both justified", () => {
+    const multiParaDigest: StoryDigest = {
+      ...digest,
+      takes: [
+        {
+          heading: "Para test",
+          story: "First paragraph with $x$.\n\nSecond paragraph with $y$.",
+          items: [],
+        },
+      ],
+    };
+    const { container } = render(<StoryDigestCard digest={multiParaDigest} />);
+    const story = container.querySelector(".story-take__story")!;
+    const paras = story.querySelectorAll("p");
+    expect(paras.length).toBe(2);
+    paras.forEach((p) => {
+      expect(p.style.textAlign).toBe("justify");
+    });
+  });
+
+  it("curiosity body with \\n\\n renders as 2 paragraph elements, both justified", () => {
+    const multiBodyDigest: StoryDigest = {
+      ...digest,
+      takes: [
+        {
+          heading: "Body para test",
+          story: "Story.",
+          items: [
+            {
+              subject: "Sub",
+              body: "First body line.\n\nSecond body line.",
+              citations: [],
+            },
+          ],
+        },
+      ],
+    };
+    const { container } = render(<StoryDigestCard digest={multiBodyDigest} />);
+    // Expand the curiosity box first
+    fireEvent.click(screen.getByText(/Curiosity box \(1\)/));
+    const bodyDiv = container.querySelector(".curiosity-item__body")!;
+    const paras = bodyDiv.querySelectorAll("p");
+    expect(paras.length).toBe(2);
+    paras.forEach((p) => {
+      expect(p.style.textAlign).toBe("justify");
+    });
+  });
+
+  it("single-paragraph story (no \\n\\n) renders without wrapping <p> tags", () => {
+    const { container } = render(<StoryDigestCard digest={digest} />);
+    // digest.takes[0].story has no \n\n — should not produce <p> children
+    const firstStory = container.querySelectorAll(".story-take__story")[0]!;
+    expect(firstStory.querySelectorAll("p").length).toBe(0);
+  });
+
+  // ─── Heading math ─────────────────────────────────────────────────────────
+
+  it("heading containing $x$ produces KaTeX output (.katex in heading)", () => {
+    // digest.takes[0].heading = "Chebyshev $\\delta^{-2}$"
+    const { container } = render(<StoryDigestCard digest={digest} />);
+    const firstHeading = container.querySelectorAll(".story-take__heading")[0]!;
+    expect(firstHeading.querySelector(".katex")).not.toBeNull();
+  });
+
+  // ─── Full-bar toggle hit-area ─────────────────────────────────────────────
+
+  it("clicking the toggle button element (not just label text) toggles expansion; aria-expanded flips", () => {
+    const { container } = render(<StoryDigestCard digest={digest} />);
+    const toggleBtn = container.querySelector("button.curiosity-box__toggle")!;
+    expect(toggleBtn).not.toBeNull();
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
+    // Click the button element directly (simulates clicking mid-bar away from text)
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "true");
+    expect(container.querySelector(".curiosity-box__items")).not.toBeNull();
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
+    expect(container.querySelector(".curiosity-box__items")).toBeNull();
+  });
+
+  it("toggle button is keyboard accessible (role=button, type=button)", () => {
+    const { container } = render(<StoryDigestCard digest={digest} />);
+    const toggleBtn = container.querySelector("button.curiosity-box__toggle")!;
+    expect(toggleBtn.tagName).toBe("BUTTON");
+    expect(toggleBtn).toHaveAttribute("type", "button");
+  });
+
   describe("download error UX", () => {
     beforeEach(() => { vi.spyOn(globalThis, "fetch"); });
     afterEach(() => { vi.restoreAllMocks(); });

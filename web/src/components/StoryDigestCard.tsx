@@ -1,6 +1,37 @@
-import { useState } from "react";
-import { renderMathText } from "../lib/renderRichText";
+import React, { useState } from "react";
+import { renderMathText, normalizeMathDelimiters } from "../lib/renderRichText";
 import type { StoryDigest, StoryCitation } from "../types";
+
+/**
+ * Split body text on blank lines and render each paragraph through the
+ * math+markdown renderer. A `$$...$$` block that spans a paragraph boundary
+ * (i.e. the delimiters already normalised to $$) is kept whole because we
+ * normalise first, then split — a display-math block will never have a blank
+ * line inside it after normalisation.
+ */
+function renderParagraphs(text: string, className?: string): React.ReactNode {
+  const normalised = normalizeMathDelimiters(text);
+  const chunks = normalised.split(/\n{2,}/);
+  if (chunks.length === 1) {
+    // Single paragraph — keep original wrapper behaviour (no extra <p> wrapping)
+    return renderMathText(text);
+  }
+  return (
+    <>
+      {chunks.map((chunk, i) =>
+        chunk.trim() ? (
+          <p
+            key={i}
+            className={className}
+            style={{ textAlign: "justify", margin: "0 0 0.6em" }}
+          >
+            {renderMathText(chunk)}
+          </p>
+        ) : null
+      )}
+    </>
+  );
+}
 
 function Chip({ c }: { c: StoryCitation }) {
   if (c.kind === "wikipedia" && c.url) {
@@ -53,16 +84,30 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
 
       {digest.takes.map((t, i) => (
         <div key={i} className="story-take">
+          {/* Rail: num node + connecting line. mt aligns node with heading first line. */}
           <div className="story-take__rail">
-            <div className="story-take__num">{i + 1}</div>
+            <div className="story-take__num" style={{ marginTop: "3px" }}>{i + 1}</div>
             {i < digest.takes.length - 1 && <div className="story-take__line" />}
           </div>
           <div className="story-take__body">
-            <h3 className="story-take__heading">{renderMathText(t.heading)}</h3>
-            <div className="story-take__story">{renderMathText(t.story)}</div>
+            {/* Heading: rendered through math+markdown renderer for $...$ support */}
+            <h3 className="story-take__heading" style={{ marginTop: 0, marginBottom: "0.45em" }}>
+              {renderMathText(t.heading)}
+            </h3>
+            {/* Story: multi-paragraph support — \n\n splits into justified <p> blocks */}
+            <div className="story-take__story">
+              {renderParagraphs(t.story)}
+            </div>
             {t.items.length > 0 && (
               <div className="curiosity-box">
-                <button type="button" className="curiosity-box__toggle" aria-expanded={open.has(i)} onClick={() => toggle(i)}>
+                {/* Full-width toggle button — entire header bar is clickable */}
+                <button
+                  type="button"
+                  className="curiosity-box__toggle"
+                  aria-expanded={open.has(i)}
+                  onClick={() => toggle(i)}
+                  style={{ display: "block", width: "100%", textAlign: "left" }}
+                >
                   {open.has(i) ? "▾" : "▸"} Curiosity box ({t.items.length})
                 </button>
                 {open.has(i) && (
@@ -70,7 +115,10 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
                     {t.items.map((it, j) => (
                       <li key={j} className="curiosity-item">
                         <span className="curiosity-item__subject">{renderMathText(it.subject)}</span>
-                        <div className="curiosity-item__body">{renderMathText(it.body)}</div>
+                        {/* Body: multi-paragraph support */}
+                        <div className="curiosity-item__body">
+                          {renderParagraphs(it.body)}
+                        </div>
                         <div className="curiosity-item__chips">
                           {it.citations.map((c, k) => <Chip key={k} c={c} />)}
                         </div>
