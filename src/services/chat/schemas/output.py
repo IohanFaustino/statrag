@@ -163,35 +163,56 @@ class DeepTutorAnswer(BaseModel):
     tldr: str = Field(
         ...,
         description=(
-            "Introduction: 2-3 sentence direct answer, then a one-sentence "
-            "roadmap of the sections that follow."
+            "INTRODUCTION — stands OUTSIDE the narrative thread. 2-3 sentence "
+            "direct answer, then a one-sentence roadmap of the beats that follow. "
+            "Do NOT write a transition into or out of this section."
         ),
     )
-    definition: str = Field(..., description="Markdown paragraph defining the concept.")
+    definition: str = Field(
+        ...,
+        description=(
+            "BEAT 1 (Define). OPENS from the prior thesis statement (not from "
+            "the intro). Defines the concept; component subsections each carry "
+            "their $$display equation$$. CLOSE by setting up why we next make "
+            "it precise / see it work."
+        ),
+    )
     formal_statement: str = Field(
         ...,
         description=(
-            "Verbatim numbered theorem/definition when the sources state one "
-            "('Conforming to Definition X.Y.Z, …' + blockquote); otherwise an "
-            "EMPTY STRING (the heading is dropped when empty)."
+            "BEAT 2 (Formalize). Verbatim numbered theorem/definition when the "
+            "sources state one ('Conforming to Definition X.Y.Z, …' + blockquote), "
+            "OPENING by carrying the definition forward and CLOSING toward the "
+            "worked example. Otherwise an EMPTY STRING — when empty the heading is "
+            "dropped and Beat 3 must hand off directly from Beat 1 (do NOT leave a "
+            "dangling 'as the theorem above shows')."
         ),
     )
     example_intuition: str = Field(
         ...,
         description=(
-            "Example & Intuition merged: describe three cases, analyse the "
-            "three, then state explicitly 'the intuition here is that …'."
+            "BEAT 3 (See it work). OPENS by carrying the prior beat's thread "
+            "forward (the definition/formal result). Describe three cases, analyse "
+            "them, state explicitly 'the intuition here is that …'. CLOSE by "
+            "pointing to what comes next: real-world use."
         ),
     )
     applications: str = Field(
         ...,
-        description="Corpus-grounded use-cases grouped by domain (marketing, finance, …).",
+        description=(
+            "BEAT 4 (Use it). OPENS by carrying the prior beat's worked example "
+            "forward into practice. Corpus-grounded specific use-cases "
+            "(method/model/dataset, cited). CLOSE by pointing to what comes next "
+            "beyond current practice."
+        ),
     )
     further_reading: str = Field(
         ...,
         description=(
-            "Pointer to related topics with citations, plus a short list "
-            "of 2-3 open/related research questions extending this topic."
+            "BEAT 5 (Go further). OPENS by carrying the prior beat's applications "
+            "thread forward. Related topics with citations + 2-3 open research "
+            "questions extending this topic. Lead the reader to what comes next "
+            "beyond the current corpus."
         ),
     )
     citations: list[TutorCitation] = Field(default_factory=list)

@@ -307,7 +307,7 @@ def test_convert_uses_relevance_override():
 # Soft regression guard: ceiling sits deliberately above the current ~18.7k size
 # to catch runaway bloat while leaving comfortable room for intentional additions.
 # Raise it when you genuinely add new rules; lower it after a prompt-diet pass.
-_PROMPT_BUDGET_CEILING = 20_500
+_PROMPT_BUDGET_CEILING = 21_500  # raised 2026-06-11: +narrative_contract block (Task 3)
 
 
 def test_deep_tutor_instructions_within_token_budget():

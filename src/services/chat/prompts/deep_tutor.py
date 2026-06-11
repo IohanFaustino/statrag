@@ -450,6 +450,20 @@ Per-field requirements (target lengths are minimums; longer is fine):
 - ``<recovered_equations>``: copy each LaTeX verbatim as the concept's defining equation; cite the source.
 </figures>
 
+<narrative_contract>
+NARRATIVE CONTRACT (one continuous story, intro excluded):
+- The TL;DR introduction stands alone. Do not thread it.
+- The five body beats form ONE story developing the <thesis> you are given.
+  Each body beat OPENS with a clause that carries the previous beat's idea
+  forward, and CLOSES with a clause that sets up the next beat.
+- Vary the bridge: echo a key term, pose the question the next beat answers,
+  or carry the running example forward. NEVER open two beats with the same
+  phrase, and never use the formula "Now that we …".
+- If you leave formal_statement empty, Beat 3 (see it work) must hand off
+  directly from Beat 1 (define) — do not reference a theorem you did not state.
+- Write in English.
+</narrative_contract>
+
 <plan>
 The user message MAY include a ``<synthesis_plan>`` block (a thesis + the
 angles to cover) and a ``<contrasts>`` block. When present, treat the plan as
@@ -477,24 +491,20 @@ empty.  Do not invent content.
 
 SYNTHESIS_PLAN_PROMPT: str = """\
 <role>
-You are the PLANNER (and orchestrator) for a multi-aspect tutor answer. Your
-plan is the single contract between retrieval and the drafting/orchestrator
-stages — it decides whether the answer reads as one throughline or as a pile
-of disconnected source quotes.
+You are the PLANNER for a multi-aspect tutor answer. Your plan is the single
+contract between retrieval and the drafting stage — it decides whether the
+answer reads as one throughline or as a pile of disconnected source quotes.
 </role>
 
 <context>
 You receive the user question plus a `<source_bundle>` where each source is
-tagged `[#rank]` with its author. The single-draft path uses `thesis` +
-`contrasts` to enforce one throughline. The orchestrator-workers path also
-consumes `tasks` to dispatch parallel author workers; the synthesizer then
-merges their briefs into the final DeepTutorAnswer.
+tagged `[#rank]` with its author. The drafter uses `thesis` + `contrasts` to
+enforce one narrative throughline across all five body beats.
 </context>
 
 <task>
-Produce a JSON plan that (a) gives the drafter ONE throughline, (b) flags only
-GENUINE cross-author contrasts, and (c) decomposes the work into 2-4 worker
-tasks for the orchestrator path.
+Produce a JSON plan that (a) gives the drafter ONE throughline and (b) flags
+only GENUINE cross-author contrasts.
 
 Return ONLY a JSON object with this shape:
 {
@@ -503,20 +513,10 @@ Return ONLY a JSON object with this shape:
     {"topic": "what they differ on", "author_a": "...", "position_a": "...",
      "author_b": "...", "position_b": "..."}, ...
   ],
-  "tasks": [
-    {"focus": "what one worker should cover", "source_ranks": [the #ranks for it]}, ...
-  ]
+  "tasks": []
 }
 
 Keep it compact — short phrases, not paragraphs.
-
-`tasks` = how you would split the work across parallel workers (used only by the
-orchestrator drafting mode; the single-draft mode ignores it):
-- Normally one task per distinct author whose sources add a real perspective;
-  for a broad/single-author question, split by sub-topic or merge thin sources.
-- 2-4 tasks; never more tasks than useful sources; every `source_ranks` entry
-  must be a rank present in the bundle. If the material is too thin to split,
-  return a single task (or an empty list) — the system will use the single draft.
 </task>
 
 <rules>
@@ -525,6 +525,7 @@ orchestrator drafting mode; the single-draft mode ignores it):
   sources agree, return an empty `contrasts` list — do not manufacture conflict.
 - Keep it compact: thesis = 1 sentence; short `focus`/`position` phrases.
 - Do not invent authors or `#rank`s; use only what the bundle contains.
+- Always return `"tasks": []` — task decomposition is handled by the system.
 </rules>
 
 <output>
