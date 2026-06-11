@@ -12,8 +12,8 @@ Implementers: `voltagent-lang:python-pro` (sonnet). Reviewers: general-purpose (
 | 3 | Narrative prompt + per-beat Field descriptions | ✅ done (spec✅ quality✅ + re-review) | `9950b53` + fix `5bb928a` | bridge-opener contract on all 4 threaded beats reconciled w/ Field descriptions; worker-tasks stripped from SYNTHESIS_PLAN_PROMPT; tightened plan-task test. |
 | 4 | Wire seam guard + bounded redraft + thesis injection | ✅ done (spec✅ quality✅ + I1 fix) | `76796ed` + fix `a7def86` | seam guard wired in run_deep_tutor; ONE non-streamed redraft; composite acceptance (no lang/boilerplate regress); thesis `<thesis>` injected; quality scores merged. BLOCKING Step 6 RESOLVED by orchestrator: TutorView renders final `structured_output.data.text` (TutorView.tsx:139), not streamed tokens → silent redraft valid. |
 | 5 | Non-interference tests (equations/citations/figures) | ✅ done (quality✅ + 2 fixes) | `aec5d26` + fix `19bc336` | caught + fixed real seams.py gap: strip `$$…$$`/`$…$` LaTeX from seam prose (tighter regex, no currency over-strip); component-equation invariant confirmed intact (incl. word-form variance path). |
-| 6 | Frontend lockstep (scrub knob, collapse diagram) | ⏳ next | — | react-specialist; needs `cd web && npm test`/`npx tsc`. |
-| 7 | Docs/HTML/invariants/changelog lockstep | ⏳ | — | |
+| 6 | Frontend lockstep (scrub knob, collapse diagram) | ✅ done (spec✅ quality✅ + cleanup) | `c8aef94` + cleanup `60db894` | `tutorWorkflow` scrubbed everywhere; pipeline diagram collapsed to single "Narrative draft" node (retrieval-front + per-node model dropdowns kept); dead phase mappings + stale plan tooltip removed. 253 vitest pass, tsc clean. |
+| 7 | Docs/HTML/invariants/changelog lockstep | ⏳ next | — | doc 57 new; supersede 44/48/56; 36 mermaid+env; Elements/modes/tutor.html; invariants+changelog; CLAUDE.md pending row. |
 | 8 | Live verify (:5175 + Google MCP as user) | ⏳ orchestrator-run | — | |
 
 ## Authoritative baseline
