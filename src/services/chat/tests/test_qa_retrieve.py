@@ -109,6 +109,67 @@ async def test_retrieve_evidence_resilient_to_wiki_failure():
 
 
 @pytest.mark.asyncio
+async def test_retrieve_evidence_stamps_readable_ids():
+    """After gather, corpus Evidence get c1/c2/... and wikipedia Evidence get
+    w1/w2/w3/... regardless of the random hex ids produced by the factory.
+
+    Scope has 2 wiki_terms; _QA_WIKI_TERMS_MAX=2 → 3 wiki calls (target_gap +
+    Chebyshev + Markov), each returning 1 Evidence.  fake_corpus returns 2
+    corpus Evidence.  Expected ids: c1, c2 (corpus) + w1, w2, w3 (wiki).
+    """
+    import re as _re
+
+    scope = _make_scope()  # wiki_terms = ["Chebyshev", "Markov", "Extra"]
+
+    def fake_corpus_two(query: str, **kwargs) -> list[Evidence]:
+        """Return 2 corpus Evidence with random/hex ids (the production default)."""
+        import uuid
+        return [
+            Evidence(subject_id="qa", kind="corpus", text="corpus text A",
+                     meta={"chunk_id": "aaa"}, id=uuid.uuid4().hex[:12]),
+            Evidence(subject_id="qa", kind="corpus", text="corpus text B",
+                     meta={"chunk_id": "bbb"}, id=uuid.uuid4().hex[:12]),
+        ]
+
+    def fake_wiki_one(query: str, **kwargs) -> list[Evidence]:
+        """Return 1 wikipedia Evidence per call with random/hex id."""
+        import uuid
+        return [
+            Evidence(subject_id="qa", kind="wikipedia", text=f"wiki text for {query}",
+                     meta={"title": query, "url": "http://example.com"},
+                     id=uuid.uuid4().hex[:12]),
+        ]
+
+    with patch.object(qa, "corpus_evidence", fake_corpus_two), \
+         patch.object(qa, "wiki_evidence", fake_wiki_one):
+        result = await qa.retrieve_evidence(scope, book_slugs=["hansen"])
+
+    # Total: 2 corpus + 3 wiki = 5 items
+    assert len(result) == 5, f"expected 5 items, got {len(result)}: {[e.id for e in result]}"
+
+    corpus_items = [e for e in result if e.kind == "corpus"]
+    wiki_items = [e for e in result if e.kind == "wikipedia"]
+    assert len(corpus_items) == 2
+    assert len(wiki_items) == 3
+
+    # Corpus ids must be c1, c2 (in order)
+    assert corpus_items[0].id == "c1"
+    assert corpus_items[1].id == "c2"
+
+    # Wikipedia ids must be w1, w2, w3 (in order)
+    assert wiki_items[0].id == "w1"
+    assert wiki_items[1].id == "w2"
+    assert wiki_items[2].id == "w3"
+
+    # All ids are unique and match the readable scheme
+    all_ids = [e.id for e in result]
+    assert len(all_ids) == len(set(all_ids)), "ids must be unique across the full list"
+    pattern = _re.compile(r'^[cw]\d+$')
+    for eid in all_ids:
+        assert pattern.match(eid), f"id {eid!r} does not match ^[cw]\\d+$"
+
+
+@pytest.mark.asyncio
 async def test_retrieve_evidence_skips_wiki_when_flag_off(monkeypatch):
     """When _QA_WIKI is False, wiki_evidence must NOT be called."""
     scope = _make_scope()

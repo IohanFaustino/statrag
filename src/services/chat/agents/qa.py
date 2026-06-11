@@ -294,6 +294,20 @@ async def retrieve_evidence(
                            label, type(batch).__name__, batch)
             continue
         result.extend(batch)
+
+    # Stamp readable, prompt-aligned ids so [[eid]] tokens the writer emits
+    # match what qa_bind looks up.  corpus → c1/c2/..., wikipedia → w1/w2/...
+    # Separate counters keep the two namespaces from colliding.
+    corpus_n = 0
+    wiki_n = 0
+    for e in result:
+        if e.kind == "corpus":
+            corpus_n += 1
+            e.id = f"c{corpus_n}"
+        else:
+            wiki_n += 1
+            e.id = f"w{wiki_n}"
+
     return result
 
 
