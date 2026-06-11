@@ -122,6 +122,37 @@ describe("StoryDigestCard", () => {
     expect(firstStory.querySelectorAll("p").length).toBe(0);
   });
 
+  it("display equation with blank line inside \\[...\\] block is kept intact across paragraph split", () => {
+    // Regression: normalizeMathDelimiters converts \[...\] → $$...$$, which
+    // may contain blank lines.  The paragraph splitter must NOT tear the
+    // equation at those internal blank lines.
+    const eqDigest: StoryDigest = {
+      ...digest,
+      takes: [
+        {
+          heading: "Equation split regression",
+          story: "Intro text.\n\n\\[\nA = B\n\nC = D\n\\]\n\nOutro text.",
+          items: [],
+        },
+      ],
+    };
+    const { container } = render(<StoryDigestCard digest={eqDigest} />);
+    const story = container.querySelector(".story-take__story")!;
+
+    // Exactly 3 paragraph blocks: intro, equation, outro
+    const paras = story.querySelectorAll("p");
+    expect(paras.length).toBe(3);
+
+    // KaTeX must have rendered (equation intact, not torn)
+    expect(story.querySelector(".katex")).not.toBeNull();
+
+    // No paragraph should contain a dangling delimiter (torn $$)
+    paras.forEach((p) => {
+      expect(p.textContent).not.toMatch(/^\$\$/);
+      expect(p.textContent).not.toMatch(/\$\$$/);
+    });
+  });
+
   // ─── Heading math ─────────────────────────────────────────────────────────
 
   it("heading containing $x$ produces KaTeX output (.katex in heading)", () => {

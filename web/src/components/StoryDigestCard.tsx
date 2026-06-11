@@ -3,15 +3,59 @@ import { renderMathText, normalizeMathDelimiters } from "../lib/renderRichText";
 import type { StoryDigest, StoryCitation } from "../types";
 
 /**
+ * Split `normalised` on blank lines, but skip blank lines that fall INSIDE a
+ * `$$...$$` display-math block (which can contain blank lines after
+ * normalizeMathDelimiters converts `\[...\]`).
+ *
+ * Algorithm: scan character by character tracking whether we're inside a $$
+ * block (toggled every time we encounter `$$`).  A run of two-or-more newlines
+ * is a paragraph boundary ONLY when `insideMath` is false at that point.
+ */
+function splitParagraphsOutsideMath(normalised: string): string[] {
+  const chunks: string[] = [];
+  let current = "";
+  let insideMath = false;
+  let i = 0;
+  while (i < normalised.length) {
+    // Check for $$ delimiter (but not a lone $)
+    if (
+      normalised[i] === "$" &&
+      normalised[i + 1] === "$" &&
+      normalised[i + 2] !== "$"
+    ) {
+      insideMath = !insideMath;
+      current += "$$";
+      i += 2;
+      continue;
+    }
+    // Check for paragraph break (two or more newlines) outside math
+    if (!insideMath && normalised[i] === "\n") {
+      let j = i;
+      while (j < normalised.length && normalised[j] === "\n") j++;
+      if (j - i >= 2) {
+        // Genuine paragraph boundary
+        chunks.push(current);
+        current = "";
+        i = j;
+        continue;
+      }
+    }
+    current += normalised[i];
+    i++;
+  }
+  chunks.push(current);
+  return chunks;
+}
+
+/**
  * Split body text on blank lines and render each paragraph through the
- * math+markdown renderer. A `$$...$$` block that spans a paragraph boundary
- * (i.e. the delimiters already normalised to $$) is kept whole because we
- * normalise first, then split — a display-math block will never have a blank
- * line inside it after normalisation.
+ * math+markdown renderer. Blank lines that fall inside `$$...$$` display-math
+ * blocks (which `normalizeMathDelimiters` can produce from `\[...\]` source)
+ * are skipped — the equation is kept intact as a single chunk.
  */
 function renderParagraphs(text: string, className?: string): React.ReactNode {
   const normalised = normalizeMathDelimiters(text);
-  const chunks = normalised.split(/\n{2,}/);
+  const chunks = splitParagraphsOutsideMath(normalised);
   if (chunks.length === 1) {
     // Single paragraph — keep original wrapper behaviour (no extra <p> wrapping)
     return renderMathText(text);
