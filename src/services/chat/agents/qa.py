@@ -19,7 +19,6 @@ from typing import AsyncIterator
 from src.core.config import settings
 from src.services.chat._fences import strip_fences
 from src.services.chat.agents._scope import maybe_clarify, resolve_book
-from src.services.chat.agents.extension_agents.runner import _isolate_midline_display
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.llm.structured import apply_structured_output
@@ -28,7 +27,9 @@ from src.services.chat.prompts.qa import (
     QA_SCOPE_PROMPT,
     QA_VERIFY_PROMPT,
 )
-from src.services.chat.research import Evidence, _citation, corpus_evidence, wiki_evidence
+from src.services.chat.research import (
+    Evidence, _citation, _isolate_midline_display, corpus_evidence, wiki_evidence,
+)
 from src.services.chat.retrieval import hybrid_search
 from src.services.chat.schemas import (
     ChatRequest, QAAnswer, QAGenerateOut, QAScope, QAStoryAnswer, QAStoryDraft,
@@ -277,10 +278,15 @@ async def retrieve_evidence(
         for q in wiki_queries
     ]
 
-    gathered = await asyncio.gather(coro_corpus, *wiki_coros)
+    gathered = await asyncio.gather(coro_corpus, *wiki_coros, return_exceptions=True)
 
     result: list[Evidence] = []
-    for batch in gathered:
+    for i, batch in enumerate(gathered):
+        if isinstance(batch, BaseException):
+            label = "corpus" if i == 0 else f"wiki[{i - 1}]"
+            logger.warning("retrieve_evidence: %s fetch raised %s: %s",
+                           label, type(batch).__name__, batch)
+            continue
         result.extend(batch)
     return result
 
@@ -328,6 +334,8 @@ def _apply_token_pass(
         result = re.sub(r'\[\[([^\]]+)\]\]', _sub, text)
         # Collapse any doubled spaces left by removed tokens
         result = re.sub(r'  +', ' ', result)
+        # Remove orphan space before punctuation (e.g. "holds ." → "holds.")
+        result = re.sub(r'\s+([.,;:!?])', r'\1', result)
         return result
 
     rewritten = {field: _replace(text) for field, text in fields.items()}

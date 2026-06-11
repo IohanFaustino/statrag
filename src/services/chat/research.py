@@ -139,6 +139,21 @@ def wiki_evidence(query: str, *, subject_id: str) -> list[Evidence]:
                      meta={"title": data.get("title", query), "url": url})]
 
 
+def _isolate_midline_display(text: str) -> str:
+    """KaTeX renders ``$$..$$`` as display math only when it OWNS its line; a
+    mid-line ``$$`` leaks raw LaTeX. Convert mid-line ``$$`` to inline ``$`` so
+    KaTeX renders it. A line that is wholly a ``$$..$$`` block is left intact."""
+    if not text or "$$" not in text:
+        return text
+    out_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        owns_line = (stripped.startswith("$$") and stripped.endswith("$$")
+                     and stripped.count("$$") == 2 and len(stripped) > 4)
+        out_lines.append(line if owns_line else line.replace("$$", "$"))
+    return "\n".join(out_lines)
+
+
 def _label(e: Evidence) -> str:
     m = e.meta
     if e.kind == "wikipedia":

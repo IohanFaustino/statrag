@@ -29,6 +29,7 @@ def test_bind_rewrites_valid_tokens_and_keeps_prose_on_invalid():
     assert "[[w1]]" not in ans.deepening and "[1]" in ans.deepening   # reused n
     assert "[[bad]]" not in ans.deepening and ans.grounding["unbound_markers"] == 1
     assert "Bound holds" in ans.deepening   # prose kept
+    assert "Bound holds." in ans.deepening  # no orphan space before period
     assert len(ans.citations) == 1 and ans.citations[0].kind == "wikipedia"
     assert ans.citations[0].title == "Chebyshev's inequality"   # verbatim from meta
 

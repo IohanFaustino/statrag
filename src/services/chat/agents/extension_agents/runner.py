@@ -12,6 +12,7 @@ from typing import AsyncIterator
 from src.services.chat.agents.extension_agents.graph import run_pipeline
 from src.services.chat.agents.extension_agents.scope import aresolve_scope_or_clarify
 from src.services.chat.books import parse_catalog
+from src.services.chat.research import _isolate_midline_display  # re-export from shared module
 from src.services.chat.retrieval import fetch_chapter_sections, hybrid_search
 from src.services.chat.schemas import ChatRequest
 
@@ -138,21 +139,6 @@ def _normalize_math_delimiters(text: str) -> str:
     text = _LATEX_BRACKET.sub(lambda m: f'\n$$\n{m.group(1)}\n$$\n', text)
     text = _LATEX_PAREN.sub(lambda m: f'${m.group(1)}$', text)
     return text
-
-
-def _isolate_midline_display(text: str) -> str:
-    """KaTeX renders ``$$..$$`` as display math only when it OWNS its line; a
-    mid-line ``$$`` leaks raw LaTeX. Convert mid-line ``$$`` to inline ``$`` so
-    KaTeX renders it. A line that is wholly a ``$$..$$`` block is left intact."""
-    if not text or "$$" not in text:
-        return text
-    out_lines = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        owns_line = (stripped.startswith("$$") and stripped.endswith("$$")
-                     and stripped.count("$$") == 2 and len(stripped) > 4)
-        out_lines.append(line if owns_line else line.replace("$$", "$"))
-    return "\n".join(out_lines)
 
 
 def _all_slugs(catalog) -> list[str]:

@@ -87,6 +87,28 @@ async def test_retrieve_evidence_calls_wiki_for_gap_and_terms():
 
 
 @pytest.mark.asyncio
+async def test_retrieve_evidence_resilient_to_wiki_failure():
+    """When wiki_evidence raises, retrieve_evidence must still return corpus
+    evidence and must not propagate the exception (spec §6: wiki error → corpus-only)."""
+    scope = _make_scope()
+
+    def fake_corpus(query: str, **kwargs) -> list[Evidence]:
+        return _make_corpus_evidence(query)
+
+    def raising_wiki(query: str, **kwargs) -> list[Evidence]:
+        raise RuntimeError("simulated wiki network failure")
+
+    with patch.object(qa, "corpus_evidence", fake_corpus), \
+         patch.object(qa, "wiki_evidence", raising_wiki):
+        result = await qa.retrieve_evidence(scope, book_slugs=["hansen"])
+
+    # Must not raise; must contain at least the corpus evidence
+    assert len(result) >= 1
+    corpus_items = [e for e in result if e.kind == "corpus"]
+    assert len(corpus_items) >= 1, "corpus evidence must survive a wiki failure"
+
+
+@pytest.mark.asyncio
 async def test_retrieve_evidence_skips_wiki_when_flag_off(monkeypatch):
     """When _QA_WIKI is False, wiki_evidence must NOT be called."""
     scope = _make_scope()
