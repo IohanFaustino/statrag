@@ -13,8 +13,9 @@ Implementers: `voltagent-lang:python-pro` (sonnet). Reviewers: general-purpose (
 | 4 | Wire seam guard + bounded redraft + thesis injection | ✅ done (spec✅ quality✅ + I1 fix) | `76796ed` + fix `a7def86` | seam guard wired in run_deep_tutor; ONE non-streamed redraft; composite acceptance (no lang/boilerplate regress); thesis `<thesis>` injected; quality scores merged. BLOCKING Step 6 RESOLVED by orchestrator: TutorView renders final `structured_output.data.text` (TutorView.tsx:139), not streamed tokens → silent redraft valid. |
 | 5 | Non-interference tests (equations/citations/figures) | ✅ done (quality✅ + 2 fixes) | `aec5d26` + fix `19bc336` | caught + fixed real seams.py gap: strip `$$…$$`/`$…$` LaTeX from seam prose (tighter regex, no currency over-strip); component-equation invariant confirmed intact (incl. word-form variance path). |
 | 6 | Frontend lockstep (scrub knob, collapse diagram) | ✅ done (spec✅ quality✅ + cleanup) | `c8aef94` + cleanup `60db894` | `tutorWorkflow` scrubbed everywhere; pipeline diagram collapsed to single "Narrative draft" node (retrieval-front + per-node model dropdowns kept); dead phase mappings + stale plan tooltip removed. 253 vitest pass, tsc clean. |
-| 7 | Docs/HTML/invariants/changelog lockstep | ⏳ next | — | doc 57 new; supersede 44/48/56; 36 mermaid+env; Elements/modes/tutor.html; invariants+changelog; CLAUDE.md pending row. |
-| 8 | Live verify (:5175 + Google MCP as user) | ⏳ orchestrator-run | — | |
+| 7 | Docs/HTML/invariants/changelog lockstep | ✅ done (accuracy✅ + 2 fixes) | `f404b85` + fixes `aa2b2d5`,`d6cfd7a` | doc 57 created; 44/48/56 superseded; 36 mermaid+env+schema; Elements/modes/tutor.html both diagrams; invariant 42 added + 18/34/35 retired + 37 updated; changelog; CLAUDE.md rows. Accuracy review caught 14 fabrications (nonexistent fn names, unbuilt blocklists, stale schema) — all corrected to match code. |
+| 8 | Live verify (:5175 + Google MCP as user) | ⏳ orchestrator-run (after final review) | — | |
+| — | FINAL whole-branch review (opus) | ⏳ next | — | over d46ecd5..HEAD + watchlist. |
 
 ## Authoritative baseline
 Worktree full chat suite at `19bc336` (backend complete, T1-5): **845 passed, 8 skipped, 0 failed** (run by orchestrator from the worktree).
