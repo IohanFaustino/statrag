@@ -1021,7 +1021,6 @@ def _resolve_plan_model(stage_models: dict | None) -> tuple[bool, str]:
     return (_SYNTHESIS_PLAN_ON, settings.openai_model_nano)
 
 
-
 _IMAGE_POOL = int(os.environ.get("TUTOR_DEEP_IMAGE_POOL", "6"))
 
 # Author-perspective diversity (T-diversity).
@@ -1897,7 +1896,6 @@ async def _stream_draft(
             draft_model, messages, {k: "" for k in ASPECT_HEADINGS}, on_aspect_delta
         )
     return await _stream_structured(messages, draft_model, on_aspect_delta)
-
 
 
 async def _stream_structured(

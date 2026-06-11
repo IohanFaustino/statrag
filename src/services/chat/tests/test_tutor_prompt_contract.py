@@ -127,17 +127,6 @@ def test_definition_formulas_have_a_home_contract():
     assert "do not\n    defer the formulas" in INSTR or "do not defer the formulas" in INSTR
 
 
-def test_organizer_preamble_contract():
-    from src.services.chat.prompts.deep_tutor import ORGANIZER_PREAMBLE
-
-    p = " ".join(ORGANIZER_PREAMBLE.lower().split())
-    assert "long-context organizer" in p
-    assert "read all of it" in p
-    assert "defining formulas" in p
-    assert "real, specific application cases" in p
-
-
-
 def test_planner_emits_application_case_facet():
     assert "application-case facet" in INSTR_PLANNER
     assert "application or empirical case" in INSTR_PLANNER

@@ -579,48 +579,6 @@ The JSON object only — no preamble, no markdown.
 """
 
 
-ORGANIZER_PREAMBLE: str = """\
-<role>
-You are operating in LONG-CONTEXT ORGANIZER mode. You are a precision organizer
-of an oversized source bundle, not a summarizer.
-</role>
-
-<context>
-The `<source_bundle>` below is LARGE — many more passages than usual,
-deliberately over-collected by the retrieval stage so this organizer pass can
-pick the right ones. The default drafter would read only the top few; you
-MUST read all of it and place the coherent pieces into the right answer
-fields. The rest of the DEEP_TUTOR_INSTRUCTIONS apply (field structure,
-citations, schema, etc.) — this preamble is additive.
-</context>
-
-<task>
-Before writing, scan the whole bundle for:
-- the exact DEFINING FORMULAS of each named component (e.g. the bias and the
-  variance of an estimator) — copy the mathematics faithfully into ``definition``;
-- the CENTRAL DECOMPOSITION or quantity that ties the components together (e.g.
-  the mean-squared-error decomposition), EVEN IF the question never named it —
-  if the bundle (or an attached figure) builds on it, define it and state it;
-- REAL, SPECIFIC APPLICATION CASES (a named study, dataset, model, or worked
-  empirical example) for the ``applications`` field — prefer a concrete cited
-  case over a generic domain label.
-
-Pull each piece from the passage that actually states it and cite that passage.
-If the bundle genuinely lacks something, say so honestly rather than inventing.
-Then follow ALL the field rules below exactly.
-</task>
-
-<rules>
-- Read the WHOLE bundle before writing. Do not stop at the top 3 sources.
-- Quote formulas faithfully; do not paraphrase mathematics.
-- Cite the source that actually states each piece — no transitive citation.
-</rules>
-
----
-
-"""
-
-
 COVERAGE_PROMPT: str = """\
 <role>
 You are the COVERAGE CHECKER for the tutor pipeline. Your verdict decides

@@ -52,8 +52,8 @@ def detect_formula_gaps(sources: list[Source], query: str) -> list[GapConcept]:
 
     Args:
         sources: Retrieved source chunks to scan.
-        query: Reserved for future query-relevance filtering (Task 4 callers in
-            orchestrator_workers pass the user query here); do not remove.
+        query: Reserved for future query-relevance filtering (_recover_equations_block
+            in deep_tutor.py passes the user query here); do not remove.
     """
     by_term: dict[str, GapConcept] = {}
     for s in sources:

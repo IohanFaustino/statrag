@@ -266,7 +266,7 @@ def aclient_for(model_id: str | None) -> openai.AsyncOpenAI:
     """Return an ``openai.AsyncOpenAI`` client wired to the provider that
     hosts ``model_id``.
 
-    Used by stage-internal code (deep_tutor, orchestrator_workers, coverage,
+    Used by stage-internal code (deep_tutor, coverage,
     image_judge, etc.) that calls ``client.chat.completions.create(model=...)``
     directly instead of through the streaming :class:`BaseLLM` clients. The
     same membership/prefix rules as :func:`get_llm` apply.
