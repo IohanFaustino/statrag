@@ -38,7 +38,17 @@ export interface ChatState {
   streamingPhase: "idle" | "thinking" | "writing";
   // Highest SSE `seq` applied to this slice (§13); drives resume `after`.
   lastSeq: number;
+  // Human-readable label for the current pipeline stage (shown during thinking).
+  stageLabel: string;
 }
+
+// Map of Q&A pipeline stage IDs to human-readable labels.
+const QA_STAGE_LABELS: Record<string, string> = {
+  retrieving: "Retrieving…",
+  writing: "Writing…",
+  binding: "Binding citations…",
+  redraft: "Re-drafting…",
+};
 
 const initialState: ChatState = {
   messages: [],
@@ -51,6 +61,7 @@ const initialState: ChatState = {
   usage: null,
   streamingPhase: "idle",
   lastSeq: 0,
+  stageLabel: "Thinking",
 };
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -344,6 +355,7 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
             ...state,
             status: "idle",
             streamingPhase: "idle",
+            stageLabel: "Thinking",
             messages: updateLastAssistant(state.messages, (msg) => {
               // Remove trailing empty p blocks
               const blocks = msg.blocks.filter(
@@ -388,6 +400,14 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
                 ],
               })),
             };
+          }
+          // Q&A pipeline stage progress: map known stage IDs to human labels.
+          if (ev.stage in QA_STAGE_LABELS) {
+            return { ...state, stageLabel: QA_STAGE_LABELS[ev.stage] };
+          }
+          // Other stages: use the label field if provided.
+          if (label) {
+            return { ...state, stageLabel: label };
           }
           return state;
         }
@@ -692,6 +712,7 @@ export function useChat({ mode, model, bookFilter, settings, stageModels, divers
     status: slice.status,
     isStreaming: slice.status === "streaming",
     streamingPhase: slice.streamingPhase,
+    stageLabel: slice.stageLabel,
     usage: slice.usage,
     lastAssistant: lastMsg,
     conversationId: active === DRAFT_KEY ? null : active,

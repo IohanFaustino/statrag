@@ -151,6 +151,7 @@ export interface QAScope {
   target_gap: string;
   assumed_known: string[];
   answer_form: "explanation" | "definition" | "comparison" | "derivation" | "yes_no" | "list";
+  wiki_terms?: string[];
 }
 
 export interface QAAnswer {
@@ -166,6 +167,26 @@ export interface QAAnswer {
   citations?: TutorCitation[];
   math_blocks?: string[];
   grounding?: { ok?: boolean; unsupported?: string[]; confidence?: number };
+}
+
+// QAStoryAnswer — storytelling pipeline output (intro → deepening → conclusion)
+// Mirror of schemas/output.py QAStoryAnswer. Citations are StoryCitation (corpus|wikipedia).
+export interface QAStoryAnswer {
+  intro: string;
+  deepening: string;
+  conclusion: string;
+  scope?: QAScope;
+  citations?: StoryCitation[];
+  math_blocks?: string[];
+  grounding?: {
+    ok?: boolean;
+    unsupported?: string[];
+    confidence?: number;
+    unbound_markers?: number;
+    lints?: string[];
+    corpus_weak?: boolean;
+    wiki_unavailable?: boolean;
+  };
 }
 
 export interface ResolvedSubtopic {
@@ -273,6 +294,7 @@ export interface ClarifyData {
 export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "TutorAnswer"; data: TutorAnswer }
   | { type: "structured_output"; schema: "QAAnswer"; data: QAAnswer }
+  | { type: "structured_output"; schema: "QAStoryAnswer"; data: QAStoryAnswer }
   | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
   | { type: "structured_output"; schema: "FacilitateDigest"; data: FacilitateDigest }
   | { type: "structured_output"; schema: "Clarify"; data: ClarifyData }

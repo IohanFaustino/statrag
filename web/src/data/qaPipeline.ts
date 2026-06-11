@@ -1,9 +1,9 @@
-// Static description of the punctual Q&A pipeline for the mode's (i) modal.
-// Mirrors src/services/chat/agents/qa.py::run_qa. Read-only (Q&A model
+// Static description of the Q&A storytelling pipeline for the mode's (i) modal.
+// Mirrors src/services/chat/agents/qa.py::run_qa_story. Read-only (Q&A model
 // override is via Settings, not per-node clickable like the tutor diagram).
 
 export interface QANode {
-  id: "scope" | "retrieve" | "generate" | "verify" | "clarify";
+  id: "scope" | "retrieve" | "write" | "bind" | "verify" | "clarify";
   label: string;
   desc: string;
   kind: "llm" | "data";
@@ -20,23 +20,30 @@ export const QA_PIPELINE: { nodes: QANode[]; edges: QAEdge[] } = {
     {
       id: "scope",
       label: "Scope extract + resolve book",
-      desc: "Parses your question into {target gap, what you already know, answer form} so generation answers only the gap. Also fuzzy-matches the book/author if you named one — resolves it against the catalog before retrieval.",
+      desc: "Parses your question into {target gap, what you already know, answer form, Wikipedia terms} so generation answers only the gap. Also fuzzy-matches the book/author if you named one — resolves it against the catalog before retrieval.",
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
     {
       id: "retrieve",
-      label: "Hybrid retrieval",
-      desc: "Dense (embeddings) + sparse (BM25) search over the selected books, reranked. Queries the narrowed gap, not the raw question. Top-k=4 for precision.",
+      label: "Hybrid retrieval — corpus ∥ wiki",
+      desc: "Dense (embeddings) + sparse (BM25) search over the selected books (corpus) and Wikipedia (wiki) in parallel, reranked. Queries the narrowed gap. Top-k=4 corpus for precision; Wikipedia articles fetched for scoped wiki_terms.",
       kind: "data",
-      defaultModel: "text-embedding-3-large → RRF + rerank",
+      defaultModel: "text-embedding-3-large → RRF + rerank ∥ Wikipedia",
     },
     {
-      id: "generate",
-      label: "Scoped generate",
-      desc: "Writes a terse, direct answer grounded in the sources, skipping anything you already said you know.",
+      id: "write",
+      label: "Story writer — intro → deepening → conclusion",
+      desc: "Writes a storytelling narrative in three acts: intro (scene-setter), deepening (core explanation with [[eid]] citation markers for both corpus and Wikipedia sources), conclusion (take-away). Grounded in retrieved corpus + Wikipedia context.",
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
+    },
+    {
+      id: "bind",
+      label: "Citation binder (pure code)",
+      desc: "Pure-code pass: rewrites [[eid]] placeholders in the story prose to sequential [n] markers (1-based) and builds the authoritative StoryCitation list from verbatim retrieval payload. No model — deterministic and exact.",
+      kind: "data",
+      defaultModel: "—",
     },
     {
       id: "verify",
@@ -56,7 +63,8 @@ export const QA_PIPELINE: { nodes: QANode[]; edges: QAEdge[] } = {
   edges: [
     { from: "scope", to: "clarify" },
     { from: "scope", to: "retrieve" },
-    { from: "retrieve", to: "generate" },
-    { from: "generate", to: "verify" },
+    { from: "retrieve", to: "write" },
+    { from: "write", to: "bind" },
+    { from: "bind", to: "verify" },
   ],
 };

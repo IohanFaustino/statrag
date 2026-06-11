@@ -228,6 +228,7 @@ export default function App() {
     setConversationId,
     loadConversation,
     streamingPhase,
+    stageLabel,
     usage,
     streamingIds,
     stopStream,
@@ -240,7 +241,7 @@ export default function App() {
     diversityAuthors,
   });
 
-  const thinkingLabel = "Thinking";
+  const thinkingLabel = stageLabel;
 
   // Backend health (status dot)
   const [online, setOnline] = useState(false);

@@ -14,7 +14,7 @@ interface QAModeModalProps {
 }
 
 // Q&A pipeline stages whose models are user-overridable.
-const QA_STAGES = ["scope", "generate", "verify"] as const;
+const QA_STAGES = ["scope", "write", "verify"] as const;
 
 export default function QAModeModal({
   open,
@@ -38,7 +38,7 @@ export default function QAModeModal({
     setDraft((prev) => ({
       ...prev,
       scope: recommendedModel,
-      generate: recommendedModel,
+      write: recommendedModel,
       verify: recommendedModel,
     }));
 

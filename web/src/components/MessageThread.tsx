@@ -1,5 +1,5 @@
 import React from "react";
-import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, ChapterDigest, ClarifyData, FacilitateDigest } from "../types";
+import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, QAStoryAnswer, ChapterDigest, ClarifyData, FacilitateDigest } from "../types";
 import { MathBlock, MathInline } from "./Math";
 import { normalizeMathDelimiters } from "./views/TutorView";
 import TutorView from "./views/TutorView";
@@ -352,6 +352,9 @@ function AssistantMessageView({
               )}
               {msg.structuredOutput.schema === "QAAnswer" && (
                 <QAAnswerCard answer={msg.structuredOutput.data as QAAnswer} />
+              )}
+              {msg.structuredOutput.schema === "QAStoryAnswer" && (
+                <QAAnswerCard answer={msg.structuredOutput.data as QAStoryAnswer} />
               )}
               {msg.structuredOutput.schema === "ChapterDigest" && (
                 <ChapterDigestCard digest={msg.structuredOutput.data as ChapterDigest} />

@@ -19,7 +19,8 @@ const CLARIFY_NODE = QA_PIPELINE.nodes.find((n) => n.id === "clarify");
 
 /** Editable Q&A pipeline graph for the mode's (i) modal.
  *  The `clarify` node is a terminal side-branch (scope → clarify on ambiguity)
- *  and is rendered as a footnote rather than in the linear chain. */
+ *  and is rendered as a footnote rather than in the linear chain.
+ *  Pipeline: scope → retrieve → write → bind → verify */
 export default function QAPipelineDiagram({ providers, stageModels, onStageModelChange }: QAPipelineDiagramProps) {
   return (
     <div>

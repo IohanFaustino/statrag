@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 import QAAnswerCard from "./QAAnswerCard";
-import type { QAAnswer, TutorCitation } from "../types";
+import type { QAAnswer, QAStoryAnswer, StoryCitation, TutorCitation } from "../types";
 
 const base: QAAnswer = {
   text: "The tradeoff arises because lowering one raises the other.",
@@ -12,7 +12,7 @@ const base: QAAnswer = {
   grounding: { ok: true, unsupported: [], confidence: 0.95 },
 };
 
-describe("QAAnswerCard", () => {
+describe("QAAnswerCard — legacy QAAnswer shape", () => {
   it("renders the answer text", () => {
     const html = renderToStaticMarkup(<QAAnswerCard answer={base} />);
     expect(html).toContain("lowering one raises the other");
@@ -112,5 +112,91 @@ describe("QAAnswerCard", () => {
     expect(html).not.toContain("qa-card__badge");
     expect(html).not.toContain("grounded");
     expect(html).not.toContain("partial");
+  });
+});
+
+describe("QAAnswerCard — QAStoryAnswer shape", () => {
+  const corpusCite: StoryCitation = {
+    kind: "corpus",
+    label: "Hansen Ch3",
+    book_slug: "hansen",
+    book_name: "Econometrics",
+    authors: "Hansen",
+    year: 2022,
+    chapter: "ch03",
+  };
+  const wikiCite: StoryCitation = {
+    kind: "wikipedia",
+    label: "Bias-variance tradeoff",
+    url: "https://en.wikipedia.org/wiki/Bias-variance_tradeoff",
+    title: "Bias-variance tradeoff",
+  };
+  const storyAnswer: QAStoryAnswer = {
+    intro: "Bias and variance are foundational concepts in statistics.",
+    deepening: "The tradeoff arises because [1] reducing model complexity increases bias while decreasing variance.",
+    conclusion: "Understanding this tradeoff guides model selection and regularization.",
+    citations: [corpusCite, wikiCite],
+    math_blocks: ["\\hat{\\beta} = (X^T X)^{-1} X^T y"],
+    grounding: { ok: true, unsupported: [], confidence: 0.9 },
+  };
+
+  it("renders intro text in story mode", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html).toContain("foundational concepts in statistics");
+  });
+
+  it("renders deepening text in story mode", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html).toContain("reducing model complexity");
+  });
+
+  it("renders conclusion text in story mode", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html).toContain("guides model selection");
+  });
+
+  it("renders a corpus chip (📕) for corpus citations", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html).toContain("📕");
+    expect(html).toContain("Hansen Ch3");
+  });
+
+  it("renders a wikipedia chip (🌐) as an <a> with the wiki url", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html).toContain("🌐");
+    expect(html).toContain("https://en.wikipedia.org/wiki/Bias-variance_tradeoff");
+    // wiki chip is an anchor
+    expect(html).toMatch(/<a[^>]*href="https:\/\/en\.wikipedia\.org[^"]*"[^>]*>/);
+  });
+
+  it("renders math_blocks in story mode", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html).toContain("qa-card__math-blocks");
+  });
+
+  it("shows a source hint with corpus and wikipedia counts", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    // Should mention corpus count (1) and wiki count (1)
+    expect(html).toContain("1 corpus");
+    expect(html).toContain("1 wikipedia");
+  });
+
+  it("shows grounding badge in story mode", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    expect(html.toLowerCase()).toContain("grounded");
+  });
+
+  it("does NOT render story as legacy text path", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    // Story mode should use qa-card__story-* classes, not the legacy body
+    expect(html).toContain("qa-card__story");
+    // Must not trip on undefined 'text' field
+    expect(html).not.toContain("undefined");
+  });
+
+  it("story answer does not bleed into deepagent path (no thesis heading)", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    // There should be no scope/Answering line (story has no scope header)
+    expect(html).not.toContain("Answering:");
   });
 });
