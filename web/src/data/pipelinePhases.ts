@@ -29,7 +29,7 @@ export const PHASE_OF: Record<string, Phase> = {
   // tutor — vision
   image_judge: "vision", vision_explain: "vision",
   // qa
-  scope: "planning", retrieve: "retrieval", generate: "generation", verify: "generation",
+  scope: "planning", retrieve: "retrieval", write: "generation", bind: "retrieval", verify: "generation",
   clarify: "planning",
   // chapter (facilitate / resume)
   parse: "planning", fetch: "retrieval", resolve: "planning", map: "planning",

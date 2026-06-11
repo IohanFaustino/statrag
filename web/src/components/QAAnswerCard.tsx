@@ -146,6 +146,16 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
             )}
           </div>
         )}
+        {grounding?.corpus_weak && (
+          <p className="qa-card__corpus-weak-note">
+            Not found in your textbooks — answered from Wikipedia
+          </p>
+        )}
+        {grounding?.wiki_unavailable && (
+          <p className="qa-card__wiki-unavailable-note">
+            Wikipedia context unavailable
+          </p>
+        )}
       </div>
     );
   }

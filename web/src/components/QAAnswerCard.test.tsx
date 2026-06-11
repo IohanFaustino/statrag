@@ -199,4 +199,31 @@ describe("QAAnswerCard — QAStoryAnswer shape", () => {
     // There should be no scope/Answering line (story has no scope header)
     expect(html).not.toContain("Answering:");
   });
+
+  // ── Finding 3: corpus_weak caveat ────────────────────────────────────────────
+
+  it("shows corpus_weak caveat when grounding.corpus_weak is true", () => {
+    const weakAnswer: QAStoryAnswer = {
+      ...storyAnswer,
+      grounding: { ok: true, corpus_weak: true },
+    };
+    const html = renderToStaticMarkup(<QAAnswerCard answer={weakAnswer} />);
+    expect(html).toContain("Not found in your textbooks");
+    expect(html).toContain("answered from Wikipedia");
+  });
+
+  it("does NOT show corpus_weak caveat when grounding.corpus_weak is false", () => {
+    const strongAnswer: QAStoryAnswer = {
+      ...storyAnswer,
+      grounding: { ok: true, corpus_weak: false },
+    };
+    const html = renderToStaticMarkup(<QAAnswerCard answer={strongAnswer} />);
+    expect(html).not.toContain("Not found in your textbooks");
+  });
+
+  it("does NOT show corpus_weak caveat when grounding.corpus_weak is absent", () => {
+    const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
+    // storyAnswer.grounding has no corpus_weak field
+    expect(html).not.toContain("Not found in your textbooks");
+  });
 });

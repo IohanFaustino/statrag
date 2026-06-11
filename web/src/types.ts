@@ -329,6 +329,7 @@ export type ChatEventBody =
   | { type: "clarify"; reason: ClarifyData["reason"]; message: string;
       candidates: ClarifyCandidate[]; chapter_guess: string; sections_guess: string[] }
   | { type: "stage"; stage: string; label?: string }
+  | { type: "progress"; stage: string }
   | StructuredOutputEvent;
 
 // ─── Extension v2 — StoryDigest TS types (mirror schemas/output.py) ──────────

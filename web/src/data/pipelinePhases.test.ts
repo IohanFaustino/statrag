@@ -24,7 +24,8 @@ describe("phaseOf", () => {
     expect(phaseOf("map")).toBe("planning");
     expect(phaseOf("retrieve")).toBe("retrieval");
     expect(phaseOf("fetch")).toBe("retrieval");
-    expect(phaseOf("generate")).toBe("generation");
+    expect(phaseOf("bind")).toBe("retrieval");
+    expect(phaseOf("write")).toBe("generation");
     expect(phaseOf("teach")).toBe("generation");
     expect(phaseOf("stitch")).toBe("generation");
     expect(phaseOf("ground")).toBe("generation");

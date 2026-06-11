@@ -222,4 +222,85 @@ describe("storeReducer (§13 multi-conversation)", () => {
     const lastMsg = s0.byConv["A"].messages.at(-1) as AssistantMessage;
     expect(lastMsg.status).toBe("complete");
   });
+
+  // ── Finding 1: progress event drives QA stage labels ────────────────────────
+
+  it("progress{stage:'writing'} sets stageLabel to 'Writing…'", () => {
+    const s = run([
+      send("A"),
+      event("A", { type: "progress", stage: "writing" } as ChatEvent),
+    ]);
+    expect(s.byConv["A"].stageLabel).toBe("Writing…");
+  });
+
+  it("progress{stage:'binding'} sets stageLabel to 'Binding citations…'", () => {
+    const s = run([
+      send("A"),
+      event("A", { type: "progress", stage: "binding" } as ChatEvent),
+    ]);
+    expect(s.byConv["A"].stageLabel).toBe("Binding citations…");
+  });
+
+  it("progress{stage:'retrieving'} sets stageLabel to 'Retrieving…'", () => {
+    const s = run([
+      send("A"),
+      event("A", { type: "progress", stage: "retrieving" } as ChatEvent),
+    ]);
+    expect(s.byConv["A"].stageLabel).toBe("Retrieving…");
+  });
+
+  it("progress{stage:'redraft'} sets stageLabel to 'Re-drafting…'", () => {
+    const s = run([
+      send("A"),
+      event("A", { type: "progress", stage: "redraft" } as ChatEvent),
+    ]);
+    expect(s.byConv["A"].stageLabel).toBe("Re-drafting…");
+  });
+
+  it("progress{stage:'unknown'} does not change stageLabel", () => {
+    const s0 = run([send("A")]);
+    const initialLabel = s0.byConv["A"].stageLabel;
+    const s1 = storeReducer(s0, event("A", { type: "progress", stage: "unknown_stage" } as ChatEvent));
+    expect(s1.byConv["A"].stageLabel).toBe(initialLabel);
+  });
+
+  // ── Finding 2: stageLabel reset on turn boundaries ───────────────────────────
+
+  it("USER_SENT resets a stale stageLabel to 'Thinking'", () => {
+    // Get a stale label via progress event
+    let s = run([
+      send("A"),
+      event("A", { type: "progress", stage: "binding" } as ChatEvent),
+    ]);
+    expect(s.byConv["A"].stageLabel).toBe("Binding citations…");
+    // New turn: USER_SENT must reset the label
+    s = storeReducer(s, send("A"));
+    expect(s.byConv["A"].stageLabel).toBe("Thinking");
+  });
+
+  it("STOP resets stageLabel to 'Thinking'", () => {
+    let s = run([
+      send("A"),
+      event("A", { type: "progress", stage: "writing" } as ChatEvent),
+    ]);
+    expect(s.byConv["A"].stageLabel).toBe("Writing…");
+    s = storeReducer(s, { type: "SLICE", convId: "A", action: { type: "STOP" } });
+    expect(s.byConv["A"].stageLabel).toBe("Thinking");
+  });
+
+  // ── Finding 5: non-QA stage events do NOT change stageLabel ─────────────────
+
+  it("stage{stage:'fetch'} (chapter mode) does NOT change stageLabel", () => {
+    const s0 = run([send("A")]);
+    const labelBefore = s0.byConv["A"].stageLabel;
+    const s1 = storeReducer(s0, event("A", { type: "stage", stage: "fetch", label: "Fetching chapter" }));
+    expect(s1.byConv["A"].stageLabel).toBe(labelBefore);
+  });
+
+  it("stage{stage:'map'} (facilitate mode) does NOT change stageLabel", () => {
+    const s0 = run([send("A")]);
+    const labelBefore = s0.byConv["A"].stageLabel;
+    const s1 = storeReducer(s0, event("A", { type: "stage", stage: "map", label: "Building concept map" }));
+    expect(s1.byConv["A"].stageLabel).toBe(labelBefore);
+  });
 });

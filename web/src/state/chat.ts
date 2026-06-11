@@ -189,6 +189,7 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
         messages: [...state.messages, userMsg, assistantPlaceholder],
         status: "streaming",
         streamingPhase: "thinking",
+        stageLabel: "Thinking",
       };
     }
 
@@ -401,13 +402,13 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
               })),
             };
           }
+          return state;
+        }
+
+        case "progress": {
           // Q&A pipeline stage progress: map known stage IDs to human labels.
           if (ev.stage in QA_STAGE_LABELS) {
             return { ...state, stageLabel: QA_STAGE_LABELS[ev.stage] };
-          }
-          // Other stages: use the label field if provided.
-          if (label) {
-            return { ...state, stageLabel: label };
           }
           return state;
         }
@@ -425,6 +426,7 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
           return {
             ...state,
             status: "error",
+            stageLabel: "Thinking",
             messages: updateLastAssistant(state.messages, (msg) => ({
               ...msg,
               status: "error",
@@ -472,6 +474,7 @@ function chatReducer(state: ChatState, action: SliceAction): ChatState {
         ...state,
         status: "idle",
         streamingPhase: "idle",
+        stageLabel: "Thinking",
         messages: updateLastAssistant(state.messages, (msg) => {
           const blocks = msg.blocks.filter(
             (b) => !(b.type === "p" && b.text.trim() === ""),
