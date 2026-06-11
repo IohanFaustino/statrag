@@ -62,3 +62,33 @@ def test_writer_allows_short_paragraphs():
     low = P.WRITER_PROMPT.lower()
     assert "paragraph" in low
     assert "\\n\\n" in P.WRITER_PROMPT or "blank line" in low
+
+
+def test_editor_no_math_in_headings():
+    """Editor prompt must forbid math / $...$ in headings."""
+    low = P.EDITOR_PROMPT.lower()
+    assert "no $" in low or "no math" in low or "plain text" in low
+
+
+def test_storyteller_bridges_previous_take():
+    """Storyteller prompt must instruct connecting/bridging from the previous take."""
+    low = P.STORYTELLER_PROMPT.lower()
+    assert (
+        "bridge" in low
+        or "connect" in low
+        or "picks up" in low
+        or "follow" in low
+    )
+    # through-line / ongoing story requirement
+    assert "through-line" in low or "ongoing story" in low or "next chapter" in low
+
+
+def test_editor_through_line():
+    """Editor prompt must mention transitions / through-line across takes."""
+    low = P.EDITOR_PROMPT.lower()
+    assert (
+        "through-line" in low
+        or "transition" in low
+        or "continuous story" in low
+        or "flows from" in low
+    )

@@ -9,14 +9,6 @@ import re as _re
 import time
 from typing import AsyncIterator
 
-# Ensure diagnostic INFO logs from the extension_agents package reach the
-# uvicorn console.  Uvicorn installs its own root-level handler on startup;
-# application loggers propagate to it, but their effective level defaults to
-# WARNING.  Setting the package logger to INFO here (once at import time) lets
-# _research_subject and _box_for_takes emit their per-subject summaries without
-# touching global basicConfig or adding a duplicate handler.
-logging.getLogger("src.services.chat.agents.extension_agents").setLevel(logging.INFO)
-
 from src.services.chat.agents.extension_agents.graph import run_pipeline
 from src.services.chat.agents.extension_agents.scope import aresolve_scope_or_clarify
 from src.services.chat.books import parse_catalog
@@ -26,6 +18,12 @@ from src.services.chat.schemas import ChatRequest
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
+# Sentinel for lazy package-logger configuration (set once inside run_extension
+# to avoid mutating global logger state at import/collection time — pytest
+# collection of this module must not cause extension INFO records to leak into
+# other tests' caplog).
+_pkg_log_configured = False
 
 # Matches a leading section number like "7.4" or "7.4.1" from a section label.
 _SECTION_NUM_PREFIX = _re.compile(r'^(\d+(?:[.\-]\d+)+)')
@@ -183,6 +181,18 @@ def _filter_subtopics(
 # ---------------------------------------------------------------------------
 
 async def run_extension(req: ChatRequest) -> AsyncIterator[dict]:
+    # Ensure diagnostic INFO logs from the extension_agents package reach the
+    # uvicorn console.  Uvicorn installs its own root-level handler on startup;
+    # application loggers propagate to it, but their effective level defaults to
+    # WARNING.  Setting the package logger to INFO here (once, lazily) lets
+    # _research_subject and _box_for_takes emit per-subject summaries without
+    # touching global basicConfig, adding a duplicate handler, or mutating
+    # logger state during pytest collection.
+    global _pkg_log_configured
+    if not _pkg_log_configured:
+        logging.getLogger("src.services.chat.agents.extension_agents").setLevel(logging.INFO)
+        _pkg_log_configured = True
+
     t0 = time.time()
     bf = req.bookFilter
     book_slugs = list(bf) if isinstance(bf, list) and bf else []

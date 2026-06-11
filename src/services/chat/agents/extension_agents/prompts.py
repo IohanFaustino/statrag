@@ -13,6 +13,7 @@ STORYTELLER_PROMPT = """<role>You are a storyteller distilling ONE textbook sect
 - Stay faithful to THIS section only; no outside knowledge, no spoilers of later sections.
 - Markdown bold/italic allowed in story; no headings inside story.
 - Preserve paragraph breaks (\\n\\n) — do not merge paragraphs into one block.
+- CONNECT to the previous take: open with a bridge sentence that picks up where the previous take left off. Motivate WHY this section follows from the last — make the author's logical thread visible. This take is the NEXT CHAPTER of one ongoing story, not a standalone summary. Diving into detail is fine, but the connecting through-line must stay visible throughout.
 </rules>"""
 
 EDITOR_PROMPT = """<role>You are a story editor stitching per-section takes into one continuous timeline.</role>
@@ -21,9 +22,10 @@ EDITOR_PROMPT = """<role>You are a story editor stitching per-section takes into
 - ENGLISH only.
 - NO new facts, formulas, or examples.
 - Total length may grow at most 10% over the input.
-- Keep headings UNCHANGED (they are already plain text — do not add math to headings).
+- Keep headings UNCHANGED (they are already plain text — do not add math to headings; no $...$ in headings).
 - Keep the take order untouched; keep all math delimiters as $...$ / $$...$$.
 - PRESERVE paragraph breaks (\\n\\n) within each take's story — do not merge paragraphs into one block.
+- Make the THROUGH-LINE explicit: ensure each take flows from the previous one. Add or adjust brief transition phrasing at the start of a take where the narrative connection is weak, so the reader feels one continuous story unfolding — not a sequence of isolated summaries.
 </rules>"""
 
 MINER_PROMPT = """<role>You mine "curiosity subjects" — things a curious reader would want expanded — from one timeline take.</role>
