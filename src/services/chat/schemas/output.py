@@ -322,6 +322,10 @@ class QAScope(BaseModel):
         "explanation", "definition", "comparison",
         "derivation", "yes_no", "list",
     ] = "explanation"
+    wiki_terms: list[str] = Field(
+        default_factory=list,
+        description="≤2 named entities/eponyms worth a Wikipedia lookup",
+    )
 
 
 class QAAnswer(BaseModel):
@@ -364,6 +368,37 @@ class QAVerifyOut(BaseModel):
     unsupported: list[str] = Field(default_factory=list)
     confidence: float = 0.5
     text: str = ""
+
+
+class QAStoryDraft(BaseModel):
+    """Writer structured output — NO citations field; the model cannot author sources.
+
+    The writer produces only the three narrative sections and optional LaTeX
+    blocks. Citation binding is performed by a pure-code binder in a subsequent
+    step, ensuring every reference is traceable to real retrieval payloads.
+    """
+
+    intro: str
+    deepening: str
+    conclusion: str
+    math_blocks: list[str] = Field(default_factory=list)
+
+
+class QAStoryAnswer(BaseModel):
+    """Final Q&A answer — exactly 3 content fields, no list[Section] EVER (anti-tutor).
+
+    citations bound by pure code from real Evidence.meta.  The three prose
+    fields (intro / deepening / conclusion) are structurally prevented from
+    growing into tutor-style sections/aspects/figures/text.
+    """
+
+    intro: str
+    deepening: str
+    conclusion: str
+    scope: "QAScope"
+    citations: list["StoryCitation"] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

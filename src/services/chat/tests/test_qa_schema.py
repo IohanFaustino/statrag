@@ -45,6 +45,32 @@ def test_modeid_includes_qa():
     assert req.mode == "qa"
 
 
+# ---------------------------------------------------------------------------
+# Task 2 — QAStoryDraft / QAStoryAnswer schemas
+# ---------------------------------------------------------------------------
+
+
+def test_qascope_wiki_terms_default_empty():
+    from src.services.chat.schemas import QAScope
+    assert QAScope(target_gap="x").wiki_terms == []
+
+
+def test_qastorydraft_has_no_citation_field():
+    from src.services.chat.schemas import QAStoryDraft
+    assert "citations" not in QAStoryDraft.model_fields
+    d = QAStoryDraft(intro="i", deepening="d", conclusion="c")
+    assert d.math_blocks == []
+
+
+def test_qastoryanswer_three_fields_no_tutor_fields():
+    from src.services.chat.schemas import QAStoryAnswer, QAScope, StoryCitation
+    a = QAStoryAnswer(intro="i", deepening="d", conclusion="c", scope=QAScope(target_gap="x"))
+    f = set(QAStoryAnswer.model_fields)
+    assert {"intro", "deepening", "conclusion"} <= f
+    assert {"sections", "aspects", "figures", "text"} & f == set()
+    assert a.citations == [] and isinstance(a.grounding, dict)
+
+
 def test_cost_table_has_qwen_and_gemini():
     from src.services.chat.cost import PRICE_PER_1M
     assert "qwen-plus" in PRICE_PER_1M
