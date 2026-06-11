@@ -2,6 +2,32 @@
 
 Append-only. Latest at top.
 
+## 2026-06-11 — Extension v2: post-verify batch + merge into feat/component-equation-enforcement
+
+**Scope:** post-live-verify polish batch (T-A / T-B / T-C) on worktree `feat/extension-v2-story-curiosity`; merged into `feat/component-equation-enforcement` at commit `e2a7ae2`. Final gate: ~896 backend / 261 frontend tests green, tsc clean.
+
+**T-A — multi-paragraph story prose + research diagnostics** (commits `5514ef3`, `77efe93`):
+- Storyteller prompt: each take's story emitted as 2–4 **short paragraphs** separated by `\n\n` (2–4 sentences each); take headings are **plain text** (no `$`-math in headings); storyteller opens each take with a bridge from the previous take ("connect the dots"); editor prompt preserves paragraph breaks and adds an explicit narrative through-line/transitions between takes; curiosity-writer bullet bodies may be 1–2 short paragraphs.
+- Research diagnostics: `_research_subject` and `_box_for_takes` in `graph.py` now log `INFO` per-subject corpus/wiki evidence counts and cited-kind counts.
+
+**T-B — paragraph rendering + card polish** (commits `d5c7ce7`, `0262e77`, `d23026c`):
+- `StoryDigestCard`: story and curiosity bodies split on `\n\n` into separate `<div class="story-para">` blocks (math-safe split that skips blank lines inside `$$...$$`), each justified; take headings rendered through the inline math renderer (defensive, handles edge-case `$` in heading text); curiosity toggle is a **full-width header-bar button** with `aria-label`; rail node/heading alignment tightened.
+
+**T-C — ZIP filename sanitization end-to-end + package logger** (commit `7230e5f`):
+- Backend `_sanitize_slug` added to `export.py`; mirrored `sanitizeSlug` in `StoryDigestCard.tsx` (frontend `a.download` was overriding `Content-Disposition`). Live result: `hansen-ch07-7.4-7.5-extended.zip`.
+- `_ensure_pkg_logging()` in `runner.py` lazily sets the `extension_agents` package logger to INFO and attaches a `StreamHandler` only when uvicorn root has no real handler (avoids duplicate output; `lastResort` was silently dropping INFO in dev).
+
+**Docstring** (commit `a6cdbf4`): `extension_agents/__init__.py` now describes the deterministic pipeline (deepagents removed from module docstring).
+
+**New agent docs** (commits `807afd8` → HEAD):
+- `docs/common ground/Agents/orchestrator_Agent.md` — inspect-personally + never-implement laws; dispatch pattern for subagent-driven batches.
+- `docs/common ground/Agents/creative_Advisor.md` — design consultation: true-by-construction over true-by-instruction; enforcement ladder; YAGNI; failure-mode map.
+- `docs/common ground/Agents/debug_Advisor.md` — defect-localization counsel: reproduce first, hypothesis tree, fault-class priors, bisection, dispatch-ready fix-task draft.
+- Global `~/.claude/agents/iohan_powers/` mirrors all three docs for cross-project availability.
+- CLAUDE.md shortcuts added: `orchestrator_Agent`, `creative_Advisor`, `debug_Advisor`.
+
+---
+
 ## 2026-06-10 — Extension v2: story timeline + curiosity boxes
 
 **Scope:** full replacement of the deepagents extension core on branch `feat/extension-v2-story-curiosity`. 874 backend / 250 frontend tests green.

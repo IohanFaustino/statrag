@@ -85,8 +85,8 @@
     <table>
       <tr><th>Agent</th><th>Model</th><th>Temp</th><th>Role</th></tr>
       <tr><td>scope_resolver</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>Book/chapter resolution; runner stamps authoritative <code>digest.book</code>/<code>digest.chapter</code></td></tr>
-      <tr><td>storyteller ×section</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.4</td><td>1 section = 1 take. Narrates section in author's sequence. Degrades to raw summary on parse failure.</td></tr>
-      <tr><td>story_editor</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.3</td><td>Stitches takes — continuity + voice. No new facts; ≤10% growth. Failure → keep drafts.</td></tr>
+      <tr><td>storyteller ×section</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.4</td><td>1 section = 1 take. Story = 2–4 short paragraphs (<code>\n\n</code>-separated); headings are plain text (no <code>$</code>-math); opens with a bridge from previous take. ENGLISH pinned. Degrades to raw summary on parse failure.</td></tr>
+      <tr><td>story_editor</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.3</td><td>Stitches takes — adds narrative through-line + transitions, preserves paragraph breaks. No new facts; ≤10% growth. Failure → keep drafts.</td></tr>
       <tr><td>subject_miner ×take</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.0</td><td>Proposes 2–4 curiosity subjects per take. Gap taxonomy: formal-def / derivation / comparative / application / history.</td></tr>
       <tr><td>researcher ×subject</td><td><em>pure code</em></td><td>—</td><td>Multi-query <code>hybrid_search</code> cross-book (exclude target, rerank ON, score floor, dedup) + Wikipedia REST search → summary.</td></tr>
       <tr><td>curiosity_writer ×take</td><td><code>gpt-5.4-nano-2026-03-17</code></td><td>0.2</td><td>Writes bullets from evidence only; outputs <code>evidence_ids</code>; forbidden from writing citation text.</td></tr>
@@ -143,7 +143,7 @@
     <h2>Frontend components</h2>
     <table>
       <tr><th>Component</th><th>Path</th><th>Role</th></tr>
-      <tr><td><code>StoryDigestCard</code></td><td><code>web/src/components/StoryDigestCard.tsx</code></td><td>Timeline rail (numbered nodes + connecting line), per-take collapsed curiosity toggle (<code>aria-expanded</code>), justified story + boxes, citation chips (📕 corpus, 🌐 wikipedia), expand-all / collapse-all, Download ZIP. Wrapped in <code>StructuredErrorBoundary</code>.</td></tr>
+      <tr><td><code>StoryDigestCard</code></td><td><code>web/src/components/StoryDigestCard.tsx</code></td><td>Timeline rail (numbered nodes + connecting line), per-take <strong>full-width header-bar toggle</strong> (<code>aria-label</code>, <code>aria-expanded</code>), story + curiosity bodies split on <code>\n\n</code> into <code>&lt;div class="story-para"&gt;</code> blocks (math-safe, justified), take headings through <code>renderMathText</code>, citation chips (📕 corpus, 🌐 wikipedia), expand-all / collapse-all, Download ZIP. Wrapped in <code>StructuredErrorBoundary</code>. ZIP filename sanitized end-to-end via <code>_sanitize_slug</code> + mirrored <code>sanitizeSlug</code> (e.g. <code>hansen-ch07-7.4-7.5-extended.zip</code>).</td></tr>
       <tr><td><code>renderMathText</code></td><td><code>web/src/lib/renderRichText.tsx</code></td><td>Shared renderer: KaTeX math + markdown bold/italic. Used by <code>StoryDigestCard</code> and <code>ExtensionDigestCard</code>.</td></tr>
       <tr><td><code>ExtensionDigestCard</code></td><td><code>web/src/components/ExtensionDigestCard.tsx</code></td><td>Legacy v1 card — active for <code>schema === "ExtensionDigest"</code> conversations.</td></tr>
       <tr><td><code>MessageThread</code></td><td><code>web/src/components/MessageThread.tsx</code></td><td>Dispatches <code>StoryDigestCard</code> when <code>structuredOutput.schema === "StoryDigest"</code>.</td></tr>

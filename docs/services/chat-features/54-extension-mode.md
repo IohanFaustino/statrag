@@ -1,7 +1,8 @@
 # Feature 54 — Extension Mode (story timeline + curiosity boxes)
 
-**Branch:** `feat/extension-v2-story-curiosity`
-**Date:** 2026-06-10
+**Branch:** `feat/extension-v2-story-curiosity` → merged into `feat/component-equation-enforcement` at `e2a7ae2` (2026-06-10/11)
+**Status:** ✅ COMPLETE — all 15 tasks + post-verify batch (T-A/T-B/T-C) done; ~896 backend / 261 frontend tests green, tsc clean; live-verified on :5175.
+**Date:** 2026-06-10 (initial); post-verify batch 2026-06-11
 **Spec:** [`docs/superpowers/specs/2026-06-10-extension-v2-story-curiosity-design.md`](../../superpowers/specs/2026-06-10-extension-v2-story-curiosity-design.md)
 **Plan:** [`docs/superpowers/plans/2026-06-10-extension-v2-story-curiosity.md`](../../superpowers/plans/2026-06-10-extension-v2-story-curiosity.md)
 
@@ -39,11 +40,11 @@ flowchart TD
 | Agent | Harness | Model (default) | Temp |
 |---|---|---|---|
 | `scope_resolver` | `aresolve_scope_or_clarify` + `_needle_matches` section matching; runner stamps authoritative `digest.book`/`digest.chapter` | nano | 0.0 |
-| `storyteller` ×section | Input: section text + previous take heading. Output: `TakeDraft{heading, story, key_items[]}`. Story register, author's sequence, ENGLISH pinned. Degradation: parse failure → raw section summary (flagged). | nano, parallel | 0.4 |
-| `story_editor` | Stitches takes into one continuous voice. Hard rules: NO new facts; ≤10% length growth. Editor failure → keep drafts. | nano | 0.3 |
+| `storyteller` ×section | Input: section text + previous take heading. Output: `TakeDraft{heading, story, key_items[]}`. Story = 2–4 **short paragraphs** (`\n\n`-separated, 2–4 sentences each); headings are **plain text** (no `$`-math); opens each take with a bridge from the previous take. ENGLISH pinned. Degradation: parse failure → raw section summary (flagged). | nano, parallel | 0.4 |
+| `story_editor` | Stitches takes into one continuous voice with an explicit **narrative through-line and transitions** between takes. Hard rules: NO new facts; ≤10% length growth; paragraph breaks preserved. Editor failure → keep drafts. | nano | 0.3 |
 | `subject_miner` ×take | Curiosity subjects from take + key_items. Gap taxonomy: `formal-def / derivation / comparative / application / history`. Output: `Subject{title, queries[2–3], tag}`. | nano, parallel | 0.0 |
 | `researcher` ×subject | **Pure code — no LLM.** Multi-query `hybrid_search` cross-book (exclude target book, rerank ON, `EXTENSION_MIN_SCORE` floor, `seen_ids` dedupe) + Wikipedia REST (search → summary; title + URL + extract). Output: `Evidence{id, kind, text, meta}`. | — | — |
-| `curiosity_writer` ×take | Writes bullets FROM evidence only; each bullet lists `evidence_ids`; forbidden to write citation text. | nano, parallel | 0.2 |
+| `curiosity_writer` ×take | Writes bullets FROM evidence only; each bullet lists `evidence_ids`; bullet body may be 1–2 short paragraphs; forbidden to write citation text. | nano, parallel | 0.2 |
 | `citation_binder` | **Pure code — no LLM.** Maps `evidence_ids` → `StoryCitation` objects copied **verbatim** from `Evidence.meta` (book_name/authors/year/chapter/section_id/pages for corpus; title+URL for Wikipedia) + `chunk_id` provenance. Bullets with zero valid ids dropped → `unfilled_subjects`. | — | — |
 | `judge` ×take | Coverage check (each subject answered, ≥1 bullet). ONE bounded retry of miner→researcher→writer for failed takes, then accept with gaps listed. | nano; env override: `EXTENSION_JUDGE_MODEL` | 0.0 |
 
@@ -123,7 +124,7 @@ Token accounting: `usage` emits `durationMs` only (token counts are placeholder 
 
 | Component | Path | Role |
 |---|---|---|
-| `StoryDigestCard` | `web/src/components/StoryDigestCard.tsx` | Timeline rail (numbered nodes), per-take collapsed curiosity toggle, justified story + boxes, citation chips (📕 corpus, 🌐 wiki), expand/collapse-all, Download ZIP. Wrapped in `StructuredErrorBoundary`. |
+| `StoryDigestCard` | `web/src/components/StoryDigestCard.tsx` | Timeline rail (numbered nodes + connecting line, alignment tightened), per-take **full-width header-bar toggle button** (`aria-label`, `aria-expanded`), justified story + curiosity bodies split on `\n\n` into separate `<div class="story-para">` blocks (math-safe split skips blank lines inside `$$...$$`), take headings rendered through inline math renderer (defensive), citation chips (📕 corpus, 🌐 wiki), expand/collapse-all, Download ZIP. Wrapped in `StructuredErrorBoundary`. |
 | `renderMathText` | `web/src/lib/renderRichText.tsx` | Shared renderer: KaTeX math + markdown (bold/italic). Used by both `StoryDigestCard` and `ExtensionDigestCard`. |
 | `ExtensionDigestCard` | `web/src/components/ExtensionDigestCard.tsx` | Legacy v1 card — still active for `schema === "ExtensionDigest"` conversations. |
 | `MessageThread` | `web/src/components/MessageThread.tsx` | Dispatches `StoryDigestCard` when `structuredOutput.schema === "StoryDigest"`. |
@@ -141,7 +142,7 @@ Persistence: content stored as `StoryDigest` JSON + `_schema:"StoryDigest"` tag;
 - **`extension.html`** — self-contained styled HTML: justified story prose, KaTeX (CDN), per-take `<ol class="footnotes">` (curiosity items as numbered footnotes; corpus chip = label text, Wikipedia chip = `<a href>`).
 - **`sources.json`** — evidence list (citations flattened).
 
-`Content-Disposition` filename sanitized: ` · `→`-`, `–`/`—`→`-`, spaces→`-`, collapse `--`. Example: `hansen-probability-ch07-7.4-7.5-extended.zip`.
+`Content-Disposition` filename sanitized end-to-end: `_sanitize_slug` in `export.py` (backend) + mirrored `sanitizeSlug` in `StoryDigestCard.tsx` (frontend `a.download` was overriding `Content-Disposition` — both must agree). Rules: ` · `→`-`, `–`/`—`→`-`, spaces→`-`, collapse `--`. Live example: `hansen-ch07-7.4-7.5-extended.zip`.
 
 ---
 
@@ -173,6 +174,28 @@ web/src/
   types.ts                        StoryCitation, CuriosityItem, StoryTake, StoryDigest
   styles/app.css                  rail/toggle/justify/chips styles
 ```
+
+---
+
+## 2026-06-11 — Post-verify batch (T-A / T-B / T-C)
+
+Applied after Task 15 live verify passed on :5175. No schema changes — behavioral and rendering only.
+
+**T-A — multi-paragraph prose + research diagnostics:**
+- Storyteller: story = 2–4 short paragraphs (`\n\n`-separated, 2–4 sentences each); take headings plain text (no `$`-math); each take opens with a bridge from the previous take (narrative through-line seeded at generation time). Editor: preserves paragraph breaks, adds explicit transitions between takes.
+- Curiosity writer: bullet bodies may be 1–2 short paragraphs (was single-paragraph).
+- `graph.py` `_research_subject` + `_box_for_takes`: log INFO per-subject corpus/wiki evidence counts and cited-kind counts (`corpus=N wiki=M`).
+
+**T-B — card rendering + toggle polish:**
+- Story and curiosity bodies split on `\n\n` into `<div class="story-para">` blocks; the split is math-safe (skips blank lines inside `$$...$$`) so display-math fences are never broken.
+- Take headings rendered through `renderMathText` (defensive — guards rare LLM `$` in heading text).
+- Curiosity toggle redesigned as a full-width header-bar `<button>` with `aria-label`; rail node/heading vertical alignment tightened.
+
+**T-C — ZIP filename + package logger:**
+- `_sanitize_slug` in `export.py` + mirrored `sanitizeSlug` in `StoryDigestCard.tsx`; live result: `hansen-ch07-7.4-7.5-extended.zip`.
+- `_ensure_pkg_logging()` in `runner.py`: lazily sets `extension_agents` package logger to INFO + `StreamHandler` only when uvicorn root has no real handler (prevents INFO being silently dropped by `lastResort` in dev; avoids duplicate output in prod).
+
+**Live verify results (Task 15):** corpus 📕 + wikipedia 🌐 chips render in curiosity boxes; wiki chip opens article in new tab; no black-screen on completion; ZIP valid (per-take numbered footnotes, clickable wiki anchors); reload persistence confirmed; zero console errors. Final opus whole-impl review: READY TO MERGE.
 
 ---
 
