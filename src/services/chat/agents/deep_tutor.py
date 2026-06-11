@@ -1853,6 +1853,28 @@ async def _recover_equations_block(query: str, sources: list) -> str:
         return ""
 
 
+def _mirror_aspects(deep, aspects: dict[str, str]) -> None:
+    """Write corrected aspect strings back onto the DeepTutorAnswer so later
+    serialisation sees them. Best-effort per field."""
+    if deep is None:
+        return
+    for k, v in aspects.items():
+        if hasattr(deep, k):
+            try:
+                setattr(deep, k, v)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _redraft_is_better(res_new, res_old) -> bool:
+    """Accept a redraft only if it does not regress on ANY guarded axis."""
+    return (
+        res_new.scores["seam_continuity"] >= res_old.scores["seam_continuity"]
+        and res_new.scores["lang_ok"] >= res_old.scores["lang_ok"]
+        and not any(f.startswith("boilerplate") for f in res_new.failing_seams)
+    )
+
+
 async def _seam_guard(
     aspects: dict[str, str],
     thesis: str,
@@ -1870,7 +1892,7 @@ async def _seam_guard(
     try:
         _deep2, aspects2 = await redraft(failing=res.failing_seams)
         res2 = check_seams(aspects2, thesis=thesis or "")
-        if res2.scores["seam_continuity"] >= res.scores["seam_continuity"]:
+        if _redraft_is_better(res2, res):
             return aspects2, res2.scores
     except Exception:  # noqa: BLE001
         logger.exception("seam redraft failed; accepting first draft")
@@ -2660,8 +2682,10 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
             ev["heading"] = heading
         sse_queue.put_nowait(ev)
 
+    # Compute formula-recovery block once; reused by both first draft and redraft.
+    recovered_block = await _recover_equations_block(query, sources)
+
     async def _draft_coro():
-        recovered_block = await _recover_equations_block(query, sources)
         return await _stream_draft(
             query, sources, figures=approved_figures,
             on_aspect_delta=_emit_aspect_delta, model=m_draft, plan=plan,
@@ -2687,19 +2711,13 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         return await _stream_draft(
             query, sources, figures=approved_figures,
             on_aspect_delta=None, model=m_draft, plan=plan,
-            recovered_block=await _recover_equations_block(query, sources),
+            recovered_block=recovered_block,
             extra_instructions=note,
         )
 
     thesis = getattr(plan, "thesis", "") if plan is not None else ""
     aspects, seam_scores = await _seam_guard(aspects, thesis, redraft=_redraft)
-    if deep is not None:
-        for k, v in aspects.items():
-            if hasattr(deep, k):
-                try:
-                    setattr(deep, k, v)
-                except Exception:  # noqa: BLE001
-                    pass
+    _mirror_aspects(deep, aspects)
 
     # 4. Optional critique + refine ------------------------------------------
     augmented_sources = sources
@@ -2707,6 +2725,8 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                                "copy_paste_risk": "n/a", "reason": "skipped"}
     refine_iters = 0
     if _ENABLE_CRITIQUE:
+        # NOTE: seam_scores reflect the pre-critique draft; if enabling critique,
+        # re-run _seam_guard on the refined aspects before recording quality.
         draft_text = assemble_markdown(aspects)
         verdict = await critique(draft_text, concepts, sources, model=m_critique)
         while (refine_iters < _MAX_REFINE_ITERS
@@ -2746,13 +2766,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                 aspects[k] = result
         # Mirror polished aspects back onto the DeepTutorAnswer so downstream
         # code (and any later serialisation of `deep`) sees the corrected text.
-        if deep is not None:
-            for k, v in aspects.items():
-                if hasattr(deep, k):
-                    try:
-                        setattr(deep, k, v)
-                    except Exception:  # noqa: BLE001
-                        pass
+        _mirror_aspects(deep, aspects)
     answer = _convert_to_tutor_answer(deep, aspects, augmented_sources,
                                        approved_figures=approved_figures,
                                        vision_explanations=vision_explanations,

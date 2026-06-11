@@ -60,3 +60,22 @@ def test_passing_seams_no_redraft():
     )
     assert calls["n"] == 0
     assert scores["seam_continuity"] == 1.0
+
+
+def test_redraft_rejected_when_it_regresses_language():
+    # redraft fixes continuity but drifts to Polish -> keep the first draft.
+    first = {k: "" for k in BEAT_ORDER}
+    first.update(definition="Bias is systematic error in a model.",
+                 example_intuition="Photosynthesis happens in chloroplasts.")  # continuity break, English
+    polish = {k: "" for k in BEAT_ORDER}
+    polish.update(definition="Bias mierzy odchylenie predykcji od prawdy w modelu.",
+                  example_intuition="To samo bias widać przy dopasowaniu liniowym do krzywej.")  # connected but Polish
+
+    async def redraft(**kw):
+        return None, polish
+
+    res_aspects, scores = asyncio.run(
+        dt._seam_guard(first, thesis="bias", redraft=redraft)
+    )
+    # first draft (English) kept because the Polish redraft regresses lang_ok
+    assert res_aspects["definition"].startswith("Bias is systematic")
