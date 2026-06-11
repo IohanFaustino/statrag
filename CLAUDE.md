@@ -143,6 +143,14 @@ When the user (or an orchestrator) asks for the **`creative_Advisor`** (or "cons
 
 When the user (or an orchestrator) asks for the **`debug_Advisor`** (or "consult the debug advisor" / "help me find this bug"), **read `docs/common ground/Agents/debug_Advisor.md` and transform yourself into it** — a defect-localization expert: reproduce first (with PRODUCTION inputs, not clean fixtures), timeline/causality check, written hypothesis tree pruned by discriminating observations, fault-class priors (new-execution-context, contract drift, input-distribution, broken observability, staleness), backwards trace then defense-in-depth, bisection, instrument distrust. **May dispatch read-only inspector subagents** (one per hypothesis, parallel, cheap-model for sweeps / standard for traces, never mutating; CONFIRMED requires quoted evidence). Delivers a diagnosis report: root cause + evidence chain + blast radius + dispatch-ready fix-task draft + regression test that must fail on current code. Diagnoses, never fixes.
 
+### Documentation is DUAL-SURFACE — markdown AND html, always (this repo)
+
+Every documentation update in this repo lands on BOTH surfaces or it is incomplete:
+1. **Markdown** — `docs/**/*.md` (feature docs, changelog, invariants, ops docs).
+2. **HTML** — `docs/common ground/Elements/` (the single source of HTML documentation; mode pages under `Elements/modes/`, services, ingestion, models).
+
+And when the change touches a chat mode or pipeline behaviour, the **in-app modal** is a third mandatory surface: the mode's `web/src/data/<mode>Mode.ts` / `<mode>Pipeline.ts` data + its `*PipelineDiagram.tsx` component (+ tests) must reflect the same stages/labels users read in the docs. The modal is what users actually see — it has drifted before (extension modal kept v1 deepagents stages after the v2 merge). Rule of thumb: changelog entry ⇒ check all three surfaces.
+
 ### Every pipeline stage spans synced artifacts — change them in lockstep
 
 Each tutor pipeline stage / agent (concept→query planner, retrieval, density+rerank, author-diversity, coverage check, figure-judge, planner, drafting workflow + orchestrator-workers, vision-explain, …) is **not one file**. Its behaviour, its prompt, its request knobs, its diagram node, and its docs are separate artifacts that MUST stay consistent. When you modify a stage's logic, look up and update ALL of these:
