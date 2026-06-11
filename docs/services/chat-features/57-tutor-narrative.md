@@ -85,16 +85,16 @@ The synthesis-plan `thesis` is injected by code as a `<thesis>…</thesis>` bloc
 
 ## Seam validator (`agents/seams.py`)
 
-Pure code — zero LLM calls, no env flag. Runs after `_post_process_draft` (midline-$$ fix, LaTeX repair) but before `assemble_markdown`.
+Pure code — zero LLM calls, no env flag. Real flow: `_stream_draft` produces the raw draft → `_seam_guard` runs `check_seams` (triggering the `_redraft` closure on failure) + `_mirror_aspects` → vision explain → `_convert_to_tutor_answer` (LaTeX repair + bare-math wrap). The seam guard runs on the draft text before `assemble_markdown`.
 
 ### Rules checked per seam
 
 | Rule | What is checked |
 |---|---|
 | **Lemma overlap** | First sentence of beat k+1 shares ≥1 content-lemma (stopword-stripped, lowercased, LaTeX stripped from prose) with the last sentence of beat k **or** with `plan.thesis`. |
-| **Boilerplate opener guard** | ≥2 beats open with the same leading 3-gram → fail. Canned-phrase blocklist ("Now that we…") also triggers fail. |
+| **Boilerplate opener guard** | ≥2 beats open with the same leading 3-gram → fail. (The "Now that we…" prohibition is enforced by the prompt `DEEP_TUTOR_INSTRUCTIONS`, not by the validator.) |
 | **Language-drift guard** | English stopword-ratio floor per beat (catches the known Polish-drift bug). |
-| **Formalize-drop re-link** | When `formal_statement == ""`, the ②→③ seam is replaced by a ①→③ seam; beat ③ opener is additionally checked against a theorem-lexeme blocklist. |
+| **Formalize-drop re-link** | When `formal_statement == ""`, it is filtered from the present-beats list so the chain naturally checks ①→③ directly. The no-dangling-theorem rule ("do not reference a theorem you did not state") is prompt-enforced (`DEEP_TUTOR_INSTRUCTIONS`), not validator-enforced. |
 | **No `$$` in seam prose** | Seam sentences (first/last of each beat) must not contain `$$…$$` blocks — the existing `_inline_midline_display` pass guarantees this; the test suite confirms it. |
 
 ### Quality scores (written into `TutorAnswer.quality`)
@@ -102,7 +102,7 @@ Pure code — zero LLM calls, no env flag. Runs after `_post_process_draft` (mid
 | Score key | Type | Meaning |
 |---|---|---|
 | `seam_continuity` | float 0–1 | Fraction of seams that passed the lemma-overlap check. |
-| `lang_ok` | bool | All beats passed the English stopword-ratio floor. |
+| `lang_ok` | float (1.0 / 0.0) | All beats passed the English stopword-ratio floor. |
 | `thesis_adherence` | float 0–1 | Lemma overlap of `thesis` with `tldr` + ≥2 beats. **Report-only — not a hard gate** (overlap too noisy to gate on). |
 
 ---

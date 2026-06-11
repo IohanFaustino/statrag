@@ -66,17 +66,18 @@ graph TD
 
 ```python
 class DeepTutorAnswer(BaseModel):
-    tldr: str               # 40-80 words direct answer
-    definition: str         # 120-180 words
-    formal_statement: str   # 120-200 words math / formal
-    intuition: str          # 140-220 words plain-language
-    examples: str           # 150-250 words worked example(s)
-    trade_offs: str         # 130-200 words caveats, alternatives
-    further_reading: str    # 50-100 words pointers
+    tldr: str               # Introduction — direct answer + one-sentence beat roadmap
+    definition: str         # Beat 1 (Define) — anchors thesis, component equations inline
+    formal_statement: str   # Beat 2 (Formalize) — verbatim theorem/definition, or "" when absent
+    example_intuition: str  # Beat 3 (See it work) — three cases + explicit intuition statement
+    applications: str       # Beat 4 (Use it) — corpus-grounded specific use-cases
+    further_reading: str    # Beat 5 (Go further) — related topics + open research questions
     citations: list[TutorCitation]
     math_blocks: list[str] = []
     figures: list[FigureRef] = []
 ```
+
+> **Fields updated 2026-06-11 (narrative rebuild, doc 57):** `intuition` + `examples` merged into `example_intuition`; `trade_offs` renamed to `applications`. The 6-field set is the current live schema (invariant 22).
 
 Target total: ~1000-1500 words.
 

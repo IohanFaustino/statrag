@@ -70,10 +70,10 @@
   CV --> FR[&quot;formula_recovery.py (_recover_equations_block)&quot;]
   FR --> FJ[&quot;image_judge.py (figure judge)&quot;]
   FJ --> SP[&quot;build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)&quot;]
-  SP --> ND[&quot;_stream_narrative_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection&quot;]
+  SP --> ND[&quot;_stream_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection&quot;]
   ND -. &quot;DEEP_TUTOR_INSTRUCTIONS / per-beat Field descriptions&quot; .- PR2[(&quot;prompts/deep_tutor.py&quot;)]
   ND --> SG[&quot;seams.check_seams() (pure code)&quot;]
-  SG -. &quot;fail&quot; .-> RD[&quot;_silent_redraft() — one retry&quot;]
+  SG -. &quot;fail&quot; .-> RD[&quot;_redraft() closure (via _seam_guard) — one retry&quot;]
   RD --> SG
   SG --> VE[&quot;vision.py (vision-explain)&quot;]
   VE --> A[&quot;DeepTutorAnswer&quot;]
@@ -94,10 +94,10 @@
   CV --> FR["formula_recovery.py (_recover_equations_block)"]
   FR --> FJ["image_judge.py (figure judge)"]
   FJ --> SP["build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)"]
-  SP --> ND["_stream_narrative_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection"]
+  SP --> ND["_stream_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection"]
   ND -. "DEEP_TUTOR_INSTRUCTIONS / per-beat Field descriptions" .- PR2[("prompts/deep_tutor.py")]
   ND --> SG["seams.check_seams() (pure code)"]
-  SG -. "fail" .-> RD["_silent_redraft() — one retry"]
+  SG -. "fail" .-> RD["_redraft() closure (via _seam_guard) — one retry"]
   RD --> SG
   SG --> VE["vision.py (vision-explain)"]
   VE --> A["DeepTutorAnswer"]
@@ -125,7 +125,7 @@
       <tr><td><code>_multi_query_candidates / _wide_candidates</code></td><td>Qdrant field_textbooks (dense+BM25)</td><td>Retrieve candidate sections per query.</td></tr>
       <tr><td><code>_rrf_merge → _density_select → rerank</code></td><td>cross-encoder reranker</td><td>Fuse, diversify by author/section, rerank.</td></tr>
       <tr><td><code>image_judge</code></td><td>Qdrant field_images + vision LLM</td><td>Pick + judge figures.</td></tr>
-      <tr><td><code>_stream_narrative_draft + seams.check_seams</code></td><td>draft model (TUTOR_DRAFT_MODEL) + pure code</td><td>Single narrative draft (5 beats + intro) + seam validator + bounded redraft.</td></tr>
+      <tr><td><code>_stream_draft + seams.check_seams</code></td><td>draft model (TUTOR_DRAFT_MODEL) + pure code</td><td>Single narrative draft (5 beats + intro) + seam validator + bounded redraft (via _seam_guard/_redraft closure).</td></tr>
       <tr><td><code>vision-explain</code></td><td>vision LLM</td><td>Explain chosen figures in context.</td></tr>
     </table>
     <h3>Source modules</h3>
