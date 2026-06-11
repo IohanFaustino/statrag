@@ -3,14 +3,14 @@ import ExtensionPipelineDiagram from "../ExtensionPipelineDiagram";
 
 const EXTENSION_MODE = {
   title: "Extension mode",
-  blurb: "Deep chapter digest with augmented footnotes from the wider corpus",
+  blurb: "Story digest with curiosity boxes — deterministic async pipeline over the chapter's sections",
   description:
-    "Extension mode produces a structured chapter digest via a topology-C agentic pipeline. It resolves the target chapter, fetches section structure, dispatches per-section analyst subagents (gap taxonomy: formal-def / formula-deriv / comparative / application), curates a timeline via the polish stage, fills coverage gaps with corpus retrieval and Wikipedia (fit rubric 1–5), then runs a judge loop that verifies completeness, merges orphan footnotes, and enforces footnote density (≥ 2 per non-trivial point) before delivering the final ExtensionDigest.",
+    "Extension mode produces a story digest via a deterministic async pipeline. It resolves the scoped book/chapter sections, then a storyteller turns each section into a take (2–4 short paragraphs, plain-text heading, bridging from the previous take), a story editor stitches takes into one continuous narrative with an explicit through-line, a subject miner extracts curiosity subjects per take (gap taxonomy: formal-def / derivation / comparative / application / history), a PURE-CODE researcher gathers cross-book corpus evidence (hybrid search, rerank, score floor) plus Wikipedia REST summaries, a curiosity writer drafts evidence-grounded bullets (emitting only evidence ids), a PURE-CODE citation binder copies citation fields VERBATIM from retrieval payloads (unverifiable bullets dropped to unfilled_subjects), and a judge runs one bounded retry for under-covered takes before emitting the final StoryDigest (timeline rail + per-take curiosity boxes + ZIP export with per-take footnotes).",
   features: [
-    { label: "Topology-C pipeline", detail: "Resolve → fetch structure → per-section analysts → polish → augmentor → judge loop. All augmentation lives in footnotes — curated_text is never modified." },
-    { label: "Gap taxonomy", detail: "Analyst classifies each gap as: [FORMAL-DEF] undefined concept, [FORMULA-DERIV] missing derivation, [COMPARATIVE] no cross-book context, or [APPLICATION] no worked example." },
-    { label: "Fit-rubric augmentation", detail: "Augmentor scores each retrieved source 1–5 for relevance. Score 1–2: discarded. Score 3–5: written as footnote (≥ 40 words). Wikipedia disambiguation fallback on 404." },
-    { label: "Judge loop", detail: "Capped re-call loop: parses COVERAGE markers, merges orphan footnotes, verifies all fields are in English, and re-delegates augmentor if any point has 0 footnotes after the first pass." },
+    { label: "Story timeline", detail: "1 section = 1 take. Takes follow the author's sequence, rendered as multi-paragraph justified prose with a narrative through-line stitched by the story editor." },
+    { label: "Curiosity boxes", detail: "Per-take collapsed toggle. Each box shows evidence-grounded bullets with corpus (📕) and Wikipedia (🌐) citation chips. Bullets without verified evidence are dropped." },
+    { label: "Verbatim citations", detail: "The citation binder is pure code — citation fields are copied directly from retrieval payloads, never written by a model. Uncited bullets are moved to unfilled_subjects." },
+    { label: "Judge + bounded retry", detail: "Per-take coverage check after the first curiosity pass. If a take is under-covered, the pipeline runs ONE retry (mine → research → write) and lists remaining gaps in unfilled_subjects." },
   ],
 } as const;
 
