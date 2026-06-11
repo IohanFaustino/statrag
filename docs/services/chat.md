@@ -193,13 +193,13 @@ Should print `wall ok`.
 | Mode id | Description | Feature doc |
 |---|---|---|
 | `tutor` | Deep multi-aspect learning — synthesis plan, orchestrator-workers, author-diversity, coverage check, figure judge | [36-deep-tutor.md](./chat-features/36-deep-tutor.md) |
-| `qa` | Punctual Q&A — 4-node scope→retrieve→generate→verify pipeline, lean `QAAnswer` schema, gpt-5.4-nano default | [51-qa-mode.md](./chat-features/51-qa-mode.md) |
+| `qa` | Storytelling Q&A — 5-node scope→retrieve(corpus∥wiki)→write→bind(pure code)→verify pipeline, `QAStoryAnswer{intro,deepening,conclusion}`, Wikipedia grounding, verbatim citations | [51-qa-mode.md](./chat-features/51-qa-mode.md) |
 | `facilitate` | Concept-map mode — clarify-not-expand; per-section map→retrieve→teach→verify pipeline; emits `FacilitateDigest` with `[[cN]]` concept anchors and `[[fN]]` formula anchors | [53-facilitate-concept-map.md](./chat-features/53-facilitate-concept-map.md) |
 | `resume` | Structural chapter traversal — compress sections in chapter reading order into dense summaries; emits `ChapterDigest` | [52-chapter-modes.md](./chat-features/52-chapter-modes.md) |
 
 ### Q&A mode
 
-The `qa` mode answers a single specific doubt punctually instead of teaching a topic globally. It runs a lean 4-node pipeline (scope-extract → hybrid retrieve → scoped generate → grounding verify), emits a `QAAnswer` with an inline scope line and a grounding-confidence badge, and defaults all LLM nodes to `gpt-5.4-nano`. On a corpus miss (0 retrieved sources) it emits an honest no-coverage message with empty citations rather than fabricating an answer. See [`chat-features/51-qa-mode.md`](./chat-features/51-qa-mode.md) for the full pipeline spec, env flags, and synced-artifacts checklist.
+The `qa` mode answers a single specific gap with **storytelling depth** — a three-act narrative (intro → deepening → conclusion) grounded in corpus sources and Wikipedia context. It runs a flat 5-node pipeline: `scope` (extracts `target_gap`, `assumed_known`, `wiki_terms`) → `retrieve` (`corpus_evidence ∥ wiki_evidence` via `asyncio.gather`, up to 3 wiki fetches) → `write` (one LLM call, `QAStoryDraft` with `[[eid]]` markers — no citation field) → `bind` (pure-code `qa_bind`: rewrites `[[eid]]`→`[n]`, builds verbatim `StoryCitation` from `Evidence.meta`, strips headings) → `verify` (advisory grounding audit, never aborts). Emits `QAStoryAnswer{intro, deepening, conclusion}` — anti-tutor by construction (3 fixed string fields; `sections`/`aspects`/`figures` structurally absent). On corpus miss emits an honest cannot-answer response; on writer returning zero bound markers triggers one silent redraft. Legacy `QAAnswer{text}` conversations keep the old `QAAnswerCard` renderer. See [`chat-features/51-qa-mode.md`](./chat-features/51-qa-mode.md) for the full pipeline spec, anti-tutor table, Wikipedia strategy, binder trust boundary, env flags, and synced-artifacts checklist.
 
 ### Facilitate mode (concept-map, clarify-not-expand)
 

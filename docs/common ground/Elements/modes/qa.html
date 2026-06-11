@@ -11,110 +11,159 @@
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
-  <h1><span class="accent">Q&amp;A</span> mode <span class="pill">multi-agent (4-node graph)</span></h1>
-  <div class="sub">Punctual, scoped Q&amp;A. Extracts the precise gap the question asks about (and what it assumes you already know), retrieves a small high-precision set, generates a terse grounded answer, then verifies that every claim is supported.</div>
+  <h1><span class="accent">Q&amp;A</span> mode <span class="pill">storytelling (5-node flat pipeline)</span></h1>
+  <div class="sub">Storytelling depth on one gap. Scopes the precise question, retrieves corpus and Wikipedia evidence in parallel, writes a three-act narrative (intro→deepening→conclusion) with inline citation markers, binds citations by pure code from verbatim payload, then audits grounding. Anti-tutor by construction: three fixed string fields — no sections, figures, or aspects.</div>
 </header>
-  <section><div class="card" style="border-left:3px solid var(--accent)"><p style="margin:0">This page documents the <b>current live</b> 4-node Q&amp;A graph. A scoped agentic-retrieval deepagent rebuild is specified but <b>not started</b> — see <code>docs/superpowers/specs/2026-06-05-qa-deepagent-design.md</code>.</p></div></section>
 <main>
   <section>
     <h2>What it serves</h2>
-    <div class="card"><p style="margin:0">Use for a specific, bounded question where you want a short, sourced answer fast — not a full tutorial. The verify node flags unsupported claims and reports a confidence.</p></div>
+    <div class="card"><p style="margin:0">Use for a specific, bounded question where you want storytelling depth — not a full tutorial. Q&A digs into one gap with a rhetorical arc (scene-setter → core explanation → take-away) grounded in corpus sources and Wikipedia context. The verify node flags unsupported claims and reports a grounding confidence.</p></div>
   </section>
   <section>
     <h2>Agentic workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart LR
-  Q[&quot;Question&quot;] --> SC[&quot;scope (nano)<br/>target_gap + assumed_known&quot;]
-  SC --> RET[&quot;retrieve (top 4, rerank)&quot;]
-  RET --> GEN[&quot;scoped generate&quot;]
-  GEN --> VF[&quot;verify grounding&quot;]
-  VF --> A[&quot;QAAnswer&quot;]
-  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart LR
-  Q["Question"] --> SC["scope (nano)<br/>target_gap + assumed_known"]
-  SC --> RET["retrieve (top 4, rerank)"]
-  RET --> GEN["scoped generate"]
-  GEN --> VF["verify grounding"]
-  VF --> A["QAAnswer"]
-  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
-    <p class="caption">Four nodes, run in order (agents/qa.py). One schema-repair retry on the generate node (ADR-005).</p>
+  Q[&quot;Question&quot;] --> SC[&quot;scope (nano)&lt;br/&gt;target_gap + wiki_terms&quot;]
+  SC -->|ambiguous book| CL[&quot;clarify&quot;]
+  SC -->|confident| RET[&quot;retrieve&lt;br/&gt;corpus ∥ wikipedia&quot;]
+  RET -->|corpus Evidence + wiki Evidence| WR[&quot;write (nano)&lt;br/&gt;storytelling intro→deepening→conclusion&lt;br/&gt;[[eid]] markers&quot;]
+  WR --> BD[&quot;bind (pure code)&lt;br/&gt;[[eid]]→[n] + StoryCitation verbatim&quot;]
+  BD --> VF[&quot;verify (advisory)&quot;]
+  VF --> A[&quot;QAStoryAnswer&quot;]
+  style BD fill:#1a2233,stroke:#4da6ff,color:#fff
+  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style CL fill:#2a1a1a,stroke:#d2624c,color:#fff">flowchart LR
+  Q["Question"] --> SC["scope (nano)<br/>target_gap + wiki_terms"]
+  SC -->|ambiguous book| CL["clarify"]
+  SC -->|confident| RET["retrieve<br/>corpus ∥ wikipedia"]
+  RET -->|corpus Evidence + wiki Evidence| WR["write (nano)<br/>storytelling intro→deepening→conclusion<br/>[[eid]] markers"]
+  WR --> BD["bind (pure code)<br/>[[eid]]→[n] + StoryCitation verbatim"]
+  BD --> VF["verify (advisory)"]
+  VF --> A["QAStoryAnswer"]
+  style BD fill:#1a2233,stroke:#4da6ff,color:#fff
+  style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style CL fill:#2a1a1a,stroke:#d2624c,color:#fff</div></div>
+    <p class="caption">Five nodes (scope → retrieve → write → bind → verify) + clarify off-ramp. Blue = pure-code node; green = advisory LLM; red = branching off-ramp. Corpus and Wikipedia retrieval run in parallel via <code>asyncio.gather</code>. One redraft if writer emits zero bound markers. Source: <code>agents/qa.py::run_qa_story</code>.</p>
   </section>
   <section>
     <h2>Functions workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
-  E[&quot;run_qa()&quot;] --> SC[&quot;extract_scope()&quot;]
+  E[&quot;run_qa_story()&quot;] --> SC[&quot;extract_scope()&lt;br/&gt;QAScope + wiki_terms&quot;]
   SC -. &quot;QA_SCOPE_PROMPT&quot; .- P1[(&quot;prompts/qa.py&quot;)]
-  SC --> RT[&quot;retrieve_for_gap()<br/>hybrid, top 4, rerank&quot;]
-  RT --> GN[&quot;generate_scoped()<br/>_one() schema-repair retry&quot;]
-  GN -. &quot;QA_GENERATE_PROMPT&quot; .- P2[(&quot;prompts/qa.py&quot;)]
-  GN --> VF[&quot;verify_grounding()&quot;]
+  SC --> RT[&quot;retrieve_evidence()&lt;br/&gt;corpus_evidence(target_gap)&lt;br/&gt;∥ wiki_evidence(target_gap)&lt;br/&gt;∥ wiki_evidence(wiki_terms, ≤2)&quot;]
+  RT --> WN[&quot;write_story()&lt;br/&gt;QAStoryDraft — no citation field&quot;]
+  WN -. &quot;QA_WRITE_PROMPT&quot; .- P2[(&quot;prompts/qa.py&quot;)]
+  WN -->|0 bound markers| RD[&quot;write_story() REDRAFT (once)&quot;]
+  WN -->|markers present| BN[&quot;qa_bind() — PURE CODE&lt;br/&gt;[[eid]]→[n], verbatim StoryCitation&lt;br/&gt;strip headings, mid-line $$→$&quot;]
+  RD --> BN
+  BN --> VF[&quot;verify_story() (advisory)&quot;]
   VF -. &quot;QA_VERIFY_PROMPT&quot; .- P3[(&quot;prompts/qa.py&quot;)]
-  VF --> A[&quot;QAAnswer&quot;]
+  VF --> A[&quot;QAStoryAnswer&quot;]
+  BN -.->|exception path| FB[&quot;_fallback_story()&lt;br/&gt;corpus-only, never regresses&quot;]
+  style BN fill:#1a2233,stroke:#4da6ff,color:#fff
+  style FB fill:#2a1a1a,stroke:#d2624c,color:#fff
   style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
   style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
   style P3 fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
-  E["run_qa()"] --> SC["extract_scope()"]
+  E["run_qa_story()"] --> SC["extract_scope()<br/>QAScope + wiki_terms"]
   SC -. "QA_SCOPE_PROMPT" .- P1[("prompts/qa.py")]
-  SC --> RT["retrieve_for_gap()<br/>hybrid, top 4, rerank"]
-  RT --> GN["generate_scoped()<br/>_one() schema-repair retry"]
-  GN -. "QA_GENERATE_PROMPT" .- P2[("prompts/qa.py")]
-  GN --> VF["verify_grounding()"]
+  SC --> RT["retrieve_evidence()<br/>corpus_evidence(target_gap)<br/>∥ wiki_evidence(target_gap)<br/>∥ wiki_evidence(wiki_terms, ≤2)"]
+  RT --> WN["write_story()<br/>QAStoryDraft — no citation field"]
+  WN -. "QA_WRITE_PROMPT" .- P2[("prompts/qa.py")]
+  WN -->|0 bound markers| RD["write_story() REDRAFT (once)"]
+  WN -->|markers present| BN["qa_bind() — PURE CODE<br/>[[eid]]→[n], verbatim StoryCitation<br/>strip headings, mid-line $$→$"]
+  RD --> BN
+  BN --> VF["verify_story() (advisory)"]
   VF -. "QA_VERIFY_PROMPT" .- P3[("prompts/qa.py")]
-  VF --> A["QAAnswer"]
+  VF --> A["QAStoryAnswer"]
+  BN -.->|exception path| FB["_fallback_story()<br/>corpus-only, never regresses"]
+  style BN fill:#1a2233,stroke:#4da6ff,color:#fff
+  style FB fill:#2a1a1a,stroke:#d2624c,color:#fff
   style VF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
   style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
   style P3 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
-    <p class="caption">Code call-graph — green = LLM-call node, purple = prompt constant, red = synthesis/heavy stage. Verified from the runner source listed below.</p>
+    <p class="caption">Code call-graph — blue = pure-code node, green = advisory LLM, purple = prompt constant, red = degradation/fallback. Redraft fires once if writer emits zero <code>[[eid]]</code> markers. <code>_fallback_story</code> is the exception safety net (never a blank answer). Verified from <code>agents/qa.py</code>.</p>
   </section>
   <section>
     <h2>Sources, prompts &amp; tools</h2>
     <h3>Prompts</h3>
     <table><tr><th>Constant</th><th>Location</th><th>Role</th></tr>
-      <tr><td><code>QA_SCOPE_PROMPT</code></td><td><code>prompts/qa.py:12</code></td><td>Extract target_gap + assumed_known from the question.</td></tr>
-      <tr><td><code>QA_GENERATE_PROMPT</code></td><td><code>prompts/qa.py:43</code></td><td>Terse grounded answer over the retrieved set.</td></tr>
-      <tr><td><code>QA_VERIFY_PROMPT</code></td><td><code>prompts/qa.py:75</code></td><td>Flag unsupported claims; report confidence.</td></tr>
+      <tr><td><code>QA_SCOPE_PROMPT</code></td><td><code>prompts/qa.py</code></td><td>Extract target_gap, assumed_known, answer_form, wiki_terms from the question.</td></tr>
+      <tr><td><code>QA_WRITE_PROMPT</code></td><td><code>prompts/qa.py</code></td><td>Write storytelling intro→deepening→conclusion with inline <code>[[eid]]</code> citation markers. Schema has no citation field.</td></tr>
+      <tr><td><code>QA_VERIFY_PROMPT</code></td><td><code>prompts/qa.py</code></td><td>Advisory grounding audit: softens unsupported claims, sets confidence badge.</td></tr>
     </table>
     <h3>Tools &amp; retrieval calls</h3>
     <table><tr><th>Function</th><th>Hits</th><th>Purpose</th></tr>
-      <tr><td><code>retrieve_for_gap</code></td><td>Qdrant field_textbooks (dense+BM25) + reranker</td><td>Top-4 high-precision retrieval (rerank_top_n=4).</td></tr>
-      <tr><td><code>generate_scoped → _one (retry)</code></td><td>nano LLM</td><td>Generate; one schema-repair retry (ADR-005).</td></tr>
-      <tr><td><code>verify_grounding</code></td><td>nano LLM</td><td>Grounding verdict over the same sources.</td></tr>
+      <tr><td><code>corpus_evidence(target_gap)</code></td><td>Qdrant field_textbooks (dense+BM25) + reranker, top-4</td><td>High-precision corpus retrieval. Evidence ids stamped as <code>c{n}</code> (readable, bindable).</td></tr>
+      <tr><td><code>wiki_evidence(target_gap)</code></td><td>Wikipedia REST API (always 1 fetch)</td><td>Wikipedia article for the gap term. Evidence ids stamped as <code>w{n}</code>.</td></tr>
+      <tr><td><code>wiki_evidence(wiki_terms[i])</code></td><td>Wikipedia REST API (≤2 fetches, <code>QA_WIKI_TERMS_MAX</code>)</td><td>Supplementary Wikipedia articles for extracted terms. Total wiki fetches ≤3.</td></tr>
+      <tr><td><code>qa_bind(draft, evidence_map)</code></td><td>Pure code — <code>research.py</code></td><td>Rewrite <code>[[eid]]</code>→<code>[n]</code>, build verbatim <code>StoryCitation</code> from <code>Evidence.meta</code>. Invalid eids stripped, prose preserved.</td></tr>
+      <tr><td><code>verify_story</code></td><td>nano LLM</td><td>Advisory grounding audit.</td></tr>
     </table>
     <h3>Source modules</h3>
     <table><tr><th>Stage</th><th>Path</th></tr>
-      <tr><td>entrypoint</td><td><code>src/services/chat/agents/qa.py:240 (run_qa)</code></td></tr>
-      <tr><td>scope</td><td><code>src/services/chat/agents/qa.py:74 (extract_scope)</code></td></tr>
-      <tr><td>retrieve</td><td><code>src/services/chat/agents/qa.py:107 (retrieve_for_gap)</code></td></tr>
-      <tr><td>generate</td><td><code>src/services/chat/agents/qa.py:165 (generate_scoped, retry at :184)</code></td></tr>
-      <tr><td>verify</td><td><code>src/services/chat/agents/qa.py:203 (verify_grounding)</code></td></tr>
+      <tr><td>entrypoint</td><td><code>src/services/chat/agents/qa.py (run_qa_story)</code></td></tr>
+      <tr><td>scope</td><td><code>src/services/chat/agents/qa.py (extract_scope)</code></td></tr>
+      <tr><td>retrieve</td><td><code>src/services/chat/agents/qa.py (retrieve_evidence)</code></td></tr>
+      <tr><td>write</td><td><code>src/services/chat/agents/qa.py (write_story)</code></td></tr>
+      <tr><td>bind (pure code)</td><td><code>src/services/chat/research.py (qa_bind)</code></td></tr>
+      <tr><td>verify</td><td><code>src/services/chat/agents/qa.py (verify_story)</code></td></tr>
+      <tr><td>fallback</td><td><code>src/services/chat/agents/qa.py (_fallback_story)</code></td></tr>
+      <tr><td>wiki primitives</td><td><code>src/services/chat/research.py (wiki_evidence, StoryCitation)</code></td></tr>
     </table>
+  </section>
+  <section>
+    <h2>Anti-tutor guarantee</h2>
+    <table>
+      <tr><th>Tutor output</th><th>Why impossible in Q&amp;A</th></tr>
+      <tr><td><code>sections: list[Section]</code></td><td>No such field in <code>QAStoryAnswer</code></td></tr>
+      <tr><td><code>figures: list[Figure]</code></td><td>No such field</td></tr>
+      <tr><td><code>aspects: dict</code></td><td>No such field</td></tr>
+      <tr><td>Model-authored citation text</td><td>Writer schema <code>QAStoryDraft</code> has no citation field; <code>qa_bind</code> is pure code</td></tr>
+      <tr><td><code>### </code> headings in answer</td><td><code>qa_bind</code> strips them unconditionally</td></tr>
+    </table>
+    <p class="caption">Isolation verified by <code>src/services/chat/tests/test_qa_isolation.py</code> (AST-based, comment-immune): asserts zero imports from <code>deep_tutor</code>, <code>orchestrator_workers</code>, <code>ow_deepagents</code>, <code>ow_skills</code>.</p>
   </section>
   <section>
     <h2>Spec</h2>
     <table>
       <tr><th>Mode id</th><td><code>qa</code></td></tr>
-      <tr><th>Architecture</th><td>multi-agent (4-node graph)</td></tr>
-      <tr><th>Default model</th><td>nano (all four nodes; per-stage override via stageModels)</td></tr>
-      <tr><th>Output schema</th><td><code>QAAnswer</code></td></tr>
-      <tr><th>Tools</th><td>none (retrieval is a graph node, not a tool)</td></tr>
-      <tr><th>Retrieval</th><td>rerank=True, rerank_top_n=4 (narrow, high-precision)</td></tr>
+      <tr><th>Architecture</th><td>flat pipeline (5 nodes: scope/retrieve/write/bind/verify)</td></tr>
+      <tr><th>Default model</th><td>nano (scope, write, verify; bind is pure code)</td></tr>
+      <tr><th>Output schema</th><td><code>QAStoryAnswer{intro, deepening, conclusion}</code></td></tr>
+      <tr><th>Legacy schema</th><td><code>QAAnswer{text}</code> — pre-rebuild conversations keep old card</td></tr>
+      <tr><th>Citations</th><td>Verbatim <code>StoryCitation</code> from <code>Evidence.meta</code> via <code>qa_bind</code> (pure code)</td></tr>
+      <tr><th>Wikipedia</th><td>Always 1 fetch on target_gap + ≤2 on wiki_terms; disabled by <code>QA_WIKI=0</code></td></tr>
+      <tr><th>Retrieval</th><td>corpus: rerank=True, top_k=4; wiki: REST API, asyncio.gather</td></tr>
       <tr><th>Memory</th><td>off</td></tr>
-      <tr><th>Post-validators</th><td>none (grounding is a runtime verify node)</td></tr>
-      <tr><th>System prompt</th><td><code>prompts/qa.py — QA_GENERATE_PROMPT</code></td></tr>
+      <tr><th>Post-validators</th><td>none (grounding is a runtime advisory verify node)</td></tr>
     </table>
-    <p class="caption">Source: <code>src/services/chat/agents/qa.py:3, modes.py:170-186</code>.</p>
+    <p class="caption">Source: <code>src/services/chat/agents/qa.py</code>, <code>src/services/chat/research.py</code>.</p>
   </section>
   <section>
     <h2>Output fields</h2>
     <table>
       <tr><th>Field</th><th>Meaning</th></tr>
-      <tr><td><code>text</code></td><td>Terse markdown with inline [n] citation markers.</td></tr>
-      <tr><td><code>scope</code></td><td>The resolved QAScope (target_gap, assumed_known, answer_form), echoed for transparency.</td></tr>
-      <tr><td><code>citations</code></td><td>Sources matching the [n] markers.</td></tr>
-      <tr><td><code>math_blocks</code></td><td>Rendered math, if any.</td></tr>
-      <tr><td><code>grounding</code></td><td>Verify verdict: {ok, unsupported[], confidence}.</td></tr>
+      <tr><td><code>intro</code></td><td>1 paragraph — scene-setter, frames the gap.</td></tr>
+      <tr><td><code>deepening</code></td><td>≤3 paragraphs — core explanation with <code>[n]</code> citation markers (corpus + Wikipedia).</td></tr>
+      <tr><td><code>conclusion</code></td><td>1 paragraph — take-away; what this means for you.</td></tr>
+      <tr><td><code>scope</code></td><td>Resolved <code>QAScope</code> (target_gap, assumed_known, answer_form, wiki_terms), echoed for transparency.</td></tr>
+      <tr><td><code>citations</code></td><td>Verbatim <code>StoryCitation</code> list from <code>Evidence.meta</code>. 📕 = corpus rows; 🌐 = wikipedia chips.</td></tr>
+      <tr><td><code>grounding</code></td><td>Advisory verdict: <code>{ok, unsupported[], confidence}</code>.</td></tr>
     </table>
-    <p class="caption">schemas/output.py:237-251.</p>
+    <p class="caption">schemas/output.py. <code>QAStoryDraft</code> (writer intermediate) has NO citation field — model can never author citations.</p>
+  </section>
+  <section>
+    <h2>SSE event sequence</h2>
+    <table>
+      <tr><th>Path</th><th>Event sequence</th></tr>
+      <tr><td>Normal</td><td><code>meta → progress(retrieving) → progress(writing) → progress(binding) → structured_output{schema:"QAStoryAnswer"} → sources_full → retrieval_meta → usage → done</code></td></tr>
+      <tr><td>Redraft (0 markers)</td><td><code>… → progress(binding) → progress(redraft) → structured_output … → done</code></td></tr>
+      <tr><td>Corpus miss</td><td><code>meta → progress(retrieving) → structured_output{citations:[], intro:"…cannot answer…"} → sources_full{sources:[]} → done</code></td></tr>
+      <tr><td>Clarify</td><td><code>meta → clarify{candidates:[…], message:"…"} → done</code></td></tr>
+    </table>
+    <p class="caption"><code>sources_full</code> carries corpus <code>Source</code> rows only. Wikipedia surfaces as 🌐 chips via <code>StoryCitation.url</code>.</p>
   </section>
 </main>
 </div>
