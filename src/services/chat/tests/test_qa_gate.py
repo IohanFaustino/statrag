@@ -62,31 +62,34 @@ async def test_chat_schema_model_native_and_untouched():
 
 @pytest.mark.asyncio
 async def test_stages_pass_their_schema():
-    """extract_scope / generate_scoped / verify_grounding each hand _chat a schema."""
-    from src.services.chat.schemas import (
-        QAScope, QAGenerateOut, QAVerifyOut, Source,
-    )
+    """extract_scope / write_story / verify_story each hand _chat a schema."""
+    from src.services.chat.research import Evidence
+    from src.services.chat.schemas import QAScope, QAStoryDraft, QAVerifyOut, QAStoryAnswer
     seen = []
 
     async def _spy(messages, *, model, max_tokens, temperature=0.0, schema=None):
         seen.append(schema)
         return ('{"target_gap":"g","assumed_known":[],"answer_form":"explanation",'
-                '"text":"t","citations":[],"math_blocks":[],'
+                '"wiki_terms":[],'
+                '"intro":"i [[c1]]","deepening":"d","conclusion":"c","math_blocks":[],'
                 '"ok":true,"unsupported":[],"confidence":1.0}')
 
-    src = Source(
-        rank=1, book="b", chapter="ch01", section="1.1", title="Alpha",
-        excerpt="ex", score=0.9, chunkId="c1", chunk="full chunk",
-    )
+    ev = Evidence(subject_id="qa", kind="corpus", text="text", id="c1",
+                  meta={"book_slug": "b", "section_id": "s1"})
     scope = QAScope(target_gap="g")
+    answer = QAStoryAnswer(
+        intro="i [1]", deepening="d", conclusion="c",
+        scope=scope, citations=[], grounding={},
+    )
+    from src.services.chat.schemas import Source
+    src = Source(rank=1, book="b", chapter="ch01", section="1.1", title="Alpha",
+                 excerpt="ex", score=0.9, chunkId="c1", chunk="full chunk")
 
     with patch.object(qa, "_chat", _spy):
         await qa.extract_scope("question?", model="gpt-4o")
-        await qa.generate_scoped(scope, [src], model="gpt-4o")
-        await qa.verify_grounding(
-            qa.QAAnswer(text="t", scope=scope), [src], model="gpt-4o"
-        )
+        await qa.write_story(scope, [ev], model="gpt-4o")
+        await qa.verify_story(answer, [src], model="gpt-4o")
 
     assert QAScope in seen
-    assert QAGenerateOut in seen
+    assert QAStoryDraft in seen
     assert QAVerifyOut in seen

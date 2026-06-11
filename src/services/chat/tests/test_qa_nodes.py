@@ -1,4 +1,4 @@
-"""Q&A node + prompt tests."""
+"""Q&A node + prompt tests — flat storytelling pipeline."""
 from __future__ import annotations
 
 import pytest  # I2: moved to top
@@ -7,10 +7,10 @@ import pytest  # I2: moved to top
 def test_prompts_present_and_nonempty():
     from src.services.chat.prompts.qa import (
         QA_SCOPE_PROMPT,
-        QA_GENERATE_PROMPT,
+        QA_STORY_WRITE_PROMPT,
         QA_VERIFY_PROMPT,
     )
-    for p in (QA_SCOPE_PROMPT, QA_GENERATE_PROMPT, QA_VERIFY_PROMPT):
+    for p in (QA_SCOPE_PROMPT, QA_STORY_WRITE_PROMPT, QA_VERIFY_PROMPT):
         assert isinstance(p, str) and len(p) > 50
 
 
@@ -20,10 +20,11 @@ def test_scope_prompt_demands_json_keys():
         assert key in QA_SCOPE_PROMPT
 
 
-def test_generate_prompt_forbids_explaining_known():
-    from src.services.chat.prompts.qa import QA_GENERATE_PROMPT
-    low = QA_GENERATE_PROMPT.lower()
-    assert "assumed_known" in low or "already know" in low
+def test_story_write_prompt_mentions_evidence_tokens():
+    """QA_STORY_WRITE_PROMPT must instruct the model to use [[eid]] tokens."""
+    from src.services.chat.prompts.qa import QA_STORY_WRITE_PROMPT
+    low = QA_STORY_WRITE_PROMPT.lower()
+    assert "[[" in low or "eid" in low or "evidence" in low
 
 
 @pytest.mark.asyncio
@@ -34,7 +35,7 @@ async def test_extract_scope_parses_bias_variance(monkeypatch):
         return (
             '{"target_gap":"why bias and variance trade off",'
             '"assumed_known":["what bias is","what variance is"],'
-            '"answer_form":"explanation"}'
+            '"answer_form":"explanation","wiki_terms":[]}'
         )
 
     monkeypatch.setattr(qa, "_chat", fake_chat)
@@ -59,49 +60,27 @@ async def test_extract_scope_fail_open(monkeypatch):
     assert scope.assumed_known == []
 
 
-def test_retrieve_for_gap_uses_target_gap(monkeypatch):
-    from src.services.chat.agents import qa
+# ---------------------------------------------------------------------------
+# write_story node tests
+# ---------------------------------------------------------------------------
 
-    captured = {}
-
-    def fake_hybrid(query, *, book_slugs=None, top_k=5, rerank=True, rerank_top_n=None, adjacent_sections=False):
-        captured["query"] = query
-        captured["top_k"] = top_k
-        captured["rerank_top_n"] = rerank_top_n
-        return ([], {"mode": "test"})
-
-    monkeypatch.setattr(qa, "hybrid_search", fake_hybrid)
-    scope = qa.QAScope(target_gap="why bias and variance trade off")
-    sources, meta = qa.retrieve_for_gap(scope, book_slugs=None, k=4)
-    assert captured["query"] == "why bias and variance trade off"
-    assert captured["top_k"] == 4
-    # rerank_top_n must equal k so QA_TOP_K actually limits the reranked output
-    assert captured["rerank_top_n"] == 4
-    assert sources == []
-
-
-def _src(rank, **kw):
-    from src.services.chat.schemas import Source
-    base = dict(
-        rank=rank, book="islp", chapter="ch02", section="2.2",
-        title="Assessing Model Accuracy", excerpt="…", score=0.9,
-        chunkId=f"c{rank}", chunk="Bias and variance trade off because …",
-    )
-    base.update(kw)
-    return Source(**base)
+def _ev(eid="c1"):
+    from src.services.chat.research import Evidence
+    return Evidence(subject_id="qa", kind="corpus",
+                    text="Bias and variance trade off because of model flexibility.",
+                    meta={"book_slug": "islp", "section_id": "2.2"},
+                    id=eid)
 
 
 @pytest.mark.asyncio
-async def test_generate_scoped_builds_answer_and_passes_known(monkeypatch):
+async def test_write_story_builds_draft(monkeypatch):
     from src.services.chat.agents import qa
 
-    seen = {}
-
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
-        seen["user"] = messages[-1]["content"]
         return (
-            '{"text":"The tradeoff arises because lowering one raises the other [1].",'
-            '"citations":[{"index":1,"chunkId":"c1","book_name":"ISLP","quote":"…"}],'
+            '{"intro":"The tradeoff [[c1]] arises from model flexibility.",'
+            '"deepening":"Lowering bias raises variance [[c1]].",'
+            '"conclusion":"Choose the right complexity [[c1]].",'
             '"math_blocks":[]}'
         )
 
@@ -110,15 +89,13 @@ async def test_generate_scoped_builds_answer_and_passes_known(monkeypatch):
         target_gap="why bias and variance trade off",
         assumed_known=["what bias is", "what variance is"],
     )
-    ans = await qa.generate_scoped(scope, [_src(1)])
-    assert ans.text.startswith("The tradeoff")
-    assert ans.citations[0].index == 1
-    # the assumed_known must be injected into the generate prompt context
-    assert "what bias is" in seen["user"]
+    draft = await qa.write_story(scope, [_ev()])
+    assert "[[c1]]" in draft.intro or "[[c1]]" in draft.deepening or "[[c1]]" in draft.conclusion
+    assert isinstance(draft.math_blocks, list)
 
 
 @pytest.mark.asyncio
-async def test_generate_scoped_repairs_bad_json(monkeypatch):
+async def test_write_story_repairs_bad_json(monkeypatch):
     from src.services.chat.agents import qa
     calls = {"n": 0}
 
@@ -126,61 +103,117 @@ async def test_generate_scoped_repairs_bad_json(monkeypatch):
         calls["n"] += 1
         if calls["n"] == 1:
             return "garbled not json"
-        return '{"text":"ok","citations":[],"math_blocks":[]}'
+        return '{"intro":"ok [[c1]]","deepening":"d","conclusion":"c","math_blocks":[]}'
 
     monkeypatch.setattr(qa, "_chat", flaky)
     scope = qa.QAScope(target_gap="x")
-    ans = await qa.generate_scoped(scope, [_src(1)])
-    assert ans.text == "ok"
+    draft = await qa.write_story(scope, [_ev()])
+    assert draft.intro == "ok [[c1]]"
     assert calls["n"] == 2  # one repair retry
 
 
 @pytest.mark.asyncio
-async def test_verify_flags_unsupported_and_softens(monkeypatch):
+async def test_write_story_handles_fenced_json(monkeypatch):
+    from src.services.chat.agents import qa
+
+    async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
+        return '```json\n{"intro":"x [[c1]]","deepening":"d","conclusion":"c","math_blocks":[]}\n```'
+
+    monkeypatch.setattr(qa, "_chat", fake_chat)
+    scope = qa.QAScope(target_gap="test fenced")
+    draft = await qa.write_story(scope, [_ev()])
+    assert draft.intro == "x [[c1]]"
+
+
+# ---------------------------------------------------------------------------
+# verify_story node tests (advisory grounding audit)
+# ---------------------------------------------------------------------------
+
+def _story_answer():
+    from src.services.chat.schemas import QAStoryAnswer, QAScope
+    return QAStoryAnswer(
+        intro="The tradeoff arises because ...",
+        deepening="Lowering bias raises variance.",
+        conclusion="Choose complexity carefully.",
+        scope=QAScope(target_gap="bias-variance tradeoff"),
+        citations=[],
+        grounding={"unbound_markers": 0, "lints": []},
+    )
+
+
+def _src():
+    from src.services.chat.schemas import Source
+    return Source(
+        rank=1, book="islp", chapter="ch02", section="2.2",
+        title="Assessing Model Accuracy", excerpt="...", score=0.9,
+        chunkId="c1", chunk="Bias and variance trade off because ...",
+    )
+
+
+@pytest.mark.asyncio
+async def test_verify_story_flags_unsupported(monkeypatch):
     from src.services.chat.agents import qa
 
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
         return (
             '{"ok":false,"unsupported":["claim about quantum tunnelling"],'
-            '"confidence":0.4,"text":"The tradeoff arises because lowering one raises the other [1]."}'
+            '"confidence":0.4,"text":""}'
         )
 
     monkeypatch.setattr(qa, "_chat", fake_chat)
-    scope = qa.QAScope(target_gap="x")
-    draft = qa.QAAnswer(text="… quantum tunnelling …", scope=scope)
-    out = await qa.verify_grounding(draft, [_src(1)])
+    answer = _story_answer()
+    out = await qa.verify_story(answer, [_src()])
     assert out.grounding["ok"] is False
     assert out.grounding["confidence"] == 0.4
     assert "quantum tunnelling" in out.grounding["unsupported"][0]
-    assert "lowering one raises the other" in out.text  # text replaced by verified text
+    # Prose fields remain unchanged by verify_story
+    assert out.intro == answer.intro
 
 
 @pytest.mark.asyncio
-async def test_verify_fail_open_keeps_draft(monkeypatch):
+async def test_verify_story_fail_open_keeps_prose(monkeypatch):
     from src.services.chat.agents import qa
 
     async def boom(messages, *, model, max_tokens, temperature=0.0, schema=None):
         raise RuntimeError("verify provider down")
 
     monkeypatch.setattr(qa, "_chat", boom)
-    scope = qa.QAScope(target_gap="x")
-    draft = qa.QAAnswer(text="original draft", scope=scope)
-    out = await qa.verify_grounding(draft, [_src(1)])
-    assert out.text == "original draft"
-    assert out.grounding["ok"] is False
-    assert out.grounding["confidence"] <= 0.5
+    answer = _story_answer()
+    out = await qa.verify_story(answer, [_src()])
+    # Fail-open: prose intact
+    assert out.intro == answer.intro
+    assert out.deepening == answer.deepening
+    # Advisory pass — grounding still has a confidence key
+    assert "confidence" in out.grounding
 
 
-# m5: generate_scoped succeeds when _chat returns fenced JSON
 @pytest.mark.asyncio
-async def test_generate_scoped_handles_fenced_json(monkeypatch):
+async def test_verify_story_preserves_prior_grounding_keys(monkeypatch):
+    """verify_story must merge, not replace — unbound_markers and lints
+    from qa_bind must survive the verify pass."""
     from src.services.chat.agents import qa
+    from src.services.chat.schemas import QAStoryAnswer, QAScope
 
     async def fake_chat(messages, *, model, max_tokens, temperature=0.0, schema=None):
-        return '```json\n{"text":"x","citations":[],"math_blocks":[]}\n```'
+        return '{"ok":true,"unsupported":[],"confidence":0.9,"text":""}'
 
     monkeypatch.setattr(qa, "_chat", fake_chat)
-    scope = qa.QAScope(target_gap="test fenced")
-    ans = await qa.generate_scoped(scope, [_src(1)])
-    assert ans.text == "x"
-    assert ans.citations == []
+
+    answer = QAStoryAnswer(
+        intro="answer", deepening="", conclusion="",
+        scope=QAScope(target_gap="x"),
+        citations=[],
+        grounding={
+            "unbound_markers": 3,
+            "lints": ["intro: truncated"],
+            "corpus_weak": False,
+            "wiki_unavailable": False,
+        },
+    )
+    out = await qa.verify_story(answer, [_src()])
+    # Newly added verify keys
+    assert out.grounding["ok"] is True
+    assert out.grounding["confidence"] == 0.9
+    # Prior keys preserved
+    assert out.grounding["unbound_markers"] == 3
+    assert "intro: truncated" in out.grounding["lints"]

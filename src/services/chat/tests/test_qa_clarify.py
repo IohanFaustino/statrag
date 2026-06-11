@@ -1,6 +1,7 @@
 import pytest
 from src.services.chat.agents import qa
-from src.services.chat.schemas import BookResolution, CatalogBook, ChatRequest
+from src.services.chat.research import Evidence
+from src.services.chat.schemas import BookResolution, CatalogBook, ChatRequest, QAScope
 
 _CAT = [CatalogBook(slug="islp", name="ISL", authors_short="James et al.",
                     field="ml_dp", chapters=["ch02"])]
@@ -9,8 +10,10 @@ _CAT = [CatalogBook(slug="islp", name="ISL", authors_short="James et al.",
 @pytest.mark.asyncio
 async def test_qa_clarify_on_unknown_book(monkeypatch):
     monkeypatch.setattr(qa, "parse_catalog", lambda: _CAT)
+
     async def fake_resolve(*a, **k):
         return BookResolution(book_slug="", book_confidence=0.0, book_candidates=[])
+
     monkeypatch.setattr(qa, "resolve_book", fake_resolve)
     req = ChatRequest(message="in Hansen's probability, what is a sigma-algebra?",
                       mode="qa", bookFilter=[])
@@ -23,27 +26,47 @@ async def test_qa_clarify_on_unknown_book(monkeypatch):
 @pytest.mark.asyncio
 async def test_qa_no_clarify_when_confident(monkeypatch):
     monkeypatch.setattr(qa, "parse_catalog", lambda: _CAT)
+
     async def fake_resolve(*a, **k):
         return BookResolution(book_slug="islp", book_confidence=0.95,
                               book_candidates=["islp"])
+
     monkeypatch.setattr(qa, "resolve_book", fake_resolve)
+
     async def fake_scope(query, *, model=None):
-        return qa.QAScope(target_gap="what is bias")
+        return QAScope(target_gap="what is bias")
+
     monkeypatch.setattr(qa, "extract_scope", fake_scope)
-    def fake_retrieve(scope, *, book_slugs, k=4):
-        from src.services.chat.schemas import Source
-        src = Source(rank=1, book="islp", chapter="ch02", section="2.1",
-                     title="Bias", excerpt="Bias is ...", score=0.9,
-                     chunkId="c1", chunk="Bias is ...", book_name="ISL")
-        return [src], {"mode": "qa-test"}
-    monkeypatch.setattr(qa, "retrieve_for_gap", fake_retrieve)
-    async def fake_gen(scope, sources, *, model=None):
-        return qa.QAAnswer(text="Bias is the error from wrong assumptions.",
-                           scope=scope, citations=[], math_blocks=[])
-    monkeypatch.setattr(qa, "generate_scoped", fake_gen)
+
+    async def fake_retrieve(scope, *, book_slugs):
+        return [Evidence(
+            subject_id="qa", kind="corpus",
+            text="Bias is the error from wrong assumptions.",
+            meta={"book_slug": "islp", "book_name": "ISL", "chapter": "ch02",
+                  "section_id": "2.1", "chunk_id": "c1"},
+            id="c1",
+        )]
+
+    monkeypatch.setattr(qa, "retrieve_evidence", fake_retrieve)
+
+    from src.services.chat.schemas import QAStoryDraft
+
+    async def fake_write(scope, evidence, *, model=None):
+        return QAStoryDraft(
+            intro="Bias [[c1]] is the error from wrong model assumptions.",
+            deepening="",
+            conclusion="",
+        )
+
+    monkeypatch.setattr(qa, "write_story", fake_write)
+
     async def fake_verify(answer, sources, *, model=None):
-        return answer.model_copy(update={"grounding": {"ok": True, "unsupported": [], "confidence": 0.95}})
-    monkeypatch.setattr(qa, "verify_grounding", fake_verify)
+        return answer.model_copy(update={
+            "grounding": {**answer.grounding, "ok": True, "confidence": 0.95}
+        })
+
+    monkeypatch.setattr(qa, "verify_story", fake_verify)
+
     req = ChatRequest(message="what is bias?", mode="qa", bookFilter=["islp"])
     evs = [e async for e in qa.run_qa(req)]
     assert "clarify" not in [e["type"] for e in evs]
