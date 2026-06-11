@@ -76,6 +76,13 @@ async def test_fallback_story_happy_path(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "confidence" in ans.grounding
     assert ans.grounding.get("fallback") is True
 
+    # grounding must carry corpus_weak / wiki_unavailable on every path (Finding 3)
+    assert "corpus_weak" in ans.grounding
+    assert "wiki_unavailable" in ans.grounding
+    # called with one source → corpus not weak
+    assert ans.grounding["corpus_weak"] is False
+    assert ans.grounding["wiki_unavailable"] is False
+
 
 # ---------------------------------------------------------------------------
 # Grounding defaults — unbound_markers and lints must be initialised
@@ -96,6 +103,9 @@ async def test_fallback_story_grounding_defaults(monkeypatch: pytest.MonkeyPatch
 
     assert ans.grounding.get("unbound_markers") == 0
     assert ans.grounding.get("lints") == []
+    # empty sources list → corpus_weak=True; wiki_unavailable=False (Finding 3)
+    assert ans.grounding.get("corpus_weak") is True
+    assert ans.grounding.get("wiki_unavailable") is False
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +137,9 @@ async def test_fallback_story_never_raises_on_exception(monkeypatch: pytest.Monk
     assert isinstance(ans.grounding, dict)
     # intro must be a non-empty honest message (not an empty string silently)
     assert isinstance(ans.intro, str)
+    # degenerate path must also carry corpus_weak / wiki_unavailable (Finding 3)
+    assert "corpus_weak" in ans.grounding
+    assert "wiki_unavailable" in ans.grounding
 
 
 # ---------------------------------------------------------------------------

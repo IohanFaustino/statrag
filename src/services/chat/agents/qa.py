@@ -32,7 +32,6 @@ from src.services.chat.prompts.qa import (
 from src.services.chat.research import (
     Evidence, _citation, _isolate_midline_display, corpus_evidence, wiki_evidence,
 )
-from src.services.chat.retrieval import hybrid_search
 from src.services.chat.schemas import (
     ChatRequest, QAScope, QAStoryAnswer, QAStoryDraft,
     QAVerifyOut, Source,
@@ -279,8 +278,6 @@ def _apply_token_pass(
     unbound = 0
 
     def _replace(text: str) -> str:
-        nonlocal unbound
-
         def _sub(m: re.Match) -> str:
             nonlocal unbound
             eid = m.group(1)
@@ -463,6 +460,8 @@ async def _fallback_story(
                 "unbound_markers": 0,
                 "lints": [],
                 "fallback": True,
+                "corpus_weak": not sources,
+                "wiki_unavailable": False,
             },
         )
     except Exception:  # noqa: BLE001
@@ -481,6 +480,8 @@ async def _fallback_story(
                 "unbound_markers": 0,
                 "lints": [],
                 "fallback": True,
+                "corpus_weak": True,
+                "wiki_unavailable": True,
             },
         )
 
