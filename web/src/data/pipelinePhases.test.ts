@@ -11,13 +11,8 @@ describe("phaseOf", () => {
     expect(phaseOf("rerank")).toBe("retrieval");
     expect(phaseOf("diversity")).toBe("retrieval");
     expect(phaseOf("coverage")).toBe("retrieval");
-    expect(phaseOf("drafting")).toBe("generation");
     expect(phaseOf("draft")).toBe("generation");
-    expect(phaseOf("orchestrator")).toBe("generation");
-    expect(phaseOf("worker1")).toBe("generation");
-    expect(phaseOf("synthesizer")).toBe("generation");
     expect(phaseOf("image_judge")).toBe("vision");
-    expect(phaseOf("formula_recovery")).toBe("vision");
     expect(phaseOf("vision_explain")).toBe("vision");
   });
 

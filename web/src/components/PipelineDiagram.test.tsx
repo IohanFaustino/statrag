@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { stageDefaultModels } from "../data/recommended";
+import { TUTOR_PIPELINE } from "../data/tutorPipeline";
 import React from "react";
 import PipelineDiagram from "./PipelineDiagram";
 import AboutModelModal from "./modals/AboutModelModal";
@@ -326,6 +327,14 @@ describe("AboutModelModal", () => {
     expect(html).toContain("Apply"); // Apply button present
   });
 
+});
+
+describe("plan node tooltip regression (I-1)", () => {
+  it("plan node desc does not mention orchestrator or worker language", () => {
+    const planNode = TUTOR_PIPELINE.nodes.find((n) => n.id === "plan");
+    expect(planNode).toBeDefined();
+    expect(planNode!.desc).not.toMatch(/orchestrator|worker|per-worker/i);
+  });
 });
 
 describe("stageDefaultModels (Default button reset map)", () => {

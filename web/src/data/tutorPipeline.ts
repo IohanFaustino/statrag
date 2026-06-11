@@ -93,7 +93,7 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
     {
       id: "plan",
       label: "Planner",
-      desc: "Plans the answer AND decides the worker decomposition: thesis + author contrasts + (for orchestrator mode) the per-worker tasks. One agent. Skipped when the planner rates the question simple (perspectives ≤ 1).",
+      desc: "Plans the answer: a single thesis throughline plus explicit author contrasts the narrative develops. One agent. Skipped when the planner rates the question simple (perspectives ≤ 1).",
       kind: "llm",
       stage: "plan",
       locked: false,

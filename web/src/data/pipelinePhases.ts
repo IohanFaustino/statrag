@@ -15,7 +15,7 @@ export const PHASE_META: Record<Phase, PhaseMeta> = {
   vision:     { label: "VISION" },
 };
 
-// Explicit id → phase. Covers tutor (tutorPipeline.ts + orchestrator cluster),
+// Explicit id → phase. Covers tutor (tutorPipeline.ts),
 // qa (qaPipeline.ts), and chapter (chapterPipeline.ts) node ids.
 export const PHASE_OF: Record<string, Phase> = {
   // tutor — io
@@ -24,11 +24,10 @@ export const PHASE_OF: Record<string, Phase> = {
   expansion: "planning", plan: "planning",
   // tutor — retrieval
   retrieval: "retrieval", rerank: "retrieval", diversity: "retrieval", coverage: "retrieval",
-  // tutor — generation (incl. orchestrator cluster)
-  drafting: "generation", draft: "generation", orchestrator: "generation",
-  worker1: "generation", worker2: "generation", worker3: "generation", synthesizer: "generation",
+  // tutor — generation
+  draft: "generation",
   // tutor — vision
-  image_judge: "vision", formula_recovery: "vision", vision_explain: "vision",
+  image_judge: "vision", vision_explain: "vision",
   // qa
   scope: "planning", retrieve: "retrieval", generate: "generation", verify: "generation",
   clarify: "planning",

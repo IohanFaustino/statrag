@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // back synchronously. Falls back to `initial` on parse error or SSR.
 //
 // Use for cross-session config: tutor mode, model, per-stage overrides,
-// drafting workflow, diversity knob, settings popover. Do NOT use for
+// diversity knob, settings popover. Do NOT use for
 // per-message ephemeral state (streaming, hover, modal open/close).
 export function usePersistentState<T>(
   key: string,
