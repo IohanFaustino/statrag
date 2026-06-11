@@ -10,7 +10,7 @@ Append-only. Latest at top.
 
 **Narrative arc:** Output is ONE continuous arc per answer. The `tldr` (Introduction) stands alone, outside the body thread. Five body beats — ① define (`definition`) → ② formalize (`formal_statement`, auto-drop when empty) → ③ see-it-work (`example_intuition`) → ④ use-it (`applications`) → ⑤ go-further (`further_reading`) — flow into each other: each beat opens carrying the prior beat forward, closes setting up the next. No new schema field; no new frontend element; transitions live in prose.
 
-**Seam validator** (`agents/seams.py`, pure code, no env flag): checks lemma overlap between seam sentences, boilerplate-opener guard (3-gram dedupe + canned-phrase blocklist), English stopword-ratio language-drift guard, formalize-drop re-link (①→③ when `formal_statement` empty). Scores in `TutorAnswer.quality`: `seam_continuity` / `lang_ok` / `thesis_adherence` (report-only). One silent non-streamed redraft on failure; first draft kept if redraft also fails.
+**Seam validator** (`agents/seams.py`, pure code, no env flag): checks lemma overlap between seam sentences, boilerplate-opener guard (≥2 beats sharing a leading 3-gram), English stopword-ratio language-drift guard, formalize-drop re-link (①→③ when `formal_statement` empty). Scores in `TutorAnswer.quality`: `seam_continuity` / `lang_ok` / `thesis_adherence` (report-only). One silent non-streamed redraft on failure; first draft kept if redraft also fails.
 
 **Thesis injection:** synthesis-plan `thesis` injected by code as `<thesis>…</thesis>` at the top of the draft user message.
 
