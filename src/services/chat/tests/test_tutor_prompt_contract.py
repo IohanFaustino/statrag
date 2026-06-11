@@ -137,30 +137,6 @@ def test_organizer_preamble_contract():
     assert "real, specific application cases" in p
 
 
-def test_organize_workflow_resolves():
-    from types import SimpleNamespace
-    from src.services.chat.agents.deep_tutor import _resolve_workflow
-
-    assert _resolve_workflow(SimpleNamespace(tutorWorkflow="organize")) == "organize"
-    assert _resolve_workflow(SimpleNamespace(tutorWorkflow="orchestrator")) == "orchestrator"
-    assert _resolve_workflow(SimpleNamespace(tutorWorkflow=None)) == "single"
-    assert _resolve_workflow(SimpleNamespace(tutorWorkflow="bogus")) == "single"
-
-
-def test_build_organize_pool_token_budget():
-    from src.services.chat.agents.deep_tutor import _build_organize_pool
-    from src.services.chat.schemas import Source
-
-    def mk(i: str, n: int) -> Source:
-        return Source(rank=1, book="b", chapter="c", section="s", title="t",
-                      excerpt="x", score=0.5, chunkId=i, chunk="w " * n)
-    # each chunk ~ (2n chars)//4 tokens; budget forces a cut
-    cands = [mk(str(i), 400) for i in range(20)]
-    ranked = cands[:3]
-    pool = _build_organize_pool("q", cands, ranked, max_tokens=600)
-    assert 0 < len(pool) < len(cands)            # trimmed by budget
-    assert pool[0].chunkId in {"0", "1", "2"}     # density-ranked included first
-
 
 def test_planner_emits_application_case_facet():
     assert "application-case facet" in INSTR_PLANNER

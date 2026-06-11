@@ -136,13 +136,6 @@ class ChatRequest(BaseModel):
     # topic yields a single author regardless of this value.
     diversityAuthors: int | Literal["auto"] | None = None
 
-    # Drafting workflow: ``"single"`` = one draft call writes all aspects (legacy);
-    # ``"orchestrator"`` = one worker per author + a synthesizer integrate pass.
-    # ``"orchestrator-deep"`` = orchestrator workers + the deepagents+SKILL deep
-    #   synthesizer (Plan D, opt-in, ~45 s blocking; falls back to L0 on failure).
-    # ``None`` defers to the ``TUTOR_WORKFLOW`` env default.
-    tutorWorkflow: Literal["single", "orchestrator", "orchestrator-deep", "organize"] | None = None
-
     # Extension mode: hard cap on augmentation re-delegation rounds (judge re-runs
     # the augmentor for unfilled gap queries). None -> EXTENSION_MAX_ROUNDS env (3).
     extensionMaxRounds: int | None = Field(default=None, ge=1, le=6)

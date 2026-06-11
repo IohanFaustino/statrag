@@ -61,9 +61,12 @@ def test_valid_override_reaches_draft_stage(monkeypatch):
     """A stageModels['draft'] override is the model passed to _stream_draft."""
     captured: dict[str, str] = {}
 
-    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None):
+    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None, **kwargs):
         captured["draft_model"] = model
         return None, {k: "" for k in dt.ASPECT_HEADINGS}
+
+    async def fake_recover(q, srcs):
+        return ""
 
     async def fake_extract(q, *, model=None):
         captured["expansion_model"] = model
@@ -93,6 +96,7 @@ def test_valid_override_reaches_draft_stage(monkeypatch):
         return [src], ["col"]
 
     monkeypatch.setattr(dt, "_stream_draft", fake_draft)
+    monkeypatch.setattr(dt, "_recover_equations_block", fake_recover)
     monkeypatch.setattr(dt, "extract_concepts", fake_extract)
     monkeypatch.setattr(dt, "extract_concepts_ex", fake_extract_ex)
     monkeypatch.setattr(dt, "build_synthesis_plan", fake_plan)

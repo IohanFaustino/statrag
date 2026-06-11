@@ -53,7 +53,6 @@ from src.services.chat.prompts.deep_tutor import (
     DEEP_TUTOR_INSTRUCTIONS,
     EXTRACT_CONCEPTS_BUDGET_PROMPT,
     EXTRACT_CONCEPTS_PROMPT,
-    ORGANIZER_PREAMBLE,
     PLANNER_CONSOLIDATE_PROMPT,
     PLANNER_DECOMPOSE_PROMPT,
     PLANNER_EXPAND_PROMPT,
@@ -1022,25 +1021,6 @@ def _resolve_plan_model(stage_models: dict | None) -> tuple[bool, str]:
     return (_SYNTHESIS_PLAN_ON, settings.openai_model_nano)
 
 
-# Drafting workflow (single draft vs orchestrator-workers vs long-context organize).
-_WORKFLOW_DEFAULT = os.environ.get("TUTOR_WORKFLOW", "single")
-_WORKER_MODEL = os.environ.get("TUTOR_WORKER_MODEL", "") or None  # None → nano
-# Long-context organizer (§11): hand a large source pool to deepseek-v4-pro and
-# let it organize the coherent pieces (formulas, the central decomposition/MSE,
-# real cases) into the aspect fields. Token-budgeted; never assumes a 1M window.
-_ORGANIZE_MODEL = os.environ.get("TUTOR_ORGANIZE_MODEL", "") or settings.deepseek_model
-_ORGANIZE_MAX_TOKENS = int(os.environ.get("TUTOR_ORGANIZE_MAX_TOKENS", "120000"))
-_ORGANIZE_POOL = int(os.environ.get("TUTOR_ORGANIZE_POOL", "60"))
-
-
-def _resolve_workflow(req) -> str:
-    """``"single"``, ``"orchestrator"``, ``"orchestrator-deep"``, or
-    ``"organize"`` — request field over env default."""
-    val = str(getattr(req, "tutorWorkflow", None) or _WORKFLOW_DEFAULT).lower()
-    if val in ("orchestrator", "orchestrator-deep", "organize"):
-        return val
-    return "single"
-
 
 _IMAGE_POOL = int(os.environ.get("TUTOR_DEEP_IMAGE_POOL", "6"))
 
@@ -1854,6 +1834,26 @@ async def _stream_draft_via_router(
         return None, accumulated
 
 
+async def _recover_equations_block(query: str, sources: list) -> str:
+    """Gap-triggered formula recovery (was wired inside orchestrator-workers).
+    Returns a ``<recovered_equations>…</recovered_equations>`` block to inject
+    verbatim into the draft prompt, or '' when no gaps / recovery yields nothing.
+    Best-effort: never raises."""
+    try:
+        from src.services.chat.agents.formula_gaps import detect_formula_gaps
+        from src.services.chat.agents.formula_recovery import (
+            recover_formulas, format_recovered_block,
+        )
+        gaps = detect_formula_gaps(sources, query)
+        if not gaps:
+            return ""
+        recovered = await recover_formulas(query, gaps)
+        return format_recovered_block(recovered) if recovered else ""
+    except Exception:  # noqa: BLE001
+        logger.exception("formula recovery failed; continuing without it")
+        return ""
+
+
 async def _stream_draft(
     query: str,
     sources: list[Source],
@@ -1863,6 +1863,7 @@ async def _stream_draft(
     model: str | None = None,
     plan: SynthesisPlan | None = None,
     instructions: str | None = None,
+    recovered_block: str = "",
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
     """Stream a draft and return (parsed answer, accumulated_aspects).
 
@@ -1875,9 +1876,14 @@ async def _stream_draft(
     *model* selects the draft model. OpenAI-family models use the rich
     structured-streaming path below; non-OpenAI models (e.g. deepseek) use
     a best-effort text-stream + JSON-parse path via the provider router.
+
+    *recovered_block* is a verbatim ``<recovered_equations>…</recovered_equations>``
+    block (from formula recovery) appended to the user message when non-empty.
     """
     draft_model = model or settings.openai_model_nano
     user = _build_user_message(query, sources, figures=figures, plan=plan)
+    if recovered_block:
+        user = user + "\n\n" + recovered_block
     sys_prompt = instructions or DEEP_TUTOR_INSTRUCTIONS
     sys_prompt = _maybe_append_groq_addendum(sys_prompt, draft_model)
     messages = [
@@ -1892,42 +1898,6 @@ async def _stream_draft(
         )
     return await _stream_structured(messages, draft_model, on_aspect_delta)
 
-
-def _build_organize_pool(
-    query: str, candidates: list[Source], ranked: list[Source], max_tokens: int
-) -> list[Source]:
-    """Build the large source pool the long-context organizer reads (§11).
-
-    Reranks the wide candidate pool to ``_ORGANIZE_POOL``, guarantees the
-    density-ranked ``ranked`` sources (the ones figures co-locate with) are
-    included, then trims to a ``max_tokens`` budget (≈ ``chars/4``) so we never
-    blow past the model's real context window. Token budget is approximate and
-    deliberately conservative; the actual char/token total is logged by the
-    caller. Best-effort: on any rerank error, falls back to ``ranked``."""
-    try:
-        wide = get_reranker().rerank(query, candidates, top_n=_ORGANIZE_POOL)
-    except Exception:  # noqa: BLE001
-        logger.exception("organize: rerank failed; using density-ranked sources only")
-        wide = list(ranked)
-    # Density-ranked sources first (highest-trust, figure-aligned), then the
-    # rest of the wide pool, de-duplicated on chunkId.
-    seen: set[str] = set()
-    ordered: list[Source] = []
-    for src in list(ranked) + wide:
-        cid = src.chunkId or id(src)
-        if cid in seen:
-            continue
-        seen.add(cid)
-        ordered.append(src)
-    out: list[Source] = []
-    budget = 0
-    for src in ordered:
-        approx = len((src.chunk or src.excerpt or "")) // 4
-        if out and budget + approx > max_tokens:
-            break
-        out.append(src)
-        budget += approx
-    return out
 
 
 async def _stream_structured(
@@ -2460,7 +2430,6 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     m_draft = _resolve_stage_model("draft", default_model, sm)
     m_critique = _resolve_stage_model("critique", default_model, sm)
     m_image_judge = _resolve_stage_model("image_judge", default_model, sm)
-    m_synth = _resolve_stage_model("synth", settings.openai_model_nano, sm)
     m_vision = _resolve_vision_model(sm)
 
     # Resolve author-diversity mode/cap (request field > env default > off).
@@ -2663,50 +2632,12 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
             ev["heading"] = heading
         sse_queue.put_nowait(ev)
 
-    workflow = _resolve_workflow(req)
-
     async def _draft_coro():
-        # Orchestrator-workers: per-author workers → streaming synthesizer.
-        # Returns (None, _) when it can't beat the single draft (<2 authors,
-        # workers failed) — then fall back to the single-draft path.
-        if workflow in ("orchestrator", "orchestrator-deep"):
-            from src.services.chat.agents.orchestrator_workers import (
-                run_orchestrator_workers,
-            )
-            deep_o, aspects_o = await run_orchestrator_workers(
-                query, sources, plan,
-                orchestrator_model=_WORKER_MODEL, worker_model=_WORKER_MODEL,
-                synth_model=m_draft,
-                figures=approved_figures, on_aspect_delta=_emit_aspect_delta,
-                deep_synth=(workflow == "orchestrator-deep"),
-                deep_synth_model=m_synth,
-            )
-            if deep_o is not None:
-                return deep_o, aspects_o
-            logger.info("orchestrator returned no result; falling back to single draft")
-        # Long-context organize: hand the enlarged, token-budgeted pool to the
-        # organizer model (deepseek-v4-pro) and let it organize the coherent
-        # pieces — formulas, the central decomposition (MSE), real cases — into
-        # the fields. Best-effort: on failure, fall back to the single draft.
-        if workflow == "organize":
-            org_pool = await asyncio.to_thread(
-                _build_organize_pool, query, candidates, sources, _ORGANIZE_MAX_TOKENS
-            )
-            approx_tokens = sum(len(s.chunk or s.excerpt or "") for s in org_pool) // 4
-            logger.info("organize: model=%s pool=%d/%d chunks ~%d tokens (budget %d)",
-                        _ORGANIZE_MODEL, len(org_pool), len(candidates), approx_tokens,
-                        _ORGANIZE_MAX_TOKENS)
-            deep_org, aspects_org = await _stream_draft(
-                query, org_pool, figures=approved_figures,
-                on_aspect_delta=_emit_aspect_delta, model=_ORGANIZE_MODEL, plan=plan,
-                instructions=ORGANIZER_PREAMBLE + DEEP_TUTOR_INSTRUCTIONS,
-            )
-            if deep_org is not None:
-                return deep_org, aspects_org
-            logger.info("organize returned no result; falling back to single draft")
+        recovered_block = await _recover_equations_block(query, sources)
         return await _stream_draft(
             query, sources, figures=approved_figures,
             on_aspect_delta=_emit_aspect_delta, model=m_draft, plan=plan,
+            recovered_block=recovered_block,
         )
 
     draft_task = asyncio.create_task(_draft_coro())

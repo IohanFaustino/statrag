@@ -252,7 +252,7 @@ def _patch_pipeline(deep_answer, sources, calls=None):
         calls["density"] += 1
         return list(sources), ["c1"]
 
-    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None):
+    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None, **kwargs):
         calls["draft"] += 1
         from src.services.chat.prompts.deep_tutor import ASPECT_HEADINGS
         aspects = {k: getattr(deep_answer, k) for k in ASPECT_HEADINGS}
@@ -265,6 +265,9 @@ def _patch_pipeline(deep_answer, sources, calls=None):
         calls["critique"] += 1
         return {"complete": True, "missing": [], "copy_paste_risk": "low", "reason": "ok"}
 
+    async def fake_recover(q, srcs):
+        return ""
+
     patches = [
         patch.object(dt, "extract_concepts", fake_extract),
         patch.object(dt, "extract_concepts_ex", fake_extract_ex),
@@ -272,6 +275,7 @@ def _patch_pipeline(deep_answer, sources, calls=None):
         patch.object(dt, "_wide_candidates", fake_wide),
         patch.object(dt, "_density_select", fake_density),
         patch.object(dt, "_stream_draft", fake_draft),
+        patch.object(dt, "_recover_equations_block", fake_recover),
         patch.object(dt, "critique", fake_critique),
         patch.object(dt, "_IMAGES_ENABLED", False),
     ]
@@ -1069,7 +1073,7 @@ def _make_routing_pipeline(
         calls["plan"] += 1
         return None
 
-    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None):
+    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None, model=None, plan=None, **kwargs):
         from src.services.chat.prompts.deep_tutor import ASPECT_HEADINGS
         aspects = {k: getattr(deep, k) for k in ASPECT_HEADINGS}
         if on_aspect_delta:
@@ -1078,6 +1082,9 @@ def _make_routing_pipeline(
         return deep, aspects
 
     import contextlib
+
+    async def fake_recover(q, srcs):
+        return ""
 
     @contextlib.contextmanager
     def _ctx():
@@ -1088,6 +1095,7 @@ def _make_routing_pipeline(
             patch.object(dt, "_density_select", fake_density),
             patch.object(dt, "build_synthesis_plan", fake_plan),
             patch.object(dt, "_stream_draft", fake_draft),
+            patch.object(dt, "_recover_equations_block", fake_recover),
             patch.object(dt, "_IMAGES_ENABLED", False),
             patch.object(dt, "_ADAPTIVE_ROUTING", routing_on),
             patch.object(dt, "_MULTI_QUERY", True),
