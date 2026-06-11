@@ -69,3 +69,15 @@ def test_boilerplate_openers_flagged():
     res = check_seams(beats, thesis="bias")
     assert res.passed is False
     assert any("boilerplate" in f.lower() for f in res.failing_seams)
+
+
+def test_figure_reference_does_not_break_seam():
+    # a beat ending in an abbreviation ("Fig. 7.") must not split into a
+    # digit-only last "sentence" that fails an otherwise-connected seam.
+    beats = _beats(
+        definition="Bias is the systematic part of prediction error. See Fig. 7.",
+        example_intuition="That same bias appears clearly in polynomial underfitting.",
+    )
+    res = check_seams(beats, thesis="")
+    assert res.passed is True
+    assert res.scores["seam_continuity"] == 1.0

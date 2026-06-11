@@ -30,7 +30,11 @@ _EN_STOP = {
 _LANG_FLOOR = 0.06  # >=6% of tokens must be English function words
 
 _WORD_RE = re.compile(r"[A-Za-zÀ-ſ]+")
-_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# Split only at a boundary followed by whitespace + an uppercase letter so that
+# abbreviations like "Fig. 7." or "e.g. linear" stay as single units.
+# NOTE: _lang_ratio / the _LANG_FLOOR is calibrated for paragraph-length beats,
+# not single terse sentences — short beats may produce unreliable language scores.
+_SENT_SPLIT = re.compile(r"(?<=[.!?])(?=\s+[A-Z])")
 # Topical-null words excluded from seam lemma-overlap: function words,
 # prepositions, conjunctions, auxiliaries, generic connectives and pronouns.
 # These carry no topical signal, so two unrelated sentences must NOT count as
@@ -82,8 +86,17 @@ def _first_sentence(text: str) -> str:
 
 
 def _last_sentence(text: str) -> str:
-    s = _sentences(text)
-    return s[-1] if s else ""
+    """Return the last topically-rich sentence for seam anchoring.
+
+    Falls back through prior sentences so that a trailing transitional clause
+    (e.g. "See Fig. 7." with only a single short lemma) does not become the
+    sole seam anchor and produce a false seam failure.
+    """
+    sents = _sentences(text)
+    for sent in reversed(sents):
+        if len(_content_lemmas(sent)) >= 2:
+            return sent
+    return sents[-1] if sents else ""
 
 
 def _leading_trigram(text: str) -> str:
