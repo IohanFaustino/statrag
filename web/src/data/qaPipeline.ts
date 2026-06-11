@@ -1,5 +1,5 @@
 // Static description of the Q&A storytelling pipeline for the mode's (i) modal.
-// Mirrors src/services/chat/agents/qa.py::run_qa_story. Read-only (Q&A model
+// Mirrors src/services/chat/agents/qa.py::run_qa. Read-only (Q&A model
 // override is via Settings, not per-node clickable like the tutor diagram).
 
 export interface QANode {
