@@ -8,15 +8,18 @@ Chinese-wall: imports only ``src.core.*`` and sibling ``src.services.chat.*``.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import re
 import time
 from typing import AsyncIterator
 
 from src.core.config import settings
 from src.services.chat._fences import strip_fences
 from src.services.chat.agents._scope import maybe_clarify, resolve_book
+from src.services.chat.agents.extension_agents.runner import _isolate_midline_display
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.llm.structured import apply_structured_output
@@ -25,9 +28,11 @@ from src.services.chat.prompts.qa import (
     QA_SCOPE_PROMPT,
     QA_VERIFY_PROMPT,
 )
+from src.services.chat.research import Evidence, _citation, corpus_evidence, wiki_evidence
 from src.services.chat.retrieval import hybrid_search
 from src.services.chat.schemas import (
-    ChatRequest, QAAnswer, QAGenerateOut, QAScope, QAVerifyOut, Source, TutorCitation,
+    ChatRequest, QAAnswer, QAGenerateOut, QAScope, QAStoryAnswer, QAStoryDraft,
+    QAVerifyOut, Source, TutorCitation,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +41,8 @@ _QA_TOP_K = int(os.environ.get("QA_TOP_K", "4"))
 _QA_SCOPE = os.environ.get("QA_SCOPE", "1") == "1"
 _QA_VERIFY = os.environ.get("QA_VERIFY", "1") == "1"
 _QA_CLARIFY = os.environ.get("CHAPTER_CLARIFY", "1") == "1"
+_QA_WIKI = os.environ.get("QA_WIKI", "1") == "1"
+_QA_WIKI_TERMS_MAX = int(os.environ.get("QA_WIKI_TERMS_MAX", "2"))
 
 # m1: module constant for chunk preview truncation
 _CHUNK_PREVIEW_CHARS = 1500
@@ -235,6 +242,152 @@ async def verify_grounding(
         return answer.model_copy(update={
             "grounding": {"ok": False, "unsupported": [], "confidence": 0.5}
         })
+
+
+async def retrieve_evidence(
+    scope: QAScope,
+    *,
+    book_slugs: list[str] | None,
+) -> list[Evidence]:
+    """Gather corpus + Wikipedia evidence in a single asyncio.gather.
+
+    Always calls corpus_evidence once for scope.target_gap.  When _QA_WIKI
+    is True, additionally calls wiki_evidence once for target_gap and once
+    per wiki_terms entry (capped at _QA_WIKI_TERMS_MAX).
+
+    Returns a flat list[Evidence]; each Evidence already carries a unique .id
+    from its factory default.
+    """
+    coro_corpus = asyncio.to_thread(
+        corpus_evidence,
+        scope.target_gap,
+        subject_id="qa",
+        exclude_book="",
+        all_slugs=(book_slugs or []),
+        seen_ids=set(),
+        top_n=_QA_TOP_K,
+    )
+
+    wiki_queries: list[str] = []
+    if _QA_WIKI:
+        wiki_queries = [scope.target_gap, *scope.wiki_terms[:_QA_WIKI_TERMS_MAX]]
+
+    wiki_coros = [
+        asyncio.to_thread(wiki_evidence, q, subject_id="qa")
+        for q in wiki_queries
+    ]
+
+    gathered = await asyncio.gather(coro_corpus, *wiki_coros)
+
+    result: list[Evidence] = []
+    for batch in gathered:
+        result.extend(batch)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Paragraph cap constants (intro≤1, deepening≤3, conclusion≤1)
+# ---------------------------------------------------------------------------
+_PARA_CAPS: dict[str, int] = {"intro": 1, "deepening": 3, "conclusion": 1}
+
+
+def _strip_heading_markers(text: str) -> str:
+    """Remove leading #{1,6} from every line so markdown headings become plain text."""
+    return "\n".join(re.sub(r'^#{1,6}\s*', '', line) for line in text.splitlines())
+
+
+def _apply_token_pass(
+    fields: dict[str, str],
+    by_id: dict[str, Evidence],
+) -> tuple[dict[str, str], list, int]:
+    """Scan intro→deepening→conclusion for [[eid]] tokens.
+
+    Returns (rewritten_fields, citations, unbound_count).
+    """
+    from src.services.chat.schemas.output import StoryCitation  # local import avoids circular
+
+    seen: dict[str, int] = {}     # eid → citation number (1-based)
+    citations: list[StoryCitation] = []
+    unbound = 0
+
+    def _replace(text: str) -> str:
+        nonlocal unbound
+
+        def _sub(m: re.Match) -> str:
+            nonlocal unbound
+            eid = m.group(1)
+            if eid not in by_id:
+                unbound += 1
+                return ""
+            if eid not in seen:
+                n = len(seen) + 1
+                seen[eid] = n
+                citations.append(_citation(by_id[eid]))
+            return f"[{seen[eid]}]"
+
+        result = re.sub(r'\[\[([^\]]+)\]\]', _sub, text)
+        # Collapse any doubled spaces left by removed tokens
+        result = re.sub(r'  +', ' ', result)
+        return result
+
+    rewritten = {field: _replace(text) for field, text in fields.items()}
+    return rewritten, citations, unbound
+
+
+def qa_bind(
+    draft: QAStoryDraft,
+    evidence: list[Evidence],
+    *,
+    scope: QAScope | None = None,
+) -> QAStoryAnswer:
+    """Pure-code citation binder.
+
+    1. Strip markdown heading markers from all three fields.
+    2. Apply [[eid]] → [n] substitution with shared first-appearance counter;
+       invalid eids are removed (prose kept), counted in grounding['unbound_markers'].
+    3. Enforce paragraph caps (intro≤1, deepening≤3, conclusion≤1); excess
+       paragraphs are dropped and the field name is recorded in grounding['lints'].
+    4. Apply mid-line $$...$$ → $...$ normalization via _isolate_midline_display.
+    """
+    by_id: dict[str, Evidence] = {e.id: e for e in evidence}
+
+    # Step 1 — strip heading markers
+    stripped = {
+        "intro": _strip_heading_markers(draft.intro),
+        "deepening": _strip_heading_markers(draft.deepening),
+        "conclusion": _strip_heading_markers(draft.conclusion),
+    }
+
+    # Step 2 — token pass (order: intro → deepening → conclusion)
+    field_order = ["intro", "deepening", "conclusion"]
+    ordered = {f: stripped[f] for f in field_order}
+    rewritten, citations, unbound = _apply_token_pass(ordered, by_id)
+
+    # Step 3 — paragraph caps
+    lints: list[str] = []
+    for field, cap in _PARA_CAPS.items():
+        paragraphs = re.split(r'\n\n+', rewritten[field])
+        non_empty = [p for p in paragraphs if p.strip()]
+        if len(non_empty) > cap:
+            lints.append(f"{field}: truncated from {len(non_empty)} to {cap} paragraphs")
+            rewritten[field] = "\n\n".join(non_empty[:cap])
+
+    # Step 4 — mid-line display math normalisation
+    for field in field_order:
+        rewritten[field] = _isolate_midline_display(rewritten[field])
+
+    # Build scope placeholder when not provided
+    effective_scope = scope if scope is not None else QAScope(target_gap="")
+
+    return QAStoryAnswer(
+        intro=rewritten["intro"],
+        deepening=rewritten["deepening"],
+        conclusion=rewritten["conclusion"],
+        scope=effective_scope,
+        citations=citations,
+        math_blocks=draft.math_blocks,
+        grounding={"unbound_markers": unbound, "lints": lints},
+    )
 
 
 async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
