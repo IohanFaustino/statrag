@@ -1853,6 +1853,30 @@ async def _recover_equations_block(query: str, sources: list) -> str:
         return ""
 
 
+async def _seam_guard(
+    aspects: dict[str, str],
+    thesis: str,
+    *,
+    redraft,
+) -> tuple[dict[str, str], dict[str, float]]:
+    """Validate narrative seams; on failure re-roll the draft ONCE (caller
+    supplies a non-streamed ``redraft`` coroutine returning ``(deep, aspects)``).
+    Returns ``(final_aspects, quality_scores)``. Never raises, never aborts."""
+    from src.services.chat.agents.seams import check_seams  # noqa: PLC0415
+    res = check_seams(aspects, thesis=thesis or "")
+    if res.passed:
+        return aspects, res.scores
+    logger.info("seam check failed: %s", "; ".join(res.failing_seams))
+    try:
+        _deep2, aspects2 = await redraft(failing=res.failing_seams)
+        res2 = check_seams(aspects2, thesis=thesis or "")
+        if res2.scores["seam_continuity"] >= res.scores["seam_continuity"]:
+            return aspects2, res2.scores
+    except Exception:  # noqa: BLE001
+        logger.exception("seam redraft failed; accepting first draft")
+    return aspects, res.scores
+
+
 async def _stream_draft(
     query: str,
     sources: list[Source],
@@ -1863,6 +1887,7 @@ async def _stream_draft(
     plan: SynthesisPlan | None = None,
     instructions: str | None = None,
     recovered_block: str = "",
+    extra_instructions: str = "",
 ) -> tuple[DeepTutorAnswer | None, dict[str, str]]:
     """Stream a draft and return (parsed answer, accumulated_aspects).
 
@@ -1881,9 +1906,14 @@ async def _stream_draft(
     """
     draft_model = model or settings.openai_model_nano
     user = _build_user_message(query, sources, figures=figures, plan=plan)
+    if plan is not None and getattr(plan, "thesis", ""):
+        user = (f"<thesis>Develop this single throughline and nothing else: "
+                f"{plan.thesis}</thesis>\n\n" + user)
     if recovered_block:
         user = user + "\n\n" + recovered_block
     sys_prompt = instructions or DEEP_TUTOR_INSTRUCTIONS
+    if extra_instructions:
+        sys_prompt = sys_prompt + "\n\n" + extra_instructions
     sys_prompt = _maybe_append_groq_addendum(sys_prompt, draft_model)
     messages = [
         {"role": "system", "content": sys_prompt},
@@ -2650,6 +2680,27 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     deep, aspects = await draft_task
     timings["draft_ms"] = int((time.monotonic() - t_draft) * 1000)
 
+    # 3b. Seam guard — one silent non-streamed redraft on narrative seam failure
+    async def _redraft(failing):
+        note = ("\n\nThe previous draft broke these narrative seams; fix them "
+                "while keeping every other rule:\n- " + "\n- ".join(failing))
+        return await _stream_draft(
+            query, sources, figures=approved_figures,
+            on_aspect_delta=None, model=m_draft, plan=plan,
+            recovered_block=await _recover_equations_block(query, sources),
+            extra_instructions=note,
+        )
+
+    thesis = getattr(plan, "thesis", "") if plan is not None else ""
+    aspects, seam_scores = await _seam_guard(aspects, thesis, redraft=_redraft)
+    if deep is not None:
+        for k, v in aspects.items():
+            if hasattr(deep, k):
+                try:
+                    setattr(deep, k, v)
+                except Exception:  # noqa: BLE001
+                    pass
+
     # 4. Optional critique + refine ------------------------------------------
     augmented_sources = sources
     verdict: dict[str, Any] = {"complete": True, "missing": [],
@@ -2706,6 +2757,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                                        approved_figures=approved_figures,
                                        vision_explanations=vision_explanations,
                                        example_relevance_override=example_relevance)
+    answer.quality.update(seam_scores)
     final_payload = answer.model_dump()
 
     yield {"type": "structured_output", "schema": "TutorAnswer",

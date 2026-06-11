@@ -268,6 +268,11 @@ def _patch_pipeline(deep_answer, sources, calls=None):
     async def fake_recover(q, srcs):
         return ""
 
+    async def fake_seam_guard(aspects, thesis, *, redraft):
+        # Unit tests don't exercise seam validation; short-circuit to avoid
+        # real check_seams triggering an extra draft call on mock aspects.
+        return aspects, {"seam_continuity": 1.0, "lang_ok": 1.0, "thesis_adherence": 0.0}
+
     patches = [
         patch.object(dt, "extract_concepts", fake_extract),
         patch.object(dt, "extract_concepts_ex", fake_extract_ex),
@@ -276,6 +281,7 @@ def _patch_pipeline(deep_answer, sources, calls=None):
         patch.object(dt, "_density_select", fake_density),
         patch.object(dt, "_stream_draft", fake_draft),
         patch.object(dt, "_recover_equations_block", fake_recover),
+        patch.object(dt, "_seam_guard", fake_seam_guard),
         patch.object(dt, "critique", fake_critique),
         patch.object(dt, "_IMAGES_ENABLED", False),
     ]
@@ -1086,6 +1092,9 @@ def _make_routing_pipeline(
     async def fake_recover(q, srcs):
         return ""
 
+    async def fake_seam_guard(aspects, thesis, *, redraft):
+        return aspects, {"seam_continuity": 1.0, "lang_ok": 1.0, "thesis_adherence": 0.0}
+
     @contextlib.contextmanager
     def _ctx():
         patches = [
@@ -1096,6 +1105,7 @@ def _make_routing_pipeline(
             patch.object(dt, "build_synthesis_plan", fake_plan),
             patch.object(dt, "_stream_draft", fake_draft),
             patch.object(dt, "_recover_equations_block", fake_recover),
+            patch.object(dt, "_seam_guard", fake_seam_guard),
             patch.object(dt, "_IMAGES_ENABLED", False),
             patch.object(dt, "_ADAPTIVE_ROUTING", routing_on),
             patch.object(dt, "_MULTI_QUERY", True),
