@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-06-11** by [57-tutor-narrative](57-tutor-narrative.md) — orchestrator-workers / organize / deepagents synthesis removed; tutor now uses a single woven-narrative synthesizer.
+
 # 44 — Orchestrator-workers drafting workflow (per author)
 
 ## Why

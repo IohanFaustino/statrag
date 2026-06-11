@@ -2,6 +2,24 @@
 
 Append-only. Latest at top.
 
+## 2026-06-11 — Tutor narrative rebuild: 7 synthesis variants → 1 woven narrative
+
+**Scope:** `worktree-tutor-narrative-rebuild` (based on `feat/component-equation-enforcement`). Spec: `docs/superpowers/specs/2026-06-11-tutor-narrative-rebuild-design.md`. Doc: [57-tutor-narrative.md](../services/chat-features/57-tutor-narrative.md).
+
+**Collapse (7 → 1):** Deleted orchestrator-workers (`orchestrator_workers.py`), deepagents synthesis (`ow_deepagents.py`, `ow_harness.py`, `ow_skills/`), the `organize` long-context path, harness levels L1–L7, and the `tutorWorkflow` request knob (+ frontend selector). Deleted env flags: `TUTOR_WORKFLOW`, `TUTOR_OW_HARNESS`, `TUTOR_WORKER_MODEL`, `TUTOR_ORGANIZE_MODEL`, `TUTOR_ORGANIZE_MAX_TOKENS`, `TUTOR_ORGANIZE_POOL`. The retrieval front (concept→query-plan→retrieval→density/rerank→author-diversity→coverage→synthesis-plan→image-judge) is unchanged.
+
+**Narrative arc:** Output is ONE continuous arc per answer. The `tldr` (Introduction) stands alone, outside the body thread. Five body beats — ① define (`definition`) → ② formalize (`formal_statement`, auto-drop when empty) → ③ see-it-work (`example_intuition`) → ④ use-it (`applications`) → ⑤ go-further (`further_reading`) — flow into each other: each beat opens carrying the prior beat forward, closes setting up the next. No new schema field; no new frontend element; transitions live in prose.
+
+**Seam validator** (`agents/seams.py`, pure code, no env flag): checks lemma overlap between seam sentences, boilerplate-opener guard (3-gram dedupe + canned-phrase blocklist), English stopword-ratio language-drift guard, formalize-drop re-link (①→③ when `formal_statement` empty). Scores in `TutorAnswer.quality`: `seam_continuity` / `lang_ok` / `thesis_adherence` (report-only). One silent non-streamed redraft on failure; first draft kept if redraft also fails.
+
+**Thesis injection:** synthesis-plan `thesis` injected by code as `<thesis>…</thesis>` at the top of the draft user message.
+
+**Formula recovery rewired:** `_recover_equations_block` computed once before the draft call; reused by draft + redraft. Unchanged behavior: gap-triggered vision read → `<recovered_equations>` verbatim → global `formula_cache`.
+
+**Lockstep surfaces updated:** `tutorPipeline.ts` (workflow cluster removed, "Narrative draft" node), `PipelineDiagram.tsx` (253 vitest pass, tsc clean), `36-deep-tutor.md` (mermaid + env table), new `57-tutor-narrative.md`, supersede banners on `44-orchestrator-workers.md` / `48-long-context-organizer.md` / `56-deep-synthesis-l3b.md`, `Elements/modes/tutor.html` (both diagrams), invariant 42 added.
+
+---
+
 ## 2026-06-11 — Extension v2: post-verify batch + merge into feat/component-equation-enforcement
 
 **Scope:** post-live-verify polish batch (T-A / T-B / T-C) on worktree `feat/extension-v2-story-curiosity`; merged into `feat/component-equation-enforcement` at commit `e2a7ae2`. Final gate: ~896 backend / 261 frontend tests green, tsc clean.
