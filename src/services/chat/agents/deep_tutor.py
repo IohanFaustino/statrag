@@ -950,7 +950,7 @@ _VISION_EXPLAIN: bool = _VISION_EXPLAIN_MODE == "1"
 # Only these LLM-text stages may be re-routed to a picker chat model. Other
 # stages (retrieval/rerank use no chat LLM; vision needs a vision model;
 # embedding needs an embedding model) are never overridden.
-_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge", "synth"})
+_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge"})
 
 
 def _known_chat_models() -> set[str]:
