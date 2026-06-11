@@ -9,6 +9,7 @@ Entry point: :func:`run_pipeline`.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Callable
 
 from src.services.chat.schemas.output import StoryDigest, Take
@@ -21,6 +22,8 @@ from .research import Evidence, corpus_evidence, wiki_evidence
 # Callable contract: (stage_key: str, label: str) → None
 # Called synchronously on the pipeline thread; never awaited.
 OnStage = Callable[[str, str], None]
+
+_logger = logging.getLogger(__name__)
 
 
 async def _research_subject(s, *, exclude_book: str, all_slugs: list[str],
@@ -45,6 +48,9 @@ async def _research_subject(s, *, exclude_book: str, all_slugs: list[str],
         if wiki_hits:
             break
     out += wiki_hits
+    _logger.info("research subject=%r corpus=%d wiki=%d wiki_title=%r",
+                 s.title[:60], len(out) - len(wiki_hits), len(wiki_hits),
+                 wiki_hits[0].meta.get("title") if wiki_hits else None)
     return out
 
 
@@ -90,6 +96,11 @@ async def _box_for_takes(
                      subjects=by_take_sub[t.idx], evidence=by_take_ev[t.idx],
                      stage_models=stage_models) for t in takes))
     bullets = [b for lst in bullet_lists for b in lst]
+    ev_kind = {e.id: e.kind for e in evidence}
+    cited = [ev_kind.get(i, "?") for b in bullets for i in b.evidence_ids]
+    _logger.info("write bullets=%d cited corpus=%d wiki=%d unknown=%d",
+                 len(bullets), cited.count("corpus"), cited.count("wikipedia"),
+                 cited.count("?"))
     return bullets, evidence, subjects
 
 

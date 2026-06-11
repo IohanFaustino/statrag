@@ -276,3 +276,50 @@ async def test_research_subject_uses_mined_queries_before_title():
     wiki_results = [e for e in result if e.kind == "wikipedia"]
     assert len(wiki_results) == 1
     assert wiki_results[0].id == hit_ev.id
+
+
+@pytest.mark.asyncio
+async def test_research_subject_logs_per_subject_summary(caplog):
+    """_research_subject emits an INFO log with corpus/wiki counts."""
+    import logging
+    from src.services.chat.agents.extension_agents.graph import _research_subject
+
+    corpus_ev = Evidence(
+        id="c1", subject_id="t0-s0", kind="corpus",
+        text="corpus text", meta={"book": "hansen-probability"},
+    )
+    wiki_ev = Evidence(
+        id="w1", subject_id="t0-s0", kind="wikipedia",
+        text="wiki text", meta={"title": "LLN", "url": "https://en.wikipedia.org/wiki/LLN"},
+    )
+
+    subj = Subject(id="t0-s0", take_idx=0, title="Law of Large Numbers", queries=["LLN"])
+
+    with caplog.at_level(logging.INFO, logger="src.services.chat.agents.extension_agents.graph"):
+        with contextlib.ExitStack() as st:
+            st.enter_context(patch(
+                "src.services.chat.agents.extension_agents.graph.corpus_evidence",
+                lambda *a, **k: [corpus_ev],
+            ))
+            st.enter_context(patch(
+                "src.services.chat.agents.extension_agents.graph.wiki_evidence",
+                lambda q, *, subject_id: [wiki_ev],
+            ))
+            await _research_subject(
+                subj,
+                exclude_book="hansen-probability",
+                all_slugs=["hansen-probability"],
+                seen_ids=set(),
+            )
+
+    # There must be at least one INFO record from the graph logger for this subject
+    graph_records = [
+        r for r in caplog.records
+        if r.name == "src.services.chat.agents.extension_agents.graph"
+        and r.levelno == logging.INFO
+    ]
+    assert graph_records, "Expected INFO log from _research_subject; got none"
+    msg = graph_records[0].getMessage()
+    # Message must contain corpus and wiki counts
+    assert "corpus=" in msg
+    assert "wiki=" in msg

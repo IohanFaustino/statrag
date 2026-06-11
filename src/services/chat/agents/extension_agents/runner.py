@@ -4,9 +4,18 @@ Chinese-wall: src.core.* + sibling extension_agents + shared chat infra only."""
 from __future__ import annotations
 
 import asyncio
+import logging
 import re as _re
 import time
 from typing import AsyncIterator
+
+# Ensure diagnostic INFO logs from the extension_agents package reach the
+# uvicorn console.  Uvicorn installs its own root-level handler on startup;
+# application loggers propagate to it, but their effective level defaults to
+# WARNING.  Setting the package logger to INFO here (once at import time) lets
+# _research_subject and _box_for_takes emit their per-subject summaries without
+# touching global basicConfig or adding a duplicate handler.
+logging.getLogger("src.services.chat.agents.extension_agents").setLevel(logging.INFO)
 
 from src.services.chat.agents.extension_agents.graph import run_pipeline
 from src.services.chat.agents.extension_agents.scope import aresolve_scope_or_clarify

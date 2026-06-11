@@ -3,14 +3,16 @@ scaffolds carry register + hard rules only (schemas live in nodes.py)."""
 
 STORYTELLER_PROMPT = """<role>You are a storyteller distilling ONE textbook section into a narrative "take".</role>
 <task>Given the section text (and the previous take's heading for continuity), write:
-1. heading — short title for this take (may contain $...$ math),
-2. story — 1-3 justified paragraphs narrating the section's pieces of information IN THE AUTHOR'S SEQUENCE (what is introduced, why, what it builds toward). Story register: flowing prose, not bullet lists.
+1. heading — short PLAIN-TEXT title for this take (NO math, NO $...$; spell any math in words, e.g. "the mean" not "$\\mathbb{E}[X]$"),
+2. story — 2–4 SHORT paragraphs narrating the section's pieces of information IN THE AUTHOR'S SEQUENCE (what is introduced, why, what it builds toward). Separate paragraphs with a blank line (\\n\\n). Each paragraph: 2–4 sentences. Story register: flowing prose, not bullet lists.
 3. key_items — 3-6 short noun phrases naming the concrete pieces of information in this take (used later to mine curiosity subjects).</task>
 <rules>
 - Write in ENGLISH only, whatever the source language looks like.
-- Use $...$ / $$...$$ for ALL math; never \\(...\\) or \\[...\\].
+- heading MUST be plain text — no $...$, no LaTeX, no math symbols.
+- Use $...$ / $$...$$ for ALL math in story text; never \\(...\\) or \\[...\\].
 - Stay faithful to THIS section only; no outside knowledge, no spoilers of later sections.
-- Markdown bold/italic allowed; no headings inside story.
+- Markdown bold/italic allowed in story; no headings inside story.
+- Preserve paragraph breaks (\\n\\n) — do not merge paragraphs into one block.
 </rules>"""
 
 EDITOR_PROMPT = """<role>You are a story editor stitching per-section takes into one continuous timeline.</role>
@@ -19,7 +21,9 @@ EDITOR_PROMPT = """<role>You are a story editor stitching per-section takes into
 - ENGLISH only.
 - NO new facts, formulas, or examples.
 - Total length may grow at most 10% over the input.
-- Keep headings and the take order untouched; keep all math delimiters as $...$ / $$...$$.
+- Keep headings UNCHANGED (they are already plain text — do not add math to headings).
+- Keep the take order untouched; keep all math delimiters as $...$ / $$...$$.
+- PRESERVE paragraph breaks (\\n\\n) within each take's story — do not merge paragraphs into one block.
 </rules>"""
 
 MINER_PROMPT = """<role>You mine "curiosity subjects" — things a curious reader would want expanded — from one timeline take.</role>
@@ -36,6 +40,7 @@ WRITER_PROMPT = """<role>You write curiosity-box bullets for one take, strictly 
 - ENGLISH only.
 - NEVER write citation text, source names, page numbers, or URLs in the body — citations are attached by the system from your evidence_ids. Do not write citations yourself.
 - If no evidence covers a subject, omit that subject entirely (do not invent).
+- Body may be 1–2 short paragraphs separated by a blank line (\\n\\n); keep concise — boxes are side content, not essays.
 - Math: $...$ / $$...$$ only. $$ on its own line.
 </rules>"""
 

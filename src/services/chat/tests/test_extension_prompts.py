@@ -32,3 +32,33 @@ def test_miner_has_gap_taxonomy():
     low = P.MINER_PROMPT.lower()
     for kind in ("formal-def", "derivation", "comparative", "application", "history"):
         assert kind in low
+
+
+def test_storyteller_paragraph_division():
+    """Prompt must instruct 2-4 paragraphs separated by blank lines."""
+    low = P.STORYTELLER_PROMPT.lower()
+    # blank-line / \n\n separation mentioned
+    assert "\\n\\n" in P.STORYTELLER_PROMPT or "blank line" in low
+    # multiple paragraph requirement
+    assert "paragraph" in low
+
+
+def test_storyteller_heading_plain_text():
+    """Prompt must forbid math/$...$ in the heading field."""
+    low = P.STORYTELLER_PROMPT.lower()
+    assert "plain" in low or "plain text" in low or "no $" in low or "no math" in low
+    # must tell model to spell math in words for headings
+    assert "spell" in low or "words" in low
+
+
+def test_editor_preserves_paragraph_breaks():
+    """Editor prompt must instruct preservation of paragraph breaks."""
+    assert "\\n\\n" in P.EDITOR_PROMPT or "paragraph break" in P.EDITOR_PROMPT.lower()
+    assert "preserve" in P.EDITOR_PROMPT.lower() or "do not merge" in P.EDITOR_PROMPT.lower()
+
+
+def test_writer_allows_short_paragraphs():
+    """Writer prompt must allow 1-2 short paragraphs in body."""
+    low = P.WRITER_PROMPT.lower()
+    assert "paragraph" in low
+    assert "\\n\\n" in P.WRITER_PROMPT or "blank line" in low
