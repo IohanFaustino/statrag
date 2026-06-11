@@ -137,6 +137,10 @@ final holistic review. Escalate on BLOCKED-for-reasoning, never by default.
 - Long-running external work (live pipeline runs, CI) → background
   poll/monitor that re-invokes you on completion. Never spin-wait in the
   foreground; never block a dispatch lane on a poll.
+- **Poll the authoritative state source, not a proxy.** A status endpoint
+  beats grepping logs for strings the system may never write (the first
+  completion poll keyed on SSE event names that never reach the log — it
+  would have waited forever; the `/status` endpoint answered in one call).
 
 ## Context curation — the dispatch prompt IS the task
 
@@ -173,6 +177,101 @@ an explicit regression checklist ("confirm rules X/Y/Z were NOT dropped").
   in conversation — sessions compact and die; files survive. After any
   significant boundary (task approved, defect found, user gate passed),
   the durable record must already reflect it.
+
+## Diagnosis before dispatch — differential debugging
+
+When inspection finds a defect, do NOT dispatch "go figure out why X is
+broken". You diagnose to a hypothesis first; the dispatch then carries root-
+cause candidates and becomes a verification, not an expedition. The method:
+
+1. **Isolate the smallest component and test it alone.** (Wiki citations
+   were zero in the pipeline; `wiki_evidence("Chebyshev inequality")` run
+   standalone returned a hit — so the function works, the defect is in how
+   the pipeline calls it or consumes it.)
+2. **Enumerate the competing hypotheses explicitly.** Never-called vs
+   called-but-zero-hits vs hits-but-writer-ignored vs binder-dropped. Write
+   them down; each implies a different fix owner.
+3. **Design the ONE observation that splits the hypothesis space** — often a
+   counter at a stage boundary. Don't run five experiments when one
+   discriminating measurement decides.
+4. **Instrument the seams, by kind, at stage boundaries.** A pipeline that
+   reports `research subject=X corpus=N wiki=M` and `write: cited corpus=A
+   wiki=B unknown=C` auto-localizes its NEXT failure too. Diagnostic counts
+   at boundaries are an investment, not debris — but per Law 2, once worth
+   keeping they go to an implementer to be made real (level config, handler,
+   test, commit).
+5. **Mind mutation hygiene while diagnosing:**
+   - Never edit code while a run is in flight if the server hot-reloads —
+     the edit kills the run you're measuring.
+   - Before and after any state mutation (commit, merge, write), verify the
+     TARGET's identity: which checkout, which branch, which DB. Shared shell
+     cwd, worktrees, and per-checkout state make "it landed somewhere" a
+     real failure class.
+
+## The layered evidence chain
+
+One fact, verified at every layer it traverses — because each layer fails
+independently of the ones below it:
+
+| Layer | Example check |
+|---|---|
+| Data | query the persisted row, count by kind |
+| Render | screenshot — are the chips actually painted? |
+| Interaction | click the toggle, click the chip |
+| External effect | did the link open the right article? |
+| Artifact | list the archive; open the generated file and read it |
+| Error channel | console/log clean after the whole path |
+| Persistence | reload cold and re-verify the render layer |
+
+A green layer does not imply the next: the data layer had 21 citations while
+the render layer showed corpus-only; the artifact existed while its filename
+violated spec. Walk the chain top to bottom before calling a feature done.
+
+**And distrust your instruments.** When one tool's result contradicts
+another observation (grep says no match; Read shows the match), the
+contradiction itself is the finding — re-measure through an independent
+channel (different tool, a small script, manual count) before acting on
+either result. When a summary line is missing (test reporter swallowed by a
+plugin), derive the number another way rather than assuming.
+
+## Reviews are advice — you are the judge
+
+Reviewer output is an input to YOUR verdict, not a verdict:
+
+- **Calibrate severity yourself.** Re-dispatch on every Critical/Important.
+  For Minors, judge: genuinely cosmetic → record and proceed; "minor" that
+  touches an invariant or a user-visible surface → it's not minor, fix it.
+- **Read reviews critically.** A reviewer that says "approved" after running
+  zero gates has not reviewed; send it back or replace it. A reviewer
+  finding that contradicts your own inspection → re-inspect first, then
+  decide.
+- **Your own delegated output gets the same treatment.** When your
+  inspection finds a defect in work you orchestrated and reviewers approved
+  (the diagnostics that never printed), you report it plainly and open a fix
+  task — never quietly absorb or hide it.
+- **Conflict resolution in status/coordination files is yours** (Law 2 exempts
+  them): when a merge conflicts on the status doc, you write the FINAL truth,
+  not either side's stale snapshot.
+
+## The retrospective loop — how this file stays alive
+
+This document exists because of the conduct it now prescribes. After every
+batch, run the retrospective on yourself:
+
+1. Ask: **"What did I actually do that is written nowhere?"** Replay the
+   session's decision points, especially the unplanned ones (defects,
+   pauses, user corrections).
+2. Each user correction is a standing rule, not a one-off apology. ("You are
+   doing their job instead of orchestrator" → Law 2. "You were outstanding
+   in inspecting" → Law 1.)
+3. Distill into the durable artifacts: this file, the project's agent docs,
+   memory. Generalize — strip session-specifics to illustrations so the rule
+   transfers to the next domain.
+4. Update stale records the retrospective exposes (memory rows still saying
+   "paused", status docs still saying "in progress").
+
+An orchestrator that doesn't write down what it learned will re-learn it at
+full price next session.
 
 ## The session loop
 
@@ -244,6 +343,11 @@ Operational habits:
 | "I'll clean the worktree up" | Provenance check. Harness-owned → never remove. |
 | "User feedback can wait until after this batch" | Fold it into the open fix tasks now; it's cheaper while the roster is warm. |
 | "No plan, but the tasks are obvious" | Plan gate. Write it down first. |
+| "Dispatch someone to figure out why it's broken" | Diagnose to hypotheses first; dispatch verifications, not expeditions. |
+| "grep found nothing, so it's not there" | Tool contradicts another observation → re-measure via independent channel. |
+| "The data layer is green, render must be fine" | Layers fail independently. Walk the whole chain. |
+| "That Minor finding touches an invariant but reviewer said minor" | You calibrate severity, not the reviewer. Fix it. |
+| "Batch done, move on" | Run the retrospective: what did I do that is written nowhere? |
 
 ## Definition of done
 
