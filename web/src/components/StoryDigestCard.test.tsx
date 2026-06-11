@@ -80,10 +80,10 @@ describe("StoryDigestCard", () => {
     };
     const { container } = render(<StoryDigestCard digest={multiParaDigest} />);
     const story = container.querySelector(".story-take__story")!;
-    const paras = story.querySelectorAll("p");
+    const paras = story.querySelectorAll(".story-para");
     expect(paras.length).toBe(2);
     paras.forEach((p) => {
-      expect(p.style.textAlign).toBe("justify");
+      expect((p as HTMLElement).style.textAlign).toBe("justify");
     });
   });
 
@@ -108,18 +108,18 @@ describe("StoryDigestCard", () => {
     // Expand the curiosity box first
     fireEvent.click(screen.getByText(/Curiosity box \(1\)/));
     const bodyDiv = container.querySelector(".curiosity-item__body")!;
-    const paras = bodyDiv.querySelectorAll("p");
+    const paras = bodyDiv.querySelectorAll(".story-para");
     expect(paras.length).toBe(2);
     paras.forEach((p) => {
-      expect(p.style.textAlign).toBe("justify");
+      expect((p as HTMLElement).style.textAlign).toBe("justify");
     });
   });
 
-  it("single-paragraph story (no \\n\\n) renders without wrapping <p> tags", () => {
+  it("single-paragraph story (no \\n\\n) renders without wrapping story-para divs", () => {
     const { container } = render(<StoryDigestCard digest={digest} />);
-    // digest.takes[0].story has no \n\n — should not produce <p> children
+    // digest.takes[0].story has no \n\n — should not produce .story-para children
     const firstStory = container.querySelectorAll(".story-take__story")[0]!;
-    expect(firstStory.querySelectorAll("p").length).toBe(0);
+    expect(firstStory.querySelectorAll(".story-para").length).toBe(0);
   });
 
   it("display equation with blank line inside \\[...\\] block is kept intact across paragraph split", () => {
@@ -140,7 +140,7 @@ describe("StoryDigestCard", () => {
     const story = container.querySelector(".story-take__story")!;
 
     // Exactly 3 paragraph blocks: intro, equation, outro
-    const paras = story.querySelectorAll("p");
+    const paras = story.querySelectorAll(".story-para");
     expect(paras.length).toBe(3);
 
     // KaTeX must have rendered (equation intact, not torn)

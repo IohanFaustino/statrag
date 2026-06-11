@@ -23,6 +23,10 @@ function splitParagraphsOutsideMath(normalised: string): string[] {
       normalised[i + 1] === "$" &&
       normalised[i + 2] !== "$"
     ) {
+      // Graceful degradation: if a $$ opener is never closed the toggle stays
+      // true for the rest of the string, swallowing all subsequent paragraph
+      // breaks into one big chunk.  This is intentional — malformed input
+      // renders as a single block rather than splitting mid-equation.
       insideMath = !insideMath;
       current += "$$";
       i += 2;
@@ -53,24 +57,24 @@ function splitParagraphsOutsideMath(normalised: string): string[] {
  * blocks (which `normalizeMathDelimiters` can produce from `\[...\]` source)
  * are skipped — the equation is kept intact as a single chunk.
  */
-function renderParagraphs(text: string, className?: string): React.ReactNode {
+function renderParagraphs(text: string): React.ReactNode {
   const normalised = normalizeMathDelimiters(text);
   const chunks = splitParagraphsOutsideMath(normalised);
   if (chunks.length === 1) {
-    // Single paragraph — keep original wrapper behaviour (no extra <p> wrapping)
+    // Single paragraph — keep original wrapper behaviour (no extra div wrapping)
     return renderMathText(text);
   }
   return (
     <>
       {chunks.map((chunk, i) =>
         chunk.trim() ? (
-          <p
+          <div
             key={i}
-            className={className}
+            className="story-para"
             style={{ textAlign: "justify", margin: "0 0 0.6em" }}
           >
             {renderMathText(chunk)}
-          </p>
+          </div>
         ) : null
       )}
     </>
@@ -149,6 +153,7 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
                   type="button"
                   className="curiosity-box__toggle"
                   aria-expanded={open.has(i)}
+                  aria-label={`Curiosity box (${t.items.length})`}
                   onClick={() => toggle(i)}
                   style={{ display: "block", width: "100%", textAlign: "left" }}
                 >
