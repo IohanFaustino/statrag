@@ -83,6 +83,20 @@ def test_figure_reference_does_not_break_seam():
     assert res.scores["seam_continuity"] == 1.0
 
 
+def test_currency_prose_not_over_stripped():
+    from src.services.chat.agents.seams import _strip_math
+    # two adjacent bare-currency amounts: the word between them must not be eaten
+    assert "and" in _strip_math("earn $100 and $200 total")
+    # single bare currency must survive unchanged
+    assert "$5" in _strip_math("a budget of $5 per run") or "5" in _strip_math("a budget of $5 per run")
+    # genuine inline math (LaTeX indicator present) must be stripped
+    assert "\\alpha" not in _strip_math("the $\\alpha$ parameter")
+    # spec prose example: "level" between two inline math spans must survive
+    assert "level" in _strip_math("tested at the $\\alpha = 0.05$ level for samples")
+    # display math still fully stripped
+    assert "Bias" not in _strip_math("text $$\\mathrm{Bias}=x$$ more")
+
+
 def test_display_math_between_prose_does_not_break_seam():
     # A $$…$$ block embedded between two connected prose sentences must not
     # break seam continuity — math is stripped so the prose connection survives.

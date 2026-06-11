@@ -33,7 +33,11 @@ _WORD_RE = re.compile(r"[A-Za-zÀ-ſ]+")
 # Matches display ($$…$$) and inline ($…$) LaTeX regions.  Must be applied
 # before any prose-level analysis so math tokens never pollute sentence
 # splitting, lemma overlap, or language-ratio calculation.
-_MATH_RE = re.compile(r"\$\$.+?\$\$|\$[^$]+?\$", re.DOTALL)
+_MATH_RE = re.compile(
+    r"\$\$.+?\$\$"                              # display: $$…$$
+    r"|\$(?=[^$]*[\\^_{}\[\]])(?:[^$])+?\$",   # inline: must contain a LaTeX indicator
+    re.DOTALL,
+)
 # Split only at a boundary followed by whitespace + an uppercase letter so that
 # abbreviations like "Fig. 7." or "e.g. linear" stay as single units.
 # NOTE: _lang_ratio / the _LANG_FLOOR is calibrated for paragraph-length beats,

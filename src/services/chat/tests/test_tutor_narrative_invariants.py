@@ -31,6 +31,23 @@ def test_component_equation_validator_passes_on_narrative_definition():
     assert ans.definition.count("### ") == 2
 
 
+def test_component_equation_validator_rejects_wordform_when_other_subsection_is_valid():
+    import pytest
+    from src.services.chat.schemas.output import DeepTutorAnswer
+    with pytest.raises(Exception):
+        DeepTutorAnswer(
+            tldr="Intro.",
+            definition=(
+                "Decomposition.\n\n"
+                "### Bias\nBias is the gap. $$\\mathrm{Bias}=\\mathbb{E}[\\hat f]-f$$\n\n"
+                "### Variance\nWord form only.$$\\text{Variance}\\approx\\text{MSE}$$"
+            ),
+            formal_statement="",
+            example_intuition="x", applications="y", further_reading="z",
+            math_blocks=["x"],
+        )
+
+
 def test_component_equation_validator_still_raises_on_wordform():
     import pytest
     with pytest.raises(Exception):
