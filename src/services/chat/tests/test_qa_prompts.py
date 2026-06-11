@@ -95,7 +95,7 @@ def test_story_write_prompt_forbids_headings():
 
 
 # ---------------------------------------------------------------------------
-# 5. QA_FALLBACK_PROMPT — mentions arc sections
+# 5. QA_FALLBACK_PROMPT — mentions arc sections; no dangling [n] instruction
 # ---------------------------------------------------------------------------
 
 def test_fallback_prompt_mentions_arc_sections():
@@ -104,3 +104,20 @@ def test_fallback_prompt_mentions_arc_sections():
     assert "intro" in text
     assert "deepening" in text
     assert "conclusion" in text
+
+
+def test_fallback_prompt_does_not_instruct_inline_n_markers():
+    """The fallback path skips citation binding (citations=[]).
+    Instructing the LLM to emit [n] markers would produce dangling text.
+    The prompt must NOT contain that instruction.
+    """
+    qa = _load()
+    text = qa.QA_FALLBACK_PROMPT.lower()
+    # The old offending phrase was "use inline [n] markers to cite source numbers"
+    assert "use inline [n]" not in text, (
+        "QA_FALLBACK_PROMPT must not instruct emitting [n] markers — "
+        "the fallback path skips citation binding and [n] would dangle."
+    )
+    assert "cite source numbers" not in text, (
+        "QA_FALLBACK_PROMPT must not instruct numbered citation markers."
+    )

@@ -193,7 +193,9 @@ intro → deepening → conclusion arc.
 Return ONLY a JSON object with these keys:
   "intro": string — ≤1 paragraph. State the core answer directly.
   "deepening": string — ≤3 paragraphs. Develop the answer with precision.
-      Use inline [n] markers to cite source numbers.
+      Write plain prose — NO bracketed citation markers of any kind (no [n],
+      no [[eid]], no [[...]]). You may reference sources naturally in prose
+      (e.g. "the textbook states…") but emit NO inline markers whatsoever.
   "conclusion": string — ≤1 paragraph. Close cleanly; no next-steps or
       exercises.
   "math_blocks": array of LaTeX strings for any display equations (may be []).
