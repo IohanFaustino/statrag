@@ -25,6 +25,7 @@ from src.services.chat.llm.structured import apply_structured_output
 from src.services.chat.prompts.qa import (
     QA_GENERATE_PROMPT,
     QA_SCOPE_PROMPT,
+    QA_STORY_WRITE_PROMPT,
     QA_VERIFY_PROMPT,
 )
 from src.services.chat.research import (
@@ -106,6 +107,11 @@ async def extract_scope(query: str, *, model: str | None = None) -> QAScope:
             answer_form=data.get("answer_form") if data.get("answer_form") in {
                 "explanation", "definition", "comparison", "derivation", "yes_no", "list"
             } else "explanation",
+            wiki_terms=[
+                str(x).strip()
+                for x in (data.get("wiki_terms") or [])
+                if isinstance(x, str) and str(x).strip()
+            ][:_QA_WIKI_TERMS_MAX],
         )
     except Exception:  # noqa: BLE001
         logger.exception("qa.extract_scope failed; using fail-open scope")
@@ -289,6 +295,63 @@ async def retrieve_evidence(
             continue
         result.extend(batch)
     return result
+
+
+_EVIDENCE_PREVIEW_CHARS = 600
+
+
+async def write_story(
+    scope: QAScope,
+    evidence: list[Evidence],
+    *,
+    model: str | None = None,
+) -> QAStoryDraft:
+    """Call the storytelling writer for one narrative draft.
+
+    Builds an evidence block (``[[eid]] (kind) text_preview`` per item) so the
+    model knows which ``[[eid]]`` tokens are valid and whether they come from
+    corpus or Wikipedia.  Returns a ``QAStoryDraft``; on parse failure a single
+    schema-repair retry is attempted (mirrors ``generate_scoped``).  If the
+    retry also fails the exception propagates — the caller (Task 6/7) wraps this
+    in a fallback.
+    """
+    chosen = model or settings.openai_model_nano
+
+    evidence_lines = [
+        f"[[{e.id}]] ({e.kind}) {e.text[:_EVIDENCE_PREVIEW_CHARS]}"
+        for e in evidence
+    ]
+    evidence_block = "\n".join(evidence_lines)
+
+    user = (
+        f"target_gap: {scope.target_gap}\n"
+        f"assumed_known: {json.dumps(scope.assumed_known)}\n"
+        f"answer_form: {scope.answer_form}\n\n"
+        f"evidence:\n{evidence_block}"
+    )
+    messages = [
+        {"role": "system", "content": QA_STORY_WRITE_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+    async def _one() -> dict:
+        raw = await _chat(messages, model=chosen, max_tokens=1400, schema=QAStoryDraft)
+        return json.loads(strip_fences(raw))
+
+    try:
+        data = await _one()
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("qa.write_story first parse failed; repair retry")
+        data = await _one()
+
+    return QAStoryDraft(
+        intro=str(data.get("intro", "")),
+        deepening=str(data.get("deepening", "")),
+        conclusion=str(data.get("conclusion", "")),
+        math_blocks=[
+            str(m) for m in (data.get("math_blocks") or []) if str(m).strip()
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
