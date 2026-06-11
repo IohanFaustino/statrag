@@ -30,7 +30,7 @@ def _src_legacy(**over):
 
 
 def test_corpus_evidence_copies_payload_meta_verbatim():
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([_src()], None)) as hs:
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="hansen-probability",
@@ -49,7 +49,7 @@ def test_corpus_evidence_copies_payload_meta_verbatim():
 def test_corpus_evidence_dedupes_seen_ids():
     """Deduplication works via real chunkId field."""
     seen = {"c-1"}
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([_src()], None)):
         ev = corpus_evidence("q", subject_id="s1", exclude_book="x",
                              all_slugs=["x", "moss"], seen_ids=seen)
@@ -59,7 +59,7 @@ def test_corpus_evidence_dedupes_seen_ids():
 def test_corpus_evidence_legacy_fallback_chunk_id_book_slug():
     """Objects with legacy plan-name fields (chunk_id/book_slug/chapter_id) still work."""
     seen: set[str] = set()
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([_src_legacy()], None)):
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="hansen-probability",
@@ -76,7 +76,7 @@ def test_corpus_evidence_legacy_fallback_chunk_id_book_slug():
 def test_corpus_evidence_dedupes_via_legacy_chunk_id():
     """Deduplication also works when the object only exposes legacy chunk_id."""
     seen = {"c-legacy"}
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([_src_legacy()], None)):
         ev = corpus_evidence("q", subject_id="s1", exclude_book="x",
                              all_slugs=["x", "moss"], seen_ids=seen)
@@ -87,7 +87,7 @@ def test_wiki_evidence_returns_title_url_extract():
     payload = {"title": "Chebyshev's inequality",
                "extract": "In probability theory…",
                "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Chebyshev%27s_inequality"}}}
-    with patch("src.services.chat.agents.extension_agents.research._wiki_summary_json",
+    with patch("src.services.chat.research._wiki_summary_json",
                return_value=payload):
         ev = wiki_evidence("Chebyshev inequality", subject_id="s2")
     e = ev[0]
@@ -97,7 +97,7 @@ def test_wiki_evidence_returns_title_url_extract():
 
 
 def test_wiki_evidence_empty_on_failure():
-    with patch("src.services.chat.agents.extension_agents.research._wiki_summary_json",
+    with patch("src.services.chat.research._wiki_summary_json",
                return_value=None):
         assert wiki_evidence("nonexistent zzz", subject_id="s") == []
 
@@ -109,7 +109,7 @@ def test_wiki_evidence_empty_on_failure():
 def test_corpus_evidence_env_parse_invalid_value_does_not_raise(monkeypatch):
     """EXTENSION_MIN_SCORE='auto' (non-numeric) must not raise; floor defaults to 0."""
     monkeypatch.setenv("EXTENSION_MIN_SCORE", "auto")
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([_src()], None)):
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="hansen-probability",
@@ -122,7 +122,7 @@ def test_corpus_evidence_score_floor_filters_low_score(monkeypatch):
     """Sources below EXTENSION_MIN_SCORE are excluded."""
     monkeypatch.setenv("EXTENSION_MIN_SCORE", "0.5")
     low_score_src = _src(score=0.3)
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([low_score_src], None)):
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="hansen-probability",
@@ -133,7 +133,7 @@ def test_corpus_evidence_score_floor_filters_low_score(monkeypatch):
 def test_corpus_evidence_empty_slugs_no_hybrid_search_call():
     """When all slugs are excluded, hybrid_search is never called."""
     mock_hs = MagicMock()
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search", mock_hs):
+    with patch("src.services.chat.research.hybrid_search", mock_hs):
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="moss",
                              all_slugs=["moss"], seen_ids=set())
@@ -143,7 +143,7 @@ def test_corpus_evidence_empty_slugs_no_hybrid_search_call():
 
 def test_corpus_evidence_hybrid_search_raising_returns_empty():
     """hybrid_search raising an exception degrades cleanly to empty list."""
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                side_effect=RuntimeError("connection refused")):
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="hansen-probability",
@@ -165,7 +165,7 @@ def test_wiki_summary_json_sends_user_agent_on_direct_path():
     mock_resp.status_code = 200
     mock_resp.json.return_value = ok_payload
 
-    with patch("src.services.chat.agents.extension_agents.research.httpx.get",
+    with patch("src.services.chat.research.httpx.get",
                return_value=mock_resp) as mock_get:
         result = _wiki_summary_json("Chebyshev's inequality")
 
@@ -202,7 +202,7 @@ def test_wiki_summary_json_sends_user_agent_on_search_fallback_path():
 
     responses = [miss_resp, search_resp, hit_resp]
 
-    with patch("src.services.chat.agents.extension_agents.research.httpx.get",
+    with patch("src.services.chat.research.httpx.get",
                side_effect=responses) as mock_get:
         result = _wiki_summary_json("Chebyshev inequality")
 
@@ -226,7 +226,7 @@ def test_corpus_evidence_dedupes_duplicate_chunk_id_within_one_call():
     seen: set[str] = set()
     dup1 = _src(chunkId="dup-c1", score=0.9)
     dup2 = _src(chunkId="dup-c1", score=0.8)   # same id, lower score
-    with patch("src.services.chat.agents.extension_agents.research.hybrid_search",
+    with patch("src.services.chat.research.hybrid_search",
                return_value=([dup1, dup2], None)):
         ev = corpus_evidence("tail bounds", subject_id="s1",
                              exclude_book="hansen-probability",
