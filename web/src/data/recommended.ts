@@ -22,7 +22,6 @@ export function stageDefaultModels(recommendedModel: string): Record<StageKey, s
     expansion: NANO_MODEL_ID,
     image_judge: NANO_MODEL_ID,
     plan: NANO_MODEL_ID,
-    synth: NANO_MODEL_ID,
     draft: recommendedModel,
     vision_explain: VISION_DEFAULT_MODEL_ID,
   };

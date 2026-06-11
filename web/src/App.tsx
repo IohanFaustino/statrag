@@ -22,7 +22,6 @@ import ChapterFacilitateModal from "./components/modals/ChapterFacilitateModal";
 import ChapterResumeModal from "./components/modals/ChapterResumeModal";
 import ExtensionModeModal from "./components/modals/ExtensionModeModal";
 import type { StageKey } from "./data/tutorPipeline";
-import { DEFAULT_TUTOR_WORKFLOW } from "./data/tutorPipeline";
 import type { ChatSettings } from "./state/chat";
 import { usePersistentState } from "./state/persist";
 import { RECOMMENDED_MODEL_ID, recommendedModelId } from "./data/recommended";
@@ -196,12 +195,6 @@ export default function App() {
     "auto",
   );
 
-  // Drafting workflow: "single" (one-call) or "orchestrator" (per-author workers).
-  const [tutorWorkflow, setTutorWorkflow] = usePersistentState<string>(
-    "statrag.tutorWorkflow",
-    DEFAULT_TUTOR_WORKFLOW,
-  );
-
   // Derive recommended model id from the live registry (used by modals in Task 4).
   const recommendedModel = recommendedModelId(providers);
 
@@ -245,15 +238,9 @@ export default function App() {
     settings,
     stageModels,
     diversityAuthors,
-    tutorWorkflow,
   });
 
-  // Deep-synthesis path: show more informative copy while the ~45 s
-  // deepagents synthesis runs before any tokens stream.
-  const thinkingLabel =
-    activeMode === "tutor" && tutorWorkflow === "orchestrator-deep"
-      ? "Synthesizing across authors… (~45 s)"
-      : "Thinking";
+  const thinkingLabel = "Thinking";
 
   // Backend health (status dot)
   const [online, setOnline] = useState(false);
@@ -681,11 +668,9 @@ export default function App() {
         recommendedModel={recommendedModel}
         stageModels={stageModels as Partial<Record<StageKey, string>>}
         diversityAuthors={diversityAuthors}
-        tutorWorkflow={tutorWorkflow}
         onApply={(cfg) => {
           setStageModels(cfg.stageModels);
           setDiversityAuthors(cfg.diversityAuthors);
-          setTutorWorkflow(cfg.tutorWorkflow);
         }}
         onClose={() => setAboutModelId(null)}
       />

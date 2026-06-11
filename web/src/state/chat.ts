@@ -529,10 +529,9 @@ export interface UseChatOptions {
   settings?: ChatSettings;
   stageModels?: Record<string, string> | null;
   diversityAuthors?: number | "auto";
-  tutorWorkflow?: string;
 }
 
-export function useChat({ mode, model, bookFilter, settings, stageModels, diversityAuthors, tutorWorkflow }: UseChatOptions) {
+export function useChat({ mode, model, bookFilter, settings, stageModels, diversityAuthors }: UseChatOptions) {
   const [store, dispatch] = useReducer(storeReducer, initialStore);
   // One AbortController per conversation key — switching conversations no
   // longer aborts; we only abort a conv's own stream on resend (§13).
@@ -609,12 +608,11 @@ export function useChat({ mode, model, bookFilter, settings, stageModels, divers
         rerank: settings?.rerank ?? null,
         stageModels: stageModels && Object.keys(stageModels).length ? stageModels : null,
         ...(diversityAuthors != null ? { diversityAuthors } : {}),
-        ...(tutorWorkflow ? { tutorWorkflow } : {}),
       };
 
       await pump(convKey, (onEvent, signal) => streamChat(body, onEvent, signal));
     },
-    [active, mode, model, bookFilter, settings?.temperature, settings?.top_k, settings?.rerank, stageModels, diversityAuthors, tutorWorkflow, pump],
+    [active, mode, model, bookFilter, settings?.temperature, settings?.top_k, settings?.rerank, stageModels, diversityAuthors, pump],
   );
 
   const stopStream = useCallback(

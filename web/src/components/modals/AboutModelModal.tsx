@@ -3,14 +3,12 @@ import FocusModal from "./FocusModal";
 import PipelineDiagram from "../PipelineDiagram";
 import { TUTOR_MODE } from "../../data/tutorMode";
 import type { StageKey } from "../../data/tutorPipeline";
-import { DEFAULT_TUTOR_WORKFLOW } from "../../data/tutorPipeline";
 import { stageDefaultModels } from "../../data/recommended";
 import type { ModelProvider } from "../../types";
 
 export interface PipelineConfig {
   stageModels: Partial<Record<StageKey, string>>;
   diversityAuthors: number | "auto";
-  tutorWorkflow: string;
 }
 
 interface AboutModelModalProps {
@@ -22,7 +20,6 @@ interface AboutModelModalProps {
   // Currently-applied config (the modal seeds its editable draft from this).
   stageModels: Partial<Record<StageKey, string>>;
   diversityAuthors: number | "auto";
-  tutorWorkflow: string;
   // Commit the draft. Called only when the user presses Apply.
   onApply(config: PipelineConfig): void;
   onClose(): void;
@@ -36,7 +33,6 @@ export default function AboutModelModal({
   recommendedModel,
   stageModels,
   diversityAuthors,
-  tutorWorkflow,
   onApply,
   onClose,
 }: AboutModelModalProps) {
@@ -44,14 +40,12 @@ export default function AboutModelModal({
   const [draftStageModels, setDraftStageModels] =
     useState<Partial<Record<StageKey, string>>>(stageModels);
   const [draftDiversity, setDraftDiversity] = useState<number | "auto">(diversityAuthors);
-  const [draftWorkflow, setDraftWorkflow] = useState<string>(tutorWorkflow);
 
   // Re-seed the draft from the applied config each time the modal opens.
   useEffect(() => {
     if (open) {
       setDraftStageModels(stageModels);
       setDraftDiversity(diversityAuthors);
-      setDraftWorkflow(tutorWorkflow);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -64,19 +58,16 @@ export default function AboutModelModal({
   // per-stage dropdowns still let the user pick any model afterward.
   const setDefaults = () => {
     setDraftStageModels(stageDefaultModels(recommendedModel));
-    setDraftWorkflow(DEFAULT_TUTOR_WORKFLOW);
   };
 
   const dirty =
     JSON.stringify(draftStageModels) !== JSON.stringify(stageModels) ||
-    draftDiversity !== diversityAuthors ||
-    draftWorkflow !== tutorWorkflow;
+    draftDiversity !== diversityAuthors;
 
   const apply = () => {
     onApply({
       stageModels: draftStageModels,
       diversityAuthors: draftDiversity,
-      tutorWorkflow: draftWorkflow,
     });
     onClose();
   };
@@ -132,8 +123,6 @@ export default function AboutModelModal({
           }
           diversityAuthors={draftDiversity}
           onDiversityChange={(v) => setDraftDiversity(v as number | "auto")}
-          tutorWorkflow={draftWorkflow}
-          onWorkflowChange={(v) => setDraftWorkflow(String(v))}
         />
         </div>
 

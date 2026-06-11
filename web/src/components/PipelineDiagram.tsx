@@ -3,7 +3,7 @@ import type { ModelProvider } from "../types";
 import { TUTOR_PIPELINE, type StageKey } from "../data/tutorPipeline";
 import NodeModelDropdown from "./NodeModelDropdown";
 import NodeChoiceDropdown, { type ChoiceOption, type ChoiceValue } from "./NodeChoiceDropdown";
-import type { PipelineNode, PipelineEdge } from "../data/tutorPipeline";
+import type { PipelineNode } from "../data/tutorPipeline";
 import { phaseOf, PHASE_META } from "../data/pipelinePhases";
 
 const DIVERSITY_OPTIONS: ChoiceOption[] = [
@@ -16,13 +16,6 @@ const DIVERSITY_OPTIONS: ChoiceOption[] = [
   { label: "6 authors",  value: 6 },
 ];
 
-const WORKFLOW_OPTIONS: ChoiceOption[] = [
-  { label: "Single draft",               value: "single" },
-  { label: "Orchestrator (per author)",  value: "orchestrator" },
-  { label: "Deep synthesis (slower ~45s)", value: "orchestrator-deep" },
-  { label: "Organize (V4-PRO, long-ctx)", value: "organize" },
-];
-
 interface PipelineDiagramProps {
   pickerModel: string;
   stageModels: Partial<Record<StageKey, string>>;
@@ -30,14 +23,12 @@ interface PipelineDiagramProps {
   onStageModelChange(stage: StageKey, modelId: string): void;
   diversityAuthors: ChoiceValue;
   onDiversityChange(n: ChoiceValue): void;
-  tutorWorkflow: string;
-  onWorkflowChange(v: string): void;
 }
 
 // Hand-laid layout (px) in a 520×computed coordinate space. Single vertical column:
 // Question → Query planner → Hybrid retrieval ×N → Density select + rerank →
 // Author diversity → Coverage check → Figure judge → Planner →
-// Drafting workflow → Draft / synthesis → Vision explain → Answer
+// Narrative draft → Vision explain → Answer
 //
 // Coverage check also has a loop-back edge to Hybrid retrieval (left-side arc).
 const W = 560;
@@ -65,28 +56,18 @@ const ROW_DEF: ReadonlyArray<{ id: string; h: number; io?: boolean }> = [
   { id: "coverage",       h: 112 },
   { id: "image_judge",    h: 104 },
   { id: "plan",           h: 132 },
-  { id: "drafting",       h: 132 },
   { id: "draft",          h: 104 },
   { id: "vision_explain", h: 112 },
   { id: "output",         h: 46,  io: true },
 ];
 
 // Default heights used when measured offsetHeight === 0 (jsdom / SSR).
-// Matches old fixed layout so existing tests stay valid.
 const DEFAULT_H: Record<string, number> = {
   ...Object.fromEntries(ROW_DEF.map((r) => [r.id, r.h])),
-  orchestrator: 104, worker1: 56, worker2: 56, worker3: 56,
-  formula_recovery: 88, synthesizer: 66,
 };
 
-// Worker layout — three equal columns fitting inside the 232px centre band.
-const WORKER_W = 120;
-const WORKER_GAP = 10;
-const WORKERS_TOTAL_W = 3 * WORKER_W + 2 * WORKER_GAP; // 380
-const WORKERS_LEFT_X  = CX + (CW - WORKERS_TOTAL_W) / 2;
-
-// ── Layout builders (parametrised by a height getter) ──────────────────────
-function buildBaseLayout(h: (id: string) => number): { layout: Record<string, Box>; height: number } {
+// ── Layout builder (parametrised by a height getter) ──────────────────────────
+function buildLayout(h: (id: string) => number): { layout: Record<string, Box>; height: number } {
   const layout: Record<string, Box> = {};
   let y = TOP;
   for (const r of ROW_DEF) {
@@ -97,124 +78,10 @@ function buildBaseLayout(h: (id: string) => number): { layout: Record<string, Bo
   return { layout, height: y + 8 };
 }
 
-const PRE_CLUSTER_IDS = [
-  "input", "expansion", "retrieval", "rerank", "diversity",
-  "coverage", "image_judge", "plan", "drafting",
-] as const;
-
-function buildOrchLayout(h: (id: string) => number): { layout: Record<string, Box>; height: number } {
-  const layout: Record<string, Box> = {};
-  let y = TOP;
-  for (const id of PRE_CLUSTER_IDS) {
-    const r = ROW_DEF.find((rr) => rr.id === id)!;
-    const hh = h(id);
-    layout[id] = r.io ? { x: IO_X, y, w: IO_W, h: hh } : { x: CX, y, w: CW, h: hh };
-    y += hh + GAP;
-  }
-  const oH = h("orchestrator");
-  layout.orchestrator = { x: CX, y, w: CW, h: oH };
-  y += oH + GAP;
-  const wH = Math.max(h("worker1"), h("worker2"), h("worker3"));
-  layout.worker1 = { x: WORKERS_LEFT_X, y, w: WORKER_W, h: wH };
-  layout.worker2 = { x: WORKERS_LEFT_X + WORKER_W + WORKER_GAP, y, w: WORKER_W, h: wH };
-  layout.worker3 = { x: WORKERS_LEFT_X + 2 * (WORKER_W + WORKER_GAP), y, w: WORKER_W, h: wH };
-  y += wH + GAP;
-  const frH = h("formula_recovery");
-  layout.formula_recovery = { x: CX, y, w: CW, h: frH };
-  y += frH + GAP;
-  const sH = h("synthesizer");
-  layout.synthesizer = { x: CX, y, w: CW, h: sH };
-  y += sH + GAP;
-  for (const id of ["vision_explain", "output"] as const) {
-    const r = ROW_DEF.find((rr) => rr.id === id)!;
-    const hh = h(id);
-    layout[id] = r.io ? { x: IO_X, y, w: IO_W, h: hh } : { x: CX, y, w: CW, h: hh };
-    y += hh + GAP;
-  }
-  return { layout, height: y + 8 };
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-
-// Extra synthetic nodes for the orchestrator cluster.
-const ORC_NODES: PipelineNode[] = [
-  {
-    id: "orchestrator",
-    label: "Orchestrator",
-    desc: "Decides subtasks and delegates one per author to parallel workers.",
-    kind: "llm",
-    stage: "draft",          // shares the `draft` stage model key
-    defaultModel: "__active__",
-    locked: false,
-  },
-  {
-    id: "worker1",
-    label: "Worker",
-    desc: "Writes the section for author 1.",
-    kind: "llm",
-    stage: null,
-    defaultModel: "__active__",
-    locked: false,
-  },
-  {
-    id: "worker2",
-    label: "Worker",
-    desc: "Writes the section for author 2.",
-    kind: "llm",
-    stage: null,
-    defaultModel: "__active__",
-    locked: false,
-  },
-  {
-    id: "worker3",
-    label: "Worker · N",
-    desc: "Writes sections for remaining authors.",
-    kind: "llm",
-    stage: null,
-    defaultModel: "__active__",
-    locked: false,
-  },
-  {
-    id: "formula_recovery",
-    label: "Formula recovery",
-    desc: "Gap-triggered · best-effort. If a concept's defining equation was OCR-dropped to a figure, recover it per gap in parallel: formula_cache → vision reads it off the figure (gpt-4o) → text re-query. Injected into the synth as <recovered_equations> (used verbatim) and cached. No-op on failure.",
-    kind: "data",
-    stage: null,
-    defaultModel: "gpt-4o vision + formula_cache",
-    locked: true,
-  },
-  {
-    id: "synthesizer",
-    label: "Synthesizer",
-    desc: "Integrates & compares per-author drafts into the final answer. In plain orchestrator mode the synthesizer runs on the draft model; switch to deep synthesis (orchestrator-deep) to select a dedicated synthesis model (default nano) that drives the deepagents synthesizer + nano schema-fill.",
-    kind: "llm",
-    stage: "synth",
-    defaultModel: "gpt-5.4-nano-2026-03-17",
-    locked: false,
-  },
-];
-
-// Edges that replace the single `drafting → draft` edge. Workers' briefs flow
-// through the formula-recovery stage before the synthesizer integrates them.
-const ORC_EDGES: PipelineEdge[] = [
-  { from: "drafting",          to: "orchestrator" },
-  { from: "orchestrator",      to: "worker1" },
-  { from: "orchestrator",      to: "worker2" },
-  { from: "orchestrator",      to: "worker3" },
-  { from: "worker1",           to: "formula_recovery" },
-  { from: "worker2",           to: "formula_recovery" },
-  { from: "worker3",           to: "formula_recovery" },
-  { from: "formula_recovery",  to: "synthesizer" },
-  { from: "synthesizer",       to: "vision_explain" },
-];
-
-// IDs that are dashed delegate edges (orchestrator → workers).
-const DASHED_EDGES = new Set(["orchestrator→worker1", "orchestrator→worker2", "orchestrator→worker3"]);
-
 // IDs for loop-back edges (go upward; rendered as left-side arcs).
 const LOOP_EDGES = new Set(["coverage→retrieval"]);
 
-// ──────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
 
 function modelName(providers: ModelProvider[], id: string): string {
   for (const p of providers) {
@@ -231,45 +98,21 @@ export default function PipelineDiagram({
   onStageModelChange,
   diversityAuthors,
   onDiversityChange,
-  tutorWorkflow,
-  onWorkflowChange,
 }: PipelineDiagramProps) {
-  const isOrchLayout = tutorWorkflow === "orchestrator" || tutorWorkflow === "orchestrator-deep";
-
-  // ── Measurement state ────────────────────────────────────────────────────
+  // ── Measurement state ──────────────────────────────────────────────────────
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [measured, setMeasured] = useState<Record<string, number>>({});
   const h = (id: string) => measured[id] || DEFAULT_H[id] || 100;
 
-  // ── Derive effective graph ───────────────────────────────────────────────
-  let effectiveNodes: PipelineNode[];
-  let effectiveEdges: PipelineEdge[];
-
-  if (!isOrchLayout) {
-    effectiveNodes  = TUTOR_PIPELINE.nodes;
-    effectiveEdges  = TUTOR_PIPELINE.edges;
-  } else {
-    // Drop `draft` from base nodes; append orchestrator cluster.
-    effectiveNodes = [
-      ...TUTOR_PIPELINE.nodes.filter((n) => n.id !== "draft"),
-      ...ORC_NODES,
-    ];
-    // Replace `drafting → draft` and `draft → vision_explain` with cluster edges.
-    effectiveEdges = [
-      ...TUTOR_PIPELINE.edges.filter(
-        (e) => !(e.from === "drafting" && e.to === "draft") &&
-               !(e.from === "draft"    && e.to === "vision_explain")
-      ),
-      ...ORC_EDGES,
-    ];
-  }
-
-  // ── Build layout from measured (or default) heights ──────────────────────
-  const built = isOrchLayout ? buildOrchLayout(h) : buildBaseLayout(h);
+  // ── Build layout from measured (or default) heights ────────────────────────
+  const built = buildLayout(h);
   const effectiveLayout = built.layout;
   const canvasH = built.height;
 
-  // ── Measure node heights after render ────────────────────────────────────
+  const effectiveNodes: PipelineNode[] = TUTOR_PIPELINE.nodes;
+  const effectiveEdges = TUTOR_PIPELINE.edges;
+
+  // ── Measure node heights after render ──────────────────────────────────────
   useLayoutEffect(() => {
     const next: Record<string, number> = {};
     for (const id of Object.keys(nodeRefs.current)) {
@@ -282,7 +125,7 @@ export default function PipelineDiagram({
     if (changed) setMeasured(next);
   });
 
-  // ── Edge path helpers ────────────────────────────────────────────────────
+  // ── Edge path helpers ──────────────────────────────────────────────────────
   const edgePath = (fromId: string, toId: string): string => {
     const a = effectiveLayout[fromId];
     const b = effectiveLayout[toId];
@@ -314,7 +157,7 @@ export default function PipelineDiagram({
     );
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div
       className="pipe2"
@@ -340,7 +183,6 @@ export default function PipelineDiagram({
         {effectiveEdges.map((e) => {
           const key = `${e.from}-${e.to}`;
           const edgeKey = `${e.from}→${e.to}`;
-          const isDashed = DASHED_EDGES.has(edgeKey);
           const isLoop  = LOOP_EDGES.has(edgeKey);
 
           if (isLoop) {
@@ -384,7 +226,6 @@ export default function PipelineDiagram({
               stroke="var(--text-tertiary, #888)"
               strokeWidth="1.4"
               strokeOpacity="0.55"
-              strokeDasharray={isDashed ? "5 3" : undefined}
               markerEnd="url(#pipe-arrow)"
             />
           );
@@ -395,7 +236,7 @@ export default function PipelineDiagram({
         const box = effectiveLayout[n.id];
         if (!box) return null;
 
-        // ── diversity node ───────────────────────────────────────────────
+        // ── diversity node ─────────────────────────────────────────────────
         if (n.id === "diversity") {
           return (
             <div
@@ -424,36 +265,7 @@ export default function PipelineDiagram({
           );
         }
 
-        // ── drafting workflow node ────────────────────────────────────────
-        if (n.id === "drafting") {
-          return (
-            <div
-              key={n.id}
-              ref={(el) => { nodeRefs.current[n.id] = el; }}
-              className="pipe2__node pipe2__node--data pipe2__node--blink"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
-              data-node={n.id}
-              data-phase={phaseOf(n.id)}
-            >
-              <div className="pipe2__node-hd">
-                <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
-                  {PHASE_META[phaseOf(n.id)].label}
-                </span>
-                <span className="pipe2__badge" title="Click to set drafting workflow">set</span>
-              </div>
-              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
-              <NodeChoiceDropdown
-                value={tutorWorkflow}
-                options={WORKFLOW_OPTIONS}
-                onSelect={(v) => onWorkflowChange(v as string)}
-                ariaLabel="Drafting workflow"
-              />
-            </div>
-          );
-        }
-
-        // ── plan node ────────────────────────────────────────────────────
+        // ── plan node ──────────────────────────────────────────────────────
         if (n.id === "plan") {
           const activeId = stageModels["plan"] ?? n.defaultModel;
           return (
@@ -483,94 +295,7 @@ export default function PipelineDiagram({
           );
         }
 
-        // ── orchestrator node (llm, owns the `draft` stage model key) ────
-        if (n.id === "orchestrator") {
-          let activeId: string = n.defaultModel === "__active__" ? pickerModel : n.defaultModel;
-          if (stageModels["draft"]) activeId = stageModels["draft"]!;
-          return (
-            <div
-              key={n.id}
-              ref={(el) => { nodeRefs.current[n.id] = el; }}
-              className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
-              data-node={n.id}
-              data-phase={phaseOf(n.id)}
-            >
-              <div className="pipe2__node-hd">
-                <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
-                  {PHASE_META[phaseOf(n.id)].label}
-                </span>
-                <span className="pipe2__badge" title="Click the model to swap">swap</span>
-              </div>
-              <div className="pipe2__node-desc pipe2__node-desc--clamp" title={n.desc}>{n.desc}</div>
-              <NodeModelDropdown
-                value={activeId}
-                providers={providers}
-                onChange={(id) => onStageModelChange("draft", id)}
-              />
-            </div>
-          );
-        }
-
-        // ── worker nodes (static, no dropdown, no chip) ──────────────────
-        if (n.id === "worker1" || n.id === "worker2" || n.id === "worker3") {
-          return (
-            <div
-              key={n.id}
-              ref={(el) => { nodeRefs.current[n.id] = el; }}
-              className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w, fontSize: "0.72em" }}
-              data-node={n.id}
-              data-phase={phaseOf(n.id)}
-            >
-              <div className="pipe2__node-hd">
-                <span className="pipe2__node-label">{n.label}</span>
-              </div>
-            </div>
-          );
-        }
-
-        // ── synthesizer node ─────────────────────────────────────────────
-        // deepSynth (orchestrator-deep): editable synth model dropdown.
-        // plain orchestrator: read-only badge showing the draft model (the L0
-        // synthesizer actually runs on the draft model in that path).
-        if (n.id === "synthesizer") {
-          const deepSynth = tutorWorkflow === "orchestrator-deep";
-          const synthActive = stageModels["synth"] ?? n.defaultModel;
-          const draftActive = stageModels["draft"] ?? pickerModel;
-          return (
-            <div
-              key={n.id}
-              ref={(el) => { nodeRefs.current[n.id] = el; }}
-              className="pipe2__node pipe2__node--llm"
-              style={{ position: "absolute", left: box.x, top: box.y, width: box.w }}
-              data-node={n.id}
-              data-phase={phaseOf(n.id)}
-            >
-              <div className="pipe2__node-hd">
-                <span className="pipe2__node-label">{n.label}</span>
-                <span className="pipe2__phase-chip" data-phase={phaseOf(n.id)}>
-                  {PHASE_META[phaseOf(n.id)].label}
-                </span>
-                <span className="pipe2__node-sublabel">
-                  {deepSynth ? "deepagents + skill → schema-fill" : "integrate & compare"}
-                </span>
-              </div>
-              {deepSynth ? (
-                <NodeModelDropdown
-                  value={synthActive}
-                  providers={providers}
-                  onChange={(id) => onStageModelChange("synth" as StageKey, id)}
-                />
-              ) : (
-                <span className="pipe2__model-fixed">{modelName(providers, draftActive) || draftActive}</span>
-              )}
-            </div>
-          );
-        }
-
-        // ── all other nodes ───────────────────────────────────────────────
+        // ── all other nodes ────────────────────────────────────────────────
         const overridable = n.stage !== null && !n.locked;
         let activeId = n.defaultModel;
         if (n.defaultModel === "__active__") activeId = pickerModel;

@@ -32,8 +32,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     // swappable nodes use the custom dropdown toggle (not a native select)
@@ -55,8 +53,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     // draft toggle now reflects the override model name
@@ -72,15 +68,13 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("pipe2__node--locked");
     expect(html).toContain("pipe2__model-fixed");
   });
 
-  it("renders the Planner node between Figure judge and Draft (label updated, 'Synthesis plan' gone)", () => {
+  it("renders the Planner node between Figure judge and Narrative draft (label updated, 'Synthesis plan' gone)", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
@@ -89,8 +83,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     // New label
@@ -112,8 +104,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     // The plan node's skip condition is conveyed via its in-box description
@@ -131,8 +121,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("Query planner");
@@ -148,8 +136,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("Coverage check");
@@ -157,23 +143,6 @@ describe("PipelineDiagram", () => {
     // locked node — shows lock icon and fixed model text, no dropdown toggle
     expect(html).toContain("pipe2__node--locked");
     expect(html).toContain("facet re-query");
-  });
-
-  it("coverage node is present in orchestrator mode too", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    expect(html).toContain("Coverage check");
-    expect(html).toContain('data-node="coverage"');
   });
 
   it("renders the coverage→retrieval loop-back edge (path keyed coverage-retrieval)", () => {
@@ -185,8 +154,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     // The loop-back group has data-edge="coverage-retrieval"
@@ -195,7 +162,7 @@ describe("PipelineDiagram", () => {
     expect(html).toContain("re-query (cap 1)");
   });
 
-  it("single mode: Query planner, Coverage check, and Hybrid retrieval ×N are all present", () => {
+  it("Query planner, Coverage check, and Hybrid retrieval ×N are all present", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
@@ -204,8 +171,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("Query planner");
@@ -213,7 +178,7 @@ describe("PipelineDiagram", () => {
     expect(html).toContain("Hybrid retrieval ×N");
   });
 
-  it("single mode: Critique node is NOT rendered", () => {
+  it("Critique node is NOT rendered", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
@@ -222,25 +187,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    expect(html).not.toContain("Critique");
-    expect(html).not.toContain('data-node="critique"');
-  });
-
-  it("orchestrator mode: Critique node is NOT rendered", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).not.toContain("Critique");
@@ -256,81 +202,9 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("Off (single-draft)");
-  });
-
-  it("renders the Drafting workflow node and shows correct label for orchestrator workflow", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    expect(html).toContain("Drafting workflow");
-    expect(html).toContain('data-node="drafting"');
-    expect(html).toContain("Orchestrator (per author)");
-  });
-
-  it("orchestrator mode: renders Orchestrator + Synthesizer cluster and NOT the single Draft node", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    // Cluster nodes present
-    expect(html).toContain("Orchestrator");
-    expect(html).toContain("Synthesizer");
-    expect(html).toContain('data-node="orchestrator"');
-    expect(html).toContain('data-node="synthesizer"');
-    // Worker nodes present
-    expect(html).toContain("Worker · N");
-    // Formula-recovery stage sits in the cluster (workers → recovery → synthesizer)
-    expect(html).toContain('data-node="formula_recovery"');
-    expect(html).toContain("Formula recovery");
-    // Single draft box must NOT be rendered
-    expect(html).not.toContain("Draft / synthesis");
-    expect(html).not.toContain('data-node="draft"');
-  });
-
-  it("single mode: renders Draft / synthesis node and NOT the orchestrator cluster", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    // Single draft box present
-    expect(html).toContain("Draft / synthesis");
-    expect(html).toContain('data-node="draft"');
-    // Orchestrator cluster must NOT be rendered
-    expect(html).not.toContain('data-node="orchestrator"');
-    expect(html).not.toContain("Synthesizer");
-    // Formula recovery is orchestrator-only — never in single-draft
-    expect(html).not.toContain('data-node="formula_recovery"');
-    expect(html).not.toContain("Formula recovery");
   });
 
   it("rerank node label contains 'adjacent sections' (Change 1)", () => {
@@ -342,8 +216,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("adjacent sections");
@@ -359,8 +231,6 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={5}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("5 authors");
@@ -375,14 +245,14 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={6}
         onDiversityChange={() => {}}
-        tutorWorkflow="single"
-        onWorkflowChange={() => {}}
       />,
     );
     expect(html).toContain("6 authors");
   });
+});
 
-  it("renders the deep-synthesis workflow option", () => {
+describe("narrative-only pipeline (Task 6 — tutorWorkflow removed)", () => {
+  it("renders a single narrative draft node and no workflow selector", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
@@ -391,177 +261,31 @@ describe("PipelineDiagram", () => {
         onStageModelChange={() => {}}
         diversityAuthors={3}
         onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator-deep"
-        onWorkflowChange={() => {}}
       />,
     );
-    expect(html).toContain("Deep synthesis (slower ~45s)");
-    // orchestrator-deep uses the orchestrator layout: cluster nodes present
-    expect(html).toContain('data-node="orchestrator"');
-    expect(html).toContain('data-node="synthesizer"');
-    expect(html).toContain("Worker · N");
-    // synthesizer node reflects the deepagents+skill->schema-fill path
-    expect(html).toContain("deepagents + skill → schema-fill");
-    expect(html).not.toContain("integrate &amp; compare");
-    // single draft box must NOT be rendered in this mode
-    expect(html).not.toContain("Draft / synthesis");
-    expect(html).not.toContain('data-node="draft"');
-  });
-
-  it("orchestrator (non-deep) synthesizer keeps the integrate & compare sublabel", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    expect(html).toContain("integrate &amp; compare");
-    expect(html).not.toContain("deepagents + skill → schema-fill");
-  });
-
-  it("orchestrator-deep: synthesizer renders editable dropdown defaulting to nano id when stageModels.synth is unset", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator-deep"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    // Synthesizer node must have an editable dropdown toggle in deep mode
-    expect(html).toContain('data-node="synthesizer"');
-    expect(html).toContain("node-dd__toggle");
-    // nano id not in PROVIDERS fixture → rendered as raw id in toggle name span
-    expect(html).toContain("gpt-5.4-nano-2026-03-17");
-  });
-
-  it("orchestrator-deep: synthesizer shows override model name when stageModels.synth is set", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{ synth: "gpt-4o-mini" }}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator-deep"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    expect(html).toContain('data-node="synthesizer"');
-    // gpt-4o-mini is in PROVIDERS fixture → its display name should appear in the toggle
-    expect(html).toContain("GPT-4o mini");
-    // The synthesizer dropdown aria-label reflects the override, not nano
-    expect(html).toContain('aria-label="Model: GPT-4o mini. Click to change."');
-  });
-
-  it("plain orchestrator: synthesizer renders READ-ONLY draft model badge, NOT an editable synth dropdown", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{}}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    // Synthesizer node must be present
-    expect(html).toContain('data-node="synthesizer"');
-    // Extract the synthesizer node's segment to scope assertions
-    const synthStart = html.indexOf('data-node="synthesizer"');
-    const synthEnd = html.indexOf('data-node=', synthStart + 1);
-    const synthSegment = synthEnd === -1 ? html.slice(synthStart) : html.slice(synthStart, synthEnd);
-    // Read-only badge class must be present in the synthesizer node
-    expect(synthSegment).toContain("pipe2__model-fixed");
-    // The badge shows the draft model (pickerModel "gpt-4o" → "GPT-4o")
-    expect(synthSegment).toContain("GPT-4o");
-    // NO editable dropdown toggle inside the synthesizer node
-    expect(synthSegment).not.toContain("node-dd__toggle");
-  });
-
-  it("plain orchestrator: synthesizer read-only badge tracks stageModels.draft when set", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{ draft: "deepseek-chat" }}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    const synthStart = html.indexOf('data-node="synthesizer"');
-    const synthEnd = html.indexOf('data-node=', synthStart + 1);
-    const synthSegment = synthEnd === -1 ? html.slice(synthStart) : html.slice(synthStart, synthEnd);
-    // Badge shows the draft override model name, not the picker
-    expect(synthSegment).toContain("DeepSeek Chat");
-    // stageModels.synth is NOT set but we're in plain orchestrator — no dropdown
-    expect(synthSegment).not.toContain("node-dd__toggle");
-  });
-
-  it("plain orchestrator: setting stageModels.synth does NOT change the synthesizer badge (synth ignored in this mode)", () => {
-    const html = renderToStaticMarkup(
-      <PipelineDiagram
-        pickerModel="gpt-4o"
-        stageModels={{ synth: "gpt-4o-mini" }}
-        providers={PROVIDERS}
-        onStageModelChange={() => {}}
-        diversityAuthors={3}
-        onDiversityChange={() => {}}
-        tutorWorkflow="orchestrator"
-        onWorkflowChange={() => {}}
-      />,
-    );
-    const synthStart = html.indexOf('data-node="synthesizer"');
-    const synthEnd = html.indexOf('data-node=', synthStart + 1);
-    const synthSegment = synthEnd === -1 ? html.slice(synthStart) : html.slice(synthStart, synthEnd);
-    // Should show the draft model (pickerModel "gpt-4o" → "GPT-4o"), NOT "GPT-4o mini"
-    expect(synthSegment).toContain("GPT-4o");
-    expect(synthSegment).toContain("pipe2__model-fixed");
-    // synth override must NOT drive a dropdown in plain orchestrator
-    expect(synthSegment).not.toContain("node-dd__toggle");
+    // No orchestrator / organize / workflow-variant nodes
+    expect(html).not.toContain('data-node="orchestrator"');
+    expect(html).not.toContain('data-node="synthesizer"');
+    expect(html).not.toContain("Organize");
+    // Single narrative draft node must exist
+    expect(html).toContain('data-node="draft"');
+    expect(html).toContain("Narrative draft");
+    // No workflow dropdown (NodeChoiceDropdown) for drafting node
+    expect(html).not.toContain('aria-label="Drafting workflow"');
   });
 });
 
-it("tags nodes with their phase (single layout)", () => {
+it("tags nodes with their phase", () => {
   const html = renderToStaticMarkup(
     <PipelineDiagram
       pickerModel="gpt-4o" stageModels={{}} providers={PROVIDERS}
       onStageModelChange={() => {}} diversityAuthors={3} onDiversityChange={() => {}}
-      tutorWorkflow="single" onWorkflowChange={() => {}}
     />,
   );
   expect(html).toContain('data-phase="planning"');
   expect(html).toContain('data-phase="retrieval"');
   expect(html).toContain('data-phase="vision"');
   expect(html).toContain('data-phase="generation"');
-});
-
-it("formula_recovery node carries the vision phase (orchestrator layout)", () => {
-  const html = renderToStaticMarkup(
-    <PipelineDiagram
-      pickerModel="gpt-4o" stageModels={{}} providers={PROVIDERS}
-      onStageModelChange={() => {}} diversityAuthors={3} onDiversityChange={() => {}}
-      tutorWorkflow="orchestrator" onWorkflowChange={() => {}}
-    />,
-  );
-  expect(html).toContain('data-node="formula_recovery"');
-  expect(html).toContain('data-phase="vision"');
 });
 
 describe("AboutModelModal", () => {
@@ -575,7 +299,6 @@ describe("AboutModelModal", () => {
         recommendedModel="qwen-plus"
         stageModels={{}}
         diversityAuthors={3}
-        tutorWorkflow="single"
         onApply={() => {}}
         onClose={() => {}}
       />,
@@ -593,7 +316,6 @@ describe("AboutModelModal", () => {
         recommendedModel="qwen-plus"
         stageModels={{}}
         diversityAuthors={3}
-        tutorWorkflow="single"
         onApply={() => {}}
         onClose={() => {}}
       />,
@@ -613,13 +335,11 @@ describe("stageDefaultModels (Default button reset map)", () => {
       expansion: "gpt-5.4-nano-2026-03-17",
       image_judge: "gpt-5.4-nano-2026-03-17",
       plan: "gpt-5.4-nano-2026-03-17",
-      synth: "gpt-5.4-nano-2026-03-17",
       draft: "gpt-5.4-nano-2026-03-17",
       vision_explain: "gpt-4o-mini",
     });
     // regression guard: the non-draft stages must NOT all fall back to the old recommended (qwen-plus)
     expect(defaults.plan).not.toBe("qwen-plus");
-    expect(defaults.synth).not.toBe("qwen-plus");
     expect(defaults.vision_explain).not.toBe("qwen-plus");
   });
 

@@ -16,8 +16,6 @@ export interface ChatRequestBody {
   stageModels?: Record<string, string> | null;
   // Author diversity step: 0 = off, N>=2 = target distinct authors.
   diversityAuthors?: number | "auto" | null;
-  // Drafting workflow: "single" (default) or "orchestrator" (per-author workers).
-  tutorWorkflow?: string;
 }
 
 // Read an SSE response body, parsing frames and invoking `onEvent` per event.

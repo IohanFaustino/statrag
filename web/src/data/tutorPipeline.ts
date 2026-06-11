@@ -6,7 +6,7 @@
 // to a picker chat model). Locked nodes use a fixed model class (embedding /
 // cross-encoder / vision) that a chat model cannot replace.
 
-export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan" | "synth";
+export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan";
 
 export interface PipelineNode {
   id: string;
@@ -100,18 +100,9 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
     {
-      id: "drafting",
-      label: "Drafting workflow",
-      desc: "Single draft (one call writes all sections); orchestrator-workers (one worker per author, then a synthesizer integrates + compares); deep synthesis (orchestrator workers + deepagents synthesis skill integrates the briefs, ~45 s, opt-in); or organize (a large token-budgeted pool handed to deepseek-v4-pro, which organizes the coherent pieces — formulas, the MSE decomposition, real cases — into the fields).",
-      kind: "data",
-      stage: null,
-      defaultModel: "",
-      locked: false,
-    },
-    {
       id: "draft",
-      label: "Draft / synthesis",
-      desc: "Writes the structured multi-aspect answer. The main model.",
+      label: "Narrative draft",
+      desc: "Writes the structured multi-aspect answer as a single narrative pass. The main model.",
       kind: "llm",
       stage: "draft",
       defaultModel: "__active__",
@@ -139,22 +130,16 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
   // Vertical chain: question → query planner → hybrid retrieval → … → answer.
   // Coverage check has a loop-back re-query edge back to retrieval (cap 1).
   edges: [
-    { from: "input", to: "expansion" },
-    { from: "expansion", to: "retrieval" },
-    { from: "retrieval", to: "rerank" },
-    { from: "rerank", to: "diversity" },
-    { from: "diversity", to: "coverage" },
-    { from: "coverage", to: "retrieval" },
-    { from: "coverage", to: "image_judge" },
+    { from: "input",      to: "expansion" },
+    { from: "expansion",  to: "retrieval" },
+    { from: "retrieval",  to: "rerank" },
+    { from: "rerank",     to: "diversity" },
+    { from: "diversity",  to: "coverage" },
+    { from: "coverage",   to: "retrieval" },
+    { from: "coverage",   to: "image_judge" },
     { from: "image_judge", to: "plan" },
-    { from: "plan", to: "drafting" },
-    { from: "drafting", to: "draft" },
-    { from: "draft", to: "vision_explain" },
+    { from: "plan",       to: "draft" },
+    { from: "draft",      to: "vision_explain" },
     { from: "vision_explain", to: "output" },
   ],
 };
-
-// Default drafting workflow — the deep-agent path (orchestrator → workers →
-// formula recovery → synthesizer). Shared by the app's initial state and the
-// modal's "Default" reset so they cannot drift.
-export const DEFAULT_TUTOR_WORKFLOW = "orchestrator-deep";
