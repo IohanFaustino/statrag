@@ -22,7 +22,9 @@ const FIGURES_META_LABEL: Record<FiguresMeta["status"], string> = {
   error: "Image branch errored",
 };
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score }: { score?: number | null }) {
+  // Some sources (e.g. extension/wiki) carry no numeric score — don't crash.
+  if (typeof score !== "number" || Number.isNaN(score)) return null;
   const tone = score >= 0.8 ? "hi" : score >= 0.6 ? "mid" : "low";
   return (
     <span className={`score-badge score-badge--${tone}`}>
