@@ -188,6 +188,12 @@ def _norm_tokens(s: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (s or "").lower()) if len(t) > 2}
 
 
+def _lead_section_num(h2_path: str) -> str:
+    """Return the leading 'X.Y' from a heading path, or '' if none found."""
+    m = _SEC.search(h2_path or "")
+    return f"{m.group(1)}.{m.group(2)}" if m else ""
+
+
 def resolve_section(
     message: str,
     *,
@@ -197,16 +203,30 @@ def resolve_section(
     """Pick ONE section_id from *headings*.
 
     Explicit "X.y" section numbers win deterministically (score 1.0).
+    Matches the requested number against the LEADING section number parsed
+    from each heading's h2_path (not the section_id UUID).
     Falls back to best word-overlap match against heading h2_path.
     Returns (section_id, score); ("", <0.5) when nothing matches well.
     """
     if not headings:
         return "", 0.0
     nums = expand_section_refs(message) + [s for s in subtopics if _SEC.search(s)]
-    valid = {h["section_id"] for h in headings}
+    # Normalise each candidate to bare "X.Y"
+    norm_nums: list[str] = []
     for n in nums:
-        if n in valid:
-            return n, 1.0
+        m = _SEC.search(n)
+        if m:
+            norm_nums.append(f"{m.group(1)}.{m.group(2)}")
+    # Build map: leading "X.Y" from h2_path → section_id
+    by_lead: dict[str, str] = {}
+    for h in headings:
+        ln = _lead_section_num(h.get("h2_path", ""))
+        if ln and ln not in by_lead:
+            by_lead[ln] = h["section_id"]
+    for n in norm_nums:
+        if n in by_lead:
+            return by_lead[n], 1.0
+    # ---- word-overlap fallback (unchanged) ----
     query = " ".join(subtopics) or message
     q = _norm_tokens(query)
     if not q:
