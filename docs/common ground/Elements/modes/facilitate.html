@@ -11,163 +11,140 @@
 <aside id="side" class="side"></aside>
 <div class="content">
 <header>
-  <h1><span class="accent">Facilitate</span> mode <span class="pill">story pipeline (6-node, one section per request)</span></h1>
-  <div class="sub">Teaches exactly one section per request as a connected narrative: hook → movements → takeaway. Formal statements are reproduced verbatim then unpacked didactically. Concept anchors open a corpus + Wikipedia side-chat. Pure-code bind and statement-fidelity verify ensure citations and formal statements are never model-authored.</div>
+  <h1><span class="accent">Facilitate</span> mode <span class="pill">multi-agent (6-node story pipeline)</span></h1>
+  <div class="sub">Single-section narrative walkthrough. Resolves exactly ONE section per request, then narrates it as a connected story (hook → movements → takeaway). Formal statements (definition / theorem / proposition / lemma / corollary / remark) are reproduced VERBATIM then unpacked didactically. Concept pills open the ConceptChat side panel (/api/concept/explore) for stateless corpus + Wikipedia follow-up. Pure-code bind and statement-fidelity verify replace the old LLM ground node.</div>
 </header>
+  <section><div class="card" style="border-left:3px solid var(--accent)"><p style="margin:0">The old chapter-loop pipeline (<code>run_chapter / ChapterDigest / CHAPTER_MAP_FACILITATE_PROMPT</code>) is <b>retired for facilitate</b> as of 2026-06-12. <code>FacilitateDigest</code> conversations still render via the legacy card. See <a href="../../services/chat-features/53-facilitate-concept-map.md">doc 53</a>.</p></div></section>
 <main>
   <section>
     <h2>What it serves</h2>
-    <div class="card"><p style="margin:0">Use to learn a specific section in depth — narrated as a story rather than as bullet points. One section per request; send multiple messages to walk a chapter. Pick Resume for a compressed multi-section recap, Tutor for a free-form conceptual question.</p></div>
+    <div class="card"><p style="margin:0">Use to learn a single section in depth — the story arc and verbatim formal statements give you both the precise math and the narrative around it. Send another message for the next section. Pick Resume instead when you want a compressed multi-section chapter recap.</p></div>
   </section>
   <section>
     <h2>Agentic workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
-  U[&quot;Chapter + section request&quot;] --> PR[&quot;parse (LLM, model key map)&lt;br/&gt;resolve book + chapter&quot;]
-  PR -->|ambiguous book / section| CL[&quot;clarify — stop + ask&quot;]
-  PR -->|confident| FE[&quot;fetch ONE section (data)&lt;br/&gt;closest-match + confirm heading&quot;]
-  FE --> MAP[&quot;map (LLM, model key map)&lt;br/&gt;extract [[cN]] concept anchors&quot;]
-  MAP --> WR[&quot;write story (LLM, model key write)&lt;br/&gt;hook → movements → takeaway&lt;br/&gt;verbatim formal statements unpacked&quot;]
-  WR --> BD[&quot;bind (PURE CODE)&lt;br/&gt;provenance + 📕 citations verbatim&lt;br/&gt;strip invented [[cN]]&quot;]
-  BD --> VRF[&quot;verify (PURE CODE)&lt;br/&gt;statement fidelity token-recall&lt;br/&gt;sets grounding badge&quot;]
+  U[&quot;User message&quot;] --> PR[&quot;parse + resolve scope<br/>LLM · model key map&quot;]
+  PR -->|ambiguous| CL[&quot;clarify<br/>stop + ask&quot;]
+  PR -->|confident| FE[&quot;fetch ONE section<br/>pure-code closest-match&quot;]
+  FE --> MAP[&quot;map · concept extraction<br/>[[cN]] anchors · LLM&quot;]
+  MAP --> WR[&quot;write story<br/>hook → movements → takeaway<br/>verbatim formal statements&quot;]
+  WR --> BD[&quot;bind · PURE CODE<br/>provenance + citations verbatim<br/>strip invented anchors&quot;]
+  BD --> VRF[&quot;verify · PURE CODE<br/>statement fidelity token-recall<br/>sets grounding badge&quot;]
   VRF --> FS[&quot;FacilitateStory&quot;]
   style WR fill:#3a1d1f,stroke:#E5484D,color:#fff
   style BD fill:#1a2233,stroke:#4da6ff,color:#fff
   style VRF fill:#1a2233,stroke:#4da6ff,color:#fff
   style CL fill:#2a1a1a,stroke:#d2624c,color:#fff">flowchart TD
-  U["Chapter + section request"] --> PR["parse (LLM, model key map)<br/>resolve book + chapter"]
-  PR -->|ambiguous book / section| CL["clarify — stop + ask"]
-  PR -->|confident| FE["fetch ONE section (data)<br/>closest-match + confirm heading"]
-  FE --> MAP["map (LLM, model key map)<br/>extract [[cN]] concept anchors"]
-  MAP --> WR["write story (LLM, model key write)<br/>hook → movements → takeaway<br/>verbatim formal statements unpacked"]
-  WR --> BD["bind (PURE CODE)<br/>provenance + 📕 citations verbatim<br/>strip invented [[cN]]"]
-  BD --> VRF["verify (PURE CODE)<br/>statement fidelity token-recall<br/>sets grounding badge"]
+  U["User message"] --> PR["parse + resolve scope<br/>LLM · model key map"]
+  PR -->|ambiguous| CL["clarify<br/>stop + ask"]
+  PR -->|confident| FE["fetch ONE section<br/>pure-code closest-match"]
+  FE --> MAP["map · concept extraction<br/>[[cN]] anchors · LLM"]
+  MAP --> WR["write story<br/>hook → movements → takeaway<br/>verbatim formal statements"]
+  WR --> BD["bind · PURE CODE<br/>provenance + citations verbatim<br/>strip invented anchors"]
+  BD --> VRF["verify · PURE CODE<br/>statement fidelity token-recall<br/>sets grounding badge"]
   VRF --> FS["FacilitateStory"]
   style WR fill:#3a1d1f,stroke:#E5484D,color:#fff
   style BD fill:#1a2233,stroke:#4da6ff,color:#fff
   style VRF fill:#1a2233,stroke:#4da6ff,color:#fff
   style CL fill:#2a1a1a,stroke:#d2624c,color:#fff</div></div>
-    <p class="caption">Six main nodes (parse → fetch → map → write → bind → verify) + clarify off-ramp. Red = LLM synthesis; blue = pure-code node; dark red = clarify branch. Source: <code>agents/facilitate_story.py::run_facilitate_story</code>.</p>
+    <p class="caption">One section per request (invariant 44). Bind and verify are pure code — no model call. ConceptChat side panel (/api/concept/explore) is stateless (invariant 46).</p>
   </section>
   <section>
     <h2>Functions workflow</h2>
     <div class="diagram-wrap"><div class="mermaid" data-src="flowchart TD
-  E[&quot;run_facilitate_story()&quot;] --> PR[&quot;resolve_book() (CHAPTER_PARSE_PROMPT)&lt;br/&gt;+ maybe_clarify()&quot;]
-  PR --> RS[&quot;resolve_section()&lt;br/&gt;closest-match + confirm (pure code)&quot;]
-  RS --> FE[&quot;fetch_chapter_sections()&lt;br/&gt;single section Source&quot;]
-  FE --> MP[&quot;_map()&lt;br/&gt;FACILITATE_MAP_PROMPT&quot;]
-  MP -. &quot;FACILITATE_MAP_PROMPT&quot; .- P1[(&quot;prompts/chapter.py&quot;)]
-  MP --> WR[&quot;_chat() write story&lt;br/&gt;FACILITATE_STORY_WRITE_PROMPT&quot;]
-  WR -. &quot;FACILITATE_STORY_WRITE_PROMPT&quot; .- P2[(&quot;prompts/chapter.py&quot;)]
-  WR --> BD[&quot;bind_concepts() + strip_unbound_markers()&lt;br/&gt;PURE CODE&quot;]
-  BD --> VF[&quot;statement_fidelity() per formal movement&lt;br/&gt;PURE CODE&quot;]
-  VF --> FS[&quot;FacilitateStory&quot;]
+  E[&quot;run_facilitate_story()&quot;] --> PR[&quot;resolve_book() (FACILITATE_STORY_PARSE_PROMPT / model key map)&quot;]
+  PR -. &quot;FACILITATE_STORY_PARSE_PROMPT&quot; .- P1[(&quot;prompts/chapter.py&quot;)]
+  PR --> FE[&quot;fetch_chapter_sections() + resolve_section() (pure-code)&quot;]
+  FE --> MP[&quot;_map() (FACILITATE_MAP_PROMPT)&quot;]
+  MP -. &quot;FACILITATE_MAP_PROMPT&quot; .- P2[(&quot;prompts/chapter.py&quot;)]
+  MP --> WR[&quot;_write() (FACILITATE_STORY_WRITE_PROMPT)&quot;]
+  WR -. &quot;FACILITATE_STORY_WRITE_PROMPT&quot; .- P3[(&quot;prompts/chapter.py&quot;)]
+  WR --> BD[&quot;bind_concepts() + strip_unbound_markers() (PURE CODE)&quot;]
+  BD --> VRF[&quot;statement_fidelity() (PURE CODE)&quot;]
+  VRF --> FS[&quot;FacilitateStory&quot;]
   style WR fill:#3a1d1f,stroke:#E5484D,color:#fff
   style BD fill:#1a2233,stroke:#4da6ff,color:#fff
-  style VF fill:#1a2233,stroke:#4da6ff,color:#fff
+  style VRF fill:#1a2233,stroke:#4da6ff,color:#fff
   style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
-  style P2 fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
-  E["run_facilitate_story()"] --> PR["resolve_book() (CHAPTER_PARSE_PROMPT)<br/>+ maybe_clarify()"]
-  PR --> RS["resolve_section()<br/>closest-match + confirm (pure code)"]
-  RS --> FE["fetch_chapter_sections()<br/>single section Source"]
-  FE --> MP["_map()<br/>FACILITATE_MAP_PROMPT"]
-  MP -. "FACILITATE_MAP_PROMPT" .- P1[("prompts/chapter.py")]
-  MP --> WR["_chat() write story<br/>FACILITATE_STORY_WRITE_PROMPT"]
-  WR -. "FACILITATE_STORY_WRITE_PROMPT" .- P2[("prompts/chapter.py")]
-  WR --> BD["bind_concepts() + strip_unbound_markers()<br/>PURE CODE"]
-  BD --> VF["statement_fidelity() per formal movement<br/>PURE CODE"]
-  VF --> FS["FacilitateStory"]
+  style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style P3 fill:#241a33,stroke:#9b6bd6,color:#fff">flowchart TD
+  E["run_facilitate_story()"] --> PR["resolve_book() (FACILITATE_STORY_PARSE_PROMPT / model key map)"]
+  PR -. "FACILITATE_STORY_PARSE_PROMPT" .- P1[("prompts/chapter.py")]
+  PR --> FE["fetch_chapter_sections() + resolve_section() (pure-code)"]
+  FE --> MP["_map() (FACILITATE_MAP_PROMPT)"]
+  MP -. "FACILITATE_MAP_PROMPT" .- P2[("prompts/chapter.py")]
+  MP --> WR["_write() (FACILITATE_STORY_WRITE_PROMPT)"]
+  WR -. "FACILITATE_STORY_WRITE_PROMPT" .- P3[("prompts/chapter.py")]
+  WR --> BD["bind_concepts() + strip_unbound_markers() (PURE CODE)"]
+  BD --> VRF["statement_fidelity() (PURE CODE)"]
+  VRF --> FS["FacilitateStory"]
   style WR fill:#3a1d1f,stroke:#E5484D,color:#fff
   style BD fill:#1a2233,stroke:#4da6ff,color:#fff
-  style VF fill:#1a2233,stroke:#4da6ff,color:#fff
+  style VRF fill:#1a2233,stroke:#4da6ff,color:#fff
   style P1 fill:#241a33,stroke:#9b6bd6,color:#fff
-  style P2 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
-    <p class="caption">Code call-graph — red = LLM synthesis stage, blue = pure-code node, purple = prompt constant. Verified from <code>agents/facilitate_story.py</code>.</p>
-  </section>
-  <section>
-    <h2>ConceptChat side panel</h2>
-    <p>Clicking a concept pill in the rendered story opens the <strong>ConceptChat</strong> side panel. It hits <code>POST /api/concept/explore</code> (stateless — no conversation store read/write) with the concept term + provenance context. A "deepen" follow-up question is supported. Corpus + Wikipedia context is retrieved for each question.</p>
-    <div class="diagram-wrap"><div class="mermaid" data-src="flowchart LR
-  P[&quot;Concept pill click&quot;] --> CC[&quot;ConceptChat panel&quot;]
-  CC --> EX[&quot;POST /api/concept/explore&lt;br/&gt;term + provenance + optional followUp&quot;]
-  EX --> RET[&quot;retrieve corpus + Wikipedia&quot;]
-  RET --> WR[&quot;write answer (LLM)&quot;]
-  WR --> SS[&quot;SSE text deltas → done&quot;]
-  style EX fill:#1a2233,stroke:#4da6ff,color:#fff">flowchart LR
-  P["Concept pill click"] --> CC["ConceptChat panel"]
-  CC --> EX["POST /api/concept/explore<br/>term + provenance + optional followUp"]
-  EX --> RET["retrieve corpus + Wikipedia"]
-  RET --> WR["write answer (LLM)"]
-  WR --> SS["SSE text deltas → done"]
-  style EX fill:#1a2233,stroke:#4da6ff,color:#fff</div></div>
-    <p class="caption">Stateless per request — the endpoint never touches the conversation store. Source: <code>src/services/chat/api.py</code>.</p>
+  style P2 fill:#241a33,stroke:#9b6bd6,color:#fff
+  style P3 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
+    <p class="caption">Code call-graph — green = LLM-call node, purple = prompt constant, red = synthesis/heavy stage. Verified from the runner source listed below.</p>
   </section>
   <section>
     <h2>Sources, prompts &amp; tools</h2>
     <h3>Prompts</h3>
     <table><tr><th>Constant</th><th>Location</th><th>Role</th></tr>
-      <tr><td><code>FACILITATE_MAP_PROMPT</code></td><td><code>prompts/chapter.py</code></td><td>Extract key concepts / theorems / formulas as [[cN]] anchors from one section.</td></tr>
-      <tr><td><code>FACILITATE_STORY_WRITE_PROMPT</code></td><td><code>prompts/chapter.py</code></td><td>Write the section as hook → movements → takeaway; reproduce formal statements verbatim then unpack.</td></tr>
+      <tr><td><code>FACILITATE_STORY_PARSE_PROMPT</code></td><td><code>prompts/chapter.py</code></td><td>Parse the user message + resolve book/chapter/section (model key: map).</td></tr>
+      <tr><td><code>FACILITATE_MAP_PROMPT</code></td><td><code>prompts/chapter.py</code></td><td>Extract up to FACILITATE_MAX_CONCEPTS key concepts / theorems / formulas as [[cN]] anchors (LLM stage: map).</td></tr>
+      <tr><td><code>FACILITATE_STORY_WRITE_PROMPT</code></td><td><code>prompts/chapter.py</code></td><td>Write the story arc: hook → movements[] → takeaway; formal statements reproduced VERBATIM then unpacked (LLM stage: write).</td></tr>
     </table>
     <h3>Tools &amp; retrieval calls</h3>
     <table><tr><th>Function</th><th>Hits</th><th>Purpose</th></tr>
-      <tr><td><code>fetch_chapter_sections</code></td><td>Qdrant field_textbooks (structural, one section)</td><td>Fetch one section's Source by section_id — NOT a relevance search.</td></tr>
-      <tr><td><code>resolve_section</code></td><td>pure code (fuzzy string match)</td><td>Closest-match requested subtopic to a chapter heading; returns section_id or None.</td></tr>
-      <tr><td><code>bind_concepts / strip_unbound_markers</code></td><td>pure code</td><td>Attach concept provenance; strip invented [[cN]] markers.</td></tr>
-      <tr><td><code>statement_fidelity</code></td><td>pure code (token-recall)</td><td>Check formal statements against source text; sets grounding verdict.</td></tr>
+      <tr><td><code>resolve_book</code></td><td>nano LLM</td><td>Fuzzy-match user message to a book + chapter in the catalog.</td></tr>
+      <tr><td><code>fetch_chapter_sections + resolve_section</code></td><td>Qdrant field_textbooks (pure-code closest-match)</td><td>Fetch section headings for the chapter; resolve to a single section_id.</td></tr>
+      <tr><td><code>_map</code></td><td>nano LLM</td><td>Extract [[cN]] concept/theorem/formula anchors from the source section.</td></tr>
+      <tr><td><code>_write</code></td><td>nano LLM (write model)</td><td>Generate hook → movements → takeaway narrative with verbatim formal statements.</td></tr>
+      <tr><td><code>bind_concepts / strip_unbound_markers</code></td><td>pure code (no LLM)</td><td>Attach provenance + StoryCitation verbatim from Source payload; drop invented anchors.</td></tr>
+      <tr><td><code>statement_fidelity</code></td><td>pure code (no LLM)</td><td>Token-recall check ≥ 60% per formal statement; sets grounding.ok.</td></tr>
+      <tr><td><code>/api/concept/explore</code></td><td>nano LLM (stateless endpoint)</td><td>ConceptChat side panel — corpus + Wikipedia context for a clicked concept pill.</td></tr>
     </table>
     <h3>Source modules</h3>
     <table><tr><th>Stage</th><th>Path</th></tr>
-      <tr><td>entrypoint</td><td><code>src/services/chat/agents/facilitate_story.py::run_facilitate_story</code></td></tr>
-      <tr><td>parse + clarify</td><td><code>src/services/chat/agents/_scope.py (resolve_book, maybe_clarify, resolve_section, section_clarify)</code></td></tr>
-      <tr><td>map</td><td><code>src/services/chat/agents/facilitate_story.py::_map</code></td></tr>
-      <tr><td>write</td><td><code>src/services/chat/agents/facilitate_story.py::_chat (FACILITATE_STORY_WRITE_PROMPT)</code></td></tr>
-      <tr><td>bind (pure code)</td><td><code>src/services/chat/agents/facilitate_story.py::bind_concepts, strip_unbound_markers</code></td></tr>
-      <tr><td>verify (pure code)</td><td><code>src/services/chat/agents/facilitate_story.py::statement_fidelity</code></td></tr>
-      <tr><td>ConceptChat endpoint</td><td><code>src/services/chat/api.py POST /api/concept/explore</code></td></tr>
+      <tr><td>entrypoint</td><td><code>src/services/chat/agents/facilitate_story.py (run_facilitate_story)</code></td></tr>
+      <tr><td>parse + resolve</td><td><code>src/services/chat/agents/facilitate_story.py (resolve_book / _scope.py resolve_section)</code></td></tr>
+      <tr><td>map</td><td><code>src/services/chat/agents/facilitate_story.py (_map)</code></td></tr>
+      <tr><td>write</td><td><code>src/services/chat/agents/facilitate_story.py (_write / _parse_draft)</code></td></tr>
+      <tr><td>bind</td><td><code>src/services/chat/agents/facilitate_story.py (bind_concepts / strip_unbound_markers)</code></td></tr>
+      <tr><td>verify</td><td><code>src/services/chat/agents/facilitate_story.py (statement_fidelity)</code></td></tr>
+      <tr><td>concept endpoint</td><td><code>src/services/chat/api.py (POST /api/concept/explore)</code></td></tr>
     </table>
   </section>
   <section>
     <h2>Spec</h2>
     <table>
-      <tr><th>Mode id</th><td><code>facilitate</code> (request) / <code>facilitate_story</code> (output schema discriminator)</td></tr>
-      <tr><th>Architecture</th><td>story pipeline (parse → fetch ONE section → map → write → bind → verify)</td></tr>
-      <tr><th>Default model</th><td>nano (<code>gpt-5.4-nano-2026-03-17</code>) for parse, map, write; bind + verify are pure code</td></tr>
-      <tr><th>Output schema</th><td><code>FacilitateStory</code> (new) / <code>FacilitateDigest</code> (legacy stored conversations)</td></tr>
-      <tr><th>Tools</th><td><code>POST /api/concept/explore</code> (side panel, stateless)</td></tr>
-      <tr><th>Retrieval</th><td>structural fetch (one section by id); no relevance search in main pipeline</td></tr>
-      <tr><th>Memory</th><td>off (main pipeline); ConceptChat is stateless</td></tr>
-      <tr><th>Post-validators</th><td>statement_fidelity (pure code, advisory — sets badge, never blocks)</td></tr>
-      <tr><th>One-section rule</th><td>exactly one section per request; loop = multiple messages</td></tr>
+      <tr><th>Mode id</th><td><code>facilitate</code></td></tr>
+      <tr><th>Architecture</th><td>multi-agent (6-node story pipeline)</td></tr>
+      <tr><th>Default model</th><td>nano (per-stage override for parse, map, write via stageModels)</td></tr>
+      <tr><th>Output schema</th><td><code>FacilitateStory</code></td></tr>
+      <tr><th>Tools</th><td>none</td></tr>
+      <tr><th>Retrieval</th><td>pure-code resolve_section — closest-match fuzzy title + subtopic overlap, one section only</td></tr>
+      <tr><th>Memory</th><td>off</td></tr>
+      <tr><th>Post-validators</th><td>pure-code statement_fidelity (token-recall ≥ 60%) — advisory, never blocks</td></tr>
+      <tr><th>System prompt</th><td><code>prompts/chapter.py — FACILITATE_STORY_WRITE_PROMPT, FACILITATE_MAP_PROMPT</code></td></tr>
     </table>
-    <p class="caption">Source: <code>src/services/chat/agents/facilitate_story.py</code>, <code>src/services/chat/modes.py</code>.</p>
+    <p class="caption">Source: <code>src/services/chat/agents/facilitate_story.py, modes.py</code>.</p>
   </section>
   <section>
-    <h2>Output fields — FacilitateStory</h2>
+    <h2>Output fields</h2>
     <table>
       <tr><th>Field</th><th>Meaning</th></tr>
-      <tr><td><code>mode</code></td><td>"facilitate_story" — renderer discriminator.</td></tr>
-      <tr><td><code>scope</code></td><td>ChapterScope: book_slug, chapter_id, requested_subtopics, section_id.</td></tr>
-      <tr><td><code>hook</code></td><td>Opening sentence / paragraph framing the section topic.</td></tr>
-      <tr><td><code>movements[]</code></td><td>Story body: each Movement is either <code>prose</code> (str) XOR <code>formal</code> (FormalStatement with verbatim statement + didactic explanation).</td></tr>
-      <tr><td><code>takeaway</code></td><td>Closing sentence tying the section back to the chapter's thread.</td></tr>
-      <tr><td><code>concepts[]</code></td><td>ConceptAnchor list — term, kind (concept/theorem/formula), provenance. Only anchors actually referenced in the story text.</td></tr>
-      <tr><td><code>citations[]</code></td><td>StoryCitation (📕 corpus only in main pipeline). Verbatim from retrieval payload.</td></tr>
-      <tr><td><code>math_blocks[]</code></td><td>Collected LaTeX display math blocks for KaTeX pre-render.</td></tr>
-      <tr><td><code>grounding</code></td><td>{ok, unsupported[], confidence} — set by pure-code statement_fidelity.</td></tr>
+      <tr><td><code>mode</code></td><td>"facilitate_story" — renderer discriminator (legacy FacilitateDigest keeps mode "facilitate").</td></tr>
+      <tr><td><code>scope</code></td><td>ChapterScope: book_slug, chapter_id, section_id resolved.</td></tr>
+      <tr><td><code>hook</code></td><td>Opening narrative sentence setting up the section.</td></tr>
+      <tr><td><code>movements[]</code></td><td>List of Movement objects: prose | formal (FormalStatement with verbatim statement + didactic unpack).</td></tr>
+      <tr><td><code>takeaway</code></td><td>Closing synthesis tying the story back to the section's key insight.</td></tr>
+      <tr><td><code>concepts[]</code></td><td>ConceptAnchor list: [[cN]] id, term, provenance assembled verbatim from Source payload.</td></tr>
+      <tr><td><code>citations[]</code></td><td>StoryCitation list built verbatim from Source object fields — never model-authored.</td></tr>
+      <tr><td><code>math_blocks[]</code></td><td>Rendered LaTeX blocks extracted by the write stage.</td></tr>
+      <tr><td><code>grounding</code></td><td>{ok, unsupported[], confidence} — set by pure-code statement_fidelity; advisory.</td></tr>
     </table>
-    <p class="caption">schemas/output.py — FacilitateStory, Movement, FormalStatement, ConceptAnchor, StoryCitation.</p>
-  </section>
-  <section>
-    <h2>Env knobs</h2>
-    <table>
-      <tr><th>Env var</th><th>Default</th><th>Effect</th></tr>
-      <tr><td><code>FACILITATE_MAX_CONCEPTS</code></td><td>5</td><td>Max [[cN]] anchors extracted per section by the map node.</td></tr>
-      <tr><td><code>CHAPTER_CLARIFY</code></td><td>1 (shared)</td><td>Kill-switch for book-scope clarify gate. 0 = skip clarify, always proceed.</td></tr>
-    </table>
-  </section>
-  <section>
-    <h2>Legacy: FacilitateDigest (pre-remake)</h2>
-    <p>Conversations stored before the 2026-06-12 remake used the old chapter-loop pipeline emitting <code>FacilitateDigest{blocks[]}</code>. These are still rendered by <code>FacilitateDigestCard</code>. The frontend discriminates on <code>schema</code>: <code>"FacilitateStory"</code> → new card; <code>"FacilitateDigest"</code> → legacy card. No DB migration required.</p>
+    <p class="caption">schemas/output.py (FacilitateStory). Legacy FacilitateDigest schema retained for pre-remake conversations. Invariants 44–47.</p>
   </section>
 </main>
 </div>

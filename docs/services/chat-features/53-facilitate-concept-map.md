@@ -158,9 +158,10 @@ class FacilitateStory(BaseModel):
 | `parse` | LLM | Parse + book/chapter resolve |
 | `map` | LLM | Concept extraction per section |
 | `write` | LLM | Story narrative generation |
+| `bind` | PURE CODE (internal — no SSE stage event) | Concept provenance + citation assembly; strip invented anchors |
 | `verify` | PURE CODE | Statement fidelity check + grounding badge |
 
-`stageModels` overrides apply to `parse`, `map`, `write`. `bind` and `verify` are pure code — no model override.
+`stageModels` overrides apply to `parse`, `map`, `write`. `bind` and `verify` are pure code — no model override. `bind` runs between `write` and `verify` internally and emits no SSE `stage` event.
 
 ---
 

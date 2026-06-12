@@ -15,7 +15,7 @@ Append-only. Latest at top.
 - **ConceptChat side panel**: clicking a concept pill opens `POST /api/concept/explore` (stateless, no conversation store). Corpus + Wikipedia context; supports a "deepen" follow-up.
 - **New schema**: `FacilitateStory{mode:"facilitate_story", scope, hook, movements[], takeaway, concepts[], citations[], math_blocks[], grounding}`. `FacilitateDigest` (old schema) retained for legacy stored conversations.
 
-**LLM stages**: parse (model key "map"), map (model key "map"), write (model key "write") — all default to `gpt-5.4-nano-2026-03-17`. Bind and verify are pure code.
+**LLM stages**: parse, map, write — all default to `gpt-5.4-nano-2026-03-17`. Bind and verify are pure code.
 
 **Lockstep surfaces updated:** `53-facilitate-concept-map.md` (rewritten), `facilitate.html` (both diagrams + spec table), `invariants.md` (invariants 44–47 added), `chapterPipeline.ts` (FACILITATE_PIPELINE 7-node graph), `chapterMode.ts` (FACILITATE_MODE blurb + features), `ChapterFacilitateModal.tsx` (CHAPTER_STAGES = parse/map/write), `ChapterPipelineDiagram.tsx` (map note updated). Frontend: 300 tests green, tsc clean.
 
