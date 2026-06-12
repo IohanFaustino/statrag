@@ -31,3 +31,9 @@ def test_statement_fidelity_flags_fabricated():
     src = "Theorem 7.4. The sample mean converges in probability."
     ok, score = statement_fidelity("Every continuous function is differentiable", src)
     assert not ok and score < 0.5
+
+
+def test_statement_fidelity_rejects_degenerate_short_statement():
+    # a 1-token statement must not pass fidelity even if the token appears in source
+    ok, score = statement_fidelity("mean", "the sample mean converges in probability")
+    assert not ok

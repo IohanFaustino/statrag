@@ -41,7 +41,7 @@ def statement_fidelity(statement: str, source_text: str) -> tuple[bool, float]:
     True when most statement tokens appear in the source (verbatim/near-verbatim)."""
     st = set(_norm(statement).split())
     src = set(_norm(source_text).split())
-    if not st:
+    if len(st) < 4:        # too short to be a credible formal statement
         return False, 0.0
     recall = len(st & src) / len(st)
     return recall >= 0.6, recall
