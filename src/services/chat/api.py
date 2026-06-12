@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import mimetypes
+import re
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -24,6 +25,27 @@ from src.services.chat import books, retrieval, runs, store
 from src.services.chat.llm import router as llm_router
 from src.services.chat.router import stream_chat
 from src.services.chat.schemas import ChatRequest, ExtensionDigest, StoryDigest
+
+# ---------------------------------------------------------------------------
+# Control-character sanitizer
+# ---------------------------------------------------------------------------
+
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+
+
+def _strip_ctrl(o):
+    """Recursively strip non-printable C0/C1 control chars (keep \\n \\t \\r) from
+    str/dict/list. LLM drafts occasionally emit DEL/0x00/etc. that break KaTeX
+    and corrupt prose; strip at the single SSE seam so every mode + persistence
+    gets clean text."""
+    if isinstance(o, str):
+        return _CTRL_RE.sub("", o)
+    if isinstance(o, dict):
+        return {k: _strip_ctrl(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_strip_ctrl(v) for v in o]
+    return o
+
 
 # ---------------------------------------------------------------------------
 # App + middleware
@@ -191,6 +213,7 @@ async def chat_event_gen(req: ChatRequest):
                 pass
 
         async for ev in stream_chat(req, history=history):
+            ev = _strip_ctrl(ev)
             ev_type = ev.get("type", "message")
             if ev_type == "token":
                 assistant_text_buf.append(ev.get("text", ""))
@@ -320,6 +343,7 @@ async def concept_explore_route(request: Request) -> EventSourceResponse:
 
     async def gen():
         async for ev in concept_explore(body):
+            ev = _strip_ctrl(ev)
             yield {"event": ev.get("type", "message"), "data": json.dumps(ev)}
     return EventSourceResponse(gen(), ping=15)
 
