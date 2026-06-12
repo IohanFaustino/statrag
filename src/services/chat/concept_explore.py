@@ -33,7 +33,6 @@ async def _brief(term: str, evidence: list[Evidence], *, model: str) -> str:
 
 async def concept_explore(body: dict) -> AsyncIterator[dict]:
     term = (body.get("term") or "").strip()
-    _book_slug = body.get("book_slug") or ""  # noqa: F841 — available for future use
     history = body.get("history") or []
     model = settings.openai_model_nano
     if not term:

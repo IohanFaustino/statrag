@@ -28,17 +28,11 @@ async def test_seed_builds_corpus_and_wiki_chips(monkeypatch):
     assert any(c.get("url", "").endswith("/LLN") for c in payload["citations"])
 
 
-@pytest.mark.asyncio
-async def test_concept_explore_never_touches_conversation_store(monkeypatch):
-    import src.services.chat.store as store
-    calls = []
-    monkeypatch.setattr(store, "append_message", lambda **k: calls.append(k))
-    monkeypatch.setattr(ce, "corpus_evidence", lambda *a, **k: [])
-    monkeypatch.setattr(ce, "wiki_evidence", lambda *a, **k: [])
-
-    async def fake_brief(term, evid, *, model):
-        return "x"
-    monkeypatch.setattr(ce, "_brief", fake_brief)
-    _ = [e async for e in ce.concept_explore({"term": "t", "kind": "concept",
-         "book_slug": "hansen", "section_id": "7.4", "conversationId": "abc"})]
-    assert calls == []
+def test_concept_explore_module_never_imports_conversation_store():
+    import inspect
+    import src.services.chat.concept_explore as ce_mod
+    src_text = inspect.getsource(ce_mod)
+    # the side-chat must never read/write the conversation message store
+    for forbidden in ("append_message", "get_messages", "import src.services.chat.store",
+                      "from src.services.chat.store", "from src.services.chat import store"):
+        assert forbidden not in src_text, f"concept_explore must not reference {forbidden!r}"

@@ -321,7 +321,7 @@ async def concept_explore_route(request: Request) -> EventSourceResponse:
     async def gen():
         async for ev in concept_explore(body):
             yield {"event": ev.get("type", "message"), "data": json.dumps(ev)}
-    return EventSourceResponse(gen())
+    return EventSourceResponse(gen(), ping=15)
 
 
 # ---------------------------------------------------------------------------
