@@ -51,12 +51,13 @@
 
 /* Facilitate section heading: real header, generous top margin */
 .chapter-card--facilitate .chapter-block__h {
-  font-size: var(--text-base);
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
   font-weight: 600;
   text-transform: none;
-  letter-spacing: 0.01em;
-  color: var(--accent-primary);
-  margin-top: 24px;
+  letter-spacing: 0;
+  color: var(--text-primary);
+  margin-top: 28px;
   margin-bottom: 2px;
 }
 
@@ -85,20 +86,30 @@
 .chapter-card--facilitate .facilitate-content__math-block {
   margin: 0.8em 0;
 }
+/* Document flow: display math is open centered type, not a tinted panel
+   (beats the global/broadsheet .math-block !important chrome). */
+.chapter-card--facilitate .facilitate-content .math-block,
+.chapter-card--facilitate .facilitate-content__math-block .math-block {
+  background: none !important;
+  border: none !important;
+  border-radius: 0;
+  padding: 0.2em 0;
+  text-align: center;
+}
 
-/* Definition box — blockquotes rendered from "> **Term.** …" in teach output */
+/* Definition — indented passage with a hairline accent rule, not a box */
 .chapter-card--facilitate .facilitate-content blockquote {
-  border-left: 3px solid var(--accent-primary);
-  background: var(--bg-tertiary);
-  padding: 10px 14px;
-  margin: 0.9em 0;
-  border-radius: 4px;
+  border-left: 2px solid var(--accent-primary);
+  background: none;
+  padding: 2px 0 2px 16px;
+  margin: 1em 0;
+  border-radius: 0;
   line-height: 1.55;
 }
 .chapter-card--facilitate .facilitate-content blockquote strong {
   display: block;
-  margin-bottom: 6px;
-  color: var(--accent-primary);
+  margin-bottom: 4px;
+  color: var(--text-primary);
 }
 
 /* Example sub-headline: small mono label, clearly subordinate to section heading */
