@@ -441,6 +441,10 @@ export function splitIntoBlocks(text: string): Block[] {
 //   - Mismatched closer types (\( … \])
 //
 export function normalizeMathDelimiters(text: string): string {
+  // Some persisted answers carry ESC (0x1B) control chars where a LaTeX
+  // backslash was lost (e.g. "\x1bmu" / "\x1bge" instead of "\mu" / "\ge"),
+  // which KaTeX renders as a tofu box. Restore the backslash.
+  text = text.replace(/\x1b/g, "\\");
   const out: string[] = [];
   let i = 0;
   // Track whether we are inside a \(…\) or \[…\] span.
@@ -556,6 +560,11 @@ export function renderInlineWithCites(
 ): React.ReactNode[] {
   // Repair malformed delimiters from the LLM before tokenising.
   text = normalizeMathDelimiters(text);
+  // If single-`$` delimiters are unbalanced (odd count, ignoring escaped `\$`),
+  // disable `$…$` math tokenising for this text — feeding a half-open span to
+  // KaTeX produces glommed-glyph soup. `[N]` citations + bare-command auto-wrap
+  // still work; a stray `$` just renders as a literal character.
+  const dollarsBalanced = ((text.match(/(?<!\\)\$/g) || []).length % 2) === 0;
   // Tokenise on `[N]` markers and inline `$…$` math.
   const out: React.ReactNode[] = [];
   let i = 0;
@@ -644,12 +653,17 @@ export function renderInlineWithCites(
       i += m[0].length;
       continue;
     }
-    if (ch === "$") {
+    if (ch === "$" && dollarsBalanced) {
       const end = text.indexOf("$", i + 1);
       if (end !== -1) {
-        out.push(<MathInline key={key++} tex={text.slice(i + 1, end)} />);
-        i = end + 1;
-        continue;
+        const inner = text.slice(i + 1, end);
+        // Skip prose stuffed into $…$ (model error) — render as text, not math.
+        const proseWords = (inner.match(/\b[a-zA-Z]{2,}\b/g) || []).length;
+        if (proseWords < 3) {
+          out.push(<MathInline key={key++} tex={inner} />);
+          i = end + 1;
+          continue;
+        }
       }
     }
     // LaTeX-style inline math: ``\( ... \)``

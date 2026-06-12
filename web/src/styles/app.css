@@ -2814,4 +2814,29 @@ select:focus-visible {
 .citation-chip { display: inline-block; border: 1px solid var(--border-subtle); border-radius: var(--radius);
   padding: 1px 8px; margin: 4px 4px 0 0; font-size: 11px; }
 .citation-chip--wiki { color: var(--accent-tertiary); text-decoration: none; }
+.citation-chip--corpus { color: var(--text-secondary); }
+
+/* ──────────────────────────────────────────────────────────────────
+   QAAnswerCard — storytelling 3-act prose (intro / deepening / conclusion)
+   ────────────────────────────────────────────────────────────────── */
+.qa-card__story-intro,
+.qa-card__story-deepening,
+.qa-card__story-deepening p,
+.qa-card__story-conclusion {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.7;
+  text-align: justify;
+  hyphens: auto;
+  margin: 0 0 1.15em;
+}
+/* Quiet 3-act rhythm — space + one closing hairline, never boxes */
+.qa-card__story-deepening { margin: 1.5em 0; }
+.qa-card__story-conclusion { padding-top: 1.1em; border-top: 1px solid var(--border-subtle); }
+/* Chips row separated from prose with the one-hairline language */
+.qa-card__story-chips {
+  margin-top: 1.25em; padding-top: 0.75em;
+  border-top: 1px solid var(--border-subtle);
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
 

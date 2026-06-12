@@ -77,6 +77,16 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
     () => renderInlineWithCites(storyDeepening, storyCitMap, hoveredIdx, setHoveredIdx),
     [storyDeepening, storyCitMap, hoveredIdx],
   );
+  // Intro + conclusion also flow through the guarded renderer so inline math /
+  // [n] markers render (was raw string → leaked $…$ and bare \mu).
+  const storyIntroNodes = useMemo(
+    () => renderInlineWithCites(isStory ? story.intro : "", storyCitMap, hoveredIdx, setHoveredIdx),
+    [isStory, story, storyCitMap, hoveredIdx],
+  );
+  const storyConclusionNodes = useMemo(
+    () => renderInlineWithCites(isStory ? story.conclusion : "", storyCitMap, hoveredIdx, setHoveredIdx),
+    [isStory, story, storyCitMap, hoveredIdx],
+  );
 
   // Legacy/deepagent path: body text and citation map
   const legacyBodyText = useMemo(() => {
@@ -110,9 +120,11 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
 
     return (
       <div className="qa-card qa-card--story">
-        <p className="qa-card__story-intro">{story.intro}</p>
+        {story.intro?.trim() && <p className="qa-card__story-intro">{storyIntroNodes}</p>}
         <div className="qa-card__story-deepening">{storyDeepeningNodes}</div>
-        <p className="qa-card__story-conclusion">{story.conclusion}</p>
+        {story.conclusion?.trim() && (
+          <p className="qa-card__story-conclusion">{storyConclusionNodes}</p>
+        )}
 
         {safeMathBlocks.length > 0 && (
           <div className="qa-card__math-blocks">
@@ -127,14 +139,6 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
         {storyCitations.length > 0 && (
           <div className="qa-card__story-chips">
             {storyCitations.map((c, i) => <Chip key={i} c={c} />)}
-          </div>
-        )}
-
-        {(corpusCount > 0 || wikiCount > 0) && (
-          <div className="qa-card__story-hint">
-            answered with{corpusCount > 0 ? ` ${corpusCount} corpus` : ""}
-            {corpusCount > 0 && wikiCount > 0 ? " +" : ""}
-            {wikiCount > 0 ? ` ${wikiCount} wikipedia` : ""} sources
           </div>
         )}
 

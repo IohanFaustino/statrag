@@ -174,11 +174,12 @@ describe("QAAnswerCard — QAStoryAnswer shape", () => {
     expect(html).toContain("qa-card__math-blocks");
   });
 
-  it("shows a source hint with corpus and wikipedia counts", () => {
+  it("renders corpus and wikipedia citation chips (not a redundant count hint)", () => {
     const html = renderToStaticMarkup(<QAAnswerCard answer={storyAnswer} />);
-    // Should mention corpus count (1) and wiki count (1)
-    expect(html).toContain("1 corpus");
-    expect(html).toContain("1 wikipedia");
+    // The footer states the source count; the card shows 📕/🌐 chips instead.
+    expect(html).toContain("citation-chip--corpus");
+    expect(html).toContain("citation-chip--wiki");
+    expect(html).not.toContain("corpus +"); // old "N corpus + N wikipedia sources" hint gone
   });
 
   it("shows grounding badge in story mode", () => {
