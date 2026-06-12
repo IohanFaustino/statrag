@@ -80,22 +80,60 @@ abort. The old `run_facilitate` stays only for legacy-conv replay.
   with no backing support is **stripped from the prose** (marker removed, text
   kept) — same move as `qa_bind`.
 
+### Formal statements — reproduce verbatim, then unpack didactically
+
+Statistical sections carry **formal statements** (definitions, lemmas, theorems,
+propositions, corollaries). For these the response must:
+
+1. **Reproduce the statement EXACTLY** as it appears in the source (math in
+   `$$…$$`) — never paraphrase a theorem.
+2. Immediately **below**, explain it didactically in a fixed four-part arc:
+   **elements** (name each symbol/term, especially the formulas) → **associations**
+   (how the elements relate / what acts on what) → **intuition** (what it means in
+   plain words, why it holds) → a **concise closing** line (the one-sentence
+   takeaway of the statement).
+
+A `movement` is therefore **either a prose paragraph or a formal block**. Prose
+movements carry the narrative; formal movements carry a verbatim statement + its
+unpacking. The writer chooses, per movement, which one a piece of the section is.
+
+**Verbatim fidelity (enforcement):** "reproduce exactly" cannot be fully
+guaranteed against OCR'd source by an LLM alone, so it sits on two rungs —
+(a) prompt instructs verbatim copy; (b) a **pure-code fidelity check** in
+`verify` normalises whitespace/LaTeX-delimiters and fuzzy-matches each
+`formal.statement` against the source section text; below threshold →
+`grounding.ok=false` with the statement listed in `unsupported` (fabricated /
+materially-altered statement is caught, not silently shipped). The verify LLM may
+repair LaTeX delimiters in a statement but is told **not to alter its meaning**.
+
 ### Schemas (`src/services/chat/schemas/output.py`)
 
 ```python
+class FormalStatement(BaseModel):
+    kind: Literal["definition", "lemma", "theorem", "proposition",
+                  "corollary", "remark"]
+    statement: str       # reproduced VERBATIM from source; display math in $$…$$
+    explanation: str     # didactic arc: elements (esp. formulas) → associations
+                         # → intuition → concise close. May carry [[cN]].
+
+class Movement(BaseModel):
+    """Exactly one of `prose` / `formal` is populated."""
+    prose: str = ""                          # narrative paragraph (may carry [[cN]])
+    formal: FormalStatement | None = None    # present iff this is a formal movement
+
 class FacilitateStoryDraft(BaseModel):
     """Writer structured output. NO citation/provenance field by design —
     the writer may ONLY emit [[cN]] markers referencing ids it was given."""
-    hook: str               # 1 paragraph — why this section matters, the through-line
-    movements: list[str]    # 2–4 paragraphs — the connected story; each may carry [[cN]]
-    takeaway: str           # 1 paragraph — what the reader now understands
+    hook: str                  # 1 paragraph — why this section matters, the through-line
+    movements: list[Movement]  # 2–5 movements — the connected story (prose and/or formal)
+    takeaway: str              # 1 paragraph — what the reader now understands
     math_blocks: list[str] = []
 
 class FacilitateStory(BaseModel):
     mode: Literal["facilitate_story"]
     scope: ChapterScope                  # exactly one resolved section_id
     hook: str
-    movements: list[str]
+    movements: list[Movement]
     takeaway: str
     concepts: list[ConceptAnchor] = []   # reuse existing; provenance built by code
     citations: list[StoryCitation] = []  # reuse research.py StoryCitation (📕 / 🌐)
@@ -105,6 +143,9 @@ class FacilitateStory(BaseModel):
 
 `ChapterScope` gains a `section_id` field (one resolved section). Discriminator on
 `mode` keeps legacy `FacilitateDigest` convs rendering via the old card.
+
+The exactly-one-of `prose`/`formal` rule is a model validator on `Movement`
+(true-by-construction; a movement can never be both empty and both populated).
 
 ### Concept → side chat
 
@@ -165,6 +206,8 @@ locked blindly in the spec.
 | Citations / provenance verbatim | schema + code | writer schema has no citation field; pure-code `concept_binder`; property test: every rendered provenance ∈ some support payload |
 | Side-chat can't leak to main thread | schema + code | separate endpoint + response type; never persisted to message list; isolation test that the handler never writes the conversation store and the panel never calls `setMessages` |
 | Writer can't invent concepts | schema + prompt + code | writer GIVEN `cN=term` list; binder strips unknown `[[cN]]` |
+| Formal statement reproduced verbatim | prompt + code | writer told to copy verbatim; `verify` fuzzy-matches each `formal.statement` vs source → degraded grounding if altered/fabricated |
+| Movement is prose XOR formal | schema | `Movement` model validator: exactly one of `prose`/`formal` populated |
 
 ## Failure-mode map
 
@@ -176,6 +219,8 @@ locked blindly in the spec.
 | Single section too thin for a narrative | `concept_support` pulls cross-section/cross-book support (same-author-first); writer told to anchor to neighbouring concepts | fewer movements; takeaway still present; no abort |
 | Concept-pill density | cap `_MAX_CONCEPTS` (5); binder dedupes | unbound terms render as plain text |
 | Verify fails | ONE bounded retry, then keep draft + `grounding.ok=false` | grounding chip degraded; no loop |
+| Formal statement altered/fabricated | pure-code fidelity check flags it; statement still rendered but grounding degraded | grounding chip degraded; statement listed in `unsupported` |
+| Section has no formal statement | `movements` are all prose; renderer shows no statement blocks | normal narrative, no formal block |
 | Section resolve ambiguous | `clarify` event with candidates | user picks book+section; no wrong-section answer |
 | Side-chat scope creep | endpoint re-grounds every turn on `term`; no main-thread tools | answers stay concept-scoped |
 
@@ -205,18 +250,29 @@ locked blindly in the spec.
    verbatim from support payloads; strip unbound `[[cN]]`. Property test: every
    rendered provenance ∈ some payload; invented marker stripped.
 4. **Facilitate-story runner** — `run_facilitate_story` (single section, gather:
-   map→support→write→bind→verify, one bounded retry). Tests: exactly one block;
-   fail-open on wiki/retrieve; bounded retry.
-5. **Prompts** — `FACILITATE_STORY_WRITE` (hook/movements/takeaway, through-line,
-   `[[cN]]` only from given ids, no headings), `FACILITATE_BRIEF` (≤2-sentence
-   concept seed); reuse `FACILITATE_VERIFY`. Tests: prompt schema enforced.
+   map→support→write→bind→verify, one bounded retry). Includes the pure-code
+   **formal-statement fidelity check** (normalise + fuzzy-match each
+   `formal.statement` vs source; degrade grounding if altered). Tests: exactly one
+   block; fail-open on wiki/retrieve; bounded retry; altered statement → degraded
+   grounding; verbatim statement → ok.
+5. **Prompts** — `FACILITATE_STORY_WRITE` (hook / movements / takeaway,
+   through-line, `[[cN]]` only from given ids, no `#`/`##` headings; **formal
+   movements: reproduce the statement VERBATIM in `formal.statement` with display
+   math in `$$…$$`, then unpack it in `formal.explanation` as elements → associations
+   → intuition → concise close**), `FACILITATE_BRIEF` (≤2-sentence concept seed);
+   extend `FACILITATE_VERIFY` to repair statement LaTeX without changing meaning.
+   Tests: prompt schema enforced; formal movement round-trips.
 6. **Concept-explore endpoint** — `POST /api/concept/explore` SSE; seed via
    `research.py` (corpus ∥ wiki gather + brief LLM); stateless re: conversation.
    Tests: chips = pure-code `_citation`; handler never writes the conversation
    store (isolation test).
-7. **Frontend response card** — `FacilitateStoryCard` (hook/movements/takeaway,
-   KaTeX, 📕/🌐 chips, `[[cN]]` → pills). Tests: renders three regions; pill click
-   fires concept-open.
+7. **Frontend response card** — `FacilitateStoryCard` (hook / movements / takeaway,
+   KaTeX, 📕/🌐 chips, `[[cN]]` → pills). A **formal movement** renders as a styled
+   statement block (kind badge — Definition / Lemma / Theorem… — + verbatim
+   statement in a quote/callout with display math) followed by its didactic
+   `explanation` underneath; prose movements render as paragraphs. Tests: renders
+   three regions; prose vs formal movement render distinctly; statement block shows
+   kind badge + KaTeX; pill click fires concept-open.
 8. **Frontend ConceptChat panel** — fork TempChat shell; wire pill → panel; seed
    bubble + "deepen" follow-up to `/api/concept/explore`; never calls main
    `setMessages`. Tests: panel state isolated from thread; deepen re-queries.
