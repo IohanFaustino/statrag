@@ -2,16 +2,16 @@
 // Resume cards). Both share the chapter pipeline; framing differs.
 export const FACILITATE_MODE = {
   title: "Facilitate mode",
-  blurb: "Concept map + plain-language key points",
+  blurb: "One-section story — hook, movements, takeaway",
   description:
-    "Facilitate mode builds a concept map of each section, teaches it in simpler language as short paragraphs and bullet key points (not an expansion), and turns referenced concepts and step-bearing formulas into clickable anchors. Each anchor is backed by same-author-first sub-retrieval — the explanation appears in a modal pop-up and as a footnote on export.",
+    "Facilitate mode teaches exactly one section per request as a connected narrative: a hook that frames the topic, movements that develop it (with formal statements reproduced verbatim and unpacked didactically), and a takeaway. Concept anchors are assigned to key terms and theorems; clicking one opens a corpus + Wikipedia side-chat for deeper exploration. Pure-code binding and statement-fidelity checking ensure citations and formal statements are never model-authored.",
   features: [
-    { label: "Concept map", detail: "Extracts key points and concepts/theorems/formulas per section, flagging which are defined here vs only referenced." },
-    { label: "Key points (filtered, not expanded)", detail: "Bullet key points are distilled from the section — not elaborated or padded beyond the source." },
-    { label: "Plain language", detail: "Each section is rewritten as short, readable paragraphs while preserving technical precision." },
-    { label: "Clickable concepts (modal + footnote on export)", detail: "Referenced concepts become [[concept]] anchors that open a definition modal; footnotes are added on PDF/markdown export." },
-    { label: "Same-author sub-retrieval", detail: "Concept explanations prefer the same author and the nearest prior section; other authors are a fallback only." },
-    { label: "Grounded + verify", detail: "Audits the rewritten body against the sources and sets the grounding badge. Advisory — never blocks the output." },
+    { label: "One section per request", detail: "Focuses on exactly one section — resolved via closest-match + confirm against the chapter's headings. No section loop." },
+    { label: "Connected story (hook → movements → takeaway)", detail: "The section is narrated as a story arc rather than a list of bullet points or an expansion." },
+    { label: "Verbatim formal statements unpacked", detail: "Definitions, lemmas, theorems, propositions, corollaries, and remarks are reproduced verbatim from the source, then unpacked: elements → associations → intuition → concise close." },
+    { label: "Concept anchors (clickable pills)", detail: "Key concepts and formulas become [[cN]] anchors rendered as clickable pills; each pill opens a ConceptChat side panel with corpus + Wikipedia answers." },
+    { label: "Pure-code bind + fidelity verify", detail: "Concept provenance and citations are assembled by pure code from retrieval payloads — the model never writes citation text. Statement fidelity is checked by token-recall, not an LLM call." },
+    { label: "Grounding badge", detail: "The pure-code fidelity pass sets the grounding badge based on how well formal statements match the source section." },
   ],
 } as const;
 

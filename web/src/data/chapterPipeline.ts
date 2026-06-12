@@ -3,7 +3,7 @@
 // Both modes share this diagram; only node-label copy verbosity differs.
 
 export interface ChapterNode {
-  id: "parse" | "fetch" | "resolve" | "map" | "stitch" | "ground" | "clarify" | "retrieve" | "teach" | "verify";
+  id: "parse" | "fetch" | "resolve" | "map" | "stitch" | "ground" | "clarify" | "retrieve" | "teach" | "verify" | "write" | "bind";
   label: string;
   desc: string;
   kind: "llm" | "data";
@@ -77,66 +77,67 @@ export const CHAPTER_PIPELINE: { nodes: ChapterNode[]; edges: ChapterEdge[] } = 
   ],
 };
 
-/** Separate pipeline for the facilitate modal — concept map + plain-language
- *  teach with same-author sub-retrieval. Resume keeps CHAPTER_PIPELINE. */
+/** Separate pipeline for the facilitate modal — single-section story pipeline.
+ *  Teaches exactly ONE section per request: concept-map → story (hook/movements/takeaway)
+ *  → pure-code bind → pure-code fidelity verify. Resume keeps CHAPTER_PIPELINE. */
 export const FACILITATE_PIPELINE: { nodes: ChapterNode[]; edges: ChapterEdge[] } = {
   nodes: [
     {
       id: "parse",
       label: "Parse + resolve scope",
-      desc: "Matches your request to a known book (fuzzy title/author), normalises the chapter, and expands section ranges.",
+      desc: "Matches your request to a known book (fuzzy title/author) and normalises the chapter using the book catalog. Emits a clarify event if the book is ambiguous.",
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
     {
       id: "fetch",
-      label: "Fetch chapter",
-      desc: "Pulls the chapter's sections from Qdrant in reading order (by page). No search — structural fetch.",
+      label: "Fetch section",
+      desc: "Resolves exactly ONE section via closest-match + confirm against the chapter's headings, then pulls that single section from Qdrant. No loop — facilitate teaches one section per request.",
       kind: "data",
-      defaultModel: "qdrant scroll (book + chapter filter)",
+      defaultModel: "qdrant (one-section)",
     },
     {
       id: "map",
       label: "Concept map",
-      desc: "For each section: extract the top key points and the key concepts/theorems/formulas, flagging which are defined here vs only referenced.",
+      desc: "Extract key concepts, theorems, and formulas from the section as [[cN]] anchors, flagging each as concept / theorem / formula.",
       kind: "llm",
       defaultModel: "gpt-5.4-nano-2026-03-17",
     },
     {
-      id: "retrieve",
-      label: "Concept sub-retrieval",
-      desc: "For each referenced concept, fetch a short explanation — preferring the same author and the nearest prior section (formal statements), falling back to other authors only if needed.",
-      kind: "data",
-      defaultModel: "hybrid search + rerank (same-author first)",
+      id: "write",
+      label: "Write story",
+      desc: "Write the section as a connected story: hook → movements → takeaway. Formal statements (definition / lemma / theorem / proposition / corollary / remark) are reproduced VERBATIM then unpacked didactically (elements → associations → intuition → concise close).",
+      kind: "llm",
+      defaultModel: "gpt-5.4-nano-2026-03-17",
     },
     {
-      id: "teach",
-      label: "Simplify + key points",
-      desc: "Rewrite each section in plain language as short paragraphs and bullet key points (not an expansion); insert clickable [[concept]] anchors.",
-      kind: "llm",
-      defaultModel: "qwen-plus",
+      id: "bind",
+      label: "Bind · pure code",
+      desc: "Attach concept provenance and 📕 corpus citations verbatim from retrieval payloads. Strips any [[cN]] anchor the writer invented that has no matching concept entry — never model-authored citation text.",
+      kind: "data",
+      defaultModel: "pure code",
     },
     {
       id: "verify",
       label: "Verify grounding",
-      desc: "Audits the rewritten body against the sources and sets the grounding badge. Advisory — never blocks the output.",
-      kind: "llm",
-      defaultModel: "gpt-5.4-nano-2026-03-17",
+      desc: "Pure-code statement fidelity: checks each formal statement is reproduced verbatim by token-recall against the source section. Sets the grounding badge. NOT an LLM call.",
+      kind: "data",
+      defaultModel: "pure code (statement fidelity)",
     },
     {
       id: "clarify",
       label: "Clarify (if ambiguous)",
-      desc: "If the book is unknown/ambiguous or the chapter doesn't exist, the run stops and asks you to pick. A confident match skips this.",
+      desc: "If the book is unknown / ambiguous, or the section cannot be resolved, the run stops and asks you to pick. A confident match skips this.",
       kind: "data",
       defaultModel: "—",
     },
   ],
   edges: [
-    { from: "parse", to: "fetch" },
     { from: "parse", to: "clarify" },
+    { from: "parse", to: "fetch" },
     { from: "fetch", to: "map" },
-    { from: "map", to: "retrieve" },
-    { from: "retrieve", to: "teach" },
-    { from: "teach", to: "verify" },
+    { from: "map", to: "write" },
+    { from: "write", to: "bind" },
+    { from: "bind", to: "verify" },
   ],
 };

@@ -21,7 +21,7 @@ export default function ChapterPipelineDiagram({
   mode, providers, stageModels, onStageModelChange, pipeline,
 }: ChapterPipelineDiagramProps) {
   const activePipeline = pipeline ?? (mode === "facilitate" ? FACILITATE_PIPELINE : CHAPTER_PIPELINE);
-  const mapNote = mode === "facilitate" ? "teach each section" : "compress each section";
+  const mapNote = mode === "facilitate" ? "extract concepts per section" : "compress each section";
   // Exclude terminal branch nodes from the linear FlowDiagram chain.
   const clarifyNode = activePipeline.nodes.find((n) => n.id === "clarify");
   const nodes: FlowNode[] = activePipeline.nodes

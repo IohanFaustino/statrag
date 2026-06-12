@@ -2,6 +2,25 @@
 
 Append-only. Latest at top.
 
+## 2026-06-12 — Facilitate story remake: single-section narrative pipeline
+
+**Scope:** branch `feat/facilitate-story-remake`. Spec: `docs/superpowers/specs/2026-06-12-facilitate-story-remake-design.md`. Plan: `docs/superpowers/plans/2026-06-12-facilitate-story-remake.md`. Doc: [53-facilitate-concept-map.md](../services/chat-features/53-facilitate-concept-map.md).
+
+**What changed:** The old facilitate chapter-loop pipeline (all sections → map → sub-retrieval → teach → LLM verify) is replaced by a 6-node single-section story pipeline:
+
+- **One-section rule**: `run_facilitate_story` resolves exactly ONE section per request via pure-code `resolve_section` (closest-match + confirm). No section loop.
+- **Story arc**: write node produces `hook → movements[] → takeaway` via `FACILITATE_STORY_WRITE_PROMPT`. Formal statements (definition / lemma / theorem / proposition / corollary / remark) are reproduced VERBATIM then unpacked didactically (elements → associations → intuition → concise close).
+- **Pure-code bind**: `bind_concepts` + `strip_unbound_markers` assemble `ConceptAnchor` provenance and `StoryCitation` verbatim from `Source` payloads — the model never authors citation text.
+- **Pure-code verify**: `statement_fidelity` token-recall (≥ 60%) replaces the old LLM ground node. Sets `grounding.ok` + `grounding.unsupported[]`. Advisory — never blocks output.
+- **ConceptChat side panel**: clicking a concept pill opens `POST /api/concept/explore` (stateless, no conversation store). Corpus + Wikipedia context; supports a "deepen" follow-up.
+- **New schema**: `FacilitateStory{mode:"facilitate_story", scope, hook, movements[], takeaway, concepts[], citations[], math_blocks[], grounding}`. `FacilitateDigest` (old schema) retained for legacy stored conversations.
+
+**LLM stages**: parse (model key "map"), map (model key "map"), write (model key "write") — all default to `gpt-5.4-nano-2026-03-17`. Bind and verify are pure code.
+
+**Lockstep surfaces updated:** `53-facilitate-concept-map.md` (rewritten), `facilitate.html` (both diagrams + spec table), `invariants.md` (invariants 44–47 added), `chapterPipeline.ts` (FACILITATE_PIPELINE 7-node graph), `chapterMode.ts` (FACILITATE_MODE blurb + features), `ChapterFacilitateModal.tsx` (CHAPTER_STAGES = parse/map/write), `ChapterPipelineDiagram.tsx` (map note updated). Frontend: 300 tests green, tsc clean.
+
+---
+
 ## 2026-06-12 — Broadsheet UI redesign: editorial identity + color personalization
 
 **Scope:** branch `feat/component-equation-enforcement`. Frontend-only (CSS + React/TS); no backend, pipeline, or schema change. Advised by the iohan creative-advisor across two browse-and-critique passes on the live app.

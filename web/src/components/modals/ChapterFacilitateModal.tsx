@@ -14,7 +14,9 @@ interface ChapterFacilitateModalProps {
 }
 
 // Facilitate pipeline stages whose models are user-overridable (LLM nodes only).
-const CHAPTER_STAGES = ["parse", "map", "explain", "teach", "verify"] as const;
+// parse/map/write are the three LLM stages in the new story pipeline.
+// bind and verify are pure-code; fetch is data-only. No model override for those.
+const CHAPTER_STAGES = ["parse", "map", "write"] as const;
 
 export default function ChapterFacilitateModal({
   open,
@@ -38,9 +40,7 @@ export default function ChapterFacilitateModal({
       ...prev,
       parse: recommendedModel,
       map: recommendedModel,
-      explain: recommendedModel,
-      teach: recommendedModel,
-      verify: recommendedModel,
+      write: recommendedModel,
     }));
 
   const dirty = CHAPTER_STAGES.some((s) => draft[s] !== stageModels[s]);

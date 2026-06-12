@@ -17,7 +17,8 @@ describe("ChapterPipelineDiagram", () => {
     expect(html).toContain("Chapter digest");
     expect(html).toContain("node-dd__toggle");
     expect(html).toContain("pipe2__model-fixed");
-    expect(html).toContain("qdrant scroll (book + chapter filter)");
+    // facilitate fetch uses one-section label; resume uses qdrant scroll
+    expect(html).toContain("qdrant (one-section)");
     expect(html).not.toContain("<select");
   });
   it("uses mode-specific copy on the map node", () => {
@@ -25,7 +26,7 @@ describe("ChapterPipelineDiagram", () => {
       <ChapterPipelineDiagram mode="facilitate" providers={PROVIDERS} stageModels={{}} onStageModelChange={() => {}} />);
     const res = renderToStaticMarkup(
       <ChapterPipelineDiagram mode="resume" providers={PROVIDERS} stageModels={{}} onStageModelChange={() => {}} />);
-    expect(fac).toContain("teach each section");
+    expect(fac).toContain("extract concepts per section");
     expect(res).toContain("compress each section");
   });
   it("reflects a stageModels override", () => {

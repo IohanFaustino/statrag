@@ -1,95 +1,117 @@
-# Feature 53 — Facilitate concept-map mode (clarify-not-expand redesign)
+# Feature 53 — Facilitate story mode (story remake, 2026-06-12)
 
-**Branch:** `feat/facilitate-concept-map`
-**Date:** 2026-06-01
-**Spec:** [`docs/superpowers/specs/2026-06-01-facilitate-concept-map-design.md`](../../superpowers/specs/2026-06-01-facilitate-concept-map-design.md)
-**Hindsight:** [`docs/superpowers/hindsight/2026-06-01-facilitate-concept-map-options.md`](../../superpowers/hindsight/2026-06-01-facilitate-concept-map-options.md)
-**Eval ranked table:** [`docs/superpowers/eval/2026-06-01-facilitate-variants.md`](../../superpowers/eval/2026-06-01-facilitate-variants.md)
+**Branch:** `feat/facilitate-story-remake`
+**Date:** 2026-06-12
+**Original concept-map spec:** [`docs/superpowers/specs/2026-06-01-facilitate-concept-map-design.md`](../../superpowers/specs/2026-06-01-facilitate-concept-map-design.md)
+**Story remake spec:** [`docs/superpowers/specs/2026-06-12-facilitate-story-remake-design.md`](../../superpowers/specs/2026-06-12-facilitate-story-remake-design.md)
+**Story remake plan:** [`docs/superpowers/plans/2026-06-12-facilitate-story-remake.md`](../../superpowers/plans/2026-06-12-facilitate-story-remake.md)
 
 ---
 
-## Purpose — clarify, not expand
+## Summary of the rebuild
 
-The original `facilitate` mode taught by *expanding* each section — generating additional prose beyond what the source text said. This produced answers that were longer than the source itself, mixed author voice with LLM confabulation, and buried the key structural relationships of a chapter under extra narrative.
+The original facilitate mode looped over all sections of a chapter, teaching each via concept-map extraction + sub-retrieval + simplification. The rebuild replaces that loop with a **single-section story pipeline**: exactly one section per request, narrated as a connected story (hook → movements → takeaway) with verbatim formal statements unpacked didactically. Pure-code bind and statement-fidelity verify replace the old LLM verify node.
 
-The redesign inverts the goal: **facilitate now teaches by clarifying**, not expanding. The body of each block must be *shorter* than its source section. Extra detail is offloaded to **concept anchors** — modal pop-ups that open inline on click. Step-bearing formulas get a dedicated **formula anchor** whose modal renders the derivation in KaTeX. The section structure is therefore:
-
-- Short paragraphs (body stays lean).
-- Bullet key-points per concept.
-- `[[cN]]` anchors in the text that open a `ConceptModal` with the full concept provenance + supporting quotes.
-- Formula anchors — `[[cN]]` markers with `kind="formula"` — that show derivations inline via KaTeX.
-- Export flattens anchors to footnotes.
-
-This approach keeps the main reading flow readable for a student who already has the book open, and makes depth-on-demand rather than depth-by-default the interaction model.
+The legacy `FacilitateDigest` schema and its renderer are retained for old stored conversations.
 
 ---
 
 ## Pipeline
 
 ```
-parse + resolve scope
+parse + resolve scope (LLM, model key "map")
+        │
+        ├─ ambiguous book/section ──► clarify (data — stop + ask)
         │
         ▼
-   fetch (ordered) ← chapter sections in page_from order
-        │
-        ▼ ── for each section ──────────────────────────────────────
-   [map]  concept-map node
-          • extracts key points
-          • flags each concept: "explained" (inline) or "referenced" (needs sub-retrieval)
-        │
-        ├─ "explained" concepts ────────────────────┐
-        │                                            │
-        ▼                                            │
-   [retrieve]  adaptive sub-retrieval               │
-          • fetch_concept_support per concept        │
-          • escalating author/section policy         │
-        │                                            │
-        └────────────────────────────────────────────┤
-                                                     ▼
-   [teach]  simplify + key-points
-          • short paragraphs
-          • [[cN]] anchors (concept; kind="formula" for formulas)
-          • prior_context threaded forward
+fetch ONE section (data)
+        resolve ONE section via closest-match + confirm
+        pull that single section from Qdrant
         │
         ▼
-   [verify]  grounding verdict (advisory)
+map (LLM, model key "map")
+        extract key concepts / theorems / formulas as [[cN]] anchors
         │
         ▼
-   FacilitateDigest  ──► SSE structured_output
+write story (LLM, model key "write")
+        hook → movements → takeaway
+        formal statements reproduced VERBATIM then unpacked
+        (elements → associations → intuition → concise close)
+        │
+        ▼
+bind (PURE CODE)
+        attach concept provenance + 📕 corpus citations verbatim
+        strip [[cN]] anchors the writer invented with no matching concept
+        │
+        ▼
+verify (PURE CODE — statement fidelity)
+        token-recall of each formal statement against the source text
+        sets grounding badge
+        │
+        ▼
+FacilitateStory ──► SSE structured_output
 ```
 
 ### Mermaid
 
 ```mermaid
 flowchart TD
-  U[user message] --> PR[parse + resolve scope]
-  PR --> FE[fetch — ordered sections page_from]
-  FE --> MAP[map — concept-map + key points]
-  MAP -->|explained concepts| TCH[teach — simplify + [[cN]] anchors (kind=concept/formula)]
-  MAP -->|referenced concepts| RTV[retrieve — adaptive sub-retrieval]
-  RTV --> TCH
-  TCH --> VRF[verify — grounding verdict]
-  VRF --> FD[FacilitateDigest]
-  style MAP fill:#1a1e2a,stroke:#4D6BFE,color:#fff
-  style RTV fill:#1f2a1a,stroke:#3fb950,color:#fff
-  style VRF fill:#3a1d1f,stroke:#E5484D,color:#fff
+  U[user message] --> PR[parse + resolve scope\nLLM · model key map]
+  PR -->|ambiguous| CL[clarify\nstop + ask]
+  PR -->|confident| FE[fetch ONE section\nclosest-match + confirm]
+  FE --> MAP[map · concept extraction\n[[cN]] anchors · LLM]
+  MAP --> WR[write story\nhook → movements → takeaway\nverbatim formal statements unpacked · LLM]
+  WR --> BD[bind · PURE CODE\nprovenance + 📕 citations verbatim\nstrip invented anchors]
+  BD --> VRF[verify · PURE CODE\nstatement fidelity token-recall\nsets grounding badge]
+  VRF --> FS[FacilitateStory]
+  style WR fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style BD fill:#1a2233,stroke:#4da6ff,color:#fff
+  style VRF fill:#1a2233,stroke:#4da6ff,color:#fff
+  style CL fill:#2a1a1a,stroke:#d2624c,color:#fff
 ```
 
 ---
 
-## Adaptive sub-retrieval — `retrieval.fetch_concept_support`
+## One-section rule
 
-For every concept flagged `"referenced"` by the map node, the pipeline calls `fetch_concept_support(concept, book_slug, section_id)` with an **escalating policy**:
+Facilitate teaches exactly **one section per request**. The runner:
 
-| Priority | Strategy | Condition to escalate |
-|---|---|---|
-| 1 | Same author + nearest **prior** section (formal-statement boost) | score < `CONCEPT_MIN_SCORE` |
-| 2 | Same author anywhere in the book | score < `CONCEPT_MIN_SCORE` |
-| 3 | Other authors (cross-book) | — (terminal) |
+1. Resolves the book + chapter via `resolve_book` (LLM fuzzy match against the catalog).
+2. Fetches all section headings for the chapter via `fetch_chapter_sections`.
+3. Calls `resolve_section(message, subtopics, headings)` — a pure-code closest-match (fuzzy title + subtopic overlap) that returns a single `section_id` or `None`.
+4. If `None` → emits `section_clarify(headings=…)` and stops.
+5. Fetches the single section `Source` object.
 
-The prior-section preference surfaces the definition or theorem that the current section builds on. The formal-statement boost up-weights payloads that contain a numbered statement (`Definition X.Y`, `Theorem`, `Proposition`). Cross-author retrieval only fires when the same author has no adequate coverage (score < `CONCEPT_MIN_SCORE`, default `0.30`).
+There is no section loop. Each request teaches one section; if you want the next section, send another message.
 
-The result is a `ConceptProvenance` record attached to the `ConceptAnchor` for that concept.
+---
+
+## Verbatim formal statements
+
+The write prompt instructs the model to handle formal statements (definition / lemma / theorem / proposition / corollary / remark) with a two-step protocol:
+
+1. **Reproduce verbatim** — copy the statement exactly as it appears in the source.
+2. **Unpack didactically** — four sub-moves:
+   - *Elements*: name each symbol and variable.
+   - *Associations*: link each element to prior concepts.
+   - *Intuition*: one sentence of geometric or causal insight.
+   - *Concise close*: one sentence tying the statement back to the story.
+
+The pure-code verify stage (`statement_fidelity`) checks that each formal statement passes ≥ 60% token-recall against the source section text. Failures set `grounding.ok = False`.
+
+---
+
+## Concept anchors and ConceptChat
+
+The map node extracts up to `FACILITATE_MAX_CONCEPTS` (default 5) concepts/theorems/formulas per section and assigns each a `[[cN]]` id. The write node embeds these markers in the story prose.
+
+The bind step:
+- Keeps only anchors whose id appears in the story text (`bind_concepts`).
+- Strips `[[cN]]` markers that reference no valid anchor (`strip_unbound_markers`).
+- Attaches `ConceptProvenance` from the source section payload (book, authors, section title, pages).
+- Builds `StoryCitation` records verbatim from the `Source` object (never model-authored).
+
+The frontend renders `[[cN]]` markers as clickable concept pills. Clicking a pill opens the **ConceptChat side panel** which hits `POST /api/concept/explore` (stateless, no conversation store read/write) with the concept term + provenance context. The side panel supports a "deepen" follow-up question.
 
 ---
 
@@ -98,86 +120,47 @@ The result is a `ConceptProvenance` record attached to the `ConceptAnchor` for t
 Defined in `src/services/chat/schemas/output.py`.
 
 ```python
-class ConceptProvenance(BaseModel):
-    concept: str
-    source_section_id: str
-    source_book_slug: str
-    authors_short: str
-    quote: str          # verbatim supporting text
-    score: float        # retrieval score
+class FormalStatement(BaseModel):
+    kind: str          # "definition" | "lemma" | "theorem" | "proposition" | "corollary" | "remark"
+    statement: str     # verbatim reproduction
+    explanation: str   # didactic unpack
 
-class ConceptAnchor(BaseModel):
-    id: str             # "c1", "c2", … / "f1", "f2", … for formulas
-    label: str          # display text for the anchor
-    kind: Literal["concept", "formula"]
-    provenance: list[ConceptProvenance]
-    derivation: str     # KaTeX string (non-empty for formula anchors)
+class Movement(BaseModel):
+    prose: str | None = None
+    formal: FormalStatement | None = None   # XOR with prose
 
-class FacilitateBlock(BaseModel):
-    section_id: str
-    h2_path: str
-    page_from: int
-    page_to: int
-    body: str           # short paragraphs; [[cN]] inline (kind="formula" for formula anchors)
-    key_points: list[str]
-    anchors: list[ConceptAnchor]
-    citations: list[TutorCitation]
-
-class FacilitateDigest(BaseModel):
-    mode: Literal["facilitate"]
-    scope: ChapterScope
-    blocks: list[FacilitateBlock]   # chapter reading order, never re-sorted
-    citations: list[TutorCitation]  # global flattened list
+class FacilitateStoryDraft(BaseModel):
+    hook: str
+    movements: list[Movement]
+    takeaway: str
     math_blocks: list[str]
-    grounding: dict
+
+class FacilitateStory(BaseModel):
+    mode: Literal["facilitate_story"]
+    scope: ChapterScope
+    hook: str
+    movements: list[Movement]
+    takeaway: str
+    concepts: list[ConceptAnchor]
+    citations: list[StoryCitation]
+    math_blocks: list[str]
+    grounding: dict    # {ok, unsupported, confidence}
 ```
 
-`FacilitateDigest` is the `structured_output.schema` value emitted on every `facilitate` turn. `resume` is unchanged — it still uses `run_chapter` / `ChapterDigest`.
-
----
-
-## Concept anchor / modal / footnote UX
-
-### Inline anchors
-
-The teach node embeds `[[cN]]` markers in the body text wherever a concept is first meaningfully used. Formula anchors also use the `[[cN]]` marker (with `kind="formula"`) and appear at the step in a derivation where the formula is introduced. The renderer replaces each marker with a clickable badge.
-
-### ConceptModal
-
-Clicking a `[[cN]]` badge opens `ConceptModal` (React component):
-
-- Header: concept label.
-- Provenance cards: supporting quotes from `ConceptAnchor.provenance`, with author / section / page attribution.
-- For formula anchors (`[[cN]]` with `kind="formula"`): a KaTeX block rendering `derivation`.
-
-### Export to footnotes
-
-When the user exports a conversation to Markdown (zip export), `exportMarkdown.ts` replaces `[[cN]]` markers with `[^cN]` footnotes. Each footnote lists the concept label + first provenance quote. Formula anchors become a display-math block in the footnote. No anchor modal state is preserved (Markdown is inherently flat); the export is still readable offline.
-
-### Readability rules
-
-The teach node is prompted with explicit readability constraints:
-
-1. Body paragraphs: ≤ 3 sentences each.
-2. Key points: ≤ `FACILITATE_MAX_KEYPOINTS` (default 6) bullets per section.
-3. Concepts: ≤ `FACILITATE_MAX_CONCEPTS` (default 5) anchors per section. Extra concepts are folded into body prose without an anchor.
-4. The body MUST be shorter than the source section. Any block that exceeds the source token count is a teach-node failure (prompt violation).
-5. Prior context is threaded forward: each block's teach call receives a `prior_context` summary of already-covered concepts so the model avoids re-explaining.
+`FacilitateStory` is emitted as `structured_output{schema:"FacilitateStory"}` on every new facilitate turn. The legacy `FacilitateDigest` (mode `"facilitate"`) is retained for old stored conversations and rendered by the legacy `FacilitateDigestCard`.
 
 ---
 
 ## SSE stage keys
 
-`facilitate` emits `structured_output{schema:"FacilitateDigest"}`. The stage progress events use the following keys in the SSE `stage` field:
+| Stage key | Kind | Description |
+|---|---|---|
+| `parse` | LLM | Parse + book/chapter resolve |
+| `map` | LLM | Concept extraction per section |
+| `write` | LLM | Story narrative generation |
+| `verify` | PURE CODE | Statement fidelity check + grounding badge |
 
-| Stage key | Description |
-|---|---|
-| `map` | Concept-map extraction running (per section) |
-| `retrieve` | Adaptive sub-retrieval running (per referenced concept) |
-| `teach` | Simplify + anchor generation running (per section) |
-| `verify` | Grounding verdict running |
-
-`stageModels` overrides use the same keys: `map`, `retrieve` (no LLM, ignored), `teach`, `verify`. The `retrieve` stage key is present in the progress event sequence for observability but does not accept a model override (retrieval is embedding-only).
+`stageModels` overrides apply to `parse`, `map`, `write`. `bind` and `verify` are pure code — no model override.
 
 ---
 
@@ -185,13 +168,25 @@ The teach node is prompted with explicit readability constraints:
 
 | Var | Default | Effect |
 |---|---|---|
-| `FACILITATE_MAX_CONCEPTS` | `5` | Max `[[cN]]` anchors emitted per section |
-| `FACILITATE_MAX_KEYPOINTS` | `6` | Max bullet key-points per section block |
-| `CONCEPT_MIN_SCORE` | `0.30` | Retrieval score threshold for sub-retrieval escalation |
-| `FACILITATE_SUBRETRIEVAL` | `1` | `0` = disable adaptive sub-retrieval; all concepts inlined |
-| `FACILITATE_<STAGE>_MODEL` | nano (all stages) | Per-stage model override (`MAP`/`EXPLAIN`/`TEACH`/`VERIFY`). All default to `gpt-5.4-nano-2026-03-17`. **Teach moved off `qwen-plus` → nano on 2026-06-03** after the model sweep (nano beat qwen on quality *and* cost; qwen ran away to ~67k out-tok/85s per teach call). See [`docs/superpowers/eval/2026-06-03-facilitate-reasoning-models.md`](../../superpowers/eval/2026-06-03-facilitate-reasoning-models.md). |
-| `CHAPTER_CLARIFY` | `1` (shared) | Kill-switch for book-scope clarify gate (feature 52) |
-| `CHAPTER_GROUND` | `1` (shared) | `0` = skip grounding-verify node |
+| `FACILITATE_MAX_CONCEPTS` | `5` | Max `[[cN]]` anchors per section |
+| `CHAPTER_CLARIFY` | `1` (shared) | Kill-switch for book-scope clarify gate |
+
+---
+
+## ConceptChat endpoint
+
+`POST /api/concept/explore` — stateless, no conversation store.
+
+Request body:
+```json
+{
+  "term": "maximum likelihood estimation",
+  "provenance": { "book_slug": "...", "section": "..." },
+  "followUp": "Why does it maximize the log-likelihood?"
+}
+```
+
+Response: SSE stream with `text` delta events, followed by `done`. The endpoint retrieves corpus + Wikipedia context and writes a short explanatory answer. It never reads or writes the conversation store (invariant).
 
 ---
 
@@ -199,57 +194,45 @@ The teach node is prompted with explicit readability constraints:
 
 | Component / file | Path | Role |
 |---|---|---|
-| `FacilitateDigestCard` | `web/src/components/FacilitateDigestCard.tsx` | Top-level renderer for `FacilitateDigest`; iterates `blocks` in order |
-| `ConceptModal` | `web/src/components/ConceptModal.tsx` | Modal opened by `[[cN]]` badge clicks (concept or formula kind); shows provenance + KaTeX |
-| `FACILITATE_PIPELINE` | `web/src/data/facilitatePipeline.ts` | Static pipeline node/edge definitions (map/retrieve/teach/verify) |
-| `MessageThread` | `web/src/components/MessageThread.tsx` | Render branch on `schema === "FacilitateDigest"` → `<FacilitateDigestCard>` |
-| Facilitate `(i)` modal | `web/src/components/ChapterFacilitateModal.tsx` | Pipeline diagram showing map/retrieve/teach/verify nodes with per-stage model pickers |
-
-The `(i)` modal pipeline diagram (`FACILITATE_PIPELINE`) shows four stages: **map** (concept-map extraction), **retrieve** (adaptive sub-retrieval, data-only badge), **teach** (simplify + anchors), **verify** (grounding). The retrieve stage is shown as a data node (no model picker) because it is embedding-only.
-
----
-
-## Eval harness
-
-**Location:** `src/services/chat/eval/facilitate_eval.py`
-
-An LLM-judge harness (`-m facilitate_eval`) that scores `FacilitateDigest` outputs on:
-
-- **Brevity ratio**: block body tokens / source section tokens (target < 1.0).
-- **Anchor quality**: does each `ConceptAnchor.provenance` quote actually support the anchor label?
-- **Key-point completeness**: do key-points cover the most important claims in the section?
-- **Grounding**: are inline citations accurate?
-
-The judge uses a nano model and outputs a per-block score table plus a summary row. Results for the initial variant comparison are in the ranked table at [`docs/superpowers/eval/2026-06-01-facilitate-variants.md`](../../superpowers/eval/2026-06-01-facilitate-variants.md).
+| `FacilitateStoryCard` | `web/src/components/FacilitateStoryCard.tsx` | Renderer for `FacilitateStory`; hook → movements (prose / formal) → takeaway → concept pills → grounding badge |
+| `ConceptChat` | `web/src/components/ConceptChat.tsx` | Side panel opened by concept pill clicks; hits `/api/concept/explore` |
+| `FACILITATE_PIPELINE` | `web/src/data/chapterPipeline.ts` | 7-node pipeline data (parse/fetch/map/write/bind/verify/clarify) |
+| `FACILITATE_MODE` | `web/src/data/chapterMode.ts` | Modal blurb + feature list |
+| `ChapterFacilitateModal` | `web/src/components/modals/ChapterFacilitateModal.tsx` | (i) modal; LLM stage overrides: parse / map / write only |
+| `MessageThread` | `web/src/components/MessageThread.tsx` | Discriminates on `schema === "FacilitateStory"` → `<FacilitateStoryCard>` |
 
 ---
 
-## Resume is unchanged
+## Legacy compatibility
 
-`resume` mode continues to use `run_chapter` / `ChapterDigest` (dense per-section summaries, no concept anchors). The redesign is specific to `facilitate`.
+`FacilitateDigest` (mode `"facilitate"`, pre-remake) conversations still render via `FacilitateDigestCard`. The discriminator in `MessageThread.tsx` routes on `schema`:
+- `"FacilitateStory"` → new `FacilitateStoryCard`
+- `"FacilitateDigest"` → legacy `FacilitateDigestCard`
+
+No DB migration required.
 
 ---
 
 ## Synced-artifacts checklist
 
-A logic change to the facilitate concept-map pipeline is incomplete until **all** of these reflect it:
+A logic change to the facilitate story pipeline is incomplete until **all** of these reflect it:
 
 | Aspect | Path |
 |---|---|
-| Agent logic | `src/services/chat/agents/facilitate.py` |
-| Adaptive sub-retrieval | `src/services/retrieval/fetch_concept_support` (or equivalent in `facilitate.py`) |
-| Prompts | `src/services/chat/prompts/facilitate.py` |
-| Output schemas | `src/services/chat/schemas/output.py` (`ConceptProvenance`, `ConceptAnchor`, `FacilitateBlock`, `FacilitateDigest`) |
+| Runner | `src/services/chat/agents/facilitate_story.py` |
+| Binder / fidelity | `src/services/chat/agents/facilitate_story.py` (pure-code helpers) |
+| Prompts | `src/services/chat/prompts/chapter.py` (FACILITATE_STORY_WRITE_PROMPT, FACILITATE_MAP_PROMPT) |
+| Scope helpers | `src/services/chat/agents/_scope.py` (resolve_section, section_clarify) |
+| Output schemas | `src/services/chat/schemas/output.py` (FacilitateStory, FacilitateStoryDraft, Movement, FormalStatement) |
+| ConceptChat endpoint | `src/services/chat/api.py` (POST /api/concept/explore) |
 | Mode registration | `src/services/chat/modes.py` |
 | Frontend types | `web/src/types.ts` |
-| Renderer | `web/src/components/FacilitateDigestCard.tsx` + `MessageThread.tsx` wiring |
-| Concept modal | `web/src/components/ConceptModal.tsx` |
-| Pipeline data | `web/src/data/facilitatePipeline.ts` |
-| Mode modal | `web/src/components/ChapterFacilitateModal.tsx` |
-| Export serializer | `web/src/lib/exportMarkdown.ts` (anchor → footnote) |
-| Eval harness | `src/services/chat/eval/facilitate_eval.py` |
+| Story renderer | `web/src/components/FacilitateStoryCard.tsx` + `MessageThread.tsx` |
+| Concept side panel | `web/src/components/ConceptChat.tsx` |
+| Pipeline data | `web/src/data/chapterPipeline.ts` (FACILITATE_PIPELINE) |
+| Mode data | `web/src/data/chapterMode.ts` (FACILITATE_MODE) |
+| Mode modal | `web/src/components/modals/ChapterFacilitateModal.tsx` |
+| Markdown doc | `docs/services/chat-features/53-facilitate-concept-map.md` (this file) |
+| HTML doc | `docs/common ground/Elements/modes/facilitate.html` |
 | Invariants + changelog | `docs/system/invariants.md`, `docs/system/changelog.md` |
-| Service doc (SSE table + modes) | `docs/services/chat.md` |
-| Reference graph | `docs/common ground/Elements/chat.html` |
-| This doc | `docs/services/chat-features/53-facilitate-concept-map.md` |
-| Tests | `src/services/chat/tests/test_facilitate_concept_map.py`, `web/src/components/FacilitateDigestCard.test.tsx` |
+| Tests | `src/services/chat/tests/test_facilitate_story.py`, `web/src/components/FacilitateStoryCard.test.tsx` |
