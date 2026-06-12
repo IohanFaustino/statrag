@@ -32,7 +32,7 @@ async def _collect(agen):
 _MODE_TO_PATCH = {
     "tutor": ("src.services.chat.agents.deep_tutor", "run_deep_tutor"),
     "qa": ("src.services.chat.agents.qa", "run_qa"),
-    "facilitate": ("src.services.chat.agents.facilitate", "run_facilitate"),
+    "facilitate": ("src.services.chat.agents.facilitate_story", "run_facilitate_story"),
     "resume": ("src.services.chat.agents.chapter", "run_chapter"),
     "extension": ("src.services.chat.agents.extension_agents.runner", "run_extension"),
 }
