@@ -31,15 +31,22 @@ export default function ConceptChat({ anchor, conversationId, onClose }: Props) 
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(true);
   const seeded = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (seeded.current) return;
     seeded.current = true;
     streamExplore({ term: anchor.term, kind: anchor.kind, book_slug: bookSlug,
       section_id: sectionId, conversationId }, (e) => {
+        if (!mounted.current) return;
         if (e.type === "concept_seed")
           setTurns([{ role: "assistant", text: e.brief as string, citations: e.citations as StoryCitation[] }]);
-      }).finally(() => setLoading(false));
+      }).finally(() => { if (mounted.current) setLoading(false); });
   }, [anchor.term, anchor.kind, bookSlug, sectionId, conversationId]);
 
   function deepen(text: string) {
@@ -48,9 +55,10 @@ export default function ConceptChat({ anchor, conversationId, onClose }: Props) 
     setTurns((p) => [...p, { role: "user", text: v }]); setValue(""); setLoading(true);
     streamExplore({ term: anchor.term, kind: anchor.kind, book_slug: bookSlug,
       section_id: sectionId, conversationId, history }, (e) => {
+        if (!mounted.current) return;
         if (e.type === "concept_followup")
           setTurns((p) => [...p, { role: "assistant", text: e.brief as string, citations: e.citations as StoryCitation[] }]);
-      }).finally(() => setLoading(false));
+      }).finally(() => { if (mounted.current) setLoading(false); });
   }
 
   return (

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import ConceptChat from "./ConceptChat";
 import type { ConceptAnchor } from "../types";
@@ -37,5 +37,21 @@ describe("ConceptChat", () => {
     expect(body.term).toBe("law of large numbers");
     expect(body.book_slug).toBe("hansen");
     expect(body.section_id).toBe("7.4");
+  });
+
+  it("deepens with history on follow-up submit", async () => {
+    await act(async () => {
+      render(<ConceptChat anchor={anchor} conversationId="abc" onClose={() => {}} />);
+    });
+    const ta = screen.getByLabelText(/concept question input/i);
+    await act(async () => {
+      fireEvent.change(ta, { target: { value: "why does it converge?" } });
+      fireEvent.keyDown(ta, { key: "Enter" });
+    });
+    const calls = (fetch as any).mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    const body = JSON.parse(calls[calls.length - 1][1].body);
+    expect(Array.isArray(body.history)).toBe(true);
+    expect(JSON.stringify(body.history)).toContain("why does it converge?");
   });
 });

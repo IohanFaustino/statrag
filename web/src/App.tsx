@@ -406,6 +406,7 @@ export default function App() {
 
   // Fork to temp chat
   const handleFork = useCallback((idx: number) => {
+    setConceptAnchor(null);
     setTempSeed(idx);
     setTempChatOpen(true);
   }, []);
@@ -605,7 +606,7 @@ export default function App() {
                 });
                 if (src) setOpenSource(src);
               }}
-              onOpenConcept={setConceptAnchor}
+              onOpenConcept={(a) => { setTempChatOpen(false); setConceptAnchor(a); }}
               onFork={handleFork}
               onExportMessage={handleExportMessage}
               forkDisabled={tempChatOpen}
