@@ -249,6 +249,19 @@ export default function App() {
 
   const thinkingLabel = stageLabel;
 
+  // Per-conversation / per-mode ephemeral side-UI must not survive a context
+  // switch. conceptAnchor (the facilitate "common ground" ConceptChat panel),
+  // the TempChat fork, and the SourceModal are app-global; without this reset a
+  // panel opened in facilitate would leak into Q&A/tutor/etc. (and into other
+  // conversations). Fires on mode-picker change, conversation select, New
+  // conversation, popstate/deep-link load, and lazy conv-create on first send.
+  useEffect(() => {
+    setConceptAnchor(null);
+    setTempChatOpen(false);
+    setTempSeed(null);
+    setOpenSource(null);
+  }, [conversationId, activeMode]);
+
   // Backend health (status dot)
   const [online, setOnline] = useState(false);
   useEffect(() => {
@@ -644,6 +657,7 @@ export default function App() {
           {conceptAnchor && (
             <div className="main__pane main__pane--temp">
               <ConceptChat
+                key={conversationId ?? "draft"}
                 anchor={conceptAnchor}
                 conversationId={conversationId ?? ""}
                 onClose={() => setConceptAnchor(null)}
