@@ -171,7 +171,7 @@ async def run_facilitate_story(req) -> AsyncIterator[dict]:
         scope, src, clarify = _resolve_one_section(req)
     except NotImplementedError:
         catalog = parse_catalog()
-        res = await resolve_book(message, selected_slugs=book_slugs, catalog=catalog, model=_model_for("map", req))
+        res = await resolve_book(message, selected_slugs=book_slugs, catalog=catalog, model=_model_for("parse", req))
         clar = maybe_clarify(res, catalog)
         if clar is not None:
             yield clar

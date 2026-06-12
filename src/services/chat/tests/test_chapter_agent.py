@@ -305,7 +305,9 @@ def test_chapter_modes_registered():
     for mid in ("facilitate", "resume"):
         spec = ModeRegistry.get(mid)
         assert spec.arch == "multi"
-        assert spec.output_schema.__name__ == "ChapterDigest"
+    # facilitate emits FacilitateStory; resume still emits ChapterDigest
+    assert ModeRegistry.get("facilitate").output_schema.__name__ == "FacilitateStory"
+    assert ModeRegistry.get("resume").output_schema.__name__ == "ChapterDigest"
 
 
 @pytest.mark.asyncio

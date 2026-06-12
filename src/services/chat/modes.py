@@ -193,7 +193,7 @@ def register_all_modes() -> None:
         CHAPTER_MAP_FACILITATE_PROMPT,
         CHAPTER_MAP_RESUME_PROMPT,
     )
-    from src.services.chat.schemas.output import ChapterDigest  # noqa: PLC0415
+    from src.services.chat.schemas.output import ChapterDigest, FacilitateStory  # noqa: PLC0415
 
     ModeRegistry.register(
         ModeSpec(
@@ -201,7 +201,7 @@ def register_all_modes() -> None:
             icon="graduation-cap",
             arch="multi",
             system_prompt=CHAPTER_MAP_FACILITATE_PROMPT,
-            output_schema=ChapterDigest,
+            output_schema=FacilitateStory,
             tools=[],
             retrieval_flags=RetrievalFlags(rerank=False),
             model="nano",
