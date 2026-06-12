@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import type { Book, Source, ModelProvider } from "./types";
+import type { Book, Source, ModelProvider, ConceptAnchor } from "./types";
 import { mapConversationMessages } from "./lib/mapConversationMessages";
 import { pickOpenedMode } from "./lib/pickOpenedMode";
 import { lastTurnMode } from "./lib/lastTurnMode";
@@ -14,6 +14,7 @@ import MessageThread from "./components/MessageThread";
 import InputBar from "./components/InputBar";
 import AppearancePopover from "./components/AppearancePopover";
 import TempChat from "./components/TempChat";
+import ConceptChat from "./components/ConceptChat";
 import { STATRAG_MODES } from "./lib/modes";
 import BookModal from "./components/modals/BookModal";
 import SourceModal from "./components/modals/SourceModal";
@@ -168,6 +169,7 @@ export default function App() {
   const [openSource, setOpenSource] = useState<Source | null>(null);
   const [tempChatOpen, setTempChatOpen] = useState(false);
   const [tempSeed, setTempSeed] = useState<number | null>(null);
+  const [conceptAnchor, setConceptAnchor] = useState<ConceptAnchor | null>(null);
 
   // Tracks the last conversation whose picker mode we synced. Re-opening the
   // SAME conversation (popstate / re-select / re-render) is a no-op, so a mode
@@ -582,7 +584,7 @@ export default function App() {
           streamingIds={streamingIds}
         />
 
-        <main className={`main${tempChatOpen ? " main--split" : ""}`}>
+        <main className={`main${tempChatOpen || conceptAnchor ? " main--split" : ""}`}>
           <div className="main__pane main__pane--primary">
             <MessageThread
               thread={messages}
@@ -603,6 +605,7 @@ export default function App() {
                 });
                 if (src) setOpenSource(src);
               }}
+              onOpenConcept={setConceptAnchor}
               onFork={handleFork}
               onExportMessage={handleExportMessage}
               forkDisabled={tempChatOpen}
@@ -633,6 +636,16 @@ export default function App() {
                   setTempSeed(null);
                 }}
                 seedFromMsg={tempSeed}
+              />
+            </div>
+          )}
+
+          {conceptAnchor && (
+            <div className="main__pane main__pane--temp">
+              <ConceptChat
+                anchor={conceptAnchor}
+                conversationId={conversationId ?? ""}
+                onClose={() => setConceptAnchor(null)}
               />
             </div>
           )}
