@@ -18,7 +18,6 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from src.services.chat import books, retrieval, runs, store
@@ -32,14 +31,29 @@ from src.services.chat.schemas import ChatRequest, ExtensionDigest, StoryDigest
 
 _CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
+# Matches literal \uXXXX text (6 chars) where XXXX falls in the C0/DEL/C1
+# control range: 0000–001F, 007F, 0080–009F.  Printable escapes (e.g. μ)
+# are NOT matched.  Applied to string values before the byte-level strip so
+# that a sequence like `hat` becomes `hat` rather than leaving a
+# stray backslash.
+_LIT_CTRL_ESC = re.compile(
+    r"\\u00(?:0[0-9a-fA-F]|1[0-9a-fA-F]|7[fF]|8[0-9a-fA-F]|9[0-9a-fA-F])",
+    re.IGNORECASE,
+)
+
 
 def _strip_ctrl(o):
     """Recursively strip non-printable C0/C1 control chars (keep \\n \\t \\r) from
     str/dict/list. LLM drafts occasionally emit DEL/0x00/etc. that break KaTeX
     and corrupt prose; strip at the single SSE seam so every mode + persistence
-    gets clean text."""
+    gets clean text.
+
+    Also strips *literal* ``\\uXXXX`` escape sequences that spell a C0/DEL/C1
+    code point (e.g. the 6-char text ``\\u001b`` = ESC).  Printable-range
+    literal escapes such as ``\\u03bc`` (μ) are preserved."""
     if isinstance(o, str):
-        return _CTRL_RE.sub("", o)
+        # Strip literal \uXXXX control-escape text first, then real bytes.
+        return _CTRL_RE.sub("", _LIT_CTRL_ESC.sub("", o))
     if isinstance(o, dict):
         return {k: _strip_ctrl(v) for k, v in o.items()}
     if isinstance(o, list):
@@ -58,6 +72,12 @@ _MATH_SPAN = re.compile(r"(\$\$.*?\$\$|\$[^$\n]*?\$)", re.DOTALL)
 # Allowlist ordered LONGEST-FIRST so alternation matches the longer token
 # before any prefix (e.g. subseteq wins over subset, varepsilon over epsilon).
 _GREEKOPS: list[str] = [
+    # Accent / structure commands — LONGEST FIRST so alternation is safe.
+    # Only short accent names are included; long commands like \frac/\sqrt/
+    # \mathrm are usually written correctly by the model and risk false positives.
+    "widehat", "widetilde", "overline", "underline",
+    "hat", "bar", "tilde", "vec", "ddot", "dot",
+    "check", "breve", "acute", "grave",
     # Greek — longer variants first
     "varepsilon", "varphi", "vartheta", "varpi",
     "epsilon", "upsilon",

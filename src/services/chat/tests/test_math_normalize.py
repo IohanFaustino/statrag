@@ -210,3 +210,101 @@ class TestNormalizeMath:
         assert r"$\delta$" in out
         # prose 'as' between math spans is untouched
         assert "as" in out
+
+    # --- Fix 1: accent / structure commands ---
+
+    def test_bare_hat_fixed(self):
+        """$hat{\\mu}=\\overline{X}_n$ — bare hat gets backslash; overline already escaped."""
+        result = self.norm("$hat{\\mu}=\\overline{X}_n$")
+        assert result == "$\\hat{\\mu}=\\overline{X}_n$"
+
+    def test_already_escaped_widehat_unchanged(self):
+        """$\\widehat{\\theta}$ — already escaped; must not be double-escaped."""
+        s = "$\\widehat{\\theta}$"
+        assert self.norm(s) == s
+
+    def test_bare_widehat_fixed(self):
+        """$widehat{\\theta}$ — bare widehat gets backslash."""
+        assert self.norm("$widehat{\\theta}$") == "$\\widehat{\\theta}$"
+
+    def test_hat_in_somehat_unchanged(self):
+        """$somehat$ — 'hat' is preceded by letters; must NOT be matched."""
+        assert self.norm("$somehat$") == "$somehat$"
+
+    def test_bare_tilde_fixed(self):
+        """$tilde{x}$ → $\\tilde{x}$."""
+        assert self.norm("$tilde{x}$") == "$\\tilde{x}$"
+
+    def test_already_escaped_tilde_unchanged(self):
+        """$\\tilde{x}$ unchanged."""
+        s = "$\\tilde{x}$"
+        assert self.norm(s) == s
+
+    def test_bare_bar_fixed(self):
+        """$bar{X}$ → $\\bar{X}$."""
+        assert self.norm("$bar{X}$") == "$\\bar{X}$"
+
+    def test_bar_in_overbar_unchanged(self):
+        """$overbar{X}$ — 'bar' preceded by 'over'; must NOT be matched."""
+        assert self.norm("$overbar{X}$") == "$overbar{X}$"
+
+    def test_bare_vec_fixed(self):
+        """$vec{v}$ → $\\vec{v}$."""
+        assert self.norm("$vec{v}$") == "$\\vec{v}$"
+
+    def test_bare_overline_fixed(self):
+        """$overline{X}$ → $\\overline{X}$ (bare overline)."""
+        assert self.norm("$overline{X}$") == "$\\overline{X}$"
+
+    def test_widehat_before_hat_ordering(self):
+        """widehat must appear before hat in _GREEKOPS so $widehat{}$ is not
+        matched as $wide\\hat{}$."""
+        # If ordering is wrong, widehat would become wide\hat — test catches it
+        result = self.norm("$widehat{x}$")
+        assert result == "$\\widehat{x}$"
+        assert "wide\\hat" not in result
+
+    def test_widetilde_before_tilde_ordering(self):
+        """$widetilde{x}$ → $\\widetilde{x}$ (not $wide\\tilde{x}$)."""
+        result = self.norm("$widetilde{x}$")
+        assert result == "$\\widetilde{x}$"
+        assert "wide\\tilde" not in result
+
+    def test_live_db_hat_mu_combined(self):
+        """Live DB evidence: $hat{\\mu}=\\overline{X}_n$ full match."""
+        inp = "$hat{\\mu}=\\overline{X}_n$"
+        assert self.norm(inp) == "$\\hat{\\mu}=\\overline{X}_n$"
+
+    def test_bare_ddot_fixed(self):
+        """$ddot{x}$ → $\\ddot{x}$."""
+        assert self.norm("$ddot{x}$") == "$\\ddot{x}$"
+
+    def test_bare_dot_fixed(self):
+        """$dot{x}$ → $\\dot{x}$ (standalone dot)."""
+        assert self.norm("$dot{x}$") == "$\\dot{x}$"
+
+    def test_dot_in_ddot_ordering(self):
+        """ddot before dot: $ddot{x}$ must not become $d\\dot{x}$."""
+        result = self.norm("$ddot{x}$")
+        assert result == "$\\ddot{x}$"
+        assert "d\\dot" not in result
+
+    def test_bare_check_fixed(self):
+        """$check{x}$ → $\\check{x}$."""
+        assert self.norm("$check{x}$") == "$\\check{x}$"
+
+    def test_bare_acute_fixed(self):
+        """$acute{x}$ → $\\acute{x}$."""
+        assert self.norm("$acute{x}$") == "$\\acute{x}$"
+
+    def test_bare_grave_fixed(self):
+        """$grave{x}$ → $\\grave{x}$."""
+        assert self.norm("$grave{x}$") == "$\\grave{x}$"
+
+    def test_bare_breve_fixed(self):
+        """$breve{x}$ → $\\breve{x}$."""
+        assert self.norm("$breve{x}$") == "$\\breve{x}$"
+
+    def test_bare_underline_fixed(self):
+        """$underline{x}$ → $\\underline{x}$."""
+        assert self.norm("$underline{x}$") == "$\\underline{x}$"

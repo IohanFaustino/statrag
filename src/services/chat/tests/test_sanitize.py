@@ -94,6 +94,59 @@ class TestStripCtrl:
         """\\r is explicitly kept."""
         assert self.strip("line1\r\nline2") == "line1\r\nline2"
 
+    # --- Fix 2: literal \\uXXXX control-escape sequences ---
+
+    def test_literal_escape_u001b_stripped(self):
+        """Literal 6-char sequence backslash-u-0-0-1-b is stripped (ESC in C0)."""
+        # The string as it appears in Python source: r"" is the 6 chars \\u001b
+        result = self.strip("$\\mathrm{Var}(\\u001bhat{\\mu})$")
+        assert result == "$\\mathrm{Var}(hat{\\mu})$"
+
+    def test_literal_escape_u0000_stripped(self):
+        """Literal \\u0000 (NUL escape) is stripped."""
+        result = self.strip("prefix\\u0000suffix")
+        assert result == "prefixsuffix"
+
+    def test_literal_escape_u007f_stripped(self):
+        """Literal \\u007f (DEL escape) is stripped."""
+        result = self.strip("foo\\u007fbar")
+        assert result == "foobar"
+
+    def test_literal_escape_u0080_stripped(self):
+        """Literal \\u0080 (C1 range start) is stripped."""
+        result = self.strip("foo\\u0080bar")
+        assert result == "foobar"
+
+    def test_literal_escape_u009f_stripped(self):
+        """Literal \\u009f (C1 range end) is stripped."""
+        result = self.strip("foo\\u009fbar")
+        assert result == "foobar"
+
+    def test_printable_unicode_escape_preserved(self):
+        """Literal \\u03bc (mu, printable) is NOT stripped."""
+        result = self.strip("printable \\u03bc stays")
+        assert result == "printable \\u03bc stays"
+
+    def test_literal_escape_u03bc_unicode_boundary(self):
+        """\\u03bc is well above the C1 cutoff (0x9F) — never stripped."""
+        # Distinct from the actual character μ; this is 6 literal chars
+        result = self.strip("\\u03bc is preserved")
+        assert result == "\\u03bc is preserved"
+
+    def test_combined_strip_and_normalize(self):
+        """Live DB string: strip literal \\u001b then normalize hat → \\hat."""
+        import importlib, sys  # noqa: E401
+        mod_name = "src.services.chat.api"
+        if mod_name in sys.modules:
+            del sys.modules[mod_name]
+        mod = importlib.import_module(mod_name)
+        strip = mod._strip_ctrl       # noqa: SLF001
+        norm = mod._normalize_math    # noqa: SLF001
+
+        raw = "$\\mathrm{Var}(\\u001bhat{\\mu})=\\sigma^2/n$"
+        cleaned = norm(strip(raw))
+        assert cleaned == "$\\mathrm{Var}(\\hat{\\mu})=\\sigma^2/n$"
+
 
 # ---------------------------------------------------------------------------
 # Seam test: chat_event_gen strips control chars before yielding + persisting
