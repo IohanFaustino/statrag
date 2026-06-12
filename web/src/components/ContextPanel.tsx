@@ -24,7 +24,8 @@ const FIGURES_META_LABEL: Record<FiguresMeta["status"], string> = {
 
 function ScoreBadge({ score }: { score?: number | null }) {
   // Some sources (e.g. extension/wiki) carry no numeric score — don't crash.
-  if (typeof score !== "number" || Number.isNaN(score)) return null;
+  // Extension/wiki sources carry no rerank score (0) — suppress the noise.
+  if (typeof score !== "number" || Number.isNaN(score) || score === 0) return null;
   const tone = score >= 0.8 ? "hi" : score >= 0.6 ? "mid" : "low";
   return (
     <span className={`score-badge score-badge--${tone}`}>
@@ -48,20 +49,22 @@ function SourceCard({
       onClick={() => onOpen?.(src)}
     >
       <div className="source-card__hd">
-        <span className={`book-tag book-tag--${bookKey}`}>
-          <span className={`dot dot--${bookKey}`} />
-          {src.book === "HANSEN" ? "Hansen" : (src.book || "?")}
-        </span>
+        {src.book ? (
+          <span className={`book-tag book-tag--${bookKey}`}>
+            <span className={`dot dot--${bookKey}`} />
+            {src.book === "HANSEN" ? "Hansen" : src.book}
+          </span>
+        ) : <span />}
         <span className="source-card__hd-right">
-          <span className="source-card__rank">#{src.rank}</span>
+          {src.rank != null && <span className="source-card__rank">#{src.rank}</span>}
           <ScoreBadge score={src.score} />
         </span>
       </div>
       <div className="source-card__path">
         {src.chapter} · {src.section}
       </div>
-      <div className="source-card__title">{src.title}</div>
-      <div className="source-card__excerpt">"{src.excerpt}"</div>
+      {src.title && <div className="source-card__title">{src.title}</div>}
+      {src.excerpt && <div className="source-card__excerpt">"{src.excerpt}"</div>}
     </button>
   );
 }

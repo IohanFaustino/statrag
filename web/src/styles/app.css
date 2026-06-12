@@ -2776,22 +2776,42 @@ select:focus-visible {
 /* ──────────────────────────────────────────────────────────────────
    StoryDigestCard — timeline rail, curiosity boxes, citation chips
    ────────────────────────────────────────────────────────────────── */
+/* Header toolbar — masthead: scope left, text-controls right, hairline rule */
+.story-card__hd {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 8px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.story-card__scope {
+  margin-right: auto;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: 0.04em; color: var(--text-tertiary);
+}
+.story-card__hd button {
+  background: none; border: none; padding: 2px 4px; font: inherit;
+  font-size: 0.82em; letter-spacing: 0.02em; color: var(--text-secondary); cursor: pointer;
+}
+.story-card__hd button:hover { color: var(--accent-primary); }
+.story-card__hd button:disabled { opacity: 0.5; cursor: default; }
+.story-card__hd-sep { width: 1px; align-self: stretch; background: var(--border-subtle); }
+
 .story-take { display: flex; gap: 14px; }
 .story-take__rail { display: flex; flex-direction: column; align-items: center; }
-.story-take__num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-secondary);
-  color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
-.story-take__line { width: 2px; flex: 1; background: color-mix(in srgb, var(--accent-secondary) 30%, transparent); }
+/* Timeline rail joins the answer's red rail language (accent-primary, square) */
+.story-take__num { width: 24px; height: 24px; border-radius: var(--radius); background: var(--accent-primary);
+  color: var(--on-accent, #fff); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.82em; }
+.story-take__line { width: 2px; flex: 1; background: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
 .story-take__body { flex: 1; padding-bottom: 18px; min-width: 0; }
 .story-take__story, .curiosity-item__body { text-align: justify; }
-.curiosity-box { border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent);
-  border-radius: 8px; padding: 8px 12px; margin-top: 8px;
-  background: color-mix(in srgb, var(--accent-secondary) 5%, transparent); }
+.curiosity-box { border: 1px solid var(--border-subtle);
+  border-radius: var(--radius); padding: 8px 12px; margin-top: 8px;
+  background: var(--bg-tertiary); }
 .curiosity-box__toggle { background: none; border: none; color: inherit; font-weight: 700; cursor: pointer; }
 .curiosity-box__items { margin: 8px 0 0; padding-top: 8px;
-  border-top: 1px dashed color-mix(in srgb, var(--accent-secondary) 25%, transparent); list-style: none; }
+  border-top: 1px solid var(--border-subtle); list-style: none; }
 .curiosity-item { margin-bottom: 10px; }
 .curiosity-item__subject { font-weight: 700; }
-.citation-chip { display: inline-block; border: 1px solid var(--border-subtle); border-radius: 10px;
+.citation-chip { display: inline-block; border: 1px solid var(--border-subtle); border-radius: var(--radius);
   padding: 1px 8px; margin: 4px 4px 0 0; font-size: 11px; }
-.citation-chip--wiki { color: var(--accent-secondary); text-decoration: none; }
+.citation-chip--wiki { color: var(--accent-tertiary); text-decoration: none; }
 

@@ -68,14 +68,29 @@ export function renderInlineMarkdown(text: string, keyPrefix: string): React.Rea
  * get lightweight markdown processing (**bold**, *italic*) and [^n] stripping.
  * Does NOT apply [N] citation logic — footnotes use the marker field.
  */
+/** A `$…$` span that contains several natural-language words is the model
+ *  stuffing prose into math delimiters, not real math — render it as text. */
+function looksLikeProse(inner: string): boolean {
+  const words = inner.match(/\b[a-zA-Z]{2,}\b/g) || [];
+  return words.length >= 3;
+}
+
 export function renderMathText(body: string): React.ReactNode {
   if (!body) return null;
+  const normalized = normalizeMathDelimiters(body);
+  // Guard: if single-`$` delimiters are unbalanced (odd count, ignoring
+  // escaped `\$`), the paragraph is malformed — never feed a half-open span
+  // to KaTeX (that produces glommed-glyph soup). Render it as plain markdown.
+  const dollars = (normalized.match(/(?<!\\)\$/g) || []).length;
+  if (dollars % 2 !== 0) {
+    return <span>{renderInlineMarkdown(normalized, "0")}</span>;
+  }
   const parts: React.ReactNode[] = [];
-  const segments = normalizeMathDelimiters(body).split(/((?:\$\$[\s\S]*?\$\$|\$[^$\n]+\$))/g);
+  const segments = normalized.split(/((?:\$\$[\s\S]*?\$\$|\$[^$\n]+\$))/g);
   segments.forEach((seg, i) => {
     if (seg.startsWith("$$") && seg.endsWith("$$") && seg.length > 4) {
       parts.push(<MathBlock key={i} tex={seg.slice(2, -2)} />);
-    } else if (seg.startsWith("$") && seg.endsWith("$") && seg.length > 2) {
+    } else if (seg.startsWith("$") && seg.endsWith("$") && seg.length > 2 && !looksLikeProse(seg.slice(1, -1))) {
       parts.push(<MathInline key={i} tex={seg.slice(1, -1)} />);
     } else {
       // Plain text segment: apply inline markdown + [^n] stripping.

@@ -132,9 +132,10 @@ function StoryDigestCardInner({ digest }: { digest: StoryDigest }) {
   return (
     <div className="story-card">
       <div className="story-card__hd">
-        <span className="story-card__scope">{digest.book} · {digest.chapter} — Story</span>
+        <span className="story-card__scope">{digest.book} · {digest.chapter}</span>
         <button type="button" aria-label="Expand all" onClick={() => setOpen(new Set(withItems.map(([, i]) => i)))}>Expand all</button>
         <button type="button" aria-label="Collapse all" onClick={() => setOpen(new Set())}>Collapse all</button>
+        <span className="story-card__hd-sep" aria-hidden="true" />
         <button type="button" aria-label="Download ZIP" disabled={isDownloading} onClick={download}>
           {isDownloading ? "Downloading…" : "Download ZIP"}
         </button>

@@ -39,7 +39,7 @@ describe("ContextPanel — SourceCard defensive rendering", () => {
     ).not.toThrow();
   });
 
-  it("displays '?' fallback label when source.book is empty string", () => {
+  it("omits the book tag (no '?' placeholder) when source.book is empty", () => {
     const src = makeSource({ book: "" });
     const { container } = render(
       <ContextPanel
@@ -50,10 +50,8 @@ describe("ContextPanel — SourceCard defensive rendering", () => {
         onSourceClick={noop}
       />
     );
-    // The book tag span should contain "?" as fallback.
-    const bookTag = container.querySelector(".book-tag");
-    expect(bookTag).not.toBeNull();
-    expect(bookTag!.textContent).toContain("?");
+    // Empty book → render nothing rather than a broken-looking "?" tag.
+    expect(container.querySelector(".book-tag")).toBeNull();
   });
 
   it("renders a normal source with a known book key without crash", () => {
