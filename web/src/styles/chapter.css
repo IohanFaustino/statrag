@@ -16,31 +16,35 @@
   /* No forced max-width — the chat column already constrains width */
 }
 
-/* Facilitate variant: headered document — strip the card chrome */
-.chapter-card--facilitate {
+/* Document modes (facilitate + resume): headered document — strip card chrome */
+.chapter-card--facilitate,
+.chapter-card--resume {
   border: none;
   background: none;
   box-shadow: none;
   padding: 0;
 }
 
-/* Facilitate header: hairline separator acts as doc header, not card chrome */
-.chapter-card--facilitate .chapter-card__hd {
+/* Doc header: hairline separator acts as doc header, not card chrome */
+.chapter-card--facilitate .chapter-card__hd,
+.chapter-card--resume .chapter-card__hd {
   border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 14px;
   padding-bottom: 8px;
 }
 
-/* Facilitate intro: comfortable lead paragraph */
-.chapter-card--facilitate .chapter-card__intro {
+/* Doc intro: comfortable lead paragraph */
+.chapter-card--facilitate .chapter-card__intro,
+.chapter-card--resume .chapter-card__intro {
   margin: 4px 0 18px;
   font-style: italic;
   line-height: 1.6;
   color: var(--text-secondary);
 }
 
-/* Facilitate section: no bordered box, just spacing */
-.chapter-card--facilitate .chapter-block {
+/* Doc section: no bordered box, just spacing */
+.chapter-card--facilitate .chapter-block,
+.chapter-card--resume .chapter-block {
   padding: 0;
   background: none;
   border: none;
@@ -50,7 +54,8 @@
 }
 
 /* Facilitate section heading: real header, generous top margin */
-.chapter-card--facilitate .chapter-block__h {
+.chapter-card--facilitate .chapter-block__h,
+.chapter-card--resume .chapter-block__h {
   font-family: var(--font-serif);
   font-size: var(--text-lg);
   font-weight: 600;
@@ -59,6 +64,11 @@
   color: var(--text-primary);
   margin-top: 28px;
   margin-bottom: 2px;
+}
+/* Resume is the terser sibling — slightly tighter heading rhythm */
+.chapter-card--resume .chapter-block__h {
+  font-size: var(--text-md);
+  margin-top: 18px;
 }
 
 /* Facilitate pages caption: small muted mono, breathing room before body */
@@ -88,8 +98,8 @@
 }
 /* Document flow: display math is open centered type, not a tinted panel
    (beats the global/broadsheet .math-block !important chrome). */
-.chapter-card--facilitate .facilitate-content .math-block,
-.chapter-card--facilitate .facilitate-content__math-block .math-block {
+.chapter-card--facilitate .math-block,
+.chapter-card--resume .math-block {
   background: none !important;
   border: none !important;
   border-radius: 0;
@@ -98,7 +108,8 @@
 }
 
 /* Definition — indented passage with a hairline accent rule, not a box */
-.chapter-card--facilitate .facilitate-content blockquote {
+.chapter-card--facilitate .facilitate-content blockquote,
+.chapter-card--resume .facilitate-content blockquote {
   border-left: 2px solid var(--accent-primary);
   background: none;
   padding: 2px 0 2px 16px;
@@ -106,7 +117,8 @@
   border-radius: 0;
   line-height: 1.55;
 }
-.chapter-card--facilitate .facilitate-content blockquote strong {
+.chapter-card--facilitate .facilitate-content blockquote strong,
+.chapter-card--resume .facilitate-content blockquote strong {
   display: block;
   margin-bottom: 4px;
   color: var(--text-primary);
@@ -122,10 +134,7 @@
   margin: 18px 0 4px;
 }
 
-/* Resume variant: secondary accent stripe */
-.chapter-card--resume {
-  border-left: 3px solid var(--accent-secondary);
-}
+/* Resume marker is the amber eyebrow, not an outer stripe (no card chrome). */
 
 /* ── Header row ──────────────────────────────────────────────────── */
 .chapter-card__hd {
@@ -284,10 +293,10 @@
 }
 
 .chapter-card__math-block {
-  padding: 10px 14px;
-  background: rgba(229, 72, 77, 0.04);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
+  padding: 0.4em 0;
+  background: none;
+  border: none;
+  border-radius: 0;
   overflow-x: auto;
   text-align: center;
 }
