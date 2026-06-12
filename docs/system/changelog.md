@@ -16,7 +16,9 @@ Append-only. Latest at top.
 
 **Library modal:** centered + capped at 1100px (was 1600px sprawl), square corners, book cards use the same brick left-rule selection language as the answer card.
 
-**Gates:** tsc clean, 288/288 frontend tests, browser-verified both themes (rail/Σ/headers, light AA, accent picker + presets + reset live). **Known follow-ups:** About/mode modal is hardcoded dark-only (not theme-aware); Library cover placeholders still saturated color blocks.
+**Modal theming + covers (same-day follow-up):** the 5 mode modals (About/QA/Facilitate/Resume/Extension share `.about-model__*`) were hardcoded dark via undefined `var(--border,#2a2a2a)`/`var(--panel,#141619)` fallbacks. Defined legacy aliases (`--border`/`--panel`/`--line`/`--muted`/`--fg`/`--accent`/`--pill` → live theme tokens) in `tokens.css` + patched the remaining hardcoded `#000`/`#fff` (node dropdown panel/active row → `--bg-elevated`/`--on-accent`) — all modals now theme-aware. Library cover placeholders changed from saturated `book.color` blocks to surname-on-paper with a thin colored spine.
+
+**Gates:** tsc clean, 288/288 frontend tests, browser-verified both themes (rail/Σ/headers, light AA, accent picker + presets + reset, About modal light, Library covers).
 
 ---
 

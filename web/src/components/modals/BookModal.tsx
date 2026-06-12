@@ -123,7 +123,8 @@ function BookCover({ book, size = "lg" }: { book: Book; size?: "sm" | "lg" }) {
     );
   }
 
-  // Generic fallback cover
+  // Generic fallback cover — surname on paper with a thin colored spine
+  // (avoids saturated blocks that read as broken images on light cards).
   return (
     <div
       className="book-cover"
@@ -131,14 +132,19 @@ function BookCover({ book, size = "lg" }: { book: Book; size?: "sm" | "lg" }) {
       style={{
         width: w,
         height: h,
-        background: book.color ?? "#1a1a2e",
+        background: "var(--bg-secondary)",
+        borderLeft: `3px solid ${book.color ?? "var(--border-default)"}`,
+        boxShadow: "inset 0 0 0 1px var(--border-subtle)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        textAlign: "center",
+        padding: "0 4px",
         fontSize: size === "sm" ? 8 : 12,
-        color: "#E8ECF0",
-        fontFamily: "serif",
-        letterSpacing: "0.05em",
+        color: "var(--text-secondary)",
+        fontFamily: "var(--font-serif)",
+        fontWeight: 600,
+        letterSpacing: "0.02em",
       }}
       aria-label={book.title}
     >

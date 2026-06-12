@@ -121,6 +121,17 @@
   /* Broadsheet: near-square corners = printed object, not soft app */
   --radius: 2px;
 
+  /* Legacy aliases — older components reference these undefined vars with
+     dark fallbacks (e.g. var(--border, #2a2a2a)), which broke theming.
+     Map them to the live theme tokens so those surfaces follow the theme. */
+  --border: var(--border-subtle);
+  --panel:  var(--bg-secondary);
+  --line:   var(--border-subtle);
+  --muted:  var(--text-tertiary);
+  --fg:     var(--text-primary);
+  --accent: var(--accent-primary);
+  --pill:   var(--accent-primary-soft);
+
   --topbar-h: 48px;
   --sidebar-w: 260px;
   --sidebar-w-collapsed: 52px;
