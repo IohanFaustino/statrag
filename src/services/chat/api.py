@@ -48,6 +48,70 @@ def _strip_ctrl(o):
 
 
 # ---------------------------------------------------------------------------
+# Math normalizer — fix bare LaTeX Greek/operators inside $...$ spans
+# ---------------------------------------------------------------------------
+
+# All span types: $$...$$ (display) and $...$ (inline).  DOTALL so spans can
+# cross the occasional embedded newline in display math.
+_MATH_SPAN = re.compile(r"(\$\$.*?\$\$|\$[^$\n]*?\$)", re.DOTALL)
+
+# Allowlist ordered LONGEST-FIRST so alternation matches the longer token
+# before any prefix (e.g. subseteq wins over subset, varepsilon over epsilon).
+_GREEKOPS: list[str] = [
+    # Greek — longer variants first
+    "varepsilon", "varphi", "vartheta", "varpi",
+    "epsilon", "upsilon",
+    "alpha", "gamma", "delta", "zeta", "eta", "theta", "iota", "kappa",
+    "lambda", "mu", "nu", "xi", "pi", "rho", "sigma", "tau", "phi",
+    "chi", "psi", "omega", "beta",
+    # Greek capitals
+    "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma",
+    "Upsilon", "Phi", "Psi", "Omega",
+    # Common operators/symbols — longer first
+    "approx", "times", "cdot", "infty", "partial", "nabla",
+    "forall", "exists",
+    "subseteq", "subset", "notin", "propto",
+    "leq", "geq", "neq",
+    "sum", "int", "prod",
+    "to", "le", "ge", "ne",
+    "in", "cup", "cap", "sim",
+]
+
+# Match a bare token that is:
+#   - NOT immediately preceded by a backslash or a letter (so \delta and xdelta
+#     are left alone),
+#   - NOT immediately followed by a letter (so deltax, pixel are left alone).
+_BARE = re.compile(
+    r"(?<![\\a-zA-Z])(" + "|".join(_GREEKOPS) + r")(?![a-zA-Z])"
+)
+
+
+def _normalize_math(o):
+    """Recursively fix bare LaTeX Greek letters and operators inside ``$...$``
+    and ``$$...$$`` math spans in str/dict/list.
+
+    Only tokens that are **not already preceded by a backslash** and are
+    **not part of a longer alnum identifier** are prefixed.  Text outside math
+    spans is never modified.  Non-str/dict/list values pass through unchanged.
+
+    Documented acceptable side-effect: ``$x_{mu}$`` → ``$x_{\\mu}$`` (the
+    subscript bare token is also fixed — more correct LaTeX).
+    """
+    if isinstance(o, str):
+        if "$" not in o:
+            return o
+        return _MATH_SPAN.sub(
+            lambda m: _BARE.sub(lambda x: "\\" + x.group(1), m.group(0)),
+            o,
+        )
+    if isinstance(o, dict):
+        return {k: _normalize_math(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_normalize_math(v) for v in o]
+    return o
+
+
+# ---------------------------------------------------------------------------
 # App + middleware
 # ---------------------------------------------------------------------------
 
@@ -213,7 +277,7 @@ async def chat_event_gen(req: ChatRequest):
                 pass
 
         async for ev in stream_chat(req, history=history):
-            ev = _strip_ctrl(ev)
+            ev = _normalize_math(_strip_ctrl(ev))
             ev_type = ev.get("type", "message")
             if ev_type == "token":
                 assistant_text_buf.append(ev.get("text", ""))
@@ -343,7 +407,7 @@ async def concept_explore_route(request: Request) -> EventSourceResponse:
 
     async def gen():
         async for ev in concept_explore(body):
-            ev = _strip_ctrl(ev)
+            ev = _normalize_math(_strip_ctrl(ev))
             yield {"event": ev.get("type", "message"), "data": json.dumps(ev)}
     return EventSourceResponse(gen(), ping=15)
 

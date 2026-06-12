@@ -129,6 +129,8 @@ Example (abbreviated):
 - If no evidence supports the answer, state honestly in intro that the
   available sources do not cover this question; leave deepening and
   conclusion short.
+- Write all Greek letters and math operators as proper LaTeX with a backslash
+  (e.g. \\mu, \\delta, \\Phi, \\to, \\le), never bare (mu, delta, Phi, to, le).
 </rules>
 """
 
@@ -217,7 +219,7 @@ Return ONLY a JSON object with these keys:
 # ---------------------------------------------------------------------------
 
 QA_GENERATE_PROMPT = """<role>
-You answer ONE specific question directly and briefly, grounded ONLY in the
+You answer ONE specific question directly and precisely, grounded ONLY in the
 provided textbook sources.
 </role>
 
