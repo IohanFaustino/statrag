@@ -185,7 +185,25 @@ async def run_facilitate_story(req) -> AsyncIterator[dict]:
         headings = [{"section_id": s.chunkId, "h2_path": s.title} for s in sections]
         sid, _score = resolve_section(message, subtopics=res.requested_subtopics, headings=headings)
         if not sid:
-            yield section_clarify(headings=headings, chapter_id=res.chapter_id)
+            if not headings:
+                # No sections fetched — book/chapter didn't resolve to anything teachable.
+                # Emit a book/chapter clarify instead of an empty section list.
+                clar = maybe_clarify(res, catalog)
+                if clar is not None:
+                    yield clar
+                else:
+                    yield {
+                        "type": "clarify",
+                        "reason": "chapter_empty",
+                        "message": (
+                            "I couldn't load any sections for that chapter. "
+                            "Try naming the chapter explicitly (e.g. 'chapter 7') or pick a book."
+                        ),
+                        "candidates": [],
+                        "chapter_guess": res.chapter_id,
+                    }
+            else:
+                yield section_clarify(headings=headings, chapter_id=res.chapter_id)
             yield {"type": "done"}
             return
         src = next((s for s in sections if s.chunkId == sid), None)

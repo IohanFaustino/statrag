@@ -90,3 +90,47 @@ async def test_clarify_short_circuits(monkeypatch):
     events = [e async for e in fs.run_facilitate_story(_Req("teach nothing"))]
     assert any(e.get("type") == "clarify" for e in events)
     assert not any(e.get("type") == "structured_output" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_empty_sections_yields_actionable_clarify_not_empty_section_list(monkeypatch):
+    """When book/chapter resolves but fetch_chapter_sections returns [],
+    the runner must NOT emit an empty section_clarify (reason='section_ambiguous',
+    candidates=[]). Instead it must emit a helpful clarify."""
+    from src.services.chat.schemas import BookResolution
+
+    # Force inline path
+    monkeypatch.setattr(fs, "_resolve_one_section",
+                        lambda req: (_ for _ in ()).throw(NotImplementedError()))
+    monkeypatch.setattr(fs, "parse_catalog", lambda: [])
+
+    async def fake_resolve(*a, **k):
+        return BookResolution(
+            book_slug="hansen",
+            book_confidence=0.95,
+            book_candidates=["hansen"],
+            chapter_id="ch99",
+            requested_subtopics=[],
+        )
+
+    monkeypatch.setattr(fs, "resolve_book", fake_resolve)
+    # maybe_clarify returns None → runner must hit the chapter_empty fallback
+    monkeypatch.setattr(fs, "maybe_clarify", lambda res, cat: None)
+    monkeypatch.setattr(fs, "fetch_chapter_sections", lambda *a, **k: [])
+
+    class _Req:
+        message = "teach me something"
+        bookFilter = ["hansen"]
+        model = "nano"
+        stageModels = None
+        conversationId = None
+
+    events = [e async for e in fs.run_facilitate_story(_Req())]
+    clars = [e for e in events if e.get("type") == "clarify"]
+    assert clars, "expected a clarify event"
+    # Must NOT be the empty section_ambiguous clarify
+    assert clars[0]["reason"] != "section_ambiguous", (
+        "got an empty section_ambiguous clarify — should be chapter_empty or a book/chapter clarify"
+    )
+    assert clars[0]["reason"] == "chapter_empty"
+    assert not any(e.get("type") == "structured_output" for e in events)
