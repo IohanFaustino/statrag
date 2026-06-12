@@ -15,10 +15,10 @@ async function streamExplore(body: object, onEvent: (e: Record<string, unknown>)
     const { done, value } = await reader.read();
     if (done) break;
     buf += dec.decode(value, { stream: true });
-    const parts = buf.split("\n\n");
+    const parts = buf.split(/\r?\n\r?\n/);
     buf = parts.pop() || "";
     for (const p of parts) {
-      const line = p.split("\n").find((l) => l.startsWith("data:"));
+      const line = p.split(/\r?\n/).find((l) => l.startsWith("data:"));
       if (line) { try { onEvent(JSON.parse(line.slice(5).trim())); } catch { /* ignore */ } }
     }
   }
