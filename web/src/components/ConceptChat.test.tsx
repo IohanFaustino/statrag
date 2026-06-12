@@ -56,6 +56,25 @@ describe("ConceptChat", () => {
     expect(screen.getByText(/Wikipedia: X/)).toBeInTheDocument();
   });
 
+  it("renders math in the brief via KaTeX, not raw $ source", async () => {
+    const sse =
+      "event: concept_seed\r\n" +
+      'data: {"type":"concept_seed","term":"X","brief":"The mean is $\\\\overline{X}_n$ here.","citations":[]}\r\n\r\n' +
+      "event: done\r\ndata: {\"type\":\"done\"}\r\n\r\n";
+    const enc = new TextEncoder();
+    let sent = false;
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      body: { getReader: () => ({ read: async () => (sent ? { done: true, value: undefined } : (sent = true, { done: false, value: enc.encode(sse) })) }) },
+    })) as unknown as typeof fetch);
+    const { container } = render(<ConceptChat anchor={anchor} conversationId="abc" onClose={() => {}} />);
+    await screen.findByText(/here\./);   // brief text present
+    // Raw "$\overline" must NOT appear as visible text — MathText rendered it via KaTeX
+    expect(screen.queryByText(/\$\\overline/)).toBeNull();
+    // KaTeX rendered an element
+    expect(container.querySelector(".katex")).toBeTruthy();
+  });
+
   it("deepens with history on follow-up submit", async () => {
     await act(async () => {
       render(<ConceptChat anchor={anchor} conversationId="abc" onClose={() => {}} />);

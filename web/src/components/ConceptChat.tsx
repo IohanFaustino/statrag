@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConceptAnchor, StoryCitation } from "../types";
+import { MathText } from "./FacilitateContent";
 
 interface Props { anchor: ConceptAnchor; conversationId: string; onClose(): void; }
 interface Turn { role: "user" | "assistant"; text: string; citations?: StoryCitation[]; }
@@ -93,7 +94,7 @@ export default function ConceptChat({ anchor, conversationId, onClose }: Props) 
       <div className="concept-chat__body">
         {turns.map((t, i) => (
           <div key={i} className={`concept-chat__turn concept-chat__turn--${t.role}`}>
-            <p>{t.text}</p>
+            <p><MathText text={t.text} /></p>
             {t.citations && t.citations.length > 0 && (
               <div className="concept-chat__cites">
                 {t.citations.map((c, j) => c.url
