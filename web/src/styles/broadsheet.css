@@ -1,0 +1,198 @@
+/* ──────────────────────────────────────────────────────────────────
+   broadsheet.css — editorial print identity (loaded LAST)
+   Flattens the glass/glow layer from neon.css and lands the two
+   signature moves: the assistant accent rail + serif reading body.
+   Reversible: remove this file's import in main.tsx to restore neon.
+   ────────────────────────────────────────────────────────────────── */
+
+/* 1 ─ Kill all blur. Glass depth → flat paper. ───────────────────── */
+*, *::before, *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 2 ─ Kill the cosmic body backdrop (ambient blobs + dot grid). ──── */
+body::before,
+body::after {
+  display: none !important;
+}
+body { background-color: var(--bg-primary); }
+.app__body,
+.main,
+.main__pane--primary { background: var(--bg-primary); }
+
+/* 3 ─ Opaque surfaces (neon set translucent fills + gradients). ──── */
+.input-bar { background: var(--bg-secondary) !important; }
+.temp-chat__input { background: var(--bg-tertiary) !important; }
+.math-block,
+.src-modal__chunk {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+/* 4 ─ Strip the neon glows; depth now comes from rules + hierarchy. */
+.logo__mark { text-shadow: none !important; }
+.status-dot.is-online { box-shadow: none !important; }
+.input-bar__field:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-soft) !important;
+}
+.input-bar__send.is-active,
+.input-bar__send.is-active:hover { box-shadow: none !important; }
+.conv-item.is-active::before { box-shadow: none !important; }
+.source-card:hover,
+.figure-card:hover,
+.src-chip:hover { box-shadow: none !important; }
+.book-card.is-selected { box-shadow: inset 0 0 0 1px var(--accent-primary) !important; }
+.book-card__toggle.is-on,
+.book-card__toggle.is-on .book-card__toggle-knob { box-shadow: none !important; }
+.mode-picker__item.is-active {
+  background: var(--accent-primary-soft) !important;
+  box-shadow: none !important;
+}
+.mode-picker__item.is-active svg { filter: none !important; }
+
+/* 5 ─ Near-square corners across surfaces (printed object). ──────── */
+.topbar, .sidebar, .ctx-panel, .fm__panel,
+.mode-picker__panel, .model-picker__panel, .book-filter__panel, .mode-overflow__panel,
+.source-card, .figure-card, .book-card, .src-chip, .src-modal__chunk,
+.math-block, .inline-fig, .user-bubble, .books-btn, .book-filter__btn,
+.bm-kpi, .bm-chip, .input-bar__field, .new-conv, .conv-item,
+.mode-picker__item, .tool-btn, .icon-btn, kbd {
+  border-radius: var(--radius) !important;
+}
+
+/* 6 ─ Signature move: the accent rail on every assistant turn.
+   Optional user-picked tint via --answer-surface (default: none). ── */
+.msg--assistant {
+  border-left: 3px solid var(--accent-primary);
+  padding: 2px 16px 4px 18px;
+  background: var(--answer-surface, transparent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+/* User turns stay quiet — no rail (already right-aligned bubble). */
+.msg--user-bubble { border-left: 0; padding-left: 0; }
+
+/* 7 ─ Serif reading body for assistant prose; mono/sans keep chrome. */
+.msg__p,
+.msg__structured p {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.7;
+}
+/* Citations / links carry the cool ink (tertiary), one job only. */
+.msg__body a,
+.msg__p a { color: var(--accent-tertiary); }
+
+/* 8 ─ Red = structure/state only. Demote score colors to ink. ───────── */
+/* The Σ marks carry the accent (user-customizable) + a subtle shadow. */
+.logo__mark,
+.thread__empty-glyph {
+  color: var(--accent-primary);
+  text-shadow: var(--sigma-shadow);
+}
+.thread__empty-glyph { text-shadow: var(--sigma-shadow-lg); }
+.score-badge,
+.score-badge--hi,
+.score-badge--mid,
+.score-badge--low {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  font-family: var(--font-mono);
+}
+:root[data-theme="light"] .score-badge--hi,
+:root[data-theme="light"] .score-badge--mid,
+:root[data-theme="light"] .score-badge--low { background: transparent !important; }
+
+/* Accent-filled controls take a contrast-safe label (flips on pale picks) */
+.about-model__btn--apply,
+.node-dd__row.is-active,
+.fm__apply,
+.book-card__toggle.is-on { color: var(--on-accent, #fff) !important; }
+
+/* 9 ─ Appearance popover (color personalization) ─────────────────────── */
+.appr {
+  position: fixed;
+  top: calc(var(--topbar-h) + 6px);
+  right: 12px;
+  z-index: 60;
+  width: 232px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-popover);
+  padding: 12px;
+}
+.appr__hd {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  padding-bottom: 10px;
+}
+.appr__theme { color: var(--accent-primary); }
+.appr__row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0;
+}
+.appr__lbl { font-size: var(--text-sm); color: var(--text-secondary); }
+.appr__ctl { display: flex; align-items: center; gap: 8px; }
+.appr__swatch {
+  width: 28px; height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+}
+.appr__swatch::-webkit-color-swatch-wrapper { padding: 2px; }
+.appr__swatch::-webkit-color-swatch { border: 0; border-radius: 1px; }
+.appr__reset {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.appr__reset:hover { color: var(--accent-primary); }
+.appr__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+.appr__preset {
+  width: 20px; height: 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.appr__preset:hover { transform: scale(1.12); }
+.appr__preset.is-active {
+  box-shadow: 0 0 0 2px var(--bg-elevated), 0 0 0 3px var(--text-primary);
+}
+.appr__hint {
+  margin: 8px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+.appr__ft {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.appr__reset-all {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.appr__reset-all:hover { color: var(--accent-primary); }

@@ -18,6 +18,19 @@ const MODE_ICON_MAP: Record<string, IconComponent> = {
   extension: IconBook,
 };
 
+// Tier classification — derived by id so absent modes are gracefully skipped.
+const HIGH_TIER = new Set<string>(["tutor", "extension"]);
+const LOW_TIER  = new Set<string>(["qa", "facilitate", "resume"]);
+
+// Info-button SVG shared across all cards.
+const InfoIcon = () => (
+  <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="8" cy="8" r="6.5" />
+    <path d="M8 7.2v4" strokeLinecap="round" />
+    <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 interface ModePickerProps {
   activeMode: string;
   modes: ModeMeta[];
@@ -63,6 +76,69 @@ export default function ModePicker({ activeMode, modes, onChange, onAbout, onAbo
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
+  // Renders a single mode card, wrapping with an info (i) button when applicable.
+  function renderCard(m: ModeMeta) {
+    const Icon = MODE_ICON_MAP[m.id];
+    const item = (
+      <button
+        key={m.id}
+        className={"mode-picker__item" + (m.id === activeMode ? " is-active" : "")}
+        type="button"
+        onClick={() => {
+          onChange(m.id);
+          setOpen(false);
+          // Selecting Tutor also opens the About-model / pipeline modal.
+          if (m.id === "tutor" && onAbout) onAbout();
+        }}
+        aria-pressed={m.id === activeMode}
+      >
+        {Icon && <Icon width={14} height={14} />}
+        <span>{m.label}</span>
+      </button>
+    );
+
+    // Per-mode info (i) button configuration.
+    const aboutConfig: { handler: (() => void) | undefined; label: string; title: string } | null =
+      m.id === "tutor" && onAbout
+        ? { handler: onAbout,           label: "About the tutor model & pipeline", title: "About the tutor model & pipeline" }
+        : m.id === "qa" && onAboutQA
+        ? { handler: onAboutQA,         label: "About the Q&A pipeline",           title: "About the Q&A pipeline" }
+        : m.id === "facilitate" && onAboutFacilitate
+        ? { handler: onAboutFacilitate, label: "About the Facilitate pipeline",    title: "About the Facilitate pipeline" }
+        : m.id === "resume" && onAboutResume
+        ? { handler: onAboutResume,     label: "About the Resume pipeline",        title: "About the Resume pipeline" }
+        : m.id === "extension" && onAboutExtension
+        ? { handler: onAboutExtension,  label: "About the Extension pipeline",     title: "About the Extension pipeline" }
+        : null;
+
+    if (aboutConfig && aboutConfig.handler) {
+      const { handler, label, title } = aboutConfig;
+      return (
+        <div key={m.id} className="mode-picker__cell">
+          {item}
+          <button
+            type="button"
+            className="mode-picker__about"
+            aria-label={label}
+            title={title}
+            onClick={(e) => {
+              e.stopPropagation();
+              handler();
+              setOpen(false);
+            }}
+          >
+            <InfoIcon />
+          </button>
+        </div>
+      );
+    }
+
+    return item;
+  }
+
+  const highModes = modes.filter((m) => HIGH_TIER.has(m.id));
+  const lowModes  = modes.filter((m) => LOW_TIER.has(m.id));
+
   return (
     <div className="mode-picker" ref={containerRef}>
       <button
@@ -89,154 +165,24 @@ export default function ModePicker({ activeMode, modes, onChange, onAbout, onAbo
           <div className="mode-picker__hd">
             Switch mode <kbd>⌘K</kbd>
           </div>
-          <div className="mode-picker__grid">
-            {modes.map((m) => {
-              const Icon = MODE_ICON_MAP[m.id];
-              const item = (
-                <button
-                  key={m.id}
-                  className={"mode-picker__item" + (m.id === activeMode ? " is-active" : "")}
-                  type="button"
-                  onClick={() => {
-                    onChange(m.id);
-                    setOpen(false);
-                    // Selecting Tutor also opens the About-model / pipeline modal.
-                    if (m.id === "tutor" && onAbout) onAbout();
-                  }}
-                  aria-pressed={m.id === activeMode}
-                >
-                  {Icon && <Icon width={14} height={14} />}
-                  <span>{m.label}</span>
-                </button>
-              );
-              // The Tutor card carries an info (i) button → opens About-model modal.
-              if (m.id === "tutor" && onAbout) {
-                return (
-                  <div key={m.id} className="mode-picker__cell">
-                    {item}
-                    <button
-                      type="button"
-                      className="mode-picker__about"
-                      aria-label="About the tutor model & pipeline"
-                      title="About the tutor model & pipeline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAbout();
-                        setOpen(false);
-                      }}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="8" cy="8" r="6.5" />
-                        <path d="M8 7.2v4" strokeLinecap="round" />
-                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              }
-              // The Q&A card carries an info (i) button → opens Q&A mode modal.
-              if (m.id === "qa" && onAboutQA) {
-                return (
-                  <div key={m.id} className="mode-picker__cell">
-                    {item}
-                    <button
-                      type="button"
-                      className="mode-picker__about"
-                      aria-label="About the Q&A pipeline"
-                      title="About the Q&A pipeline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAboutQA();
-                        setOpen(false);
-                      }}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="8" cy="8" r="6.5" />
-                        <path d="M8 7.2v4" strokeLinecap="round" />
-                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              }
-              // The Facilitate card carries an info (i) button → opens Facilitate modal.
-              if (m.id === "facilitate" && onAboutFacilitate) {
-                return (
-                  <div key={m.id} className="mode-picker__cell">
-                    {item}
-                    <button
-                      type="button"
-                      className="mode-picker__about"
-                      aria-label="About the Facilitate pipeline"
-                      title="About the Facilitate pipeline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAboutFacilitate();
-                        setOpen(false);
-                      }}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="8" cy="8" r="6.5" />
-                        <path d="M8 7.2v4" strokeLinecap="round" />
-                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              }
-              // The Resume card carries an info (i) button → opens Resume modal.
-              if (m.id === "resume" && onAboutResume) {
-                return (
-                  <div key={m.id} className="mode-picker__cell">
-                    {item}
-                    <button
-                      type="button"
-                      className="mode-picker__about"
-                      aria-label="About the Resume pipeline"
-                      title="About the Resume pipeline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAboutResume();
-                        setOpen(false);
-                      }}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="8" cy="8" r="6.5" />
-                        <path d="M8 7.2v4" strokeLinecap="round" />
-                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              }
-              // The Extension card carries an info (i) button → opens Extension modal.
-              if (m.id === "extension" && onAboutExtension) {
-                return (
-                  <div key={m.id} className="mode-picker__cell">
-                    {item}
-                    <button
-                      type="button"
-                      className="mode-picker__about"
-                      aria-label="About the Extension pipeline"
-                      title="About the Extension pipeline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAboutExtension();
-                        setOpen(false);
-                      }}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="8" cy="8" r="6.5" />
-                        <path d="M8 7.2v4" strokeLinecap="round" />
-                        <circle cx="8" cy="4.6" r="0.85" fill="currentColor" stroke="none" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              }
-              return item;
-            })}
-          </div>
+
+          {highModes.length > 0 && (
+            <div className="mode-picker__group">
+              <div className="mode-picker__group-hd" aria-hidden="true">High-power</div>
+              <div className="mode-picker__grid">
+                {highModes.map(renderCard)}
+              </div>
+            </div>
+          )}
+
+          {lowModes.length > 0 && (
+            <div className="mode-picker__group">
+              <div className="mode-picker__group-hd" aria-hidden="true">Lighter</div>
+              <div className="mode-picker__grid">
+                {lowModes.map(renderCard)}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

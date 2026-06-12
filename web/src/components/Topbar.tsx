@@ -25,56 +25,6 @@ interface TopbarProps {
   exportDisabled?: boolean;
 }
 
-function StatsPill({
-  usage,
-  streamingPhase,
-  isStreaming,
-}: {
-  usage?: UsageStats | null;
-  streamingPhase?: "idle" | "thinking" | "writing";
-  isStreaming?: boolean;
-}) {
-  const [tick, setTick] = React.useState(0);
-  const startRef = React.useRef<number | null>(null);
-  React.useEffect(() => {
-    if (isStreaming) {
-      if (startRef.current == null) startRef.current = performance.now();
-      const id = window.setInterval(() => setTick((t) => t + 1), 200);
-      return () => window.clearInterval(id);
-    }
-    startRef.current = null;
-    return undefined;
-  }, [isStreaming]);
-
-  let durationLabel = "—";
-  let tokensLabel = "—";
-  let phaseLabel = "idle";
-
-  if (isStreaming && startRef.current != null) {
-    const ms = performance.now() - startRef.current;
-    durationLabel = (ms / 1000).toFixed(1) + "s";
-    phaseLabel = streamingPhase === "writing" ? "writing" : "thinking";
-    tokensLabel = "…";
-    void tick;
-  } else if (usage) {
-    durationLabel = (usage.durationMs / 1000).toFixed(1) + "s";
-    tokensLabel = `${usage.estTokens}`;
-    phaseLabel = "done";
-  }
-
-  const live = isStreaming;
-  return (
-    <div className={"stats-pill" + (live ? " stats-pill--live" : "")} title="Session stats">
-      <span className={"stats-pill__dot stats-pill__dot--" + phaseLabel} aria-hidden="true" />
-      <span className="stats-pill__lbl">{phaseLabel}</span>
-      <span className="stats-pill__sep">·</span>
-      <span className="stats-pill__val">{durationLabel}</span>
-      <span className="stats-pill__sep">·</span>
-      <span className="stats-pill__val">{tokensLabel} tok</span>
-    </div>
-  );
-}
-
 function BooksButton({
   books,
   onClick,
@@ -146,14 +96,7 @@ export default function Topbar({
         </div>
       </div>
 
-      <div className="topbar__center">
-        <div className="topbar__breadcrumb">
-          <span className="topbar__crumb-dim">Today</span>
-          <span className="topbar__crumb-sep">/</span>
-          <span className="topbar__crumb-title">{activeConvTitle}</span>
-        </div>
-        <StatsPill usage={usage} streamingPhase={streamingPhase} isStreaming={isStreaming} />
-      </div>
+      <div className="topbar__center" />
 
       <div className="topbar__right">
         <BooksButton books={books} onClick={onOpenBooks} />
@@ -170,6 +113,15 @@ export default function Topbar({
             <IconDownload />
           </button>
         )}
+        <button
+          className="icon-btn icon-btn--appr"
+          onClick={onOpenSettings}
+          aria-label="Appearance"
+          title="Appearance — colors"
+          type="button"
+        >
+          <IconGear />
+        </button>
         <button
           className={"icon-btn icon-btn--theme"}
           onClick={onToggleTheme}

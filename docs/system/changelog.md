@@ -2,6 +2,24 @@
 
 Append-only. Latest at top.
 
+## 2026-06-12 — Broadsheet UI redesign: editorial identity + color personalization
+
+**Scope:** branch `feat/component-equation-enforcement`. Frontend-only (CSS + React/TS); no backend, pipeline, or schema change. Advised by the iohan creative-advisor across two browse-and-critique passes on the live app.
+
+**Visual identity ("Broadsheet"):** abandoned the glass-and-glow "Scholar's Terminal" frame for a flat editorial print look. `neon.css` token blocks removed (they secretly overrode `tokens.css` at runtime); all blur/glow killed via `broadsheet.css` (loaded last). Opaque flat surfaces, neutral hairline borders, near-square `--radius: 2px`, serif (`Crimson Pro`) reading body for assistant prose, unified red ink (dark `#E5484D` / light brick `#C23A2B`) with navy demoted to link color. Signature: a 3px accent **rail** on every assistant turn + the open/closed **caret** are the only always-red elements; section headers, sub-headers, labels, logo, score badges, KaTeX edges all demoted to ink. Section headers reauthored left-aligned ink serif (was centered+ruled); sub-headers → mono eyebrow; the in-answer citation list relabeled **References** (distinct from the retrieval **Sources** panel — resolves the cited-vs-retrieved count confusion).
+
+**Light mode ("true newsprint"):** warm paper `#F4F1E8`, white reading surface, near-black ink `#1A1A1A`, warm-neutral hairlines; darkened secondary/tertiary tokens (`#4A4034`/`#6B6356`) to hit WCAG AA on white panels; repointed legacy undefined `--fg`/`--muted`/`--line`/`--accent` fallbacks (which broke on paper) to real tokens.
+
+**Declutter:** removed topbar telemetry pill + breadcrumb, the right-panel "Retrieval" debug block, the per-message hover fork/export buttons, and the "Continue the conversation below" hint. Per-message badge (MODE · sources · latency) moved from top to footer.
+
+**Color personalization:** `state/tweaks.ts` reshaped — per-theme accent memory (`accentByTheme`) so a theme toggle no longer clobbers a pick (fixed the navy-over-brick runtime bug), plus a card-tint token (`--answer-surface`, `color-mix` clamped toward the page) and `--on-accent` luminance flip for contrast-safe labels. New `AppearancePopover` (palette button, topbar): accent/Σ picker, answer-tint picker, 8 curated presets, per-control reset + a global "Reset to defaults". Σ marks now carry the accent + a subtle per-theme `--sigma-shadow` (letterpress on paper / quiet depth on ink).
+
+**Library modal:** centered + capped at 1100px (was 1600px sprawl), square corners, book cards use the same brick left-rule selection language as the answer card.
+
+**Gates:** tsc clean, 288/288 frontend tests, browser-verified both themes (rail/Σ/headers, light AA, accent picker + presets + reset live). **Known follow-ups:** About/mode modal is hardcoded dark-only (not theme-aware); Library cover placeholders still saturated color blocks.
+
+---
+
 ## 2026-06-11 — Q&A rebuilt: storytelling voice + Wikipedia grounding + pure-code verbatim binder
 
 **Scope:** branch `feat/qa-story-wiki`. Spec: `docs/superpowers/specs/2026-06-11-qa-story-wiki-design.md`. Plan: `docs/superpowers/plans/2026-06-11-qa-story-wiki.md`. Doc: [51-qa-mode.md](../services/chat-features/51-qa-mode.md).

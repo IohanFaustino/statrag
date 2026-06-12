@@ -4,81 +4,9 @@
    applies backdrop-filter glass to surfaces, and adds glow shadows.
    ────────────────────────────────────────────────────────────────── */
 
-:root[data-theme="dark"] {
-  --bg-primary:    #000000;
-  --bg-secondary:  rgba(12, 12, 14, 0.72);
-  --bg-tertiary:   rgba(20, 20, 22, 0.78);
-  --bg-elevated:   rgba(32, 32, 36, 0.86);
-
-  --border-subtle:  rgba(229, 72, 77, 0.22);
-  --border-default: rgba(229, 72, 77, 0.55);
-
-  --text-primary:   #F2F2F4;
-  --text-secondary: #A8A8B0;
-  --text-tertiary:  #6B6B73;
-
-  --accent-primary:   #E5484D;
-  --accent-secondary: #FFA94D;
-  --accent-tertiary:  #FFD18A;
-  --accent-danger:    #FF7A8B;
-  --accent-neutral:   #D49AF0;
-
-  --phase-planning:   #D98E04;
-  --phase-retrieval:  #4D6BFE;
-  --phase-generation: var(--accent-primary, #E5484D);
-  --phase-vision:     #A371F7;
-  --phase-io:         var(--text-tertiary, #9aa1aa);
-
-  --code-surface: rgba(20, 10, 14, 0.62);
-  --code-accent:  #E5484D;
-  --syntax-amber: #FFD18A;
-
-  --glow-accent:  0 0 18px rgba(229, 72, 77, 0.42), 0 0 40px rgba(229, 72, 77, 0.14);
-  --glow-soft:    0 0 10px rgba(229, 72, 77, 0.28);
-  --glass-edge:   inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 140, 150, 0.06);
-
-  --shadow-elev:    0 16px 52px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --shadow-popover: 0 14px 42px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(229, 72, 77, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-:root[data-theme="light"] {
-  /* Financial — warm paper + cobalt accent */
-  --bg-primary:    #FAF7F0;
-  --bg-secondary:  rgba(255, 254, 250, 0.46);
-  --bg-tertiary:   rgba(255, 254, 250, 0.60);
-  --bg-elevated:   rgba(255, 254, 250, 0.85);
-
-  --border-subtle:  rgba(30, 58, 138, 0.10);
-  --border-default: rgba(30, 58, 138, 0.22);
-
-  --text-primary:   #0F1F3D;
-  --text-secondary: #46607F;
-  --text-tertiary:  #8295AE;
-  --text-inverse:   #FAF7F0;
-
-  --accent-primary:   #1E3A8A;
-  --accent-secondary: #1F7A52;
-  --accent-tertiary:  #C28C18;
-  --accent-danger:    #B0312A;
-  --accent-neutral:   #6B4F8C;
-
-  --phase-planning:   #B45309;
-  --phase-retrieval:  #3743C4;
-  --phase-generation: var(--accent-primary, #1E3A8A);
-  --phase-vision:     #7C3AED;
-  --phase-io:         var(--text-tertiary);
-
-  --code-surface: rgba(30, 58, 138, 0.06);
-  --code-accent:  #1E3A8A;
-  --syntax-amber: #C28C18;
-
-  --glow-accent:  0 0 14px rgba(30, 58, 138, 0.20), 0 0 30px rgba(30, 58, 138, 0.08);
-  --glow-soft:    0 0 8px  rgba(30, 58, 138, 0.14);
-  --glass-edge:   inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 1px rgba(30, 58, 138, 0.04);
-
-  --shadow-elev:    0 10px 34px rgba(15, 31, 61, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  --shadow-popover: 0 10px 30px rgba(15, 31, 61, 0.14), 0 0 0 1px rgba(30, 58, 138, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
+/* Token blocks removed — Broadsheet redesign moves the single source of
+   truth back to tokens.css. neon.css now only carries (soon-neutralized)
+   glass/glow surface effects, which broadsheet.css overrides. */
 
 /* ──────────────────────────────────────────────────────────────────
    Body ambient — cosmic backdrop

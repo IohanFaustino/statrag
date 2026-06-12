@@ -7,22 +7,23 @@
    Dark theme — "Scholar's Terminal" (neon + glass)
    ────────────────────────────────────────────────────────────────── */
 :root[data-theme="dark"] {
-  --bg-primary:    #000000;
-  --bg-secondary:  rgba(12, 12, 14, 0.72);
-  --bg-tertiary:   rgba(20, 20, 22, 0.78);
-  --bg-elevated:   rgba(32, 32, 36, 0.86);
+  /* Broadsheet / Ink — opaque flat surfaces, no glass */
+  --bg-primary:    #0B0B0D;
+  --bg-secondary:  #131316;
+  --bg-tertiary:   #1A1A1E;
+  --bg-elevated:   #232328;
 
-  --border-subtle:  rgba(229, 72, 77, 0.22);
-  --border-default: rgba(229, 72, 77, 0.55);
+  --border-subtle:  rgba(240, 240, 245, 0.08);
+  --border-default: rgba(240, 240, 245, 0.16);
 
-  --text-primary:   #F2F2F4;
-  --text-secondary: #A8A8B0;
-  --text-tertiary:  #6B6B73;
-  --text-inverse:   #050505;
+  --text-primary:   #ECECEE;
+  --text-secondary: #9B9BA4;
+  --text-tertiary:  #62626B;
+  --text-inverse:   #0B0B0D;
 
   --accent-primary:   #E5484D;
-  --accent-secondary: #FFA94D;
-  --accent-tertiary:  #FFD18A;
+  --accent-secondary: #E8A33D;
+  --accent-tertiary:  #6FA8C7;
   --accent-danger:    #FF7A8B;
   --accent-neutral:   #D49AF0;
 
@@ -36,36 +37,46 @@
   --code-accent:  #E5484D;
   --syntax-amber: #FFD18A;
 
-  --glow-accent:  0 0 18px rgba(229, 72, 77, 0.42), 0 0 40px rgba(229, 72, 77, 0.14);
-  --glow-soft:    0 0 10px rgba(229, 72, 77, 0.28);
-  --glass-edge:   inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 140, 150, 0.06);
+  --glow-accent:  none;
+  --glow-soft:    none;
+  --glass-edge:   none;
 
-  --shadow-elev:    0 16px 52px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --shadow-popover: 0 14px 42px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(229, 72, 77, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-elev:    0 1px 0 var(--border-subtle);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-default);
+
+  /* Subtle Σ depth (dark) — quiet, not the old neon glow */
+  --sigma-shadow:   0 1px 2px rgba(0, 0, 0, 0.45);
+  --sigma-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.50);
 }
 
 /* ──────────────────────────────────────────────────────────────────
    Light theme — "Financial Terminal" (cream + navy)
    ────────────────────────────────────────────────────────────────── */
 :root[data-theme="light"] {
-  --bg-primary:    #FAF7F0;
-  --bg-secondary:  rgba(255, 254, 250, 0.46);
-  --bg-tertiary:   rgba(255, 254, 250, 0.60);
-  --bg-elevated:   rgba(255, 254, 250, 0.85);
+  /* Broadsheet / True newsprint — warm off-white paper, near-black ink */
+  --bg-primary:    #F4F1E8;
+  --bg-secondary:  #FBF9F3;
+  --bg-tertiary:   #FFFFFF;
+  --bg-elevated:   #FFFFFF;
 
-  --border-subtle:  rgba(30, 58, 138, 0.10);
-  --border-default: rgba(30, 58, 138, 0.22);
+  /* Warm-neutral hairlines (ink-on-paper), not blue-tinted */
+  --border-subtle:  rgba(38, 30, 20, 0.12);
+  --border-default: rgba(38, 30, 20, 0.26);
 
-  --text-primary:   #0F1F3D;
-  --text-secondary: #46607F;
-  --text-tertiary:  #8295AE;
-  --text-inverse:   #FAF7F0;
+  --text-primary:   #1A1A1A;
+  --text-secondary: #4A4034;  /* AA on white panels (~7:1) */
+  --text-tertiary:  #6B6356;  /* AA normal text on white (~4.6:1) */
+  --text-inverse:   #FBF9F3;
 
-  --accent-primary:   #1E3A8A;
-  --accent-secondary: #1F7A52;
-  --accent-tertiary:  #C28C18;
+  --accent-primary:   #C23A2B;
+  --accent-secondary: #B0780E;
+  --accent-tertiary:  #2D5D7C;
   --accent-danger:    #B0312A;
   --accent-neutral:   #6B4F8C;
+
+  /* Soft brick fills tuned for paper (override the dark-red globals) */
+  --accent-primary-soft: rgba(194, 58, 43, 0.10);
+  --accent-primary-ring: rgba(194, 58, 43, 0.18);
 
   --phase-planning:   #B45309;
   --phase-retrieval:  #3743C4;
@@ -77,12 +88,16 @@
   --code-accent:  #1E3A8A;
   --syntax-amber: #C28C18;
 
-  --glow-accent:  0 0 14px rgba(30, 58, 138, 0.20), 0 0 30px rgba(30, 58, 138, 0.08);
-  --glow-soft:    0 0 8px  rgba(30, 58, 138, 0.14);
-  --glass-edge:   inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 1px rgba(30, 58, 138, 0.04);
+  --glow-accent:  none;
+  --glow-soft:    none;
+  --glass-edge:   none;
 
-  --shadow-elev:    0 10px 34px rgba(15, 31, 61, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  --shadow-popover: 0 10px 30px rgba(15, 31, 61, 0.14), 0 0 0 1px rgba(30, 58, 138, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --shadow-elev:    0 1px 0 var(--border-subtle);
+  --shadow-popover: 0 8px 24px rgba(15, 31, 61, 0.14), 0 0 0 1px var(--border-default);
+
+  /* Letterpress-style ink shadow on paper */
+  --sigma-shadow:   0 1px 0 rgba(42, 38, 32, 0.18), 0 2px 4px rgba(42, 38, 32, 0.12);
+  --sigma-shadow-lg: 0 2px 6px rgba(42, 38, 32, 0.16);
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -92,20 +107,28 @@
   --font-serif: 'Crimson Pro', 'IBM Plex Serif', Georgia, serif;
   --font-sans:  'Atkinson Hyperlegible', 'Inter Tight', system-ui, -apple-system, sans-serif;
   --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, 'Cascadia Code', monospace;
+  /* Broadsheet: serif for reading content, sans for chrome, mono for labels */
+  --font-body:  var(--font-serif);
 
   --text-xs:   11px;
   --text-sm:   13px;
-  --text-base: 15px;
-  --text-md:   17px;
-  --text-lg:   22px;
-  --text-xl:   30px;
-  --text-2xl:  40px;
+  --text-base: 16px;
+  --text-md:   18px;
+  --text-lg:   24px;
+  --text-xl:   34px;
+  --text-2xl:  46px;
+
+  /* Broadsheet: near-square corners = printed object, not soft app */
+  --radius: 2px;
 
   --topbar-h: 48px;
   --sidebar-w: 260px;
   --sidebar-w-collapsed: 52px;
   --ctx-w: 320px;
   --ctx-w-collapsed: 36px;
+
+  /* Reading column — single source of truth for thread + composer measure */
+  --read-col: 740px;
 
   /* Derived accent vars — overridden by useTweaks at runtime */
   --accent-primary-soft: rgba(229, 72, 77, 0.16);

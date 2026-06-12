@@ -168,19 +168,6 @@ function InlineFigure({ block }: { block: Extract<AssistantBlock, { type: "figur
   );
 }
 
-// ─── Streaming placeholder ────────────────────────────────────────────────────
-
-function StreamingDots() {
-  return (
-    <div className="thread__streaming">
-      <span className="thread__streaming-dot" />
-      <span className="thread__streaming-dot" />
-      <span className="thread__streaming-dot" />
-      <span className="thread__streaming-hint">Continue the conversation below</span>
-    </div>
-  );
-}
-
 // ─── User message ─────────────────────────────────────────────────────────────
 
 function UserMessageView({ msg, bubble }: { msg: UserMsg; bubble: boolean }) {
@@ -257,35 +244,6 @@ function AssistantMessageView({
 
   return (
     <article className="msg msg--assistant">
-      <div className="msg__badge">
-        {ModeIcon && (
-          <span className="msg__badge-icon" aria-hidden="true">
-            <ModeIcon width={12} height={12} />
-          </span>
-        )}
-        <span className="msg__badge-mode" aria-live="polite">
-          {modeLabel.toUpperCase()} MODE
-        </span>
-        {msg.books.length > 0 && (
-          <>
-            <span className="msg__badge-sep">·</span>
-            <span className="msg__badge-books">{booksDisplay}</span>
-          </>
-        )}
-        {msg.sourceCount > 0 && (
-          <>
-            <span className="msg__badge-sep">·</span>
-            <span className="msg__badge-count">{msg.sourceCount} sources</span>
-          </>
-        )}
-        {msg.latencyMs > 0 && (
-          <>
-            <span className="msg__badge-sep">·</span>
-            <span className="msg__badge-lat">{(msg.latencyMs / 1000).toFixed(1)}s</span>
-          </>
-        )}
-      </div>
-
       <div className="msg__body">
         {(isPending || (isLast && isStreaming && streamingPhase === "thinking")) && (
           <div className="msg__thinking" aria-live="polite">
@@ -395,38 +353,35 @@ function AssistantMessageView({
         {msg.stopped && <div className="msg__stopped" role="status">Stopped</div>}
       </div>
 
-      {onExport && msg.status === "complete" && (
-        <button
-          className="msg__export"
-          type="button"
-          onClick={() => onExport(idx)}
-          title="Export this answer (.md)"
-          aria-label="Export this answer as Markdown"
-        >
-          <IconDownload width={14} height={14} />
-        </button>
-      )}
-      {!forkDisabled && (
-        <button
-          className="msg__fork"
-          type="button"
-          onClick={() => onFork?.(idx)}
-          title="Open in temporary chat"
-          aria-label="Open in temporary chat"
-        >
-          <svg
-            viewBox="0 0 16 16"
-            width="14"
-            height="14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M8 3.5v9M3.5 8h9" />
-          </svg>
-        </button>
-      )}
+      <div className="msg__badge msg__badge--footer">
+        {ModeIcon && (
+          <span className="msg__badge-icon" aria-hidden="true">
+            <ModeIcon width={12} height={12} />
+          </span>
+        )}
+        <span className="msg__badge-mode" aria-live="polite">
+          {modeLabel.toUpperCase()} MODE
+        </span>
+        {msg.books.length > 0 && (
+          <>
+            <span className="msg__badge-sep">·</span>
+            <span className="msg__badge-books">{booksDisplay}</span>
+          </>
+        )}
+        {msg.sourceCount > 0 && (
+          <>
+            <span className="msg__badge-sep">·</span>
+            <span className="msg__badge-count">{msg.sourceCount} sources</span>
+          </>
+        )}
+        {msg.latencyMs > 0 && (
+          <>
+            <span className="msg__badge-sep">·</span>
+            <span className="msg__badge-lat">{(msg.latencyMs / 1000).toFixed(1)}s</span>
+          </>
+        )}
+      </div>
+
     </article>
   );
 }
@@ -529,7 +484,6 @@ export default function MessageThread({
           ),
         )}
 
-        {!isStreaming && <StreamingDots />}
       </div>
     </div>
   );

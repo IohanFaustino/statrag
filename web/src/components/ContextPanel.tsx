@@ -100,66 +100,6 @@ function FigureCard({ fig }: { fig: Figure }) {
   );
 }
 
-function RetrievalAccordion({ metadata }: { metadata: RetrievalMetadata }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="ctx-section">
-      <button
-        className="ctx-acc"
-        onClick={() => setOpen((o) => !o)}
-        type="button"
-        aria-expanded={open}
-      >
-        <span
-          className={"ctx-acc__caret" + (open ? " is-open" : "")}
-          aria-hidden="true"
-        >
-          <IconChevron />
-        </span>
-        <span className="ctx-section__label">Retrieval</span>
-      </button>
-      {open && (
-        <div className="ctx-meta">
-          <div className="ctx-meta__row">
-            <span>Query (rewritten)</span>
-            <span className="ctx-meta__val">"{metadata.rewrittenQuery}"</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>Embedding</span>
-            <span className="ctx-meta__val">{metadata.embedding}</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>Retrieval</span>
-            <span className="ctx-meta__val">{metadata.retrievalMs}ms</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>Mode</span>
-            <span className="ctx-meta__val">{metadata.mode}</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>top-K</span>
-            <span className="ctx-meta__val">{metadata.topK}</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>score ≥</span>
-            <span className="ctx-meta__val">{metadata.scoreThreshold}</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>Filter</span>
-            <span className="ctx-meta__val">{metadata.filter}</span>
-          </div>
-          <div className="ctx-meta__row">
-            <span>Collections</span>
-            <span className="ctx-meta__val">
-              {metadata.collections.join(", ")}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ContextPanel({
   sources,
   figures,
@@ -259,7 +199,6 @@ export default function ContextPanel({
           </div>
         )}
 
-        {metadata && <RetrievalAccordion metadata={metadata} />}
       </div>
     </aside>
   );

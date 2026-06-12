@@ -12,6 +12,7 @@ import type { ConvDigest } from "./components/Sidebar";
 import ContextPanel from "./components/ContextPanel";
 import MessageThread from "./components/MessageThread";
 import InputBar from "./components/InputBar";
+import AppearancePopover from "./components/AppearancePopover";
 import TempChat from "./components/TempChat";
 import { STATRAG_MODES } from "./lib/modes";
 import BookModal from "./components/modals/BookModal";
@@ -134,6 +135,8 @@ function groupConvsByDate(convs: RawConv[]): ConvGroups {
 const TWEAK_DEFAULTS = {
   theme: "dark" as const,
   accent: "#E5484D",
+  accentByTheme: { light: "#C23A2B", dark: "#E5484D" },
+  cardByTheme: { light: "", dark: "" },
   density: "comfortable" as const,
   userStyle: "bubble" as const,
   fontPair: "plex" as const,
@@ -161,6 +164,7 @@ export default function App() {
 
   // UI state
   const [booksModalOpen, setBooksModalOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [openSource, setOpenSource] = useState<Source | null>(null);
   const [tempChatOpen, setTempChatOpen] = useState(false);
   const [tempSeed, setTempSeed] = useState<number | null>(null);
@@ -556,12 +560,10 @@ export default function App() {
         isStreaming={isStreaming}
         onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
         onOpenBooks={() => setBooksModalOpen(true)}
-        onOpenSettings={() => {
-          /* settings modal — future */
-        }}
+        onOpenSettings={() => setAppearanceOpen((o) => !o)}
         onToggleTheme={() => {
-          const nextTheme = tweaks.theme === "dark" ? "light" : "dark";
-          setTweak({ theme: nextTheme, accent: THEME_ACCENT_DEFAULTS[nextTheme] });
+          // Per-theme accent memory resolves inside useTweaks — don't clobber.
+          setTweak({ theme: tweaks.theme === "dark" ? "light" : "dark" });
         }}
         onExportConversation={handleExportConversation}
         exportDisabled={messages.length === 0}
@@ -646,6 +648,18 @@ export default function App() {
           onSourceClick={(s: Source) => setOpenSource(s)}
         />
       </div>
+
+      <AppearancePopover
+        open={appearanceOpen}
+        theme={tweaks.theme}
+        accent={tweaks.accent}
+        card={tweaks.cardByTheme?.[tweaks.theme] ?? ""}
+        onAccent={(hex) => setTweak("accent", hex)}
+        onCard={(hex) => setTweak("card", hex)}
+        onResetAccent={() => setTweak("accent", THEME_ACCENT_DEFAULTS[tweaks.theme])}
+        onResetCard={() => setTweak("card", "")}
+        onClose={() => setAppearanceOpen(false)}
+      />
 
       <BookModal
         open={booksModalOpen}

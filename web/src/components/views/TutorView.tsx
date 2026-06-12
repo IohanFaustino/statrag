@@ -263,7 +263,7 @@ export default function TutorView({ data }: Props) {
             >
               ›
             </span>
-            <span>Sources</span>
+            <span>References</span>
             <span className="tutor-view__sources-count">
               ({data.citations?.length ?? 0})
             </span>
