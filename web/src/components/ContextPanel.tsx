@@ -155,8 +155,8 @@ export default function ContextPanel({
               <span className="ctx-section__count">({sources.length})</span>
             </div>
             <div className="ctx-section__list">
-              {sources.map((s) => (
-                <SourceCard key={s.rank} src={s} onOpen={onSourceClick} />
+              {sources.map((s, i) => (
+                <SourceCard key={s.rank ?? `src-${i}`} src={s} onOpen={onSourceClick} />
               ))}
             </div>
           </div>

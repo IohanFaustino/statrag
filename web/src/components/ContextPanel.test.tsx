@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import ContextPanel from "./ContextPanel";
 import type { Source } from "../types";
 
@@ -84,5 +84,36 @@ describe("ContextPanel — SourceCard defensive rendering", () => {
         />
       )
     ).not.toThrow();
+  });
+});
+
+describe("ContextPanel — unique key prop (undefined rank)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("emits no 'unique key prop' warning when sources have undefined rank", () => {
+    // Extension/wiki sources carry rank=undefined at runtime (type says number
+    // but the backend omits the field). The key was key={s.rank} = key={undefined}
+    // which is equivalent to a missing key — React fires a console.error warning.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const srcA = makeSource({ rank: undefined as unknown as number, book: "wikipedia", section: "CLT" });
+    const srcB = makeSource({ rank: undefined as unknown as number, book: "wikipedia", section: "LLN" });
+
+    render(
+      <ContextPanel
+        sources={[srcA, srcB]}
+        figures={[]}
+        collapsed={false}
+        onToggle={noop}
+        onSourceClick={noop}
+      />
+    );
+
+    const uniqueKeyWarning = spy.mock.calls.some((args) =>
+      args.some((a) => typeof a === "string" && /unique.*key|key.*unique/i.test(a))
+    );
+    expect(uniqueKeyWarning).toBe(false);
   });
 });
