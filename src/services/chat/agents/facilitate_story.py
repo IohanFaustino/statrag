@@ -139,7 +139,11 @@ def _anchor_from_source(cid: str, c: dict, s: Source) -> ConceptAnchor:
 
 
 def _parse_draft(raw: str) -> FacilitateStoryDraft:
-    data = json.loads(strip_fences(raw))
+    try:
+        data = json.loads(strip_fences(raw))
+    except json.JSONDecodeError:
+        logger.warning("facilitate_story._parse_draft: truncated/invalid JSON — returning empty draft")
+        return FacilitateStoryDraft()
     movements = []
     for m in (data.get("movements") or []):
         f = m.get("formal")
@@ -207,7 +211,8 @@ async def run_facilitate_story(req) -> AsyncIterator[dict]:
             f"{(src.chunk or src.excerpt or '')[:_PREVIEW]}")
     try:
         raw = await _chat([{"role": "system", "content": FACILITATE_STORY_WRITE_PROMPT},
-                           {"role": "user", "content": user}], model=_model_for("write", req), max_tokens=1200)
+                           {"role": "user", "content": user}],
+                          model=_model_for("write", req), max_tokens=2600, schema=FacilitateStoryDraft)
         draft = _parse_draft(raw)
     except Exception:  # noqa: BLE001
         logger.exception("facilitate_story.write failed")

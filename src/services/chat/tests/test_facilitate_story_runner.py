@@ -2,7 +2,9 @@
 import json
 import pytest
 from src.services.chat.agents import facilitate_story as fs
+from src.services.chat.agents.facilitate_story import _parse_draft
 from src.services.chat.schemas import Source
+from src.services.chat.schemas.output import FacilitateStoryDraft
 
 
 class _Req:
@@ -47,6 +49,38 @@ async def test_emits_single_facilitate_story(monkeypatch):
     assert len(data["movements"]) == 1
     assert data["concepts"][0]["id"] == "c1"
     assert any(e.get("type") == "done" for e in events)
+
+
+def test_parse_draft_truncated_json_returns_empty():
+    """Regression: truncated JSON must not raise — returns empty FacilitateStoryDraft."""
+    truncated = '{"hook": "why", "movements": [{"prose": "the story is cut off her'
+    result = _parse_draft(truncated)
+    assert isinstance(result, FacilitateStoryDraft)
+    assert result.hook == ""
+    assert result.movements == []
+    assert result.takeaway == ""
+
+
+def test_parse_draft_valid_json_round_trips():
+    """Full valid JSON with one formal + one prose movement parses correctly."""
+    payload = json.dumps({
+        "hook": "Here is why it matters.",
+        "takeaway": "Now you know.",
+        "math_blocks": ["$$E[X] = \\mu$$"],
+        "movements": [
+            {"formal": {"kind": "theorem", "statement": "E[X] = mu", "explanation": "central [[c1]]"}, "prose": ""},
+            {"prose": "Building on this, the variance follows.", "formal": None},
+        ],
+    })
+    result = _parse_draft(payload)
+    assert isinstance(result, FacilitateStoryDraft)
+    assert result.hook == "Here is why it matters."
+    assert result.takeaway == "Now you know."
+    assert result.math_blocks == ["$$E[X] = \\mu$$"]
+    assert len(result.movements) == 2
+    assert result.movements[0].formal is not None
+    assert result.movements[0].formal.statement == "E[X] = mu"
+    assert result.movements[1].prose == "Building on this, the variance follows."
 
 
 @pytest.mark.asyncio
