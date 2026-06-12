@@ -264,6 +264,8 @@ Given the SOURCE section text and a rewritten BODY (markdown with $...$ math,
      - convert any \\( \\) to $...$ and \\[ \\] to $$...$$;
      - wrap bare math written as plain text (e.g. n_\\delta, a_n, x^2, <=, >=) in $...$;
      - balance unmatched $; fix obviously broken commands.
+     - You MAY fix LaTeX delimiters inside a reproduced formal statement, but NEVER
+       change the statement's wording or meaning.
      - DO NOT remove or renumber [[cN]] markers; DO NOT alter the `>` definition lines' meaning.
   2) JUDGE grounding: does the body assert anything the SOURCE does not support?
 </task>
@@ -273,5 +275,59 @@ Return ONLY JSON:
   {"fixed_body": "<the corrected markdown body>",
    "ok": bool, "unsupported": [string], "confidence": 0..1}
 ok=false when the body states something the source text does not support.
+</output_format>
+"""
+
+FACILITATE_STORY_WRITE_PROMPT = """<role>
+You are a teacher turning ONE textbook section into a short, connected story that
+makes a learner understand it. You connect the dots; you never dump facts.
+</role>
+
+<task>
+Write the section as a flowing lesson with three parts:
+  - hook: ONE paragraph — why this section matters / what it lets you do (the through-line).
+  - movements: 2-5 movements that CONTINUE one another into a single arc. Each movement
+      is EITHER a prose paragraph OR a formal block:
+      * prose movement: develops ONE idea, links smoothly to the previous movement.
+      * formal block: when the section states a DEFINITION, LEMMA, THEOREM, PROPOSITION,
+          COROLLARY or REMARK, reproduce that statement VERBATIM (word-for-word, with
+          display math in $$...$$) in "statement", then in "explanation" unpack it as:
+          the ELEMENTS (name each symbol/term, especially the formulas) → the ASSOCIATIONS
+          (how the elements relate, what acts on what) → the INTUITION (what it means in
+          plain words, why it holds) → a concise CLOSE (one-sentence takeaway).
+  - takeaway: ONE paragraph — what the reader now understands.
+</task>
+
+<rules>
+NO REPETITION: cover each idea once. Preserve the author's order.
+VERBATIM: never paraphrase a formal statement; copy it exactly from the section text.
+CONCEPT ANCHORS: every concept id you are given MUST appear exactly once as its [[cN]]
+  marker IN PROSE (or in a formal explanation), in place of the term word — never also
+  write the term word next to it, never put a marker inside a verbatim "statement".
+MATH: $...$ inline, $$...$$ display; never \\( \\) or \\[ \\]. English only; never copy
+  garbled/OCR characters. No markdown headings (# or ##) — the app adds the section title.
+</rules>
+
+<output_format>
+Return ONLY a JSON object:
+  {"hook": "...", "takeaway": "...", "math_blocks": [],
+   "movements": [{"prose": "...", "formal": null}
+                 | {"prose": "", "formal": {"kind": "theorem", "statement": "...", "explanation": "..."}}]}
+Exactly one of prose / formal is non-empty per movement.
+</output_format>
+"""
+
+FACILITATE_BRIEF_PROMPT = """<role>
+You give a learner a brief, grounded orientation to ONE concept.
+</role>
+
+<task>
+Using ONLY the provided corpus passage(s) and Wikipedia evidence, explain the concept
+in at most TWO sentences of plain English. State what it is and why it matters. Do not
+invent sources; do not cite — the app attaches the references.
+</task>
+
+<output_format>
+Plain prose, English only. For math use $...$ inline, $$...$$ display. Return ONLY the text.
 </output_format>
 """
