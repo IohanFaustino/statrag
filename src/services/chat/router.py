@@ -238,9 +238,9 @@ async def _run_qa(req: ChatRequest, history: list[dict] | None) -> AsyncIterator
 
 
 async def _run_facilitate(req: ChatRequest, history: list[dict] | None) -> AsyncIterator[dict]:
-    """Facilitate runner -> agents.facilitate.run_facilitate."""
-    from src.services.chat.agents.facilitate import run_facilitate  # noqa: PLC0415
-    async for event in run_facilitate(req):
+    """Facilitate runner -> agents.facilitate_story.run_facilitate_story."""
+    from src.services.chat.agents.facilitate_story import run_facilitate_story  # noqa: PLC0415
+    async for event in run_facilitate_story(req):
         yield event
 
 
