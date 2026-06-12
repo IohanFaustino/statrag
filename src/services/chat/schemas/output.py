@@ -424,12 +424,15 @@ class ChapterScope(BaseModel):
 
     ``requested_subtopics`` empty means "whole chapter, in order".
     ``resolution`` echoes the closest-match mapping for UI transparency.
+    ``section_id`` is the ONE resolved section for facilitate_story;
+    legacy callers and whole-chapter runs leave it empty ("").
     """
 
     book_slug: str
     chapter_id: str
     requested_subtopics: list[str] = Field(default_factory=list)
     resolution: list[ResolvedSubtopic] = Field(default_factory=list)
+    section_id: str = ""  # "" = whole-chapter
 
 
 class ChapterBlock(BaseModel):
@@ -687,5 +690,56 @@ class StoryDigest(BaseModel):
     chapter: str
     takes: list[Take] = Field(default_factory=list)
     unfilled_subjects: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Mode 3 v2 — facilitate (story + formal movements)
+# ---------------------------------------------------------------------------
+
+
+class FormalStatement(BaseModel):
+    kind: Literal["definition", "lemma", "theorem", "proposition", "corollary", "remark"]
+    statement: str = ""    # reproduced VERBATIM from source; display math in $$…$$
+    explanation: str = ""  # didactic arc: elements → associations → intuition → close (may carry [[cN]])
+
+    @model_validator(mode="after")
+    def _statement_required(self) -> "FormalStatement":
+        if not self.statement.strip():
+            raise ValueError("FormalStatement.statement must not be empty")
+        return self
+
+
+class Movement(BaseModel):
+    """Exactly one of `prose` / `formal` is populated (true-by-construction)."""
+    prose: str = ""
+    formal: FormalStatement | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "Movement":
+        has_prose = bool(self.prose.strip())
+        has_formal = self.formal is not None
+        if has_prose == has_formal:  # both or neither
+            raise ValueError("Movement must have exactly one of prose / formal")
+        return self
+
+
+class FacilitateStoryDraft(BaseModel):
+    """Writer structured output — NO citation/provenance field by design."""
+    hook: str = ""
+    movements: list[Movement] = Field(default_factory=list)
+    takeaway: str = ""
+    math_blocks: list[str] = Field(default_factory=list)
+
+
+class FacilitateStory(BaseModel):
+    mode: Literal["facilitate_story"]
+    scope: ChapterScope
+    hook: str = ""
+    movements: list[Movement] = Field(default_factory=list)
+    takeaway: str = ""
+    concepts: list[ConceptAnchor] = Field(default_factory=list)
+    citations: list[StoryCitation] = Field(default_factory=list)
+    math_blocks: list[str] = Field(default_factory=list)
+    grounding: dict = Field(default_factory=dict)
 
 
