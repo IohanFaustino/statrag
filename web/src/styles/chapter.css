@@ -549,9 +549,6 @@
 .fstory__movement {
   margin: 0;
 }
-.fstory__movement .facilitate-content {
-  display: inline;
-}
 
 /* Formal statement block: theorem/definition/lemma etc. */
 .fstory__formal {

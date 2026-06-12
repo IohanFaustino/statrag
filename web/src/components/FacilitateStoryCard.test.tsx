@@ -44,4 +44,10 @@ describe("FacilitateStoryCard", () => {
     render(<FacilitateStoryCard story={story} onConcept={() => {}} />);
     expect(screen.getByText(/Wikipedia: LLN/)).toBeInTheDocument();
   });
+
+  it("shows the grounding warning when grounding.ok is false", () => {
+    const ungrounded = { ...story, grounding: { ok: false, unsupported: ["x"], confidence: 0.4 } };
+    render(<FacilitateStoryCard story={ungrounded} onConcept={() => {}} />);
+    expect(screen.getByText(/not be fully grounded/i)).toBeInTheDocument();
+  });
 });
