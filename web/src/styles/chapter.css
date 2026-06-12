@@ -519,3 +519,139 @@
     transition: none !important;
   }
 }
+
+/* ─── FacilitateStoryCard ──────────────────────────────────────────── */
+
+.fstory {
+  font-family: var(--font-serif);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+/* Hook: italic lead-in sentence, uses accent colour */
+.fstory__hook {
+  margin-bottom: 18px;
+  font-style: italic;
+  color: var(--text-secondary);
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 14px;
+}
+
+/* Body: stacked movements */
+.fstory__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Prose movement */
+.fstory__movement {
+  margin: 0;
+}
+.fstory__movement .facilitate-content {
+  display: inline;
+}
+
+/* Formal statement block: theorem/definition/lemma etc. */
+.fstory__formal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-secondary);
+  border-radius: 6px;
+  padding: 12px 16px 14px;
+}
+
+/* Kind badge above the statement */
+.fstory__kind {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  color: var(--accent-secondary);
+  border: 1px solid var(--accent-secondary);
+}
+.fstory__kind--theorem  { color: var(--accent-secondary); border-color: var(--accent-secondary); }
+.fstory__kind--definition { color: var(--accent-primary); border-color: var(--accent-primary); }
+.fstory__kind--lemma    { color: var(--accent-tertiary); border-color: var(--accent-tertiary); }
+.fstory__kind--proposition { color: var(--accent-secondary); border-color: var(--accent-secondary); }
+.fstory__kind--corollary { color: var(--accent-tertiary); border-color: var(--accent-tertiary); }
+.fstory__kind--remark   { color: var(--text-secondary); border-color: var(--border-default); }
+
+/* Verbatim statement in blockquote */
+.fstory__statement {
+  margin: 0 0 10px;
+  padding: 0;
+  border: none;
+  font-family: var(--font-serif);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  text-align: center;
+}
+.fstory__statement .math-block {
+  background: none !important;
+  border: none !important;
+  padding: 0.2em 0;
+}
+
+/* Didactic explanation */
+.fstory__unpack {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-top: 6px;
+}
+
+/* Takeaway: closing sentence, slightly bolder */
+.fstory__takeaway {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* Citations row */
+.fstory__cites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.fstory__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.fstory__chip:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+/* Grounding warning */
+.fstory__warn {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent-secondary);
+  letter-spacing: 0.04em;
+}

@@ -1,5 +1,6 @@
 import React from "react";
-import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, QAStoryAnswer, ChapterDigest, ClarifyData, FacilitateDigest } from "../types";
+import type { Message, AssistantMessage as AssistantMsg, UserMessage as UserMsg, AssistantBlock, TutorAnswer, QAAnswer, QAStoryAnswer, ChapterDigest, ClarifyData, FacilitateDigest, FacilitateStory, ConceptAnchor } from "../types";
+import FacilitateStoryCard from "./FacilitateStoryCard";
 import { MathBlock, MathInline } from "./Math";
 import { normalizeMathDelimiters } from "./views/TutorView";
 import TutorView from "./views/TutorView";
@@ -207,6 +208,7 @@ interface AssistantMessageViewProps {
   isLast?: boolean;
   onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
   thinkingLabel?: string;
+  onOpenConcept?: (a: ConceptAnchor) => void;
 }
 
 const STRUCTURED_MODES = new Set(["tutor", "qa", "facilitate", "resume"]);
@@ -222,6 +224,7 @@ function AssistantMessageView({
   isLast,
   onClarifyPick,
   thinkingLabel = "Thinking",
+  onOpenConcept,
 }: AssistantMessageViewProps) {
   const ModeIcon = MODE_ICONS[msg.mode];
   const modeLabel = MODE_LABELS[msg.mode] ?? msg.mode;
@@ -320,6 +323,12 @@ function AssistantMessageView({
               {msg.structuredOutput.schema === "FacilitateDigest" && (
                 <FacilitateDigestCard digest={msg.structuredOutput.data as FacilitateDigest} />
               )}
+              {msg.structuredOutput.schema === "FacilitateStory" && (
+                <FacilitateStoryCard
+                  story={msg.structuredOutput.data as FacilitateStory}
+                  onConcept={(a) => onOpenConcept?.(a)}
+                />
+              )}
               {msg.structuredOutput.schema === "ExtensionDigest" && (
                 <ExtensionDigestCard
                   digest={msg.structuredOutput.data as ExtensionDigest}
@@ -400,6 +409,7 @@ export interface MessageThreadProps {
   thinkingLabel?: string;
   conversationLoaded?: boolean;
   onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
+  onOpenConcept?: (a: ConceptAnchor) => void;
 }
 
 function getDayLabel(): string {
@@ -425,6 +435,7 @@ export default function MessageThread({
   thinkingLabel = "Thinking",
   conversationLoaded = false,
   onClarifyPick,
+  onOpenConcept,
 }: MessageThreadProps) {
   const dayLabel = getDayLabel();
 
@@ -480,6 +491,7 @@ export default function MessageThread({
               thinkingLabel={thinkingLabel}
               isLast={i === thread.length - 1}
               onClarifyPick={onClarifyPick}
+              onOpenConcept={onOpenConcept}
             />
           ),
         )}

@@ -199,6 +199,7 @@ export interface ResolvedSubtopic {
 export interface ChapterScope {
   book_slug: string;
   chapter_id: string;
+  section_id?: string;
   requested_subtopics: string[];
   resolution: ResolvedSubtopic[];
 }
@@ -297,6 +298,7 @@ export type StructuredOutputEvent =
   | { type: "structured_output"; schema: "QAStoryAnswer"; data: QAStoryAnswer }
   | { type: "structured_output"; schema: "ChapterDigest"; data: ChapterDigest }
   | { type: "structured_output"; schema: "FacilitateDigest"; data: FacilitateDigest }
+  | { type: "structured_output"; schema: "FacilitateStory"; data: FacilitateStory }
   | { type: "structured_output"; schema: "Clarify"; data: ClarifyData }
   | { type: "structured_output"; schema: "ExtensionDigest"; data: ExtensionDigest }
   | { type: "structured_output"; schema: string; data: unknown };
@@ -345,4 +347,27 @@ export interface CuriosityItem { subject: string; body: string; citations: Story
 export interface StoryTake { heading: string; story: string; items: CuriosityItem[]; }
 export interface StoryDigest {
   book: string; chapter: string; takes: StoryTake[]; unfilled_subjects: string[];
+}
+
+// ─── FacilitateStory — new story-mode structured output ──────────────────────
+
+export interface FormalStatement {
+  kind: "definition" | "lemma" | "theorem" | "proposition" | "corollary" | "remark";
+  statement: string;
+  explanation: string;
+}
+export interface Movement {
+  prose: string;
+  formal: FormalStatement | null;
+}
+export interface FacilitateStory {
+  mode: "facilitate_story";
+  scope: ChapterScope;
+  hook: string;
+  movements: Movement[];
+  takeaway: string;
+  concepts: ConceptAnchor[];
+  citations: StoryCitation[];
+  math_blocks: string[];
+  grounding: { ok: boolean; unsupported: string[]; confidence: number };
 }
