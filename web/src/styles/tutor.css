@@ -5,7 +5,7 @@
 /* ─── TutorView ─────────────────────────────────────────────────────── */
 
 .tutor-view {
-  font: 15px/1.6 var(--font-body, system-ui, sans-serif);
+  font: var(--text-base)/1.7 var(--font-body, system-ui, sans-serif);
 }
 
 .tutor-view__section { margin: 0; }
@@ -16,7 +16,7 @@
 .tutor-view__h2 {
   color: var(--text-primary);
   font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: var(--text-md);
   margin: 24px 0 8px;
   text-align: left;
 }
@@ -29,8 +29,10 @@
   width: 100%;
   background: none;
   border: 0;
-  font: inherit;
+  /* NB: no `font: inherit` — it would reset font-size to the body 16px and
+     shrink the heading below Resume. Inherit the .tutor-view__h2 size. */
   font-family: var(--font-serif);
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   text-align: left;
@@ -73,14 +75,26 @@
   font-style: normal;
 }
 
+/* Display math = a light "printed plate" (over/under hairline), not a boxed
+   callout — keeps a scan-stop in dense answers without card chrome. */
 .tutor-view__math-block {
   margin: 14px auto;
-  padding: 10px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
   overflow-x: auto;
-  text-align: center;   /* centre the KaTeX display formula in its box */
+  text-align: center;
+}
+/* Strip the inner .math-block box chrome (beats broadsheet's !important) so
+   only the outer hairline plate shows. */
+.tutor-view__math-block .math-block {
+  background: none !important;
+  border: none !important;
+  border-radius: 0;
+  padding: 0;
 }
 
 /* Sub-header — mono eyebrow: uppercase, ink-muted, left, no dashes */
