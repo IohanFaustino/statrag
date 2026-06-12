@@ -71,7 +71,9 @@ export function renderInlineMarkdown(text: string, keyPrefix: string): React.Rea
 /** A `$…$` span that contains several natural-language words is the model
  *  stuffing prose into math delimiters, not real math — render it as text. */
 function looksLikeProse(inner: string): boolean {
-  const words = inner.match(/\b[a-zA-Z]{2,}\b/g) || [];
+  // Strip LaTeX command names (e.g. \mathrm, \delta) before counting so
+  // legit math like \mathrm{Var}(X)/\delta^2 is not misread as prose.
+  const words = inner.replace(/\\[a-zA-Z]+/g, " ").match(/\b[a-zA-Z]{2,}\b/g) || [];
   return words.length >= 3;
 }
 

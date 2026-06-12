@@ -658,12 +658,20 @@ export function renderInlineWithCites(
       if (end !== -1) {
         const inner = text.slice(i + 1, end);
         // Skip prose stuffed into $…$ (model error) — render as text, not math.
-        const proseWords = (inner.match(/\b[a-zA-Z]{2,}\b/g) || []).length;
+        // Strip LaTeX command names before counting so \mathrm, \delta, etc.
+        // are not mistaken for natural-language words.
+        const proseWords = (inner.replace(/\\[a-zA-Z]+/g, " ").match(/\b[a-zA-Z]{2,}\b/g) || []).length;
         if (proseWords < 3) {
           out.push(<MathInline key={key++} tex={inner} />);
           i = end + 1;
           continue;
         }
+        // Guard triggered: this looks like prose, not math. Emit the entire
+        // $…$ span as plain text and advance past the closing `$` so that
+        // subsequent `$` pairs remain in phase (no desync).
+        out.push(<React.Fragment key={key++}>{text.slice(i, end + 1)}</React.Fragment>);
+        i = end + 1;
+        continue;
       }
     }
     // LaTeX-style inline math: ``\( ... \)``
