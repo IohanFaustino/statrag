@@ -303,6 +303,28 @@ async def chat_cancel(conv_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Concept explorer endpoint (stateless side-chat, no store writes)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/concept/explore")
+async def concept_explore_route(request: Request) -> EventSourceResponse:
+    """Stateless concept-exploration SSE stream.
+
+    Returns a ``concept_seed`` (or ``concept_followup``) event with a brief
+    explanation grounded in corpus + Wikipedia, plus pure-code citation chips.
+    NEVER reads or writes the conversation message store.
+    """
+    from src.services.chat.concept_explore import concept_explore  # noqa: PLC0415
+    body = await request.json()
+
+    async def gen():
+        async for ev in concept_explore(body):
+            yield {"event": ev.get("type", "message"), "data": json.dumps(ev)}
+    return EventSourceResponse(gen())
+
+
+# ---------------------------------------------------------------------------
 # Export endpoint
 # ---------------------------------------------------------------------------
 
