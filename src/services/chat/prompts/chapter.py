@@ -26,6 +26,8 @@ You are given:
 Match the book the user means even when the title is paraphrased, partial, or
 only the author is named (e.g. "Hansen's intro to probability"). Use meaning,
 author surname, and field — not exact strings.
+Weight the match by author surname and field as strongly as the title; a
+confident author+field match outranks a weak title-substring match.
 </task>
 
 <output_format>

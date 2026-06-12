@@ -177,3 +177,61 @@ def maybe_clarify(res: BookResolution, catalog: list[CatalogBook]) -> dict | Non
         "candidates": cands, "chapter_guess": res.chapter_id,
         "sections_guess": res.requested_subtopics,
     }
+
+
+# ---------------------------------------------------------------------------
+# Section resolver (facilitate mode — single-section scope)
+# ---------------------------------------------------------------------------
+
+
+def _norm_tokens(s: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9]+", (s or "").lower()) if len(t) > 2}
+
+
+def resolve_section(
+    message: str,
+    *,
+    subtopics: list[str],
+    headings: list[dict],
+) -> tuple[str, float]:
+    """Pick ONE section_id from *headings*.
+
+    Explicit "X.y" section numbers win deterministically (score 1.0).
+    Falls back to best word-overlap match against heading h2_path.
+    Returns (section_id, score); ("", <0.5) when nothing matches well.
+    """
+    if not headings:
+        return "", 0.0
+    nums = expand_section_refs(message) + [s for s in subtopics if _SEC.search(s)]
+    valid = {h["section_id"] for h in headings}
+    for n in nums:
+        if n in valid:
+            return n, 1.0
+    query = " ".join(subtopics) or message
+    q = _norm_tokens(query)
+    if not q:
+        return "", 0.0
+    best_sid, best = "", 0.0
+    for h in headings:
+        h_tokens = _norm_tokens(h.get("h2_path", ""))
+        if not h_tokens:
+            continue
+        overlap = len(q & h_tokens) / max(1, len(q))
+        if overlap > best:
+            best, best_sid = overlap, h["section_id"]
+    return (best_sid, best) if best >= 0.5 else ("", best)
+
+
+def section_clarify(*, headings: list[dict], chapter_id: str) -> dict:
+    """Clarify event listing the chapter's sections for the user to pick from."""
+    cands = [
+        {"section_id": h["section_id"], "h2_path": h.get("h2_path", "")}
+        for h in headings
+    ][:12]
+    return {
+        "type": "clarify",
+        "reason": "section_ambiguous",
+        "message": "Which section should I teach? Pick one:",
+        "candidates": cands,
+        "chapter_guess": chapter_id,
+    }
