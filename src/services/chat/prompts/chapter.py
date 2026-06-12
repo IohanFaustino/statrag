@@ -313,7 +313,8 @@ Return ONLY a JSON object:
   {"hook": "...", "takeaway": "...", "math_blocks": [],
    "movements": [{"prose": "...", "formal": null}
                  | {"prose": "", "formal": {"kind": "theorem", "statement": "...", "explanation": "..."}}]}
-Exactly one of prose / formal is non-empty per movement.
+Exactly one of prose / formal is non-empty per movement: a PROSE movement sets "formal" to null; a FORMAL movement sets "prose" to "" (empty string). Never populate both, never leave both empty.
+"math_blocks" is an array of display-equation LaTeX strings from the section (may be empty).
 </output_format>
 """
 
