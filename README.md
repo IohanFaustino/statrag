@@ -21,7 +21,7 @@
 ## ⚠️ Status
 
 > [!WARNING]
-> **Ongoing project.** Five chat modes are now end-to-end and live-verified — **Tutor**, **Q&A**, **Facilitate**, **Extension** — with **Resume** in active rebuild. Each ships a deterministic, mostly pure-code-bound pipeline (citations stitched in code, not by the model). Newer modes carry the lower mileage; treat Resume as partial.
+> **Ongoing project.** All five chat modes are end-to-end and live-verified — **Tutor**, **Q&A**, **Facilitate**, **Extension**, **Resume**. Each ships a deterministic, mostly pure-code-bound pipeline (citations stitched in code, not by the model). Resume runs on the older digest layout; only its story-style card remake is outstanding.
 
 ---
 
@@ -107,9 +107,9 @@ Canonical mode list lives in `src/services/chat/schemas/_core.py` (`ModeId`). Ea
 | **Q&A** | `qa` | ✅ live | Storytelling answer (intro / deepening / conclusion) over corpus **+** Wikipedia; pure-code citation bind |
 | **Facilitate** | `facilitate` | ✅ live | One-section story (hook / movements / takeaway) w/ verbatim formal statements + concept→corpus/wiki side-chat |
 | **Extension** | `extension` | ✅ live | Story-timeline + curiosity boxes over corpus + Wikipedia footnotes; styled-HTML ZIP export |
-| **Resume** | `resume` | 🚧 rebuild | Structured resume digest over a chapter (digest layout + per-call JSON schema being re-certified) |
+| **Resume** | `resume` | ✅ live | Ordered compressed chapter recap (`ChapterDigest`); shares the chapter pipeline with legacy facilitate. Story-style card remake still pending |
 
-Every "live" mode is live-verified on :5175 (KaTeX render, real wiki URLs, reload persistence, zero console errors).
+All five modes are end-to-end and live-verified on :5175 (KaTeX render, real wiki URLs, reload persistence, zero console errors). Resume works today on the older digest layout; only its story-style card glow-up is outstanding.
 
 ---
 
@@ -195,7 +195,7 @@ Qdrant dashboard: <http://localhost:6333/dashboard>.
 - **~935** backend tests + **~288** frontend tests (tsc clean)
 - **62** per-feature deep-dive docs ([`docs/services/chat-features/`](docs/services/chat-features/))
 - **41** invariants verified per commit
-- **5** chat modes (4 live + Resume rebuild) over a single SSE backbone
+- **5** chat modes (all live) over a single SSE backbone
 
 ---
 
