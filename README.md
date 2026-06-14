@@ -13,7 +13,7 @@
 [![KaTeX](https://img.shields.io/badge/KaTeX-math%20render-329F75.svg)](https://katex.org/)
 [![Docker](https://img.shields.io/badge/Docker-compose-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
 [![SSE](https://img.shields.io/badge/SSE-streaming-FF6B6B.svg)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
-[![Tests](https://img.shields.io/badge/tests-488%20backend-4CAF50.svg)](src/services/chat/tests/)
+[![Tests](https://img.shields.io/badge/tests-~935%20backend%20%2B%20~288%20frontend-4CAF50.svg)](src/services/chat/tests/)
 [![Status](https://img.shields.io/badge/status-WIP-orange.svg)](#-status)
 
 > A **local-first, multi-mode study companion** that turns a personal library of statistics, econometrics, causal-inference, ML, and quant-finance textbooks into a tutor that *teaches* — every claim grounded, every citation clickable, every figure pertinence-judged.
@@ -21,7 +21,7 @@
 ## ⚠️ Status
 
 > [!WARNING]
-> **Ongoing project — NOT complete.** Most surface area wired but only **Tutor mode** is end-to-end working today. The other 10 modes exist as scaffolding + route handlers; their pipelines are stubs, partial, or unreviewed. Treat the rest as a roadmap.
+> **Ongoing project.** Five chat modes are now end-to-end and live-verified — **Tutor**, **Q&A**, **Facilitate**, **Extension** — with **Resume** in active rebuild. Each ships a deterministic, mostly pure-code-bound pipeline (citations stitched in code, not by the model). Newer modes carry the lower mileage; treat Resume as partial.
 
 ---
 
@@ -99,21 +99,17 @@ flowchart TD
 
 ## 🧩 Chat Modes
 
-| Mode | Slug | Status | Intended capability |
-|---|---|:---:|---|
-| **Tutor** | `tutor` | ✅ working | Deep multi-stage tutor (the whole pipeline above) |
-| Compare | `compare` | 🚧 stub | Side-by-side concept / method / author comparison |
-| Figures | `figures` | 🚧 stub | Figure-first retrieval and explanation |
-| Quiz | `quiz` | 🚧 stub | Question generation per section / chapter |
-| Navigate | `navigate` | 🚧 stub | TOC / structural browsing across books |
-| Prereqs | `prereqs` | 🚧 stub | Prerequisite-concept DAG for a topic |
-| Annotate | `annotate` | 🚧 stub | Inline annotation of a passage |
-| Research | `research` | 🚧 stub | Open-ended research synthesis |
-| Math | `math` | 🚧 stub | Equation / derivation focused answers |
-| Path | `path` | 🚧 stub | Learning-path suggestion |
-| Roadmap | `roadmap` | 🚧 stub | Multi-step study roadmap with milestones |
+Canonical mode list lives in `src/services/chat/schemas/_core.py` (`ModeId`). Each mode has a 2-diagram page under [`docs/common ground/Elements/modes/`](docs/common%20ground/Elements/).
 
-Use `mode: "tutor"` in `/api/chat` until the rest is hardened.
+| Mode | Slug | Status | Capability |
+|---|---|:---:|---|
+| **Tutor** | `tutor` | ✅ live | Woven-narrative deep tutor (the pipeline above); seam-validated single draft + formula recovery |
+| **Q&A** | `qa` | ✅ live | Storytelling answer (intro / deepening / conclusion) over corpus **+** Wikipedia; pure-code citation bind |
+| **Facilitate** | `facilitate` | ✅ live | One-section story (hook / movements / takeaway) w/ verbatim formal statements + concept→corpus/wiki side-chat |
+| **Extension** | `extension` | ✅ live | Story-timeline + curiosity boxes over corpus + Wikipedia footnotes; styled-HTML ZIP export |
+| **Resume** | `resume` | 🚧 rebuild | Structured resume digest over a chapter (digest layout + per-call JSON schema being re-certified) |
+
+Every "live" mode is live-verified on :5175 (KaTeX render, real wiki URLs, reload persistence, zero console errors).
 
 ---
 
@@ -196,9 +192,10 @@ Qdrant dashboard: <http://localhost:6333/dashboard>.
 
 - **26** books indexed across **6** field collections
 - **8,083** image points (30× growth from first pass)
-- **488** backend tests + frontend test suite
-- **50+** per-feature deep-dive docs ([`docs/services/chat-features/`](docs/services/chat-features/))
-- **14** API routes + `GET /api/figures` (whitelisted file serving)
+- **~935** backend tests + **~288** frontend tests (tsc clean)
+- **62** per-feature deep-dive docs ([`docs/services/chat-features/`](docs/services/chat-features/))
+- **41** invariants verified per commit
+- **5** chat modes (4 live + Resume rebuild) over a single SSE backbone
 
 ---
 
@@ -212,14 +209,20 @@ Qdrant dashboard: <http://localhost:6333/dashboard>.
 
 ## 📚 Docs
 
+**📖 Browsable HTML docs (start here):** open [`docs/common ground/Elements/home.html`](docs/common%20ground/Elements/home.html) — the single source of HTML documentation. Multi-page current-state set with diagrams: **Overview** (`index.html`), **Verification** (`report.html`), and toggle groups **Ingestion** (`ingestion/`), **Features** (`features/` + per-mode pages `modes/{tutor,qa,facilitate,extension,resume}.html` — 2 diagrams each), **Services** (`services/`), and **Models** (`models/` — one page per LLM).
+
+Markdown reference:
+
 | Doc | Purpose |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Architecture + Chinese wall + commands |
+| [`docs/common ground/Elements/home.html`](docs/common%20ground/Elements/home.html) | **HTML docs entry point** (diagrams, modes, services, models) |
 | [`docs/system/architecture.md`](docs/system/architecture.md) | 5-stage ingestion + retrieval |
-| [`docs/system/invariants.md`](docs/system/invariants.md) | 28 invariants verified per commit |
+| [`docs/system/invariants.md`](docs/system/invariants.md) | 41 invariants verified per commit |
+| [`docs/system/changelog.md`](docs/system/changelog.md) | Dated change history |
 | [`docs/services/chat.md`](docs/services/chat.md) | SSE backbone + detached runs |
 | [`docs/services/frontend.md`](docs/services/frontend.md) | React SPA + TutorView contract |
-| [`docs/services/chat-features/`](docs/services/chat-features/) | Per-feature deep-dives (50+) |
+| [`docs/services/chat-features/`](docs/services/chat-features/) | Per-feature deep-dives (62) |
 | [`docs/tasks/ingestion.md`](docs/tasks/ingestion.md) | Add-a-book recipe |
 
 ---
