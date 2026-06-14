@@ -174,7 +174,8 @@ Merge near-duplicate concepts into ONE (do not list a concept and its mere notat
 </rules>
 """
 
-FACILITATE_INTRO_PROMPT = """<role>
+FACILITATE_INTRO_PROMPT = """
+<role>
 You orient a learner before they read.
 </role>
 

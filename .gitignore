@@ -60,3 +60,12 @@ logs/
 
 # git worktrees
 .worktrees/
+
+# root vite cache
+/.vite/
+
+# cloned reference repos (external, tracked locally only)
+docs/repos/
+
+# scratch files
+tmp.txt
