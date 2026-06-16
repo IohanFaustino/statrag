@@ -150,6 +150,22 @@ def _has_real_equation(body: str) -> bool:
     return False
 
 
+class TutorFormalDef(BaseModel):
+    """Tutor-only formal definition/theorem reproduced VERBATIM from a source.
+    Brand-new to tutor mode; imports nothing from other modes. Multiple allowed
+    (strict + weak stationarity). Label preferred but not required."""
+    kind: Literal["definition", "theorem", "proposition", "lemma", "corollary"]
+    label: str = ""
+    statement: str = ""
+    cite: int
+
+    @model_validator(mode="after")
+    def _statement_required(self) -> "TutorFormalDef":
+        if not self.statement.strip():
+            raise ValueError("TutorFormalDef.statement must not be empty")
+        return self
+
+
 class DeepTutorAnswer(BaseModel):
     """Strongly-typed multi-aspect tutor answer.
 
@@ -187,6 +203,15 @@ class DeepTutorAnswer(BaseModel):
             "worked example. Otherwise an EMPTY STRING — when empty the heading is "
             "dropped and Beat 3 must hand off directly from Beat 1 (do NOT leave a "
             "dangling 'as the theorem above shows')."
+        ),
+    )
+    formal_statements: list[TutorFormalDef] = Field(
+        default_factory=list,
+        description=(
+            "Each formal definition/theorem a source states EXPLICITLY, reproduced "
+            "VERBATIM (source wording + notation; display math in $$). Multiple "
+            "allowed (e.g. strict AND weak stationarity). A numbered label is "
+            "preferred but not required. Empty when no source states one."
         ),
     )
     example_intuition: str = Field(

@@ -1414,3 +1414,19 @@ def test_promote_inline_equations_ignores_ownline_display():
     from src.services.chat.agents.deep_tutor import _promote_inline_equations
     s = "$$\\mathrm{MSE}=\\sigma^2$$"
     assert _promote_inline_equations(s) == s
+
+
+def test_tutor_formal_def_multi_and_verbatim():
+    from src.services.chat.schemas.output import TutorFormalDef, DeepTutorAnswer
+    strict = TutorFormalDef(kind='definition', label='Definition 14.1', statement='strictly stationary if $$F(x_{t})=F(x_{t+h})$$', cite=1)
+    weak = TutorFormalDef(kind='definition', label='', statement='weakly stationary if $$E[x_t]=\\mu$$', cite=2)
+    assert strict.label == 'Definition 14.1'
+    assert weak.label == ''
+    ans = DeepTutorAnswer(tldr='t', definition='d', formal_statement='', example_intuition='e', applications='a', further_reading='f', formal_statements=[strict, weak])
+    assert len(ans.formal_statements) == 2
+
+
+def test_tutor_formal_def_empty_statement_rejected():
+    from src.services.chat.schemas.output import TutorFormalDef
+    with pytest.raises(Exception):
+        TutorFormalDef(kind='definition', label='', statement='   ', cite=1)
