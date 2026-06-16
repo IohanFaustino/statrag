@@ -78,6 +78,7 @@ class TutorCitation(BaseModel):
     page_from: int | None = None
     page_to: int | None = None
     quote: str = ""                  # the exact sentence the cite supports
+    url: str = ""                    # set for Wikipedia cites; renders a 🌐 link
 
 
 class TutorAnswer(BaseModel):

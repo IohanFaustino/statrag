@@ -69,3 +69,8 @@ docs/repos/
 
 # scratch files
 tmp.txt
+
+# opencode + superpowers tooling (not project code)
+.opencode/
+opencode.json
+/superpowers/

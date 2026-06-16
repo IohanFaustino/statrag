@@ -41,6 +41,8 @@ export interface Source {
   embedding: string;
   chunk: string;
   highlights: HighlightRange[];
+  /** Set for Wikipedia augment sources (book === "wikipedia"): link to the article. */
+  url?: string;
 }
 
 export interface Figure {
@@ -137,6 +139,8 @@ export interface TutorCitation {
   page_from?: number | null;
   page_to?: number | null;
   quote?: string;
+  /** Set for Wikipedia cites: renders a 🌐 link instead of a book reference. */
+  url?: string;
 }
 export interface TutorAnswer {
   text: string;

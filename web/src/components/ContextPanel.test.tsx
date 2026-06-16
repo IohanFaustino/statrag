@@ -85,6 +85,25 @@ describe("ContextPanel — SourceCard defensive rendering", () => {
       )
     ).not.toThrow();
   });
+
+  it("labels a wikipedia augment source with a 🌐 Wikipedia tag", () => {
+    const src = makeSource({
+      book: "wikipedia", chapter: "", section: "Bias of an estimator",
+      url: "https://en.wikipedia.org/wiki/Bias_of_an_estimator",
+    });
+    const { container } = render(
+      <ContextPanel
+        sources={[src]}
+        figures={[]}
+        collapsed={false}
+        onToggle={noop}
+        onSourceClick={noop}
+      />
+    );
+    const tag = container.querySelector(".book-tag--wikipedia");
+    expect(tag).not.toBeNull();
+    expect(tag!.textContent).toContain("Wikipedia");
+  });
 });
 
 describe("ContextPanel — unique key prop (undefined rank)", () => {

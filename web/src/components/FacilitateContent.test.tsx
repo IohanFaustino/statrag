@@ -90,6 +90,16 @@ describe("FacilitateContent — concept anchors", () => {
     expect(onPick).toHaveBeenCalledWith(c1);
   });
 
+  it("renders a matched concept anchor as NON-interactive (no button) when onPick is omitted", () => {
+    const c1 = makeConcept("c1", "normality");
+    const { container } = render(
+      <FacilitateContent text="Relies on [[c1]] assumption." concepts={[c1]} />,
+    );
+    // The term text still shows, but there must be no button affordance.
+    expect(container.textContent).toContain("normality");
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("drops unmatched [[c9]] silently — no raw literal in output, no crash", () => {
     const { container } = render(
       <FacilitateContent

@@ -2,6 +2,7 @@
 // function is downloadBlob (covered by browser-verify, not unit tests).
 import type {
   Message, UserMessage, AssistantMessage, AssistantBlock,
+  TutorAnswer, TutorCitation, QAAnswer, QAStoryAnswer, StoryCitation, ChapterDigest, FacilitateStory,
 } from "../types";
 import { structuredToMarkdown } from "./exportStructured";
 
@@ -94,4 +95,278 @@ export function downloadBlob(filename: string, blob: Blob): void {
     // eslint-disable-next-line no-console
     console.warn("[exportMarkdown] download failed", err);
   }
+}
+
+// ─── Single-answer markdown exporters (used by download buttons) ───────────
+
+function formatTutorCitation(c: TutorCitation): string {
+  const parts: string[] = [];
+  if (c.authors_short) parts.push(c.authors_short);
+  if (c.year) parts.push(String(c.year));
+  if (c.book_name) parts.push(c.book_name);
+  if (c.chapter) parts.push(c.chapter);
+  if (c.section) parts.push(c.section);
+  if (c.page_from) {
+    const pageStr = c.page_to && c.page_to !== c.page_from
+      ? `pp. ${c.page_from}–${c.page_to}`
+      : `p. ${c.page_from}`;
+    parts.push(pageStr);
+  }
+  return parts.join(" · ");
+}
+
+/**
+ * Export TutorAnswer to markdown (used by download button).
+ */
+export function tutorToMarkdown(data: TutorAnswer): string {
+  const lines: string[] = [];
+  lines.push("# Tutor Answer");
+  lines.push("");
+  lines.push(data.text);
+  lines.push("");
+
+  if (data.math_blocks?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## Math");
+    lines.push("");
+    for (const tex of data.math_blocks) {
+      lines.push("$$");
+      lines.push(tex);
+      lines.push("$$");
+      lines.push("");
+    }
+  }
+
+  if (data.citations?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## References");
+    lines.push("");
+    for (const c of data.citations) {
+      lines.push(`[${c.index}] ${formatTutorCitation(c)}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function formatStoryCitation(c: StoryCitation): string {
+  const parts: string[] = [];
+  if (c.book_name) parts.push(c.book_name);
+  if (c.authors) parts.push(c.authors);
+  if (c.year) parts.push(String(c.year));
+  if (c.chapter) parts.push(c.chapter);
+  if (c.pages) parts.push(`pp. ${c.pages}`);
+  if (c.url) parts.push(c.url);
+  return parts.join(" · ");
+}
+
+/**
+ * Export QAStoryAnswer to markdown (used by download button).
+ */
+export function qaStoryToMarkdown(data: QAStoryAnswer): string {
+  const lines: string[] = [];
+  lines.push("# Q&A Answer");
+  lines.push("");
+  if (data.scope?.target_gap) {
+    lines.push(`**Question:** ${data.scope.target_gap}`);
+    lines.push("");
+  }
+  lines.push(data.intro);
+  lines.push("");
+  lines.push(data.deepening);
+  lines.push("");
+  lines.push(data.conclusion);
+  lines.push("");
+
+  if (data.math_blocks?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## Math");
+    lines.push("");
+    for (const tex of data.math_blocks) {
+      lines.push("$$");
+      lines.push(tex);
+      lines.push("$$");
+      lines.push("");
+    }
+  }
+
+  if (data.citations?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## References");
+    lines.push("");
+    for (let i = 0; i < data.citations.length; i++) {
+      const prefix = data.citations[i].kind === "wikipedia" ? "🌐 " : "";
+      lines.push(`${prefix}[${i + 1}] ${formatStoryCitation(data.citations[i])}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Export legacy QAAnswer to markdown (used by download button).
+ */
+export function qaToMarkdown(data: QAAnswer): string {
+  const lines: string[] = [];
+  lines.push("# Q&A Answer");
+  lines.push("");
+  if (data.scope?.target_gap) {
+    lines.push(`**Question:** ${data.scope.target_gap}`);
+    lines.push("");
+  }
+
+  const body = data.text?.trim()
+    || [data.thesis, data.deepening, data.synthesis]
+        .filter((s): s is string => !!s)
+        .join("\n\n");
+  if (body) {
+    lines.push(body);
+    lines.push("");
+  }
+
+  if (data.math_blocks?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## Math");
+    lines.push("");
+    for (const tex of data.math_blocks) {
+      lines.push("$$");
+      lines.push(tex);
+      lines.push("$$");
+      lines.push("");
+    }
+  }
+
+  if (data.citations?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## References");
+    lines.push("");
+    for (const c of data.citations) {
+      lines.push(`[${c.index}] ${formatTutorCitation(c)}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Export ChapterDigest to markdown (used by download button).
+ */
+export function chapterDigestToMarkdown(data: ChapterDigest): string {
+  const lines: string[] = [];
+  const title = data.mode === "facilitate" ? "Facilitate Digest" : "Resume Digest";
+  lines.push(`# ${title}`);
+  lines.push("");
+  lines.push(`**Book:** ${data.scope.book_slug}`);
+  lines.push(`**Chapter:** ${data.scope.chapter_id}`);
+  lines.push("");
+
+  if (data.intro) {
+    lines.push(data.intro);
+    lines.push("");
+  }
+
+  for (const block of data.blocks) {
+    lines.push(`## ${block.h2_path}`);
+    lines.push("");
+    if (block.page_from > 0) {
+      const pageStr = block.page_to > block.page_from
+        ? `pp. ${block.page_from}–${block.page_to}`
+        : `p. ${block.page_from}`;
+      lines.push(`*${pageStr}*`);
+      lines.push("");
+    }
+    lines.push(block.body);
+    lines.push("");
+  }
+
+  if (data.math_blocks?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## Math");
+    lines.push("");
+    for (const tex of data.math_blocks) {
+      lines.push("$$");
+      lines.push(tex);
+      lines.push("$$");
+      lines.push("");
+    }
+  }
+
+  if (data.outro) {
+    lines.push(data.outro);
+    lines.push("");
+  }
+
+  if (data.citations?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## References");
+    lines.push("");
+    for (const c of data.citations) {
+      lines.push(`[${c.index}] ${formatTutorCitation(c)}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Export FacilitateStory to markdown (used by download button).
+ */
+export function facilitateStoryToMarkdown(data: FacilitateStory): string {
+  const lines: string[] = [];
+  lines.push("# Facilitate Story");
+  lines.push("");
+  lines.push(`**Section:** ${data.scope.requested_subtopics.join(", ")}`);
+  lines.push("");
+
+  if (data.hook) {
+    lines.push(data.hook);
+    lines.push("");
+  }
+
+  for (const m of data.movements) {
+    if (m.formal) {
+      lines.push(`## ${m.formal.kind.toUpperCase()}`);
+      lines.push("");
+      lines.push("> " + m.formal.statement.split("\n").join("\n> "));
+      lines.push("");
+      lines.push(m.formal.explanation);
+      lines.push("");
+    } else if (m.prose) {
+      lines.push(m.prose);
+      lines.push("");
+    }
+  }
+
+  if (data.takeaway) {
+    lines.push("---");
+    lines.push("");
+    lines.push(data.takeaway);
+    lines.push("");
+  }
+
+  if (data.citations?.length) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## References");
+    lines.push("");
+    for (let i = 0; i < data.citations.length; i++) {
+      const prefix = data.citations[i].kind === "wikipedia" ? "🌐 " : "";
+      lines.push(`${prefix}[${i + 1}] ${formatStoryCitation(data.citations[i])}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }

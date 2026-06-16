@@ -2940,6 +2940,35 @@ select:focus-visible {
 /* ──────────────────────────────────────────────────────────────────
    QAAnswerCard — storytelling 3-act prose (intro / deepening / conclusion)
    ────────────────────────────────────────────────────────────────── */
+.qa-card__hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.qa-card__hd-label {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.qa-card__download {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: var(--text-sm) var(--font-mono);
+  padding: 2px 8px;
+  line-height: 1;
+}
+.qa-card__download:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
 .qa-card__story-intro,
 .qa-card__story-deepening,
 .qa-card__story-deepening p,

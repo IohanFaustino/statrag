@@ -117,9 +117,39 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
     const safeMathBlocks = story.math_blocks ?? [];
     const corpusCount = storyCitations.filter((c) => c.kind === "corpus").length;
     const wikiCount = storyCitations.filter((c) => c.kind === "wikipedia").length;
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+      setIsDownloading(true);
+      try {
+        const res = await fetch("/api/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(story),
+        });
+        if (!res.ok) throw new Error(`Export failed (${res.status})`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const cd = res.headers.get("content-disposition");
+        const match = cd?.match(/filename="?([^"]+)"?/);
+        a.download = match?.[1] || "qa-answer.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } finally {
+        setIsDownloading(false);
+      }
+    };
 
     return (
       <div className="qa-card qa-card--story">
+        <div className="qa-card__hd">
+          <span className="qa-card__hd-label">Q&amp;A</span>
+          <button type="button" className="qa-card__download" onClick={handleDownload} disabled={isDownloading} aria-label="Download ZIP" title="Download ZIP">{isDownloading ? "…" : "↓"}</button>
+        </div>
         {story.intro?.trim() && <p className="qa-card__story-intro">{storyIntroNodes}</p>}
         <div className="qa-card__story-deepening">{storyDeepeningNodes}</div>
         {story.conclusion?.trim() && (
@@ -169,9 +199,49 @@ export default function QAAnswerCard({ answer }: QAAnswerCardProps) {
   const grounded = grounding?.ok === true;
   const assumedKnown = scope?.assumed_known ?? [];
   const safeMathBlocks = math_blocks ?? [];
+  const [isDownloadingLegacy, setIsDownloadingLegacy] = useState(false);
+
+  const handleDownloadLegacy = async () => {
+    setIsDownloadingLegacy(true);
+    try {
+      // Legacy QAAnswer doesn't have the right shape for QAStoryAnswer export
+      // Build a minimal QAStoryAnswer shape for export
+      const payload = {
+        intro: qa.thesis || qa.text || "",
+        deepening: qa.deepening || "",
+        conclusion: qa.synthesis || "",
+        scope,
+        citations: qa.citations,
+        math_blocks: qa.math_blocks,
+      };
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cd = res.headers.get("content-disposition");
+      const match = cd?.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] || "qa-answer.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloadingLegacy(false);
+    }
+  };
 
   return (
     <div className="qa-card">
+      <div className="qa-card__hd">
+        <span className="qa-card__hd-label">Q&amp;A</span>
+        <button type="button" className="qa-card__download" onClick={handleDownloadLegacy} disabled={isDownloadingLegacy} aria-label="Download ZIP" title="Download ZIP">{isDownloadingLegacy ? "…" : "↓"}</button>
+      </div>
       {scope?.target_gap && (
         <div className="qa-card__scope">
           <span className="qa-card__scope-lbl">Answering:</span>{" "}

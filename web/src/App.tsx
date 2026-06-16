@@ -602,6 +602,7 @@ export default function App() {
           <div className="main__pane main__pane--primary">
             <MessageThread
               thread={messages}
+              activeMode={activeMode}
               conversationLoaded={!!conversationId}
               bubble={tweaks.userStyle === "bubble"}
               onClarifyPick={handleClarifyPick}

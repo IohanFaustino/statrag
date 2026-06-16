@@ -13,6 +13,7 @@ export default function ChapterDigestCard({ digest }: Props) {
   const grounded = digest.grounding?.ok === true && conf >= 0.7;
 
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Build citation lookup shared across all blocks (citations are aggregated
   // across all sections in the digest).
@@ -21,6 +22,31 @@ export default function ChapterDigestCard({ digest }: Props) {
     for (const c of digest.citations ?? []) m.set(c.index, c);
     return m;
   }, [digest.citations]);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(digest),
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cd = res.headers.get("content-disposition");
+      const match = cd?.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] || `${digest.scope.book_slug}-${digest.scope.chapter_id}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className={`chapter-card chapter-card--${digest.mode}`}>
@@ -38,6 +64,7 @@ export default function ChapterDigestCard({ digest }: Props) {
         >
           {grounded ? "✓ grounded" : "⚠ partial"}
         </span>
+        <button type="button" className="chapter-card__download" onClick={handleDownload} disabled={isDownloading} aria-label="Download ZIP" title="Download ZIP">{isDownloading ? "…" : "↓"}</button>
       </div>
 
       {fuzzy.length > 0 && (

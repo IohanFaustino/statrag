@@ -194,9 +194,20 @@ export default function SourceModal({
         <button className="btn" type="button" onClick={onClose}>
           Close
         </button>
-        <button className="btn btn--ghost" type="button">
-          Open in reader →
-        </button>
+        {source.url ? (
+          <a
+            className="btn btn--ghost"
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🌐 View on Wikipedia ↗
+          </a>
+        ) : (
+          <button className="btn btn--ghost" type="button">
+            Open in reader →
+          </button>
+        )}
       </footer>
     </FocusModal>
   );

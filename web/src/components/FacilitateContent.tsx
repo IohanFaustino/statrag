@@ -104,16 +104,25 @@ function renderInline(
         const id = text.slice(i + 2, close);
         const anchor = byId.get(id);
         if (anchor) {
+          // Interactive only when a picker is wired (facilitate mode). Without
+          // onPick the term renders as plain text so common-ground can't open
+          // from a historical facilitate card while in another mode.
           out.push(
-            <button
-              key={key++}
-              type="button"
-              aria-label={anchor.term}
-              className={`concept-anchor concept-anchor--${anchor.kind}`}
-              onClick={() => onPick?.(anchor)}
-            >
-              {renderTermSegments(anchor.term)}
-            </button>,
+            onPick ? (
+              <button
+                key={key++}
+                type="button"
+                aria-label={anchor.term}
+                className={`concept-anchor concept-anchor--${anchor.kind}`}
+                onClick={() => onPick(anchor)}
+              >
+                {renderTermSegments(anchor.term)}
+              </button>
+            ) : (
+              <span key={key++} className={`concept-anchor concept-anchor--${anchor.kind} concept-anchor--static`}>
+                {renderTermSegments(anchor.term)}
+              </span>
+            ),
           );
         } else {
           // Unmatched marker → drop silently (no crash, no raw [[cN]] literal)

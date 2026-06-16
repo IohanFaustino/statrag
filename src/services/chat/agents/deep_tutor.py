@@ -84,6 +84,7 @@ from src.services.chat.retrievers.image_density import fetch_image_candidates
 from src.services.chat.retrieval import _point_to_source, hybrid_search
 from src.services.chat.books import collections_for_books, list_books
 from src.services.chat.rerankers import get_reranker
+from src.services.chat.research import wiki_evidence
 from src.services.chat.schemas import ChatRequest, RetrievalMetadata, Source
 from src.services.chat.schemas.output import (
     DeepTutorAnswer,
@@ -1824,7 +1825,14 @@ async def _stream_draft_via_router(
             return None, accumulated
         for key in ASPECT_HEADINGS:
             payload.setdefault(key, "")
-        parsed_obj = DeepTutorAnswer(**payload)
+        # Terminal degrade: skip the soft FORMAT validators (component-equation
+        # check) so a complete-but-imperfect answer renders rather than blanking
+        # the turn with "Failed to generate an answer." Mirrors the orchestrator's
+        # validate_and_repair best-effort path. Last resort only — the strict
+        # stream/parse() paths still enforce on the happy path.
+        parsed_obj = DeepTutorAnswer.model_validate(
+            payload, context={"skip_format_checks": True}
+        )
         for key in ASPECT_HEADINGS:
             accumulated[key] = str(getattr(parsed_obj, key, "") or "")
         return parsed_obj, accumulated
@@ -2051,7 +2059,14 @@ async def _stream_structured(
             return None, accumulated
         for key in ASPECT_HEADINGS:
             payload.setdefault(key, "")
-        parsed_obj = DeepTutorAnswer(**payload)
+        # Terminal degrade: skip the soft FORMAT validators (component-equation
+        # check) so a complete-but-imperfect answer renders rather than blanking
+        # the turn with "Failed to generate an answer." Mirrors the orchestrator's
+        # validate_and_repair best-effort path. Last resort only — the strict
+        # stream/parse() paths still enforce on the happy path.
+        parsed_obj = DeepTutorAnswer.model_validate(
+            payload, context={"skip_format_checks": True}
+        )
         for key in ASPECT_HEADINGS:
             accumulated[key] = str(getattr(parsed_obj, key, "") or "")
         return parsed_obj, accumulated
@@ -2447,8 +2462,61 @@ def _reconcile_citations(
             page_from=c.page_from if c.page_from is not None else src.page_from,
             page_to=c.page_to if c.page_to is not None else src.page_to,
             quote=c.quote,
+            url=c.url or getattr(src, "url", "") or "",
         ))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Wikipedia augmentation (corpus-primary, cited 🌐 source)
+# ---------------------------------------------------------------------------
+
+# Always-on per-concept Wikipedia lookup; "0" disables (cost/latency kill switch).
+_WIKI_ENABLED = os.environ.get("TUTOR_DEEP_WIKI", "1") == "1"
+
+
+async def _fetch_wiki_sources(concepts: list[str]) -> list[Source]:
+    """Fetch one Wikipedia summary per extracted concept and map each to a
+    rank-less :class:`Source` (``book='wikipedia'``, ``url`` set). Concurrent,
+    deduped by article title, silent-degrade to ``[]`` on any failure.
+
+    Ranks are assigned by :func:`_append_wiki_sources` so corpus ranks are never
+    disturbed (augment-only). Gated by ``TUTOR_DEEP_WIKI`` (read at call time so
+    tests can toggle it)."""
+    if os.environ.get("TUTOR_DEEP_WIKI", "1") != "1" or not concepts:
+        return []
+    results = await asyncio.gather(
+        *(asyncio.to_thread(wiki_evidence, c, subject_id=c) for c in concepts),
+        return_exceptions=True,
+    )
+    out: list[Source] = []
+    seen: set[str] = set()
+    for res in results:
+        if not isinstance(res, list):
+            continue  # an exception or unexpected return — degrade silently
+        for e in res:
+            title = (e.meta.get("title") or "").strip()
+            key = title.lower()
+            if not title or key in seen:
+                continue
+            seen.add(key)
+            summary = e.text or ""
+            out.append(Source(
+                rank=0, book="wikipedia", chapter="", section=title, title=title,
+                excerpt=summary[:200], score=0.0, chunkId=f"wiki:{title}",
+                chunk=summary, book_name="Wikipedia", url=e.meta.get("url", ""),
+            ))
+    return out
+
+
+def _append_wiki_sources(corpus: list[Source], wiki: list[Source]) -> list[Source]:
+    """Append wiki sources AFTER corpus at trailing ranks (corpus ranks intact)."""
+    if not wiki:
+        return corpus
+    base = len(corpus)
+    for i, w in enumerate(wiki):
+        w.rank = base + i + 1
+    return corpus + wiki
 
 
 # ---------------------------------------------------------------------------
@@ -2498,6 +2566,10 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     plan_qp, (candidates, retr_meta) = await asyncio.gather(planner_task, candidates_task)
     concepts = plan_qp.concepts
     facets = plan_qp.facets
+    # Wikipedia augmentation: fetch one summary per concept concurrently with
+    # density/coverage/images so its latency is hidden. Appended after corpus
+    # below (augment-only). Awaited just before the source-bundle is finalized.
+    wiki_task = asyncio.create_task(_fetch_wiki_sources(concepts))
     effective_diversity = (
         plan_qp.suggested_authors if div_mode == "auto"
         else (div_cap if div_mode == "fixed" else 0)
@@ -2589,6 +2661,24 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
             timings["coverage_ms"] = int((time.monotonic() - t_cov) * 1000)
         except Exception:  # noqa: BLE001
             logger.exception("coverage check failed; proceeding with current sources")
+
+    # 2c. Wikipedia augment — append AFTER corpus selection + coverage rerank so
+    # wiki entries are never reranked away and corpus ranks stay 1..N. The fetch
+    # was kicked off at concept time; await it here (degrades to [] on failure).
+    # Augment-only: wiki augments ONLY when the corpus already covers the topic;
+    # with no corpus coverage we short-circuit below rather than answer purely
+    # from Wikipedia (the tutor stays corpus-grounded).
+    if sources:
+        try:
+            _wiki_sources = await wiki_task
+        except Exception:  # noqa: BLE001
+            logger.exception("wiki augment failed; proceeding corpus-only")
+            _wiki_sources = []
+        if _wiki_sources:
+            sources = _append_wiki_sources(sources, _wiki_sources)
+            logger.info("wiki augment: +%d source(s)", len(_wiki_sources))
+    else:
+        wiki_task.cancel()
 
     # 2a. Synthesis plan (workflow A): build a thesis + evidence ledger +
     # author contrasts the draft will follow. Kicked off here so it overlaps

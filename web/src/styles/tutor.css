@@ -8,6 +8,37 @@
   font: var(--text-base)/1.7 var(--font-body, system-ui, sans-serif);
 }
 
+/* Header with download button */
+.tutor-view__hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.tutor-view__hd-label {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tutor-view__download {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: var(--text-sm) var(--font-mono);
+  padding: 2px 8px;
+  line-height: 1;
+}
+.tutor-view__download:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
 .tutor-view__section { margin: 0; }
 .tutor-view__section--lead { margin-bottom: 4px; }
 

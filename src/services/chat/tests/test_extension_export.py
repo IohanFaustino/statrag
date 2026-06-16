@@ -29,6 +29,31 @@ def test_zip_contains_html_and_sources():
     assert sources[0]["source"] == "ross §5.1"
 
 
+def test_zip_contains_markdown():
+    """ZIP ships a .md beside the .html, with the curated content verbatim."""
+    blob = build_export_zip(_digest())
+    zf = zipfile.ZipFile(io.BytesIO(blob))
+    assert "extension.md" in set(zf.namelist())
+    md = zf.read("extension.md").decode()
+    assert md.startswith("# ")
+    assert "## LLN" in md
+    assert "The mean converges." in md
+    # raw markdown, not HTML-escaped
+    assert "<p>" not in md and "&amp;" not in md
+
+
+def test_story_zip_contains_markdown():
+    from src.services.chat.agents.extension_agents.export import build_story_export_zip
+    d = StoryDigest(book="hansen", chapter="ch07", takes=[
+        Take(heading="Chebyshev", story="Opens with $\\mu$…", items=[
+            CuriosityItem(subject="Why $\\delta^{-2}$", body="Because…",
+                          citations=[StoryCitation(kind="wikipedia", label="Wikipedia: X",
+                                                   title="X", url="https://en.wikipedia.org/wiki/X")])])])
+    md = zipfile.ZipFile(io.BytesIO(build_story_export_zip(d))).read("story.md").decode()
+    assert "## 1. Chebyshev" in md
+    assert "Because…" in md and "Wikipedia: X" in md
+
+
 def test_html_is_self_contained():
     html = zipfile.ZipFile(io.BytesIO(build_export_zip(_digest()))).read("extension.html").decode()
     assert "<style" in html.lower()

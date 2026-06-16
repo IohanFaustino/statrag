@@ -439,36 +439,95 @@ async def concept_explore_route(request: Request) -> EventSourceResponse:
 
 @app.post("/api/export")
 async def export_extension(request: Request) -> Response:
-    """Return a ZIP with self-contained styled HTML + sources.json for an
-    extension-mode result.
+    """Return a ZIP with self-contained styled HTML + sources.json for any
+    structured answer mode.
 
     Detects payload schema by key presence:
-    - ``"takes"`` in payload → StoryDigest path (v2), filename via zip_filename.
-    - otherwise → legacy ExtensionDigest path (v1), unchanged behaviour.
+    - ``"takes"`` → StoryDigest (Extension v2)
+    - ``"book"`` + ``"points"`` → ExtensionDigest (Extension v1)
+    - ``"text"`` + ``"citations"`` → TutorAnswer
+    - ``"intro"`` + ``"deepening"`` + ``"conclusion"`` → QAStoryAnswer
+    - ``"mode"`` + ``"blocks"`` → ChapterDigest (resume/facilitate)
+    - ``"hook"`` + ``"movements"`` → FacilitateStory
     """
     from src.services.chat.agents.extension_agents.export import (  # noqa: PLC0415
         build_export_zip,
         build_story_export_zip,
+        build_tutor_export_zip,
+        build_qa_export_zip,
+        build_chapter_export_zip,
+        build_facilitate_export_zip,
         zip_filename,
+        _sanitize_slug,
     )
     try:
         payload = await request.json()
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="invalid JSON body")
+
+    # Determine schema type and build ZIP
+    blob: bytes
+    fname: str
+
     if "takes" in payload:
+        # StoryDigest (Extension v2)
         try:
             digest = StoryDigest.model_validate(payload)
         except pydantic.ValidationError as e:
             raise HTTPException(status_code=422, detail=e.errors())
         blob = build_story_export_zip(digest)
         fname = zip_filename(digest.book, digest.chapter)
-    else:
+    elif "book" in payload and "points" in payload:
+        # ExtensionDigest (v1)
         try:
             digest = ExtensionDigest.model_validate(payload)
         except pydantic.ValidationError as e:
             raise HTTPException(status_code=422, detail=e.errors())
         blob = build_export_zip(digest)
-        fname = f"{digest.book}-{digest.chapter}-extended.zip"
+        fname = f"{_sanitize_slug(digest.book)}-{_sanitize_slug(digest.chapter)}-extended.zip"
+    elif "text" in payload and "sections" in payload:
+        # TutorAnswer
+        from src.services.chat.schemas.output import TutorAnswer  # noqa: PLC0415
+        try:
+            data = TutorAnswer.model_validate(payload)
+        except pydantic.ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
+        blob = build_tutor_export_zip(data)
+        title = _sanitize_slug(data.text[:40] if data.text else "tutor-answer")
+        fname = f"{title}.zip"
+    elif "intro" in payload and "deepening" in payload and "conclusion" in payload:
+        # QAStoryAnswer
+        from src.services.chat.schemas.output import QAStoryAnswer  # noqa: PLC0415
+        try:
+            data = QAStoryAnswer.model_validate(payload)
+        except pydantic.ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
+        blob = build_qa_export_zip(data)
+        scope = getattr(data, "scope", None)
+        name = _sanitize_slug(scope.target_gap[:40] if scope and scope.target_gap else "qa-answer")
+        fname = f"{name}.zip"
+    elif "mode" in payload and "blocks" in payload:
+        # ChapterDigest (resume/facilitate)
+        from src.services.chat.schemas.output import ChapterDigest  # noqa: PLC0415
+        try:
+            data = ChapterDigest.model_validate(payload)
+        except pydantic.ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
+        blob = build_chapter_export_zip(data)
+        fname = f"{_sanitize_slug(data.scope.book_slug)}-{_sanitize_slug(data.scope.chapter_id)}.zip"
+    elif "hook" in payload and "movements" in payload:
+        # FacilitateStory
+        from src.services.chat.schemas.output import FacilitateStory  # noqa: PLC0415
+        try:
+            data = FacilitateStory.model_validate(payload)
+        except pydantic.ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
+        blob = build_facilitate_export_zip(data)
+        section = "-".join(data.scope.requested_subtopics) if data.scope and data.scope.requested_subtopics else "facilitate"
+        fname = f"{_sanitize_slug(section)}.zip"
+    else:
+        raise HTTPException(status_code=400, detail="unrecognized payload schema")
+
     return Response(
         content=blob, media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},

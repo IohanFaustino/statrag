@@ -1,5 +1,6 @@
 import type {
-  AssistantMessage, TutorAnswer, QAAnswer, FacilitateDigest, ChapterDigest, TutorCitation,
+  AssistantMessage, TutorAnswer, QAAnswer, QAStoryAnswer, FacilitateDigest, FacilitateStory,
+  ChapterDigest, TutorCitation, StoryCitation,
 } from "../types";
 
 type Structured = NonNullable<AssistantMessage["structuredOutput"]>;
@@ -13,6 +14,24 @@ function citationsSection(citations: TutorCitation[] | undefined): string {
     const loc = [c.book_name, c.chapter, c.section].filter(Boolean).join(" · ");
     const quote = c.quote ? ` — "${c.quote}"` : "";
     return `${c.index}. ${[who, loc].filter(Boolean).join(" — ")}${quote}`;
+  });
+  return "### Citations\n\n" + lines.join("\n");
+}
+
+// StoryCitation section (QA v2, Facilitate v2, Extension v2).
+// Uses numbered list [1], [2], etc.
+function storyCitationsSection(citations: StoryCitation[] | undefined): string {
+  if (!citations || !citations.length) return "";
+  const lines = citations.map((c, i) => {
+    const parts: string[] = [];
+    if (c.book_name) parts.push(c.book_name);
+    if (c.authors) parts.push(c.authors);
+    if (c.year) parts.push(String(c.year));
+    if (c.chapter) parts.push(c.chapter);
+    if (c.pages) parts.push(`pp. ${c.pages}`);
+    if (c.url) parts.push(c.url);
+    const prefix = c.kind === "wikipedia" ? "🌐 " : "";
+    return `${prefix}[${i + 1}] ${c.label} — ${parts.join(" · ")}`;
   });
   return "### Citations\n\n" + lines.join("\n");
 }
@@ -99,13 +118,67 @@ function facilitate(d: FacilitateDigest): string {
   return parts.join("\n\n");
 }
 
+// QAStoryAnswer (v2 storytelling pipeline: intro/deepening/conclusion)
+function qaStory(d: QAStoryAnswer): string {
+  const parts: string[] = [];
+  if (d.scope?.target_gap) {
+    parts.push(`**Question:** ${d.scope.target_gap}`);
+    parts.push("");
+  }
+  parts.push(d.intro.trim());
+  parts.push("");
+  parts.push(d.deepening.trim());
+  parts.push("");
+  parts.push(d.conclusion.trim());
+  const cites = storyCitationsSection(d.citations);
+  if (cites) parts.push(cites);
+  const math = mathSection(d.math_blocks);
+  if (math) parts.push(math);
+  return parts.join("\n\n");
+}
+
+// FacilitateStory (v2 single-section narrative: hook → movements → takeaway)
+function facilitateStory(d: FacilitateStory): string {
+  const parts: string[] = [];
+  parts.push(`**Section:** ${d.scope.requested_subtopics.join(", ")}`);
+  parts.push("");
+  if (d.hook) {
+    parts.push(d.hook.trim());
+    parts.push("");
+  }
+  for (const m of d.movements) {
+    if (m.formal) {
+      parts.push(`## ${m.formal.kind.toUpperCase()}`);
+      parts.push("");
+      parts.push("> " + m.formal.statement.split("\n").join("\n> "));
+      parts.push("");
+      parts.push(m.formal.explanation.trim());
+      parts.push("");
+    } else if (m.prose) {
+      parts.push(m.prose.trim());
+      parts.push("");
+    }
+  }
+  if (d.takeaway) {
+    parts.push("---");
+    parts.push("");
+    parts.push(d.takeaway.trim());
+    parts.push("");
+  }
+  const cites = storyCitationsSection(d.citations);
+  if (cites) parts.push(cites);
+  return parts.join("\n\n");
+}
+
 export function structuredToMarkdown(structured: Structured): string {
   const { schema, data } = structured;
   switch (schema) {
     case "TutorAnswer": return tutor(data as TutorAnswer);
     case "QAAnswer": return qa(data as QAAnswer);
+    case "QAStoryAnswer": return qaStory(data as QAStoryAnswer);
     case "ChapterDigest": return chapter(data as ChapterDigest);
     case "FacilitateDigest": return facilitate(data as FacilitateDigest);
+    case "FacilitateStory": return facilitateStory(data as FacilitateStory);
     default:
       return "```json\n" + JSON.stringify(data, null, 2) + "\n```";
   }

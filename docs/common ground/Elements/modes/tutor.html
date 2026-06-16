@@ -27,7 +27,8 @@
   RET --> DR[&quot;Density + author-diversity + rerank&quot;]
   DR --> CC{&quot;Coverage check (nano)&quot;}
   CC -. &quot;missing facet&quot; .-> RET
-  CC --> FR[&quot;Formula recovery (gap-triggered)&quot;]
+  CC --> WK[&quot;Wikipedia augment (TUTOR_DEEP_WIKI)<br/>append after corpus — augment-only&quot;]
+  WK --> FR[&quot;Formula recovery (gap-triggered)&quot;]
   FR --> FJ[&quot;Figure judge&quot;]
   FJ --> PL[&quot;Synthesis plan (LLM)&quot;]
   PL --> ND[&quot;Narrative draft (draft model)<br/>5 beats + intro — one call&quot;]
@@ -43,7 +44,8 @@
   RET --> DR["Density + author-diversity + rerank"]
   DR --> CC{"Coverage check (nano)"}
   CC -. "missing facet" .-> RET
-  CC --> FR["Formula recovery (gap-triggered)"]
+  CC --> WK["Wikipedia augment (TUTOR_DEEP_WIKI)<br/>append after corpus — augment-only"]
+  WK --> FR["Formula recovery (gap-triggered)"]
   FR --> FJ["Figure judge"]
   FJ --> PL["Synthesis plan (LLM)"]
   PL --> ND["Narrative draft (draft model)<br/>5 beats + intro — one call"]
@@ -134,6 +136,7 @@
       <tr><td>query plan</td><td><code>src/services/chat/agents/deep_tutor.py:1336/1309/1316/1325</code></td></tr>
       <tr><td>retrieval + fusion</td><td><code>src/services/chat/agents/deep_tutor.py:1353/1394/1366/1410/1452</code></td></tr>
       <tr><td>coverage</td><td><code>src/services/chat/agents/coverage.py</code></td></tr>
+      <tr><td>wikipedia augment</td><td><code>src/services/chat/agents/deep_tutor.py (_fetch_wiki_sources / _append_wiki_sources)</code> + <code>src/services/chat/research.py</code></td></tr>
       <tr><td>figure judge</td><td><code>src/services/chat/agents/image_judge.py</code></td></tr>
       <tr><td>narrative draft + seam guard</td><td><code>src/services/chat/agents/deep_tutor.py</code> + <code>src/services/chat/agents/seams.py</code></td></tr>
       <tr><td>formula recovery</td><td><code>src/services/chat/agents/formula_recovery.py</code></td></tr>

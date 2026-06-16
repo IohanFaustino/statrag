@@ -207,6 +207,24 @@
 .chapter-card__badge.is-partial {
   color: var(--accent-secondary);
   border: 1px solid var(--accent-secondary);
+}
+
+/* Download button */
+.chapter-card__download {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: var(--text-sm) var(--font-mono);
+  padding: 2px 8px;
+  line-height: 1;
+  margin-left: 8px;
+}
+.chapter-card__download:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
   background: transparent;
 }
 
@@ -347,6 +365,14 @@
 .concept-anchor:hover {
   text-decoration: underline;
   background: var(--bg-secondary);
+}
+/* Non-interactive variant: rendered outside facilitate mode (no picker wired). */
+.concept-anchor--static {
+  cursor: default;
+}
+.concept-anchor--static:hover {
+  text-decoration: none;
+  background: var(--bg-elevated);
 }
 .concept-anchor:focus-visible {
   outline: 2px solid var(--accent-primary);
@@ -527,6 +553,37 @@
   font-size: var(--text-base);
   line-height: 1.65;
   color: var(--text-primary);
+}
+
+/* Header with download button */
+.fstory__hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.fstory__hd-label {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fstory__download {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: var(--text-sm) var(--font-mono);
+  padding: 2px 8px;
+  line-height: 1;
+}
+.fstory__download:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 /* Hook: italic lead-in sentence, uses accent colour */

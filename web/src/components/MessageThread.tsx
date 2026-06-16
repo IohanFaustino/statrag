@@ -209,6 +209,7 @@ interface AssistantMessageViewProps {
   onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
   thinkingLabel?: string;
   onOpenConcept?: (a: ConceptAnchor) => void;
+  activeMode?: string;
 }
 
 const STRUCTURED_MODES = new Set(["tutor", "qa", "facilitate", "resume"]);
@@ -225,6 +226,7 @@ function AssistantMessageView({
   onClarifyPick,
   thinkingLabel = "Thinking",
   onOpenConcept,
+  activeMode,
 }: AssistantMessageViewProps) {
   const ModeIcon = MODE_ICONS[msg.mode];
   const modeLabel = MODE_LABELS[msg.mode] ?? msg.mode;
@@ -326,7 +328,10 @@ function AssistantMessageView({
               {msg.structuredOutput.schema === "FacilitateStory" && (
                 <FacilitateStoryCard
                   story={msg.structuredOutput.data as FacilitateStory}
-                  onConcept={(a) => onOpenConcept?.(a)}
+                  // Common ground is facilitate-only: wire it solely while the
+                  // active mode is facilitate, so a historical facilitate card
+                  // can't open the panel once the user switches to another mode.
+                  onConcept={activeMode === "facilitate" ? (a) => onOpenConcept?.(a) : undefined}
                 />
               )}
               {msg.structuredOutput.schema === "ExtensionDigest" && (
@@ -410,6 +415,7 @@ export interface MessageThreadProps {
   conversationLoaded?: boolean;
   onClarifyPick?: (slug: string, chapter: string, sections: string[]) => void;
   onOpenConcept?: (a: ConceptAnchor) => void;
+  activeMode?: string;
 }
 
 function getDayLabel(): string {
@@ -436,6 +442,7 @@ export default function MessageThread({
   conversationLoaded = false,
   onClarifyPick,
   onOpenConcept,
+  activeMode,
 }: MessageThreadProps) {
   const dayLabel = getDayLabel();
 
@@ -492,6 +499,7 @@ export default function MessageThread({
               isLast={i === thread.length - 1}
               onClarifyPick={onClarifyPick}
               onOpenConcept={onOpenConcept}
+              activeMode={activeMode}
             />
           ),
         )}

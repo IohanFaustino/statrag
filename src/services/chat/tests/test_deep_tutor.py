@@ -47,6 +47,18 @@ def _src(rank: int, book: str, section: str, text: str, chunk_id: str | None = N
     )
 
 
+@pytest.fixture(autouse=True)
+def _no_wiki_network():
+    """Isolate run_deep_tutor tests from the live Wikipedia fetch (always-on per
+    concept). Tests that exercise wiki behaviour live in test_tutor_wiki.py."""
+    from src.services.chat.agents import deep_tutor
+
+    async def _empty(concepts):
+        return []
+    with patch.object(deep_tutor, "_fetch_wiki_sources", _empty):
+        yield
+
+
 @pytest.fixture
 def sample_sources():
     return [
@@ -187,6 +199,54 @@ def test_convert_returns_error_when_completely_empty():
     from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
     ans = _convert_to_tutor_answer(None, {}, [])
     assert "Error" in ans.text
+
+
+def test_stream_structured_last_resort_degrades_on_format_validator():
+    """Regression: a draft whose math definition has a prose component
+    subsection (e.g. ``### Trend`` with no ``$$equation$$``) trips the
+    component-equation validator. The strict stream + parse() paths fail, and
+    the last-resort json_object path must DEGRADE (skip_format_checks) rather
+    than blank the turn with "Failed to generate an answer."."""
+    from unittest.mock import AsyncMock
+    from src.services.chat.agents import deep_tutor
+
+    # A complete answer that violates _require_component_equations: the
+    # definition is mathematical ($$ present) but the ### Trend subsection
+    # carries no symbolic display equation.
+    payload = {
+        "tldr": "Decomposition splits a series into parts.",
+        "definition": (
+            "A time series decomposes as $$y_t = T_t + S_t + R_t$$.\n\n"
+            "### Trend\nThe smooth long-run movement of the series.\n\n"
+            "### Seasonality\nThe repeating calendar pattern."
+        ),
+        "formal_statement": "",
+        "example_intuition": "Imagine monthly sales rising while wobbling each December. " * 4,
+        "applications": "Used for forecasting and anomaly detection in corpus methods. " * 3,
+        "further_reading": "STL, X-13ARIMA-SEATS, and wavelet decompositions. " * 3,
+    }
+
+    fake = MagicMock()
+    # Strict stream path: raise TypeError -> caught, falls through.
+    fake.beta.chat.completions.stream = MagicMock(side_effect=TypeError("no stream"))
+    # Strict parse() path: raise (mimics the pydantic ValidationError) -> falls through.
+    fake.beta.chat.completions.parse = AsyncMock(side_effect=ValueError("validator rejected"))
+    # Last-resort json_object path: returns the complete-but-imperfect payload.
+    msg = MagicMock()
+    msg.content = json.dumps(payload)
+    resp = MagicMock()
+    resp.choices = [MagicMock(message=msg)]
+    fake.chat.completions.create = AsyncMock(return_value=resp)
+
+    with patch.object(deep_tutor, "_async_client", return_value=fake):
+        obj, aspects = asyncio.run(
+            deep_tutor._stream_structured(
+                [{"role": "user", "content": "decomposition"}],
+                "gpt-5.4-nano-2026-03-17",
+            )
+        )
+    assert obj is not None, "last-resort fallback blanked a complete answer"
+    assert "$$y_t = T_t + S_t + R_t$$" in aspects["definition"]
 
 
 # ---------------------------------------------------------------------------

@@ -68,6 +68,11 @@ class Source(BaseModel):
     page_from: int | None = None
     page_to: int | None = None
 
+    # Wikipedia augmentation (tutor mode): when set, this Source is an external
+    # web article (book == "wikipedia") rather than a corpus chunk. The frontend
+    # renders a 🌐 link to `url` instead of an in-reader book-page link.
+    url: str = ""
+
 
 class Figure(BaseModel):
     ref: str

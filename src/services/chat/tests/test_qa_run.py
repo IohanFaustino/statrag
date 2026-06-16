@@ -186,22 +186,7 @@ async def test_run_qa_sources_full_built_from_corpus_ev(monkeypatch):
     assert row["chapter"] == "ch02"
 
 
-@pytest.mark.asyncio
-async def test_run_qa_clarify_emitted_on_unknown_book(monkeypatch):
-    """When resolve_book returns low-confidence, clarify + done are emitted."""
-    from src.services.chat.agents import qa
-
-    async def zero_confidence(*a, **k):
-        return BookResolution(book_slug="", book_confidence=0.0, book_candidates=[])
-
-    monkeypatch.setattr(qa, "parse_catalog", lambda: _STUB_CAT)
-    monkeypatch.setattr(qa, "resolve_book", zero_confidence)
-
-    req = ChatRequest(message="In Hansen's book, what is a sigma-algebra?",
-                      mode="qa", bookFilter=[])
-    events = await _collect(qa.run_qa(req))
-    types = [e["type"] for e in events]
-    assert "clarify" in types
-    assert types[-1] == "done"
-    # No structured_output on clarify path
-    assert "structured_output" not in types
+# NOTE: Q&A no longer emits a book-disambiguation clarify (the shared
+# "common-ground" gate was removed from the Q&A workflow — it now answers
+# across all books when the book is ambiguous). New behavior is covered by
+# test_qa_clarify.py::test_qa_never_clarifies_answers_across_all_books_when_ambiguous.

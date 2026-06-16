@@ -2,6 +2,19 @@
 
 Append-only. Latest at top.
 
+## 2026-06-15 — Tutor mode: Wikipedia as a cited 🌐 source + fallback degrade fix
+
+**Scope:** branch `feat/component-equation-enforcement`. Spec: `docs/superpowers/specs/2026-06-15-tutor-wikipedia-source-design.md`. Doc: [36-deep-tutor.md](../services/chat-features/36-deep-tutor.md). Invariant 48.
+
+**What changed:**
+
+- **Wikipedia augmentation (new, tutor mode).** `run_deep_tutor` now fetches one Wikipedia summary per extracted concept (`research.wiki_evidence`, reused from Q&A/Extension) concurrently with retrieval, and **appends** them after the corpus sources at trailing ranks — corpus stays the authority (**augment-only**, invariant 48). Always-on, gated by `TUTOR_DEEP_WIKI` (`0` disables). Skipped when the corpus returned nothing (no Wikipedia-only answers). Silent-degrades to corpus-only on any network failure. New helpers `_fetch_wiki_sources` / `_append_wiki_sources`.
+- **Cited 🌐 surface.** `Source.url` and `TutorCitation.url` added (optional, backward-compatible). A wiki `Source` carries `book="wikipedia"`, `book_name="Wikipedia"`, `url=<article>`. Frontend: `ContextPanel` SourceCard renders a 🌐 Wikipedia tag; `SourceModal` shows a **View on Wikipedia ↗** link. `format_source_bundle` renders wiki rows as `Wikipedia (supplementary)` so the draft treats them as lower-authority.
+- **Modal/docs lockstep.** New **"Wikipedia augment"** node in `tutorPipeline.ts` (between coverage and figure judge) + mermaid graph + env table row + invariant 48.
+- **Bugfix (same session).** The deep-tutor draft's terminal JSON fallback constructed `DeepTutorAnswer(**payload)` strictly, so a `_require_component_equations` validation failure (e.g. a decomposition answer with prose `### Trend`/`### Seasonality` subsections) blanked the turn with `## Error / Failed to generate an answer`. Both terminal fallbacks now degrade via `model_validate(..., context={"skip_format_checks": True})` — mirroring the orchestrator's `validate_and_repair` — so a complete-but-imperfect answer renders. Regression test `test_stream_structured_last_resort_degrades_on_format_validator`.
+
+**Gates:** 1008 backend chat tests + 314 frontend tests green; tsc clean.
+
 ## 2026-06-12 — Facilitate story remake: single-section narrative pipeline
 
 **Scope:** branch `feat/facilitate-story-remake`. Spec: `docs/superpowers/specs/2026-06-12-facilitate-story-remake-design.md`. Plan: `docs/superpowers/plans/2026-06-12-facilitate-story-remake.md`. Doc: [53-facilitate-concept-map.md](../services/chat-features/53-facilitate-concept-map.md).

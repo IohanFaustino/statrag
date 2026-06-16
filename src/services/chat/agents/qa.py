@@ -19,7 +19,7 @@ from typing import AsyncIterator
 
 from src.core.config import settings
 from src.services.chat._fences import strip_fences
-from src.services.chat.agents._scope import maybe_clarify, resolve_book
+from src.services.chat.agents._scope import resolve_book
 from src.services.chat.books import parse_catalog
 from src.services.chat.llm.router import aclient_for
 from src.services.chat.llm.structured import apply_structured_output
@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 _QA_TOP_K = int(os.environ.get("QA_TOP_K", "4"))
 _QA_SCOPE = os.environ.get("QA_SCOPE", "1") == "1"
 _QA_VERIFY = os.environ.get("QA_VERIFY", "1") == "1"
-_QA_CLARIFY = os.environ.get("CHAPTER_CLARIFY", "1") == "1"
 _QA_WIKI = os.environ.get("QA_WIKI", "1") == "1"
 _QA_WIKI_TERMS_MAX = int(os.environ.get("QA_WIKI_TERMS_MAX", "2"))
 
@@ -537,16 +536,13 @@ async def run_qa(req: ChatRequest) -> AsyncIterator[dict]:
         "model": req.model,
     }
 
-    # 2. resolve book scope (fuzzy) + clarify gate — kept from original
+    # 2. resolve book scope (fuzzy). Q&A is intentionally separated from the
+    # shared book-disambiguation ("common-ground") clarify gate: a confidently
+    # named book narrows retrieval, but an ambiguous one never stops to ask —
+    # Q&A answers across all books instead.
     catalog = parse_catalog()
     res = await resolve_book(query, selected_slugs=book_slugs or [], catalog=catalog,
                              model=_model_for("scope", req))
-    if _QA_CLARIFY:
-        clar = maybe_clarify(res, catalog)
-        if clar is not None:
-            yield clar
-            yield {"type": "done"}
-            return
     if res.book_slug:
         book_slugs = [res.book_slug]
 

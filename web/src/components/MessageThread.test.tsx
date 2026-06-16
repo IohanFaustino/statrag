@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import MessageThread from "./MessageThread";
-import type { Message, QAStoryAnswer } from "../types";
+import type { Message, QAStoryAnswer, FacilitateStory, ModeId } from "../types";
 
 // Minimal assistant message in "pending" state (thinking indicator shows)
 const pendingMsg: Message = {
@@ -85,5 +85,38 @@ describe("MessageThread — QAStoryAnswer structured output routing", () => {
     const link = screen.getByRole("link", { name: /bias-variance tradeoff/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Bias-variance_tradeoff");
+  });
+});
+
+describe("MessageThread — common-ground is facilitate-only", () => {
+  const story: FacilitateStory = {
+    mode: "facilitate_story",
+    scope: { book_slug: "hansen", chapter_id: "ch07", section_id: "7.4", requested_subtopics: [], resolution: [] },
+    hook: "Why averages stabilise.",
+    movements: [{ prose: "The [[c1]] is the engine here.", formal: null }],
+    takeaway: "Done.",
+    concepts: [{ id: "c1", term: "law of large numbers", kind: "theorem", explanation: "x",
+      provenance: { book_slug: "hansen", book_name: "Probability", authors_short: "Hansen",
+        section: "7.4", page_from: 1, page_to: 2, chunk_id: "x", same_author: true, fallback: false } }],
+    citations: [], math_blocks: [], grounding: { ok: true, unsupported: [], confidence: 1 },
+  };
+  // A facilitate-produced message stays on screen even after the user switches
+  // the active mode; the gate is the ACTIVE mode (dropdown), not msg.mode.
+  const facStoryMsg: Message = {
+    role: "assistant", id: "f1", time: "12:02", timestamp: "2026-06-04T12:02:00Z",
+    mode: "facilitate" as ModeId, model: "nano", books: ["hansen"], sourceCount: 1, latencyMs: 1,
+    blocks: [], status: "complete", structuredOutput: { schema: "FacilitateStory", data: story },
+  };
+
+  it("renders an interactive concept anchor when the active mode is facilitate", () => {
+    render(<MessageThread thread={[facStoryMsg]} activeMode="facilitate"
+      onOpenConcept={() => {}} isStreaming={false} streamingPhase="idle" />);
+    expect(screen.getByRole("button", { name: /law of large numbers/i })).toBeInTheDocument();
+  });
+
+  it("does NOT expose an interactive concept anchor when the active mode is qa", () => {
+    render(<MessageThread thread={[facStoryMsg]} activeMode="qa"
+      onOpenConcept={() => {}} isStreaming={false} streamingPhase="idle" />);
+    expect(screen.queryByRole("button", { name: /law of large numbers/i })).toBeNull();
   });
 });

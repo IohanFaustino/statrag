@@ -140,6 +140,34 @@ export default function TutorView({ data }: Props) {
   const sections = groupSections(blocks);
   let figureCounter = 0;
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Filename from Content-Disposition or fallback
+      const cd = res.headers.get("content-disposition");
+      const match = cd?.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] || "tutor-answer.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const renderBlock = (block: Block, key: number) => {
     if (block.kind === "math") {
       return (
@@ -193,6 +221,10 @@ export default function TutorView({ data }: Props) {
 
   return (
     <div className="tutor-view">
+      <div className="tutor-view__hd">
+        <span className="tutor-view__hd-label">Tutor</span>
+        <button type="button" className="tutor-view__download" onClick={handleDownload} disabled={isDownloading} aria-label="Download ZIP" title="Download ZIP">{isDownloading ? "…" : "↓"}</button>
+      </div>
       {sections.map((section, sIdx) => {
         const open = openSections.has(sIdx);
         if (section.title === null) {

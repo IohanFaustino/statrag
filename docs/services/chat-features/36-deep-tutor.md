@@ -38,7 +38,8 @@ graph TD
   DV --> CC["coverage check (nano): facets vs sources<br/>re-query missing (cap 1) → re-rank<br/>(TUTOR_COVERAGE_CHECK)"]
   CC --> M{sources empty?}
   M -->|yes| FAIL["## No corpus coverage"]
-  M -->|no| FR["formula recovery (gap-triggered, best-effort)<br/>detect OCR-dropped defining equations →<br/>‖ per gap: formula_cache → vision off figure (gpt-4o) → text re-query<br/>→ &lt;recovered_equations&gt; block (verbatim) + cache (doc 57)"]
+  M -->|no| WIKI["wikipedia augment (always-on; TUTOR_DEEP_WIKI)<br/>1 summary/concept (research.wiki_evidence) → append AFTER corpus<br/>at trailing ranks · pure code · silent-degrade · corpus-primary<br/>skipped when corpus empty"]
+  WIKI --> FR["formula recovery (gap-triggered, best-effort)<br/>detect OCR-dropped defining equations →<br/>‖ per gap: formula_cache → vision off figure (gpt-4o) → text re-query<br/>→ &lt;recovered_equations&gt; block (verbatim) + cache (doc 57)"]
   FR --> PLAN["synthesis plan (parallel w/ figure judge)<br/>thesis + per-aspect outline + evidence ledger<br/>+ author contrasts (TUTOR_SYNTHESIS_PLAN / stageModels.plan)<br/>'off' = skip → legacy single-draft<br/>also skipped when planner rates question simple (perspectives ≤ 1)"]
   PLAN --> ND["narrative draft (single call, streamed)<br/>ONE continuous arc — 5 beats + intro<br/>thesis injected as &lt;thesis&gt; block<br/>response_format = DeepTutorAnswer"]
   ND --> SG["seam guard (pure code, no env flag)<br/>lemma overlap · boilerplate · lang-drift · formalize-drop re-link<br/>→ quality[seam_continuity / lang_ok / thesis_adherence]"]
@@ -165,6 +166,7 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_MULTI_QUERY` | `1` | `0` = retrieve on the raw question only (skip the query planner's multi-query + RRF) |
 | `TUTOR_DEEP_VISION_EXPLAIN` | `lazy` | Tri-state: `"lazy"` (default) = no inline vision call, figures render with caption+judge_reason; `"1"` = explain only the single top-ranked figure (1 vision call max); `"0"` = off. Changed from `"1"` default in Phase-1 (2026-05-30) to save 2–3 vision calls per turn. |
 | `TUTOR_DEEP_VISION_MODEL` | `gpt-4o-mini` | Vision model used when `TUTOR_DEEP_VISION_EXPLAIN=1` |
+| `TUTOR_DEEP_WIKI` | `1` | `0` = disable Wikipedia augmentation. When `1`, one Wikipedia summary per extracted concept is fetched (concurrent with retrieval) and appended **after** the corpus sources at trailing ranks — corpus stays the authority (augment-only). Skipped entirely when the corpus returned nothing (no Wikipedia-only answers). Pure code via `research.wiki_evidence`; silent-degrades to corpus-only on any network failure. Surfaces as a clickable 🌐 source in the context panel + a `url` on the matching `TutorCitation`. |
 | `TUTOR_COVERAGE_CHECK` | `1` | `0` = skip the facet coverage check + re-query entirely. When `1`, an additional gate applies: coverage runs only when `len(facets) >= 4` or any facet contains `$` or the word `formula` — simple questions skip the extra nano call (see Phase-1 coverage gate). |
 | `TUTOR_ADAPTIVE_ROUTING` | `1` | Phase 3: `1` = route by complexity tier — simple questions (planner `perspectives ≤ 1`) skip the synthesis-plan stage and the related-framings retrieval query; `0` = always standard (Phase-2 behavior, rollback). Full draft model in both tiers. |
 | `TUTOR_SYNTHESIS_PLAN` | `1` | `0` = skip the synthesis-plan step (legacy single-draft). Per-request: `stageModels.plan = "off"` or a model id |

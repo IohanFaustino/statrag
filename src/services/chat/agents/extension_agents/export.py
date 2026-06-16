@@ -162,6 +162,136 @@ def render_story_html(digest) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Markdown renderers (mirror web/src/lib/exportMarkdown.ts; content fields are
+# already markdown text so they pass through verbatim). One per digest type;
+# each ZIP ships a .md beside its .html.
+# ---------------------------------------------------------------------------
+
+def _fmt_tutor_citation(c) -> str:
+    parts = [p for p in (
+        getattr(c, "authors_short", ""), str(getattr(c, "year", "") or ""),
+        getattr(c, "book_name", ""), getattr(c, "chapter", ""), getattr(c, "section", ""),
+    ) if p]
+    pf, pt = getattr(c, "page_from", 0), getattr(c, "page_to", 0)
+    if pf:
+        parts.append(f"pp. {pf}–{pt}" if pt and pt != pf else f"p. {pf}")
+    return " · ".join(parts)
+
+
+def _fmt_label_citation(i, c) -> str:
+    prefix = "🌐 " if getattr(c, "kind", "corpus") == "wikipedia" else ""
+    tail = f" · {c.url}" if getattr(c, "url", None) else ""
+    return f"{prefix}[{i}] {c.label}{tail}"
+
+
+def _md_math(lines: list[str], math_blocks) -> None:
+    if math_blocks:
+        lines += ["---", "", "## Math", ""]
+        for tex in math_blocks:
+            lines += ["$$", tex, "$$", ""]
+
+
+def render_extension_md(digest) -> str:
+    lines = [f"# {digest.book} · {digest.chapter} — Extended", ""]
+    for pt in digest.points:
+        lines += [f"## {pt.title}", "", pt.curated_text, ""]
+        for fn in pt.footnotes:
+            lines.append(f"> [{fn.marker}] {fn.body} — _{fn.source} · {fn.kind}_")
+        if pt.footnotes:
+            lines.append("")
+    if digest.unfilled_gaps:
+        lines += ["---", "", f"**Unfilled gaps:** {', '.join(digest.unfilled_gaps)}", ""]
+    return "\n".join(lines)
+
+
+def render_story_md(digest) -> str:
+    lines = [f"# {digest.book} · {digest.chapter} — Extended", ""]
+    for i, take in enumerate(digest.takes, 1):
+        lines += [f"## {i}. {take.heading}", "", take.story, ""]
+        for item in take.items:
+            cits = " · ".join(c.label for c in item.citations)
+            suffix = f" _[{cits}]_" if cits else ""
+            lines.append(f"- **{item.subject}** — {item.body}{suffix}")
+        if take.items:
+            lines.append("")
+    if getattr(digest, "unfilled_subjects", None):
+        lines += ["---", "", f"**Unfilled subjects:** {', '.join(digest.unfilled_subjects)}", ""]
+    return "\n".join(lines)
+
+
+def render_tutor_md(data) -> str:
+    lines = [f"# {getattr(data, 'title', None) or 'Tutor Answer'}", "", getattr(data, "text", ""), ""]
+    _md_math(lines, getattr(data, "math_blocks", []) or [])
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        lines += ["---", "", "## References", ""]
+        lines += [f"[{c.index}] {_fmt_tutor_citation(c)}" for c in citations]
+        lines.append("")
+    return "\n".join(lines)
+
+
+def render_qa_md(data) -> str:
+    lines = ["# Q&A Answer", ""]
+    scope = getattr(data, "scope", None)
+    if scope and getattr(scope, "target_gap", None):
+        lines += [f"**Question:** {scope.target_gap}", ""]
+    lines += [data.intro, "", data.deepening, "", data.conclusion, ""]
+    _md_math(lines, getattr(data, "math_blocks", []) or [])
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        lines += ["---", "", "## References", ""]
+        lines += [_fmt_label_citation(i, c) for i, c in enumerate(citations, 1)]
+        lines.append("")
+    return "\n".join(lines)
+
+
+def render_chapter_md(data) -> str:
+    title = "Facilitate Digest" if getattr(data, "mode", "") == "facilitate" else "Resume Digest"
+    lines = [f"# {title}", "", f"**Book:** {data.scope.book_slug}",
+             f"**Chapter:** {data.scope.chapter_id}", ""]
+    if getattr(data, "intro", ""):
+        lines += [data.intro, ""]
+    for block in getattr(data, "blocks", []) or []:
+        lines += [f"## {block.h2_path}", ""]
+        if block.page_from > 0:
+            pg = f"pp. {block.page_from}–{block.page_to}" if block.page_to > block.page_from else f"p. {block.page_from}"
+            lines += [f"*{pg}*", ""]
+        lines += [block.body, ""]
+    _md_math(lines, getattr(data, "math_blocks", []) or [])
+    if getattr(data, "outro", ""):
+        lines += [data.outro, ""]
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        lines += ["---", "", "## References", ""]
+        lines += [f"[{c.index}] {_fmt_tutor_citation(c)}" for c in citations]
+        lines.append("")
+    return "\n".join(lines)
+
+
+def render_facilitate_md(data) -> str:
+    scope = getattr(data, "scope", None)
+    section = ", ".join(scope.requested_subtopics) if scope and scope.requested_subtopics else "Unknown"
+    lines = ["# Facilitate Story", "", f"**Section:** {section}", ""]
+    if getattr(data, "hook", ""):
+        lines += [data.hook, ""]
+    for m in getattr(data, "movements", []) or []:
+        if getattr(m, "formal", None):
+            f = m.formal
+            quoted = "> " + f.statement.replace("\n", "\n> ")
+            lines += [f"## {f.kind.upper()}", "", quoted, "", f.explanation, ""]
+        elif getattr(m, "prose", None):
+            lines += [m.prose, ""]
+    if getattr(data, "takeaway", ""):
+        lines += ["---", "", data.takeaway, ""]
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        lines += ["---", "", "## References", ""]
+        lines += [_fmt_label_citation(i, c) for i, c in enumerate(citations, 1)]
+        lines.append("")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # ZIP builders
 # ---------------------------------------------------------------------------
 
@@ -174,6 +304,7 @@ def build_export_zip(digest) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("extension.html", _render_html(digest))
+        zf.writestr("extension.md", render_extension_md(digest))
         zf.writestr("sources.json", json.dumps(sources, indent=2))
     return buf.getvalue()
 
@@ -198,5 +329,276 @@ def build_story_export_zip(digest) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("story.html", render_story_html(digest))
+        zf.writestr("story.md", render_story_md(digest))
+        zf.writestr("sources.json", json.dumps(sources, indent=2))
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# TutorAnswer renderer + ZIP builder
+# ---------------------------------------------------------------------------
+
+def render_tutor_html(data) -> str:
+    """Return self-contained HTML for a TutorAnswer."""
+    title = getattr(data, "title", "Tutor Answer")
+    parts = [
+        "<!doctype html><html lang=en><head><meta charset=utf-8>",
+        f"<title>{_html.escape(title)}</title>",
+        f'<link rel="stylesheet" href="{_KATEX}">',
+        f"<style>{_CSS}</style></head><body>",
+        f"<h1>{_html.escape(title)}</h1>",
+    ]
+    # Body text with ## headings
+    text = getattr(data, "text", "")
+    if text:
+        # Convert ## headings to HTML h2
+        html_body = _html.escape(text).replace("\n## ", "</p><h2>").replace("\n", "<br>")
+        parts.append(f'<div class="tutor-body">{html_body}</div>')
+    # Math blocks
+    math_blocks = getattr(data, "math_blocks", []) or []
+    if math_blocks:
+        parts.append("<h2>Math</h2>")
+        for tex in math_blocks:
+            parts.append(f"<p>$$${_html.escape(tex)}$$</p>")
+    # Citations
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        parts.append("<h2>References</h2><ol>")
+        for c in citations:
+            who = _html.escape(f"{c.authors_short} {c.year}".strip())
+            loc = _html.escape(f"{c.book_name} · {c.chapter} · {c.section}".strip(" ·"))
+            pg = f"p. {c.page_from}" if c.page_from else ""
+            parts.append(f"<li>[{c.index}] {who} — {loc} {pg}</li>")
+        parts.append("</ol>")
+    parts.append(_KATEX_SCRIPT)
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def build_tutor_export_zip(data) -> bytes:
+    """Return ZIP bytes for a TutorAnswer: tutor.html + sources.json."""
+    sources = [
+        {
+            "index": c.index,
+            "authors": c.authors_short,
+            "year": c.year,
+            "book": c.book_name,
+            "chapter": c.chapter,
+            "section": c.section,
+            "pages": f"{c.page_from}-{c.page_to}" if c.page_to else str(c.page_from),
+        }
+        for c in getattr(data, "citations", []) or []
+    ]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("tutor.html", render_tutor_html(data))
+        zf.writestr("tutor.md", render_tutor_md(data))
+        zf.writestr("sources.json", json.dumps(sources, indent=2))
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Q&A (QAStoryAnswer) renderer + ZIP builder
+# ---------------------------------------------------------------------------
+
+def render_qa_html(data) -> str:
+    """Return self-contained HTML for a QAStoryAnswer."""
+    scope = getattr(data, "scope", None)
+    target = scope.target_gap if scope else "Q&A Answer"
+    parts = [
+        "<!doctype html><html lang=en><head><meta charset=utf-8>",
+        f"<title>{_html.escape(target)}</title>",
+        f'<link rel="stylesheet" href="{_KATEX}">',
+        f"<style>{_CSS}</style></head><body>",
+        f"<h1>{_html.escape(target)}</h1>",
+    ]
+    # Three-act structure
+    parts.append(f'<div class="qa-intro"><p>{_html.escape(data.intro)}</p></div>')
+    parts.append(f'<div class="qa-deepening"><p>{_html.escape(data.deepening)}</p></div>')
+    parts.append(f'<div class="qa-conclusion"><p>{_html.escape(data.conclusion)}</p></div>')
+    # Math blocks
+    math_blocks = getattr(data, "math_blocks", []) or []
+    if math_blocks:
+        parts.append("<h2>Math</h2>")
+        for tex in math_blocks:
+            parts.append(f"<p>$$${_html.escape(tex)}$$</p>")
+    # Citations
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        parts.append("<h2>References</h2><ol>")
+        for i, c in enumerate(citations, 1):
+            label = _html.escape(c.label)
+            kind = getattr(c, "kind", "corpus")
+            prefix = "🌐 " if kind == "wikipedia" else ""
+            parts.append(f"<li>{prefix}[{i}] {label}</li>")
+        parts.append("</ol>")
+    parts.append(_KATEX_SCRIPT)
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def build_qa_export_zip(data) -> bytes:
+    """Return ZIP bytes for a QAStoryAnswer: qa.html + sources.json."""
+    sources = [
+        {
+            "index": i + 1,
+            "label": c.label,
+            "kind": getattr(c, "kind", "corpus"),
+            **({"url": c.url} if getattr(c, "url", None) else {}),
+        }
+        for i, c in enumerate(getattr(data, "citations", []) or [])
+    ]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("qa.html", render_qa_html(data))
+        zf.writestr("qa.md", render_qa_md(data))
+        zf.writestr("sources.json", json.dumps(sources, indent=2))
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# ChapterDigest renderer + ZIP builder
+# ---------------------------------------------------------------------------
+
+def render_chapter_html(data) -> str:
+    """Return self-contained HTML for a ChapterDigest (resume/facilitate)."""
+    mode = getattr(data, "mode", "chapter")
+    title = "Facilitate Digest" if mode == "facilitate" else "Resume Digest"
+    scope = getattr(data, "scope", None)
+    book = scope.book_slug if scope else "Unknown"
+    chapter = scope.chapter_id if scope else "Unknown"
+    parts = [
+        "<!doctype html><html lang=en><head><meta charset=utf-8>",
+        f"<title>{_html.escape(title)}</title>",
+        f'<link rel="stylesheet" href="{_KATEX}">',
+        f"<style>{_CSS}</style></head><body>",
+        f"<h1>{_html.escape(title)}</h1>",
+        f"<p><strong>Book:</strong> {_html.escape(book)}<br>",
+        f"<strong>Chapter:</strong> {_html.escape(chapter)}</p>",
+    ]
+    # Intro
+    intro = getattr(data, "intro", "")
+    if intro:
+        parts.append(f'<div class="chapter-intro"><p>{_html.escape(intro)}</p></div>')
+    # Blocks
+    blocks = getattr(data, "blocks", []) or []
+    for block in blocks:
+        h2 = _html.escape(block.h2_path)
+        parts.append(f"<h2>{h2}</h2>")
+        if block.page_from:
+            pg = f"pp. {block.page_from}-{block.page_to}" if block.page_to else f"p. {block.page_from}"
+            parts.append(f"<p><em>{_html.escape(pg)}</em></p>")
+        parts.append(f'<div class="block-body"><p>{_html.escape(block.body)}</p></div>')
+    # Math blocks
+    math_blocks = getattr(data, "math_blocks", []) or []
+    if math_blocks:
+        parts.append("<h2>Math</h2>")
+        for tex in math_blocks:
+            parts.append(f"<p>$$${_html.escape(tex)}$$</p>")
+    # Outro
+    outro = getattr(data, "outro", "")
+    if outro:
+        parts.append(f'<div class="chapter-outro"><p>{_html.escape(outro)}</p></div>')
+    # Citations
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        parts.append("<h2>References</h2><ol>")
+        for c in citations:
+            who = _html.escape(f"{c.authors_short} {c.year}".strip())
+            loc = _html.escape(f"{c.book_name} · {c.chapter}".strip(" ·"))
+            parts.append(f"<li>[{c.index}] {who} — {loc}</li>")
+        parts.append("</ol>")
+    parts.append(_KATEX_SCRIPT)
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def build_chapter_export_zip(data) -> bytes:
+    """Return ZIP bytes for a ChapterDigest: chapter.html + sources.json."""
+    sources = [
+        {
+            "index": c.index,
+            "authors": c.authors_short,
+            "year": c.year,
+            "book": c.book_name,
+            "chapter": c.chapter,
+            "section": c.section,
+            "pages": f"{c.page_from}-{c.page_to}" if c.page_to else str(c.page_from),
+        }
+        for c in getattr(data, "citations", []) or []
+    ]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("chapter.html", render_chapter_html(data))
+        zf.writestr("chapter.md", render_chapter_md(data))
+        zf.writestr("sources.json", json.dumps(sources, indent=2))
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# FacilitateStory renderer + ZIP builder
+# ---------------------------------------------------------------------------
+
+def render_facilitate_html(data) -> str:
+    """Return self-contained HTML for a FacilitateStory."""
+    scope = getattr(data, "scope", None)
+    section = scope.requested_subtopics if scope else ["Unknown"]
+    parts = [
+        "<!doctype html><html lang=en><head><meta charset=utf-8>",
+        "<title>Facilitate Story</title>",
+        f'<link rel="stylesheet" href="{_KATEX}">',
+        f"<style>{_CSS}</style></head><body>",
+        "<h1>Facilitate Story</h1>",
+        f"<p><strong>Section:</strong> {_html.escape(', '.join(section))}</p>",
+    ]
+    # Hook
+    hook = getattr(data, "hook", "")
+    if hook:
+        parts.append(f'<div class="story-hook"><p><em>{_html.escape(hook)}</em></p></div>')
+    # Movements
+    movements = getattr(data, "movements", []) or []
+    for m in movements:
+        if getattr(m, "formal", None):
+            f = m.formal
+            parts.append(f"<h2>{_html.escape(f.kind.upper())}</h2>")
+            parts.append(f'<blockquote>{_html.escape(f.statement)}</blockquote>')
+            parts.append(f'<p>{_html.escape(f.explanation)}</p>')
+        elif getattr(m, "prose", None):
+            parts.append(f'<p>{_html.escape(m.prose)}</p>')
+    # Takeaway
+    takeaway = getattr(data, "takeaway", "")
+    if takeaway:
+        parts.append("<h2>Takeaway</h2>")
+        parts.append(f'<p>{_html.escape(takeaway)}</p>')
+    # Citations
+    citations = getattr(data, "citations", []) or []
+    if citations:
+        parts.append("<h2>References</h2><ol>")
+        for i, c in enumerate(citations, 1):
+            label = _html.escape(c.label)
+            kind = getattr(c, "kind", "corpus")
+            prefix = "🌐 " if kind == "wikipedia" else ""
+            parts.append(f"<li>{prefix}[{i}] {label}</li>")
+        parts.append("</ol>")
+    parts.append(_KATEX_SCRIPT)
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def build_facilitate_export_zip(data) -> bytes:
+    """Return ZIP bytes for a FacilitateStory: facilitate.html + sources.json."""
+    sources = [
+        {
+            "index": i + 1,
+            "label": c.label,
+            "kind": getattr(c, "kind", "corpus"),
+            **({"url": c.url} if getattr(c, "url", None) else {}),
+        }
+        for i, c in enumerate(getattr(data, "citations", []) or [])
+    ]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("facilitate.html", render_facilitate_html(data))
+        zf.writestr("facilitate.md", render_facilitate_md(data))
         zf.writestr("sources.json", json.dumps(sources, indent=2))
     return buf.getvalue()

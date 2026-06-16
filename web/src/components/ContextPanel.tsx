@@ -42,6 +42,7 @@ function SourceCard({
   onOpen?: (s: Source) => void;
 }) {
   const bookKey = (src.book || "").toLowerCase();
+  const isWiki = src.book === "wikipedia";
   return (
     <button
       className="source-card"
@@ -49,7 +50,11 @@ function SourceCard({
       onClick={() => onOpen?.(src)}
     >
       <div className="source-card__hd">
-        {src.book ? (
+        {isWiki ? (
+          <span className="book-tag book-tag--wikipedia">
+            <span aria-hidden="true">🌐</span> Wikipedia
+          </span>
+        ) : src.book ? (
           <span className={`book-tag book-tag--${bookKey}`}>
             <span className={`dot dot--${bookKey}`} />
             {src.book === "HANSEN" ? "Hansen" : src.book}
