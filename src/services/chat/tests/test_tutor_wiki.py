@@ -78,5 +78,26 @@ def test_wiki_sources_appended_after_corpus_keep_corpus_ranks():
                    book_name="Wikipedia", url="http://w/Bias")]
     merged = deep_tutor._append_wiki_sources(corpus, wiki)
     assert [s.rank for s in merged] == [1, 2, 3]
-    assert merged[0].book == "islp" and merged[1].book == "esl"
-    assert merged[2].book == "wikipedia" and merged[2].rank == 3
+    # corpus order preserved: first and third should be corpus sources
+    assert merged[0].book == "islp" and merged[2].book == "esl"
+    # wiki source interleaved (not trailing) at position 1
+    assert merged[1].book == "wikipedia" and merged[1].rank == 2
+
+
+def test_wiki_interleaved_not_all_trailing():
+    from src.services.chat.agents.deep_tutor import _append_wiki_sources
+    from src.services.chat.schemas import Source
+    def mk(book, rank):
+        return Source(rank=rank, book=book, chapter="", section=f"s{rank}", title="t",
+                      excerpt="x", score=1.0, chunkId=f"{book}:{rank}", chunk="c",
+                      book_name=book, url="")
+    corpus = [mk("hansen", i) for i in range(1, 7)]   # 6 corpus
+    wiki = [mk("wikipedia", 0), mk("wikipedia", 0)]   # 2 wiki
+    out = _append_wiki_sources(corpus, wiki)
+    assert len(out) == 8
+    ranks = [s.rank for s in out]
+    assert ranks == sorted(ranks) and len(set(ranks)) == 8   # contiguous unique 1..8
+    wiki_positions = [i for i, s in enumerate(out) if s.book == "wikipedia"]
+    assert max(wiki_positions) < len(out) - 1                # no wiki is last
+    corpus_order = [s.chunkId for s in out if s.book == "hansen"]
+    assert corpus_order == [f"hansen:{i}" for i in range(1, 7)]   # corpus order preserved

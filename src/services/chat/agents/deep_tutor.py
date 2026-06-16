@@ -2529,13 +2529,29 @@ async def _fetch_wiki_sources(concepts: list[str]) -> list[Source]:
 
 
 def _append_wiki_sources(corpus: list[Source], wiki: list[Source]) -> list[Source]:
-    """Append wiki sources AFTER corpus at trailing ranks (corpus ranks intact)."""
+    """Interleave wiki among corpus so it is visible (never all-trailing).
+    Corpus relative order preserved; ranks renumbered 1..N contiguously."""
     if not wiki:
         return corpus
-    base = len(corpus)
-    for i, w in enumerate(wiki):
-        w.rank = base + i + 1
-    return corpus + wiki
+    if not corpus:
+        for r, w in enumerate(wiki, start=1):
+            w.rank = r
+        return wiki
+    merged: list[Source] = []
+    wi = iter(wiki)
+    nxt = next(wi, None)
+    n = len(corpus)
+    for i, c in enumerate(corpus, start=1):
+        merged.append(c)
+        if nxt is not None and i < n and i % 2 == 0:   # after every 2nd corpus, never after the last
+            merged.append(nxt)
+            nxt = next(wi, None)
+    while nxt is not None:                              # leftover wiki -> just before the last corpus
+        merged.insert(len(merged) - 1, nxt)
+        nxt = next(wi, None)
+    for r, s in enumerate(merged, start=1):
+        s.rank = r
+    return merged
 
 
 # ---------------------------------------------------------------------------
