@@ -1861,6 +1861,40 @@ async def _recover_equations_block(query: str, sources: list) -> str:
         return ""
 
 
+async def _recover_definitions_block(query, concepts, sources, books):
+    """Definition recovery: detect definitional gaps, run dedicated verbatim
+    retrieval, return (recovered_defs, <formal_definitions> block for the draft).
+    Gated by TUTOR_DEEP_DEFINITIONS (default '1'). Best-effort."""
+    if os.environ.get("TUTOR_DEEP_DEFINITIONS", "1") != "1":
+        return [], ""
+    try:
+        from src.services.chat.agents.definition_gaps import detect_definition_gaps  # noqa: PLC0415
+        from src.services.chat.agents.definition_recovery import (  # noqa: PLC0415
+            recover_definitions, format_definitions_block,
+        )
+        gaps = detect_definition_gaps(concepts, query, sources)
+        if not gaps:
+            return [], ""
+        recovered = await recover_definitions(query, gaps, books)
+        return recovered, (format_definitions_block(recovered) if recovered else "")
+    except Exception:  # noqa: BLE001
+        logger.exception("definition recovery failed; proceeding without")
+        return [], ""
+
+
+def _def_sources(recovered, start_rank):
+    """Build Source rows from recovered definitions so their [N] cites resolve."""
+    out = []
+    for i, rd in enumerate(recovered, start=1):
+        out.append(Source(
+            rank=start_rank + i, book=rd.book or "", chapter=rd.chapter or "",
+            section=rd.section or "", title=rd.label or rd.concept,
+            excerpt=(rd.statement or "")[:200], score=0.0,
+            chunkId=rd.chunkId or f"def:{rd.concept}", chunk=rd.statement or "",
+            book_name=rd.book_name or rd.book or ""))
+    return out
+
+
 def _mirror_aspects(deep, aspects: dict[str, str]) -> None:
     """Write corrected aspect strings back onto the DeepTutorAnswer so later
     serialisation sees them. Best-effort per field."""
@@ -2809,6 +2843,9 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
 
     # Compute formula-recovery block once; reused by both first draft and redraft.
     recovered_block = await _recover_equations_block(query, sources)
+    recovered_defs, _definitions_block = await _recover_definitions_block(query, concepts, sources, book_slugs)
+    if _definitions_block:
+        recovered_block = (recovered_block + "\n\n" + _definitions_block) if recovered_block else _definitions_block
 
     async def _draft_coro():
         return await _stream_draft(
@@ -2892,6 +2929,10 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         # Mirror polished aspects back onto the DeepTutorAnswer so downstream
         # code (and any later serialisation of `deep`) sees the corrected text.
         _mirror_aspects(deep, aspects)
+    if recovered_defs and deep is not None:
+        from src.services.chat.agents.definition_recovery import build_formal_statements  # noqa: PLC0415
+        augmented_sources = list(augmented_sources) + _def_sources(recovered_defs, len(augmented_sources))
+        deep.formal_statements = build_formal_statements(recovered_defs, augmented_sources)
     answer = _convert_to_tutor_answer(deep, aspects, augmented_sources,
                                        approved_figures=approved_figures,
                                        vision_explanations=vision_explanations,

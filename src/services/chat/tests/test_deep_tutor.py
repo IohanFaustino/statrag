@@ -1462,3 +1462,38 @@ def test_wiki_source_render_allows_anchor():
     out = format_source_bundle([w]).lower()
     assert "supplementary" not in out
     assert "anchor" in out
+
+
+# ---------------------------------------------------------------------------
+# DR-4: Definition Recovery wiring helpers
+# ---------------------------------------------------------------------------
+def test_def_sources_assigns_ranks_and_chunkid():
+    from src.services.chat.agents.deep_tutor import _def_sources
+    from src.services.chat.agents.definition_cache import RecoveredDefinition
+    rd = RecoveredDefinition(concept="strict stationarity", kind="definition",
+                             label="Definition 14.1",
+                             statement="A process is strictly stationary if X",
+                             book="hansen", book_name="Hansen", chapter="ch14",
+                             section="14.1", chunkId="hansen:14")
+    out = _def_sources([rd], start_rank=10)
+    assert len(out) == 1
+    assert out[0].rank == 11
+    assert out[0].chunkId == "hansen:14"
+    assert out[0].chunk == "A process is strictly stationary if X"
+
+
+def test_recover_definitions_block_disabled(monkeypatch):
+    import asyncio as _a
+    from src.services.chat.agents.deep_tutor import _recover_definitions_block
+    monkeypatch.setenv("TUTOR_DEEP_DEFINITIONS", "0")
+    assert _a.run(_recover_definitions_block("q", ["c"], [], None)) == ([], "")
+
+
+def test_recover_definitions_block_no_gaps(monkeypatch):
+    import asyncio as _a
+    from unittest.mock import patch
+    from src.services.chat.agents import deep_tutor as dt
+    monkeypatch.setenv("TUTOR_DEEP_DEFINITIONS", "1")
+    with patch("src.services.chat.agents.definition_gaps.detect_definition_gaps", return_value=[]):
+        out = _a.run(dt._recover_definitions_block("compute adf", ["x"], [], None))
+    assert out == ([], "")
