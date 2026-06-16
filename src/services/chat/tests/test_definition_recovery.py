@@ -234,3 +234,76 @@ def test_cache_write_noop_on_empty_statement():
     with patch("src.services.chat.agents.definition_cache._upsert", mock_upsert):
         asyncio.run(cache_write(RecoveredDefinition(concept="x", statement="")))
         mock_upsert.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# DR-3a: definition_recovery pure-code helpers
+# ---------------------------------------------------------------------------
+from src.services.chat.agents.definition_recovery import (  # noqa: E402
+    build_formal_statements,
+    definition_recall,
+    format_definitions_block,
+    is_verbatim,
+)
+
+
+def _src_ranked(chunk_id: str, rank: int):
+    from src.services.chat.schemas import Source
+    return Source(rank=rank, book="test", chapter="ch01", section="1.1",
+                  title="Test section", excerpt="", score=0.9, chunkId=chunk_id, chunk="")
+
+
+def test_definition_recall_identical_is_one():
+    assert definition_recall("a b c", "a b c") == 1.0
+
+
+def test_definition_recall_disjoint_is_zero():
+    assert definition_recall("a b", "x y") == 0.0
+
+
+def test_is_verbatim_true_for_near_copy():
+    assert is_verbatim(
+        "A process is strictly stationary if the joint distribution is invariant",
+        "Definition 14.1 A process is strictly stationary if the joint "
+        "distribution is invariant under time shifts",
+    )
+
+
+def test_is_verbatim_false_for_paraphrase():
+    assert not is_verbatim(
+        "stationarity means stable statistics over time basically",
+        "Definition 14.1 A process is strictly stationary if the joint "
+        "distribution is invariant under time shifts",
+    )
+
+
+def test_build_formal_statements_resolves_cite():
+    sources = [_src_ranked("hansen:14", 2)]
+    recovered = [RecoveredDefinition(concept="strict stationarity", kind="definition",
+                 label="Definition 14.1", statement="A process is strictly stationary if ...",
+                 chunkId="hansen:14")]
+    result = build_formal_statements(recovered, sources)
+    assert len(result) == 1
+    assert result[0].cite == 2
+    assert result[0].label == "Definition 14.1"
+    assert result[0].statement.startswith("A process")
+
+
+def test_build_formal_statements_skips_unmatched_chunk():
+    sources = [_src_ranked("other:1", 1)]
+    recovered = [RecoveredDefinition(concept="foo", kind="definition", label="Def 1",
+                 statement="something", chunkId="missing:99")]
+    assert build_formal_statements(recovered, sources) == []
+
+
+def test_format_definitions_block_lists_each():
+    recovered = [RecoveredDefinition(concept="strict stationarity", kind="definition",
+                 label="Definition 14.1", statement="A process is strictly stationary if ...",
+                 chunkId="hansen:14")]
+    block = format_definitions_block(recovered)
+    assert "Definition 14.1" in block
+    assert "A process is strictly stationary" in block
+
+
+def test_format_definitions_block_empty():
+    assert format_definitions_block([]) == ""
