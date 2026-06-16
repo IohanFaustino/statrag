@@ -261,14 +261,11 @@ Per-field requirements (target lengths are minimums; longer is fine):
     automatically when this field is empty.
   - Never present a paraphrase as if it were a verbatim quote.
 
-- ``formal_statements`` (list, may be empty): For EACH formal definition or
-  theorem a source states EXPLICITLY, emit one entry reproducing it VERBATIM
-  (the source's own wording and notation; display math in $$). A numbered
-  label is PREFERRED but NOT REQUIRED. Reproduce MULTIPLE when a topic has
-  several forms (e.g. strict AND weak stationarity each get their own entry).
-  Set ``label`` to the source's label or "", ``kind`` accordingly, ``cite``
-  to the [N] source rank. NEVER paraphrase into this field. Empty list when
-  no source states a formal definition.
+- ``formal_statements`` (list, may be empty): one entry per formal
+  definition/theorem a source states EXPLICITLY, reproduced VERBATIM (source
+  wording + notation; $$ for display math). Numbered label PREFERRED but NOT
+  REQUIRED; set ``label``/``kind``/``cite`` ([N] rank). Reproduce MULTIPLE forms
+  (e.g. strict AND weak stationarity). Never paraphrase here; empty when none.
 
 - ``example_intuition`` (340-480 words): a merged "Example & Intuition"
   section that teaches through cases, then distils the lesson.

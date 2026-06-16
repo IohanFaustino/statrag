@@ -107,7 +107,10 @@ def test_formal_statement_verbatim_contract():
     assert "overrides the ~15-word limit" in INSTR
     # when NO numbered statement exists, the field must be empty (not invented)
     assert "emit an empty string" in INSTR
-    assert "numbered formal statement" in INSTR
+    # gate relaxed 2026-06-16: numbered label preferred but NOT required, and the
+    # verbatim defs are now also carried in the structured ``formal_statements`` list.
+    assert "preferred but not required" in INSTR
+    assert "formal_statements" in INSTR
     assert "never present a paraphrase as if it were a verbatim quote" in INSTR
 
 
@@ -307,7 +310,7 @@ def test_convert_uses_relevance_override():
 # Soft regression guard: ceiling sits deliberately above the current ~18.7k size
 # to catch runaway bloat while leaving comfortable room for intentional additions.
 # Raise it when you genuinely add new rules; lower it after a prompt-diet pass.
-_PROMPT_BUDGET_CEILING = 22_000  # raised 2026-06-11: +bridge-opener guidance for 3 beats (Task 4 reconcile)
+_PROMPT_BUDGET_CEILING = 22_500  # raised 2026-06-16: +formal_statements verbatim-multi rule + relaxed gate
 
 
 def test_deep_tutor_instructions_within_token_budget():
