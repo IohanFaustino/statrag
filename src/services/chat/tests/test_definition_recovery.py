@@ -1,8 +1,17 @@
+import asyncio
+import types
+from unittest.mock import AsyncMock, Mock, patch
+
 from src.services.chat.agents.definition_gaps import (
     DefinitionGap,
     _norm,
     _query_is_definitional,
     detect_definition_gaps,
+)
+from src.services.chat.agents.definition_cache import (
+    RecoveredDefinition,
+    cache_lookup,
+    cache_write,
 )
 
 
@@ -147,3 +156,81 @@ def test_is_definitional():
     assert _query_is_definitional("weak stationarity")
     assert _query_is_definitional("stationarity")  # contains "stationar"
     assert _query_is_definitional("stationar")
+
+
+# ---------------------------------------------------------------------------
+# definition_cache tests (mock Qdrant + embeddings, no network)
+# ---------------------------------------------------------------------------
+
+N_EMB = 8  # small fake embedding dimension
+
+
+async def _fake_embed(text: str) -> list[float]:
+    return [0.0] * N_EMB
+
+
+def test_cache_lookup_miss_when_collection_absent():
+    """When _collection_exists returns False, cache_lookup returns None."""
+    with patch("src.services.chat.agents.definition_cache._collection_exists", return_value=False):
+        result = asyncio.run(cache_lookup("strict stationarity"))
+        assert result is None
+
+
+def test_cache_lookup_hit_returns_definition():
+    """A hit above threshold with a statement payload returns a RecoveredDefinition."""
+    fake_point = types.SimpleNamespace(
+        score=0.99,
+        payload={
+            "concept": "strict stationarity",
+            "kind": "definition",
+            "label": "Definition 14.1",
+            "statement": "A process is strictly stationary if the joint distribution "
+                         "of any set of random variables does not change over time.",
+            "book": "murphy",
+            "book_name": "Probabilistic Machine Learning",
+            "chapter": "ch14",
+            "section": "14.1",
+            "page_from": 456,
+            "page_to": 457,
+            "chunkId": "c123",
+        },
+    )
+    fake_result = types.SimpleNamespace(points=[fake_point])
+
+    with patch("src.services.chat.agents.definition_cache._collection_exists", return_value=True), \
+         patch("src.services.chat.agents.definition_cache._embed", new=_fake_embed), \
+         patch("src.services.chat.agents.definition_cache._query", return_value=fake_result):
+        result = asyncio.run(cache_lookup("strict stationarity"))
+        assert result is not None
+        assert isinstance(result, RecoveredDefinition)
+        assert result.statement.startswith("A process")
+        assert result.label == "Definition 14.1"
+        assert result.concept == "strict stationarity"
+        assert result.book == "murphy"
+        assert result.page_from == 456
+
+
+def test_cache_lookup_below_threshold_is_none():
+    """A point with score below threshold returns None."""
+    fake_point = types.SimpleNamespace(
+        score=0.5,
+        payload={
+            "concept": "strict stationarity",
+            "statement": "A process is strictly stationary if ...",
+        },
+    )
+    fake_result = types.SimpleNamespace(points=[fake_point])
+
+    with patch("src.services.chat.agents.definition_cache._collection_exists", return_value=True), \
+         patch("src.services.chat.agents.definition_cache._embed", new=_fake_embed), \
+         patch("src.services.chat.agents.definition_cache._query", return_value=fake_result):
+        result = asyncio.run(cache_lookup("strict stationarity"))
+        assert result is None
+
+
+def test_cache_write_noop_on_empty_statement():
+    """cache_write with an empty statement must NOT call _upsert."""
+    mock_upsert = Mock()
+    with patch("src.services.chat.agents.definition_cache._upsert", mock_upsert):
+        asyncio.run(cache_write(RecoveredDefinition(concept="x", statement="")))
+        mock_upsert.assert_not_called()
