@@ -238,8 +238,9 @@ Per-field requirements (target lengths are minimums; longer is fine):
     merge two books behind one trailing ``[N]``.
 
 - ``formal_statement`` (0, or 120-200 words): CONDITIONAL — include this
-  ONLY when a source contains an explicitly labelled, numbered formal
-  statement (e.g. "Definition 5.1.3", "Theorem 2.1", "Proposition 3.4").
+  when a source states a formal definition/theorem. A numbered label
+  (e.g. "Definition 5.1.3", "Theorem 2.1") is PREFERRED but NOT REQUIRED;
+  an explicitly-phrased definition with no number still qualifies.
   - WHEN SUCH A STATEMENT EXISTS: open with "Conforming to
     Definition X.Y.Z, …" (use the source's own label) and reproduce that
     statement WORD FOR WORD — not one comma different — as a Markdown
@@ -259,6 +260,15 @@ Per-field requirements (target lengths are minimums; longer is fine):
     expressions belong in ``definition``. The heading is dropped
     automatically when this field is empty.
   - Never present a paraphrase as if it were a verbatim quote.
+
+- ``formal_statements`` (list, may be empty): For EACH formal definition or
+  theorem a source states EXPLICITLY, emit one entry reproducing it VERBATIM
+  (the source's own wording and notation; display math in $$). A numbered
+  label is PREFERRED but NOT REQUIRED. Reproduce MULTIPLE when a topic has
+  several forms (e.g. strict AND weak stationarity each get their own entry).
+  Set ``label`` to the source's label or "", ``kind`` accordingly, ``cite``
+  to the [N] source rank. NEVER paraphrase into this field. Empty list when
+  no source states a formal definition.
 
 - ``example_intuition`` (340-480 words): a merged "Example & Intuition"
   section that teaches through cases, then distils the lesson.

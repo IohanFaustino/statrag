@@ -1443,3 +1443,11 @@ def test_render_formal_statements():
     assert '$$E[x_t]=\\mu$$' in md
     assert '[1]' in md and '[2]' in md
     assert _render_formal_statements([]) == ''
+
+
+def test_draft_prompt_instructs_verbatim_multi_formal_defs():
+    from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_INSTRUCTIONS as P
+    low = P.lower()
+    assert 'formal_statements' in low
+    assert 'verbatim' in low
+    assert 'not required' in low or 'preferred but not' in low
