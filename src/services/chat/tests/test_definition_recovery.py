@@ -360,3 +360,26 @@ def test_recover_one_rejects_paraphrase():
          patch.object(dr, "cache_write", AsyncMock(return_value=None)):
         out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
     assert out == []
+
+
+def test_extract_verbatim_imports_resolve():
+    """Regression: _extract_verbatim's in-function imports (aclient_for +
+    apply_structured_output) must resolve. The mocked recovery tests patch
+    _extract_verbatim, so they never exercised the real imports — this one does,
+    mocking only the network client."""
+    import asyncio as _a
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    import src.services.chat.agents.definition_recovery as dr
+
+    fake_msg = SimpleNamespace(content='{"found": true, "kind": "definition", "label": "Def 1", "statement": "X is Y if Z"}')
+    fake_resp = SimpleNamespace(choices=[SimpleNamespace(message=fake_msg)])
+
+    class _FakeCompletions:
+        async def create(self, **kw):
+            return fake_resp
+
+    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=_FakeCompletions()))
+    with patch.object(dr, "aclient_for", lambda m: fake_client):
+        ex = _a.run(dr._extract_verbatim("concept", "some chunk text X is Y if Z"))
+    assert ex is not None and ex.found and ex.statement == "X is Y if Z"

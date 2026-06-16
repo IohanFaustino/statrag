@@ -130,7 +130,8 @@ _EXTRACT_SYS = (
 
 
 async def _extract_verbatim(concept: str, chunk_text: str, model: str = _EXTRACT_MODEL) -> "_ExtractedDef | None":
-    from src.services.chat.llm.router import aclient_for, apply_structured_output  # noqa: PLC0415
+    from src.services.chat.llm.router import aclient_for  # noqa: PLC0415
+    from src.services.chat.llm.structured import apply_structured_output  # noqa: PLC0415
     messages = [{"role": "system", "content": _EXTRACT_SYS},
                 {"role": "user", "content": f"Concept: {concept}\n\nChunk:\n{chunk_text[:4000]}"}]
     try:
