@@ -1430,3 +1430,16 @@ def test_tutor_formal_def_empty_statement_rejected():
     from src.services.chat.schemas.output import TutorFormalDef
     with pytest.raises(Exception):
         TutorFormalDef(kind='definition', label='', statement='   ', cite=1)
+
+
+def test_render_formal_statements():
+    from src.services.chat.agents.deep_tutor import _render_formal_statements
+    from src.services.chat.schemas.output import TutorFormalDef
+    defs = [TutorFormalDef(kind='definition', label='Definition 14.1', statement='$$F(x_t)=F(x_{t+h})$$', cite=1),
+            TutorFormalDef(kind='definition', label='', statement='$$E[x_t]=\\mu$$', cite=2)]
+    md = _render_formal_statements(defs)
+    assert 'Definition 14.1' in md
+    assert '$$F(x_t)=F(x_{t+h})$$' in md
+    assert '$$E[x_t]=\\mu$$' in md
+    assert '[1]' in md and '[2]' in md
+    assert _render_formal_statements([]) == ''

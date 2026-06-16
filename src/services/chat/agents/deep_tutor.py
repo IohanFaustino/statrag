@@ -2252,6 +2252,18 @@ async def build_vision_explanations(
     return out
 
 
+def _render_formal_statements(defs) -> str:
+    """Render verbatim formal definitions (TutorFormalDef list) as labelled
+    blockquotes for the Formalize beat. Empty list -> empty string."""
+    if not defs:
+        return ""
+    blocks = []
+    for d in defs:
+        head = (d.label or "").strip() or d.kind.capitalize()
+        blocks.append(f"> **{head}.** {d.statement.strip()} [{d.cite}]")
+    return "\n>\n".join(blocks)
+
+
 def _convert_to_tutor_answer(
     deep: DeepTutorAnswer | None,
     aspects: dict[str, str],
@@ -2278,6 +2290,13 @@ def _convert_to_tutor_answer(
         if k == "definition":
             repaired = _promote_inline_equations(repaired)
         final_aspects[k] = _isolate_midline_display(repaired)
+
+    # Append verbatim formal definitions under the Formalize beat (Task 2).
+    if deep is not None and getattr(deep, "formal_statements", None):
+        _fs_md = _render_formal_statements(deep.formal_statements)
+        if _fs_md:
+            _base = final_aspects.get("formal_statement", "").rstrip()
+            final_aspects["formal_statement"] = (_base + "\n\n" + _fs_md).strip() if _base else _fs_md
 
     figs_for_text = list(approved_figures) if approved_figures else (
         list(deep.figures) if deep else []
