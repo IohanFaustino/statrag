@@ -380,6 +380,8 @@ def test_extract_verbatim_imports_resolve():
             return fake_resp
 
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=_FakeCompletions()))
-    with patch.object(dr, "aclient_for", lambda m: fake_client):
+    # Patch the SOURCE module (function-local `from ... import aclient_for` picks it
+    # up); apply_structured_output runs for real, exercising its real import path.
+    with patch("src.services.chat.llm.router.aclient_for", lambda m: fake_client):
         ex = _a.run(dr._extract_verbatim("concept", "some chunk text X is Y if Z"))
     assert ex is not None and ex.found and ex.statement == "X is Y if Z"
