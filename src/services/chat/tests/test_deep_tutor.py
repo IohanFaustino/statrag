@@ -1451,3 +1451,14 @@ def test_draft_prompt_instructs_verbatim_multi_formal_defs():
     assert 'formal_statements' in low
     assert 'verbatim' in low
     assert 'not required' in low or 'preferred but not' in low
+
+
+def test_wiki_source_render_allows_anchor():
+    from src.services.chat.prompts.deep_tutor import format_source_bundle
+    from src.services.chat.schemas import Source
+    w = Source(rank=2, book="wikipedia", chapter="", section="Stationarity", title="Stationarity",
+               excerpt="x", score=0.0, chunkId="wiki:S", chunk="A process is stationary if...",
+               book_name="Wikipedia", url="https://en.wikipedia.org/wiki/Stationary_process")
+    out = format_source_bundle([w]).lower()
+    assert "supplementary" not in out
+    assert "anchor" in out

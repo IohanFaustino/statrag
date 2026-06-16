@@ -765,15 +765,15 @@ def format_source_bundle(sources: list[Source], *, max_chunk_chars: int = 1500) 
         return "<source_bundle>(empty)</source_bundle>"
     parts: list[str] = ["<source_bundle>"]
     for src in sources:
-        # Wikipedia augment (book == "wikipedia"): render as a clearly-labelled
-        # SUPPLEMENTARY source. The corpus textbooks remain the authority; cite
-        # Wikipedia by its [#rank] only for breadth/definitions, never to
-        # override a textbook claim.
+        # Wikipedia augment (book == "wikipedia"): valid evidence. Prefer the
+        # textbook corpus where it covers the concept, but Wikipedia MAY anchor a
+        # definition (and a formal_statements entry) when the corpus lacks a clean
+        # formal one — cited by its [#rank].
         if src.book == "wikipedia":
             text = (src.chunk or src.excerpt or "")[:max_chunk_chars]
             parts.append(
                 f"<source rank='{src.rank}' chunkId='{src.chunkId}' kind='wikipedia'>\n"
-                f"[#{src.rank}] Wikipedia (supplementary) — {src.section}:\n"
+                f"[#{src.rank}] Wikipedia — {src.section} (valid evidence; may anchor a definition when the corpus lacks a clean formal one):\n"
                 f"{text}\n"
                 f"</source>"
             )
