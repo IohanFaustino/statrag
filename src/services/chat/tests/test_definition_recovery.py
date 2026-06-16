@@ -2,6 +2,7 @@ import asyncio
 import types
 from unittest.mock import AsyncMock, Mock, patch
 
+import src.services.chat.agents.definition_recovery as dr
 from src.services.chat.agents.definition_gaps import (
     DefinitionGap,
     _norm,
@@ -307,3 +308,55 @@ def test_format_definitions_block_lists_each():
 
 def test_format_definitions_block_empty():
     assert format_definitions_block([]) == ""
+
+
+# ---------------------------------------------------------------------------
+# Async recovery tests (mock everything — no network)
+# ---------------------------------------------------------------------------
+
+def _src_chunk(text, chunk_id="hansen:14"):
+    from src.services.chat.schemas import Source
+    return Source(rank=1, book="hansen", chapter="ch14", section="14.1", title="t", excerpt="",
+                  score=0.9, chunkId=chunk_id, chunk=text, book_name="Hansen")
+
+
+CHUNK = "Definition 14.1 A process is strictly stationary if the joint distribution is invariant under time shifts."
+
+
+def test_recover_definitions_empty_gaps():
+    assert asyncio.run(dr.recover_definitions("q", [])) == []
+
+
+def test_recover_one_cache_hit_short_circuits():
+    from src.services.chat.agents.definition_cache import RecoveredDefinition
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    cached = RecoveredDefinition(concept="strict stationarity", statement="cached def", chunkId="x")
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=cached)), \
+         patch.object(dr, "hybrid_search") as hs:
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+    assert len(out) == 1 and out[0].statement == "cached def"
+    hs.assert_not_called()
+
+
+def test_recover_one_extracts_and_passes_fidelity():
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    verbatim = "A process is strictly stationary if the joint distribution is invariant under time shifts"
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([_src_chunk(CHUNK)], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=True, kind="definition", label="Definition 14.1", statement=verbatim))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+    assert len(out) == 1
+    assert out[0].label == "Definition 14.1"
+    assert out[0].chunkId == "hansen:14"
+
+
+def test_recover_one_rejects_paraphrase():
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    paraphrase = "stationarity basically means stable statistics over time more or less"
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([_src_chunk(CHUNK)], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=True, statement=paraphrase))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+    assert out == []

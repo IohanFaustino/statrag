@@ -8,9 +8,17 @@ from __future__ import annotations
 
 import re
 
-from src.services.chat.agents.definition_cache import RecoveredDefinition
+import asyncio
+import logging
+from pydantic import BaseModel
+
+from src.services.chat.agents.definition_cache import RecoveredDefinition, cache_lookup, cache_write
+from src.services.chat.agents.definition_gaps import DefinitionGap
+from src.services.chat.retrieval import hybrid_search
 from src.services.chat.schemas import Source
 from src.services.chat.schemas.output import TutorFormalDef
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Tokenisation
@@ -96,3 +104,90 @@ def format_definitions_block(recovered: list[RecoveredDefinition]) -> str:
         lines.append(f"- {head} ({rd.concept}): {rd.statement}")
     lines.append("</formal_definitions>")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Async LLM-assisted recovery
+# ---------------------------------------------------------------------------
+
+_EXTRACT_MODEL = "deepseek-v4-flash"
+
+
+class _ExtractedDef(BaseModel):
+    found: bool = False
+    kind: str = "definition"
+    label: str = ""
+    statement: str = ""
+
+
+_EXTRACT_SYS = (
+    "You extract a FORMAL definition or theorem from a textbook chunk, VERBATIM. "
+    "If the chunk states an explicit formal definition/theorem for the concept, set found=true and copy it "
+    "WORD FOR WORD into 'statement' (include its label e.g. 'Definition 14.1' in 'label', and any $$math$$). "
+    "Do NOT paraphrase or summarize. If the chunk has no formal definition, set found=false. "
+    "kind is one of definition/theorem/proposition/lemma/corollary."
+)
+
+
+async def _extract_verbatim(concept: str, chunk_text: str, model: str = _EXTRACT_MODEL) -> "_ExtractedDef | None":
+    from src.services.chat.llm.router import aclient_for, apply_structured_output  # noqa: PLC0415
+    messages = [{"role": "system", "content": _EXTRACT_SYS},
+                {"role": "user", "content": f"Concept: {concept}\n\nChunk:\n{chunk_text[:4000]}"}]
+    try:
+        oa = aclient_for(model)
+        messages, response_format = apply_structured_output(messages, model, _ExtractedDef)
+        kwargs = {"model": model, "messages": messages, "temperature": 0.0, "max_completion_tokens": 400}
+        if response_format is not None:
+            kwargs["response_format"] = response_format
+        resp = await oa.chat.completions.create(**kwargs)
+        return _ExtractedDef.model_validate_json(resp.choices[0].message.content or "{}")
+    except Exception:  # noqa: BLE001
+        logger.exception("definition extract failed for %s", concept)
+        return None
+
+
+_KINDS = {"definition", "theorem", "proposition", "lemma", "corollary"}
+
+
+async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None") -> "RecoveredDefinition | None":
+    try:
+        hit = await cache_lookup(gap.concept)
+        if hit:
+            return hit
+    except Exception:  # noqa: BLE001
+        logger.exception("def cache_lookup raised for %s", gap.concept)
+    try:
+        srcs, _ = hybrid_search(f"formal definition of {gap.concept}", book_slugs=books, top_k=3, rerank=False)
+    except Exception:  # noqa: BLE001
+        logger.exception("def retrieval failed for %s", gap.concept)
+        return None
+    for s in srcs:
+        chunk = getattr(s, "chunk", "") or getattr(s, "excerpt", "") or ""
+        if not chunk:
+            continue
+        ex = await _extract_verbatim(gap.concept, chunk)
+        if not ex or not ex.found or not ex.statement.strip():
+            continue
+        if not is_verbatim(ex.statement, chunk):   # fidelity gate (pure code, defined above)
+            continue
+        rd = RecoveredDefinition(
+            concept=gap.concept,
+            kind=ex.kind if ex.kind in _KINDS else "definition",
+            label=ex.label, statement=ex.statement,
+            book=getattr(s, "book", "") or "", book_name=getattr(s, "book_name", "") or "",
+            chapter=getattr(s, "chapter", "") or "", section=getattr(s, "section", "") or "",
+            page_from=getattr(s, "page_from", None), page_to=getattr(s, "page_to", None),
+            chunkId=getattr(s, "chunkId", "") or "")
+        try:
+            await cache_write(rd)
+        except Exception:  # noqa: BLE001
+            logger.exception("def cache_write raised for %s", gap.concept)
+        return rd
+    return None
+
+
+async def recover_definitions(query: str, gaps: "list[DefinitionGap]", books: "list[str] | None" = None) -> "list[RecoveredDefinition]":
+    if not gaps:
+        return []
+    results = await asyncio.gather(*(_recover_one(query, g, books) for g in gaps), return_exceptions=True)
+    return [r for r in results if isinstance(r, RecoveredDefinition)]
