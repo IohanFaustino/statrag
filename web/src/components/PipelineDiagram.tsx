@@ -54,6 +54,8 @@ const ROW_DEF: ReadonlyArray<{ id: string; h: number; io?: boolean }> = [
   { id: "rerank",         h: 112 },
   { id: "diversity",      h: 116 },
   { id: "coverage",       h: 112 },
+  { id: "wiki",           h: 112 },
+  { id: "def_recovery",   h: 112 },
   { id: "image_judge",    h: 104 },
   { id: "plan",           h: 132 },
   { id: "draft",          h: 104 },

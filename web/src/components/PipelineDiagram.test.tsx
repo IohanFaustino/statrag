@@ -237,18 +237,38 @@ describe("PipelineDiagram", () => {
     expect(html).toContain("5 authors");
   });
 
-  it("diversity dropdown renders '6 authors' label when diversityAuthors=6 (Change 2)", () => {
+  it("renders the definition recovery node between Wikipedia augment and Figure judge", () => {
     const html = renderToStaticMarkup(
       <PipelineDiagram
         pickerModel="gpt-4o"
         stageModels={{}}
         providers={PROVIDERS}
         onStageModelChange={() => {}}
-        diversityAuthors={6}
+        diversityAuthors={3}
         onDiversityChange={() => {}}
       />,
     );
-    expect(html).toContain("6 authors");
+    expect(html).toContain("Definition recovery");
+    expect(html).toContain('data-node="def_recovery"');
+  });
+
+  it("definition recovery node is locked (no model dropdown)", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+      />,
+    );
+    // Locked nodes show the lock icon class, not the dropdown toggle
+    expect(html).toContain('data-node="def_recovery"');
+    // The def_recovery node should be a locked data node (no swap dropdown)
+    const node = TUTOR_PIPELINE.nodes.find((n) => n.id === "def_recovery");
+    expect(node).toBeDefined();
+    expect(node!.locked).toBe(true);
   });
 });
 

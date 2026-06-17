@@ -1497,3 +1497,413 @@ def test_recover_definitions_block_no_gaps(monkeypatch):
     with patch("src.services.chat.agents.definition_gaps.detect_definition_gaps", return_value=[]):
         out = _a.run(dt._recover_definitions_block("compute adf", ["x"], [], None))
     assert out == ([], "")
+
+
+# ---------------------------------------------------------------------------
+# Regression: empty/null formal_statements entries must not crash validation
+# (live incident: router draft (deepseek-v4-pro) failed because the model
+# emitted a formal_statements entry with empty statement)
+# ---------------------------------------------------------------------------
+
+
+def test_deep_tutor_answer_drops_empty_statement_entries():
+    """Regression: a ``formal_statements`` entry with empty ``statement``
+    must be silently dropped, not crash ``DeepTutorAnswer.model_validate``."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "Definition 14.1",
+             "statement": "", "cite": 1},  # empty — must be dropped
+            {"kind": "Theorem", "label": "",
+             "statement": "If a process is strictly stationary then ...", "cite": 2},
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    # The empty-statement entry must be gone; the valid one must survive.
+    assert len(obj.formal_statements) == 1
+    assert obj.formal_statements[0].kind == "theorem"
+    assert obj.formal_statements[0].statement == "If a process is strictly stationary then ..."
+
+
+def test_deep_tutor_answer_drops_null_statement_entries():
+    """A ``formal_statements`` entry with ``statement: null`` (JSON null)
+    must be silently dropped."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "Def 1",
+             "statement": None, "cite": 1},  # null — must be dropped
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert obj.formal_statements == []
+
+
+def test_deep_tutor_answer_drops_whitespace_only_statement_entries():
+    """A ``formal_statements`` entry with whitespace-only ``statement``
+    must be silently dropped."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "",
+             "statement": "   \t  \n  ", "cite": 1},  # whitespace-only — must be dropped
+            {"kind": "Theorem", "label": "",
+             "statement": "A valid statement.", "cite": 2},
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert len(obj.formal_statements) == 1
+    assert obj.formal_statements[0].statement == "A valid statement."
+
+
+def test_deep_tutor_answer_drops_missing_statement_key():
+    """A ``formal_statements`` entry with no ``statement`` key at all
+    must be silently dropped."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "Def 1",
+             "cite": 1},  # no statement key — must be dropped
+            {"kind": "Theorem", "label": "",
+             "statement": "A valid statement.", "cite": 2},
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert len(obj.formal_statements) == 1
+    assert obj.formal_statements[0].statement == "A valid statement."
+
+
+def test_deep_tutor_answer_all_empty_formal_statements_ok():
+    """When ALL ``formal_statements`` entries are empty, the list must be
+    empty — not crash."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "Def 1",
+             "statement": "", "cite": 1},
+            {"kind": "Theorem", "label": "",
+             "statement": "   ", "cite": 2},
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert obj.formal_statements == []
+
+
+def test_deep_tutor_answer_still_rejects_invalid_kind_after_drop():
+    """The drop filter must NOT mask truly invalid entries — a valid
+    statement with an invalid kind (e.g. 'axiom') must still raise."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+    from pydantic import ValidationError
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "axiom", "label": "",
+             "statement": "A valid statement with invalid kind.", "cite": 1},
+        ],
+    )
+    with pytest.raises(ValidationError, match="kind"):
+        DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+
+
+# ---------------------------------------------------------------------------
+# Regression: title-case kind normalisation (live incident fix)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Regression: title-case kind normalisation (live incident fix)
+# ---------------------------------------------------------------------------
+
+
+def test_tutor_formal_def_kind_normalises_title_case():
+    """Regression: LLMs emit "Definition" (title case) for
+    ``TutorFormalDef.kind``. The field validator must normalise to lowercase
+    so ``model_validate`` does not crash the deep-tutor draft."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    # Exact live-failure value: "Definition" (title case)
+    obj = TutorFormalDef(kind="Definition", label="Def 14.1",
+                         statement="A process is stationary if ...", cite=1)
+    assert obj.kind == "definition"
+
+    # All allowed variants must round-trip correctly
+    for variant in ["definition", "Definition", "DEFINITION", "DeFiNiTiOn",
+                    " Theorem ", "LEMMA", "Proposition"]:
+        normalised = variant.strip().lower()
+        if normalised in ("definition", "theorem", "proposition", "lemma", "corollary"):
+            obj = TutorFormalDef(kind=variant, statement="s", cite=1)
+            assert obj.kind == normalised
+
+
+def test_formal_statement_kind_normalises_title_case():
+    """Same normalisation must apply to ``FormalStatement.kind`` (facilitate
+    story mode uses this schema)."""
+    from src.services.chat.schemas.output import FormalStatement
+
+    obj = FormalStatement(kind="Theorem", statement="For all ε > 0 ...")
+    assert obj.kind == "theorem"
+
+    # All valid Literal values must survive round-trip through title case
+    for variant in ["definition", "Definition", "DEFINITION",
+                     "Lemma", "COROLLARY", " Remark "]:
+        normalised = variant.strip().lower()
+        if normalised in ("definition", "lemma", "theorem", "proposition",
+                          "corollary", "remark"):
+            obj = FormalStatement(kind=variant, statement="content")
+            assert obj.kind == normalised
+
+
+def test_deep_tutor_answer_accepts_title_case_formal_statements():
+    """End-to-end regression: ``DeepTutorAnswer.model_validate`` must not crash
+    when ``formal_statements[].kind`` is title-case (the exact live failure)."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "Definition 14.1",
+             "statement": "A process is strictly stationary if ...", "cite": 1},
+            {"kind": "Theorem", "label": "",
+             "statement": "If a process is strictly stationary then ...", "cite": 2},
+        ],
+    )
+    # Must NOT raise — this is the exact crash path from the live incident
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert len(obj.formal_statements) == 2
+    assert obj.formal_statements[0].kind == "definition"
+    assert obj.formal_statements[1].kind == "theorem"
+
+    # Also validate WITHOUT skip_format_checks (payload has no math triggers)
+    obj2 = DeepTutorAnswer.model_validate(payload)
+    assert obj2.formal_statements[0].kind == "definition"
+
+
+def test_title_case_kind_rejected_without_normaliser():
+    """Verify the Literal constraint still catches truly invalid values even
+    after normalisation — e.g. "axiom" is not in the allowed set."""
+    from src.services.chat.schemas.output import TutorFormalDef
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="kind"):
+        TutorFormalDef(kind="axiom", statement="s", cite=1)
+
+
+# ---------------------------------------------------------------------------
+# Regression: malformed cite formatting (live incident: cite="[10]")
+# The model can emit cite as "[10]" (string with brackets), [10] (Python
+# list), "10" (numeric string), etc. All must be normalised to int or the
+# whole tutor turn crashes.
+# ---------------------------------------------------------------------------
+
+
+def test_formal_def_cite_string_with_brackets_normalised():
+    """Regression: cite="[10]" (the exact live-failure value) must normalise
+    to integer 10, not crash validation."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A process is stationary if ...",
+                         cite="[10]")
+    assert obj.cite == 10
+
+
+def test_formal_def_cite_numeric_string_normalised():
+    """cite="10" (numeric string) must normalise to integer 10."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite="10")
+    assert obj.cite == 10
+
+
+def test_formal_def_cite_list_with_single_int_normalised():
+    """cite=[10] (Python list wrapping a single int) must normalise to 10."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite=[10])
+    assert obj.cite == 10
+
+
+def test_formal_def_cite_list_with_single_string_normalised():
+    """cite=["10"] (list of one numeric string) must normalise to 10."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite=["10"])
+    assert obj.cite == 10
+
+
+def test_formal_def_cite_bracket_string_with_spaces():
+    """cite=" [ 10 ] " must normalise to 10."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite=" [ 10 ] ")
+    assert obj.cite == 10
+
+
+def test_formal_def_cite_unparseable_defaults_to_zero():
+    """When cite is a completely unparseable string (e.g. "ref-3"), it
+    should default to 0 rather than crash the turn."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite="ref-3")
+    assert obj.cite == 0
+
+
+def test_formal_def_cite_none_defaults_to_zero():
+    """cite=None should default to 0 (not crash)."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite=None)
+    assert obj.cite == 0
+
+
+def test_formal_def_cite_empty_string_defaults_to_zero():
+    """cite='' (empty string) should default to 0."""
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    obj = TutorFormalDef(kind="definition", statement="A valid statement.",
+                         cite="")
+    assert obj.cite == 0
+
+
+def test_deep_tutor_answer_formal_statements_with_malformed_cite():
+    """End-to-end: DeepTutorAnswer.model_validate must not crash when
+    formal_statements contain the live-failure cite="[10]" value."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "Definition", "label": "Definition 14.1",
+             "statement": "A process is strictly stationary if ...", "cite": "[10]"},
+            {"kind": "Theorem", "label": "",
+             "statement": "If a process is strictly stationary then ...", "cite": 2},
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert len(obj.formal_statements) == 2
+    assert obj.formal_statements[0].cite == 10
+    assert obj.formal_statements[1].cite == 2
+
+
+def test_deep_tutor_answer_formal_statements_cite_list():
+    """End-to-end: cite=[10] (Python list) must not crash validation."""
+    from src.services.chat.schemas.output import DeepTutorAnswer
+
+    payload = dict(
+        tldr="Stationarity means distributional invariance over time. " * 3,
+        definition="A process is stationary if its joint distribution is invariant under time shifts. " * 8,
+        formal_statement="",
+        example_intuition="Imagine recording daily temperatures. " * 6,
+        applications="Stationarity underpins time-series forecasting. " * 6,
+        further_reading="See Hamilton (1994) for rigorous treatment. " * 3,
+        formal_statements=[
+            {"kind": "definition", "statement": "A valid statement.", "cite": [10]},
+        ],
+    )
+    obj = DeepTutorAnswer.model_validate(payload, context={"skip_format_checks": True})
+    assert len(obj.formal_statements) == 1
+    assert obj.formal_statements[0].cite == 10
+
+
+# ---------------------------------------------------------------------------
+# Regression: formal_statements wiring in TutorAnswer payload
+# ---------------------------------------------------------------------------
+
+
+def test_convert_passes_formal_statements_to_tutor_answer(sample_sources):
+    """Regression: _convert_to_tutor_answer must carry deep.formal_statements
+    onto the returned TutorAnswer so the frontend structured render path can
+    activate."""
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    from src.services.chat.schemas.output import TutorFormalDef
+
+    deep = _make_deep_answer(
+        formal_statements=[
+            TutorFormalDef(kind="definition", label="Definition 14.1",
+                           statement="A process is strictly stationary if ...", cite=1),
+            TutorFormalDef(kind="definition", label="",
+                           statement="A process is weakly stationary if ...", cite=2),
+        ],
+    )
+    ans = _convert_to_tutor_answer(deep, {}, sample_sources)
+    assert len(ans.formal_statements) == 2
+    assert ans.formal_statements[0].kind == "definition"
+    assert ans.formal_statements[0].label == "Definition 14.1"
+    assert ans.formal_statements[0].cite == 1
+    assert ans.formal_statements[1].statement == "A process is weakly stationary if ..."
+
+    # model_dump must include the field
+    dumped = ans.model_dump()
+    assert "formal_statements" in dumped
+    assert len(dumped["formal_statements"]) == 2
+
+
+def test_convert_formal_statements_empty_when_deep_is_none(sample_sources):
+    """When deep is None, formal_statements must be an empty list (no crash)."""
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    ans = _convert_to_tutor_answer(None, {"tldr": "stub"}, sample_sources)
+    assert ans.formal_statements == []
+
+
+def test_convert_formal_statements_empty_when_deep_has_none(sample_sources):
+    """When deep has no formal_statements attribute, field must be empty list."""
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    deep = _make_deep_answer()  # no formal_statements kwarg → default_factory=list
+    ans = _convert_to_tutor_answer(deep, {}, sample_sources)
+    assert ans.formal_statements == []

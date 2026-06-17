@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +103,7 @@ class TutorAnswer(BaseModel):
     math_blocks: list[str] = Field(default_factory=list)
     figures: list[FigureRef] = Field(default_factory=list)
     aspects: dict[str, str] = Field(default_factory=dict)
+    formal_statements: list[TutorFormalDef] = Field(default_factory=list)
     # Audit signals (deep-tutor). e.g. ``example_relevance`` in [0,1]:
     # lexical overlap of the ``example_intuition`` aspect with the concept it
     # should illustrate (definition + formal_statement). Older
@@ -158,6 +159,65 @@ class TutorFormalDef(BaseModel):
     label: str = ""
     statement: str = ""
     cite: int
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _normalize_kind(cls, v: str) -> str:
+        """LLMs frequently emit title-case values like ``"Definition"`` or
+        ``"Theorem"`` for the ``kind`` field.  Normalise to lowercase before
+        the Literal check so that casing mismatches do not crash the
+        deep-tutor draft validation."""
+        if isinstance(v, str):
+            v = v.strip().lower()
+        return v
+
+    @field_validator("cite", mode="before")
+    @classmethod
+    def _normalize_cite(cls, v) -> int:
+        """Normalise malformed model-authored ``cite`` values to int.
+
+        Live incident: the model emitted ``"[10]"`` (string with brackets)
+        which crashed ``DeepTutorAnswer.model_validate`` with
+        ``Input should be a valid integer``.  Other observed variants include
+        ``[10]`` (Python list), ``"10"`` (numeric string), ``None``, and
+        empty string.  All are normalised: brackets are stripped, single-element
+        lists are unwrapped, numeric strings parsed, and unparseable values
+        default to ``0`` so the whole tutor turn survives.
+        """
+        import re as _re
+        # Unwrap single-element list: [10] → 10, ["10"] → "10"
+        if isinstance(v, list):
+            if len(v) == 1:
+                return cls._normalize_cite(v[0])
+            # Multi-element: take first parseable element, else 0
+            for item in v:
+                try:
+                    return int(item)
+                except (TypeError, ValueError):
+                    continue
+            return 0
+        # None → 0
+        if v is None:
+            return 0
+        if isinstance(v, int):
+            return v
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return 0
+            # Strip surrounding brackets: "[10]" → "10"
+            m = _re.match(r"^\[([^\]]+)\]$", s)
+            if m:
+                s = m.group(1).strip()
+            try:
+                return int(s)
+            except ValueError:
+                return 0
+        # Fallback for any other type
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return 0
 
     @model_validator(mode="after")
     def _statement_required(self) -> "TutorFormalDef":
@@ -244,6 +304,35 @@ class DeepTutorAnswer(BaseModel):
     citations: list[TutorCitation] = Field(default_factory=list)
     math_blocks: list[str] = Field(default_factory=list)
     figures: list[FigureRef] = Field(default_factory=list)
+
+    @field_validator("formal_statements", mode="before")
+    @classmethod
+    def _drop_empty_formal_statements(cls, v: list) -> list:
+        """Silently drop model-authored entries whose ``statement`` is empty,
+        null, or whitespace-only.  The prompt already tells the model not to
+        author/paraphrase them; malformed entries must not crash the entire
+        ``DeepTutorAnswer`` validation before the code-built override can
+        replace ``deep.formal_statements`` with recovered definitions.
+
+        Valid ``TutorFormalDef`` instances (constructed by code) are preserved
+        as-is.  Only raw dict entries are inspected — those with a missing,
+        null, or whitespace-only ``statement`` are dropped.  Per-item
+        ``_statement_required`` validation still applies after this filter.
+        """
+        if not isinstance(v, list):
+            return v
+        kept: list = []
+        for item in v:
+            # Code-built model instances are always kept.
+            if isinstance(item, TutorFormalDef):
+                kept.append(item)
+                continue
+            # Raw dicts: drop if statement is missing / null / whitespace-only.
+            if isinstance(item, dict):
+                stmt = item.get("statement")
+                if isinstance(stmt, str) and stmt.strip():
+                    kept.append(item)
+        return kept
 
     @model_validator(mode="after")
     def _require_component_equations(self, info: ValidationInfo) -> "DeepTutorAnswer":
@@ -727,6 +816,15 @@ class FormalStatement(BaseModel):
     kind: Literal["definition", "lemma", "theorem", "proposition", "corollary", "remark"]
     statement: str = ""    # reproduced VERBATIM from source; display math in $$…$$
     explanation: str = ""  # didactic arc: elements → associations → intuition → close (may carry [[cN]])
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _normalize_kind(cls, v: str) -> str:
+        """Normalise title-case LLM outputs (e.g. ``"Definition"``) to the
+        lowercase values accepted by the Literal."""
+        if isinstance(v, str):
+            v = v.strip().lower()
+        return v
 
     @model_validator(mode="after")
     def _statement_required(self) -> "FormalStatement":

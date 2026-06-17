@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import type { TutorAnswer, TutorCitation } from "../../types";
+import type { TutorAnswer, TutorCitation, TutorFormalDef } from "../../types";
 import { MathBlock, MathInline } from "../Math";
 
 interface Props {
@@ -140,6 +140,11 @@ export default function TutorView({ data }: Props) {
   const sections = groupSections(blocks);
   let figureCounter = 0;
 
+  // Explicit render path for formal_statements[] when present
+  const formalStatementsNodes = data.formal_statements && data.formal_statements.length > 0
+    ? renderFormalStatements(data.formal_statements, citationsByIndex, hoveredIdx, setHoveredIdx, onCite)
+    : null;
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -225,6 +230,18 @@ export default function TutorView({ data }: Props) {
         <span className="tutor-view__hd-label">Tutor</span>
         <button type="button" className="tutor-view__download" onClick={handleDownload} disabled={isDownloading} aria-label="Download ZIP" title="Download ZIP">{isDownloading ? "…" : "↓"}</button>
       </div>
+
+      {/* Explicit formal statements section when formal_statements[] is present */}
+      {formalStatementsNodes && (
+        <section key="formal-statements" className="tutor-view__section tutor-view__section--formal">
+          <div className="tutor-view__section-body-wrapper">
+            <div className="tutor-view__section-body">
+              {formalStatementsNodes}
+            </div>
+          </div>
+        </section>
+      )}
+
       {sections.map((section, sIdx) => {
         const open = openSections.has(sIdx);
         if (section.title === null) {
@@ -800,6 +817,27 @@ export function renderInlineWithCites(
   }
 
   return out;
+}
+
+// Render formal_statements as labelled verbatim blockquotes.
+// Each TutorFormalDef gets a blockquote with a bold kind/label prefix,
+// the statement (which may contain inline math), and a [N] citation pill.
+// When the persisted answer has only the legacy `formal_statement` string
+// field (not formal_statements[]), TutorView falls back to the text-based
+// ## Formal statement section parsed from data.text by splitIntoBlocks.
+export function renderFormalStatements(formalStatements: TutorFormalDef[], citationsByIndex: Map<number, TutorCitation>, hoveredIdx: number | null, setHovered: (n: number | null) => void, onCite?: (idx: number) => void): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let key = 0;
+  for (const fs of formalStatements) {
+    const head = (fs.label || "").trim() || fs.kind.charAt(0).toUpperCase() + fs.kind.slice(1);
+    const text = `**${head}.** ${fs.statement.trim()} [${fs.cite}]`;
+    nodes.push(
+      <blockquote key={key++} className="tutor-view__quote">
+        {renderInlineWithCites(text, citationsByIndex, hoveredIdx, setHovered, onCite)}
+      </blockquote>,
+    );
+  }
+  return nodes;
 }
 
 function formatApa(c: TutorCitation): string {

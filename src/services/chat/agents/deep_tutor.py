@@ -2451,6 +2451,7 @@ def _convert_to_tutor_answer(
     return TutorAnswer(
         text=text, sections=headings, citations=enriched,
         math_blocks=math_blocks, figures=figures, aspects=final_aspects,
+        formal_statements=list(deep.formal_statements) if deep and getattr(deep, "formal_statements", None) else [],
         quality=quality,
     )
 

@@ -2,6 +2,25 @@
 
 Append-only. Latest at top.
 
+## 2026-06-16 — Tutor definition recovery: formal_statements[] + pipeline/docs lockstep
+
+**Scope:** branch `tutor-definition-recovery-fixes`. Frontend + docs + backend Python changes (`definition_recovery.py`, `definition_gaps.py`, `test_definition_recovery.py`).
+
+**What changed:**
+
+- **`formal_statements[]` structured render path.** `TutorFormalDef` type (kind, label, statement, cite) added to `web/src/types.ts`. `TutorView` now checks for `data.formal_statements` — when present and non-empty, `renderFormalStatements()` renders each entry as a labelled blockquote (bold kind/label prefix + statement + citation pill) above the text-parsed sections. When absent (legacy answers), the old `## Formal statement` section from `data.text` renders as a collapsible section. `renderFormalStatements` uses `renderInlineWithCites` for math/citation rendering.
+- **`mapConversationMessages` preservation.** `formal_statements` is preserved in the structured payload when reviving stored `TutorAnswer` conversations, so reloaded conversations render correctly. New test confirms the field survives both object and JSON-string content paths.
+- **Pipeline diagram lockstep.** `tutorPipeline.ts` gains a `def_recovery` node (locked data node, "Definition recovery") between `wiki` and `image_judge`. Edge `wiki → def_recovery → image_judge`. `PipelineDiagram.test.tsx` updated with two new tests for the node label + locked status.
+- **Mode description lockstep.** `tutorMode.ts` updated: "Multi-aspect answer" now reads "Formal statement (definition/theorem/proposition when sources provide one, rendered as labelled blockquotes with citation)" instead of the stale "only when a numbered theorem exists". "Verbatim theorems" feature updated to mention `formal_statements[]` with kind/label/statement/cite.
+- **Deep-tutor doc (36) mermaid + wording.** New "Definition recovery" node in mermaid (distinct from the earlier formula-recovery stage; definition recovery targets definitional gaps with targeted hybrid search and token-recall scoring); Wikipedia node wording changed to "corpus-primary" (matching invariant 48 and `tutorMode.ts`); `formal_statement` schema comment expanded to note `formal_statements[]`; edge `wiki → def_recovery → figure_judge → plan → draft` confirmed.
+- **New doc 58.** `docs/services/chat-features/58-definition-recovery.md` created — formal statements schema, pipeline position, frontend render path table, file list.
+- **Invariants.** Invariant 37 expanded with the `formal_statements[]` frontend surface.
+- **tutor.html.** Mermaid updated: "Formula recovery" → "Definition recovery" node label.
+
+**Gates:** 8 frontend test files green; `tsc --noEmit` clean.
+
+---
+
 ## 2026-06-15 — Tutor mode: Wikipedia as a cited 🌐 source + fallback degrade fix
 
 **Scope:** branch `feat/component-equation-enforcement`. Spec: `docs/superpowers/specs/2026-06-15-tutor-wikipedia-source-design.md`. Doc: [36-deep-tutor.md](../services/chat-features/36-deep-tutor.md). Invariant 48.

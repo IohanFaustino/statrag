@@ -291,3 +291,69 @@ describe("mapConversationMessages — structured content", () => {
     expect(assistants[0].mode).toBe("extension");
   });
 });
+
+describe("mapConversationMessages — TutorAnswer formal_statements", () => {
+  it("preserves formal_statements[] in structuredOutput.data for TutorAnswer", () => {
+    const data: RawConversationResponse = {
+      id: "conv-fs1",
+      mode: "tutor",
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          content: {
+            _schema: "TutorAnswer",
+            text: "## Definition\n\nSome definition.",
+            citations: [],
+            formal_statements: [
+              { kind: "definition", label: "Definition 14.1", statement: "$$F(x_{t})=F(x_{t+h})$$", cite: 1 },
+              { kind: "theorem", label: "", statement: "E[X] = μ", cite: 2 },
+            ],
+          },
+          timestamp: "2024-01-01T12:00:00Z",
+        },
+      ],
+    };
+    const msgs = mapConversationMessages(data);
+    const msg = msgs[0] as AssistantMessage;
+    expect(msg.structuredOutput).toBeDefined();
+    expect(msg.structuredOutput!.schema).toBe("TutorAnswer");
+    const d = msg.structuredOutput!.data as { formal_statements?: { kind: string; label: string; statement: string; cite: number }[] };
+    expect(d.formal_statements).toBeDefined();
+    expect(d.formal_statements).toHaveLength(2);
+    expect(d.formal_statements![0].kind).toBe("definition");
+    expect(d.formal_statements![0].label).toBe("Definition 14.1");
+    expect(d.formal_statements![1].kind).toBe("theorem");
+    expect(d.formal_statements![1].label).toBe("");
+  });
+
+  it("preserves formal_statements from a JSON string content", () => {
+    const content = JSON.stringify({
+      _schema: "TutorAnswer",
+      text: "## Formal statement\n\nA theorem.",
+      citations: [],
+      formal_statements: [
+        { kind: "theorem", label: "Theorem 2.1", statement: "MSE = bias² + variance", cite: 3 },
+      ],
+    });
+    const data: RawConversationResponse = {
+      id: "conv-fs2",
+      mode: "tutor",
+      messages: [
+        {
+          id: "a2",
+          role: "assistant",
+          content: content,
+          timestamp: "2024-01-01T12:00:00Z",
+        },
+      ],
+    };
+    const msgs = mapConversationMessages(data);
+    const msg = msgs[0] as AssistantMessage;
+    expect(msg.structuredOutput!.schema).toBe("TutorAnswer");
+    const d = msg.structuredOutput!.data as { formal_statements?: { kind: string; label: string; statement: string; cite: number }[] };
+    expect(d.formal_statements).toHaveLength(1);
+    expect(d.formal_statements![0].kind).toBe("theorem");
+    expect(d.formal_statements![0].label).toBe("Theorem 2.1");
+  });
+});

@@ -28,7 +28,7 @@
   DR --> CC{&quot;Coverage check (nano)&quot;}
   CC -. &quot;missing facet&quot; .-> RET
   CC --> WK[&quot;Wikipedia augment (TUTOR_DEEP_WIKI)<br/>append after corpus — augment-only&quot;]
-  WK --> FR[&quot;Formula recovery (gap-triggered)&quot;]
+  WK --> FR[&quot;Definition recovery (gap-triggered, best-effort)&quot;]
   FR --> FJ[&quot;Figure judge&quot;]
   FJ --> PL[&quot;Synthesis plan (LLM)&quot;]
   PL --> ND[&quot;Narrative draft (draft model)<br/>5 beats + intro — one call&quot;]
@@ -45,7 +45,7 @@
   DR --> CC{"Coverage check (nano)"}
   CC -. "missing facet" .-> RET
   CC --> WK["Wikipedia augment (TUTOR_DEEP_WIKI)<br/>append after corpus — augment-only"]
-  WK --> FR["Formula recovery (gap-triggered)"]
+  WK --> FR["Formula recovery + definition recovery<br/>both best-effort, never block"]
   FR --> FJ["Figure judge"]
   FJ --> PL["Synthesis plan (LLM)"]
   PL --> ND["Narrative draft (draft model)<br/>5 beats + intro — one call"]
@@ -93,7 +93,7 @@
   DV --> DS["_density_select()"]
   DS --> CV["coverage.py (COVERAGE_PROMPT)"]
   CV -. "missing facet" .-> R
-  CV --> FR["formula_recovery.py (_recover_equations_block)"]
+  CV --> FR["formula_recovery.py (_recover_equations_block)<br/>+ definition_recovery.py (_recover_definitions_block)"]
   FR --> FJ["image_judge.py (figure judge)"]
   FJ --> SP["build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)"]
   SP --> ND["_stream_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection"]
@@ -140,6 +140,7 @@
       <tr><td>figure judge</td><td><code>src/services/chat/agents/image_judge.py</code></td></tr>
       <tr><td>narrative draft + seam guard</td><td><code>src/services/chat/agents/deep_tutor.py</code> + <code>src/services/chat/agents/seams.py</code></td></tr>
       <tr><td>formula recovery</td><td><code>src/services/chat/agents/formula_recovery.py</code></td></tr>
+      <tr><td>definition recovery</td><td><code>src/services/chat/agents/definition_recovery.py</code></td></tr>
       <tr><td>vision</td><td><code>src/services/chat/vision.py</code></td></tr>
     </table>
   </section>
@@ -149,7 +150,7 @@
       <tr><th>Mode id</th><td><code>tutor</code></td></tr>
       <tr><th>Architecture</th><td>single-agent (tool loop)</td></tr>
       <tr><th>Default model</th><td>nano for aux stages; <b>draft stage</b> overrides to <code>TUTOR_DRAFT_MODEL</code> (default: <code>gpt-5.4-nano-2026-03-17</code>)</td></tr>
-      <tr><th>Output schema</th><td><code>TutorAnswer / DeepTutorAnswer</code></td></tr>
+      <tr><th>Output schema</th><td><code>TutorAnswer / DeepTutorAnswer</code> (with optional <code>formal_statements[]</code>)</td></tr>
       <tr><th>Tools</th><td>retrieve</td></tr>
       <tr><th>Retrieval</th><td>rerank gated (off until M4) at the mode level; the deep-tutor pipeline does its own rerank</td></tr>
       <tr><th>Memory</th><td>auto (carries conversation context)</td></tr>
@@ -164,7 +165,7 @@
       <tr><th>Field</th><th>Meaning</th></tr>
       <tr><td><code>tldr</code></td><td>Intro: direct answer + roadmap of the sections.</td></tr>
       <tr><td><code>definition</code></td><td>Markdown paragraph defining the concept.</td></tr>
-      <tr><td><code>formal_statement</code></td><td>Verbatim numbered theorem when sources state one; else empty (heading dropped).</td></tr>
+      <tr><td><code>formal_statement</code></td><td>Verbatim numbered theorem when sources state one; else empty (heading dropped). Structured <code>formal_statements[]</code> (kind, label, statement, cite) is preferred by the frontend when present.</td></tr>
       <tr><td><code>example_intuition</code></td><td>Three cases analysed, then explicit intuition.</td></tr>
       <tr><td><code>applications</code></td><td>Corpus-grounded use-cases grouped by domain.</td></tr>
       <tr><td><code>further_reading</code></td><td>Related topics + open questions, with citations.</td></tr>

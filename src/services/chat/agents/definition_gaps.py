@@ -69,6 +69,30 @@ def _has_labelled_def(concept: str, sources: list[Source]) -> bool:
 
 _MAX_GAPS = 3
 
+# ---------------------------------------------------------------------------
+# DR-8c: Generic concept expansion — expand umbrella terms into the specific
+# named forms that appear in textbooks.  This ensures the dedicated recovery
+# search looks for the exact named definitions (strict/weak/covariance
+# stationarity, etc.) rather than the generic umbrella term.
+# ---------------------------------------------------------------------------
+
+_GENERIC_EXPANSIONS: dict[str, list[str]] = {
+    "stationarity": ["strict stationarity", "weak stationarity", "covariance stationarity"],
+    "stationary": ["strict stationarity", "weak stationarity", "covariance stationarity"],
+}
+
+
+def _expand_concept(concept: str) -> list[str]:
+    """Expand a concept into its specific named forms.
+
+    If *concept* is a generic umbrella term (e.g. ``"stationarity"``),
+    return the list of specific forms (``["strict stationarity",
+    "weak stationarity", "covariance stationarity"]``).  Otherwise return
+    ``[concept]`` unchanged.
+    """
+    norm = concept.strip().lower()
+    return _GENERIC_EXPANSIONS.get(norm, [concept])
+
 
 def detect_definition_gaps(
     concepts: list[str], query: str, sources: list[Source]
@@ -76,12 +100,25 @@ def detect_definition_gaps(
     """Return concepts that need definition retrieval because:
     - the query is definitional (contains definitional keywords)
     - and the concept lacks a labelled/formal definition in the sources.
+
+    DR-8c: Generic concepts like "stationarity" are expanded into their
+    specific named forms ("strict stationarity", "weak stationarity",
+    "covariance stationarity") so the recovery pipeline searches for the
+    exact textbook definitions.
     """
     if not _query_is_definitional(query):
         return []
 
-    by_norm: dict[str, DefinitionGap] = {}
+    # DR-8c: expand generic concepts into specific forms
+    expanded_concepts: list[str] = []
     for concept in concepts:
+        if not concept or not concept.strip():
+            continue
+        expanded = _expand_concept(concept.strip())
+        expanded_concepts.extend(expanded)
+
+    by_norm: dict[str, DefinitionGap] = {}
+    for concept in expanded_concepts:
         if not concept or not concept.strip():
             continue
         norm = _norm(concept)

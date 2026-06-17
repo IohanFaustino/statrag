@@ -142,12 +142,20 @@ export interface TutorCitation {
   /** Set for Wikipedia cites: renders a 🌐 link instead of a book reference. */
   url?: string;
 }
+export interface TutorFormalDef {
+  kind: "definition" | "theorem" | "proposition" | "lemma" | "corollary";
+  label: string;
+  statement: string;
+  cite: number;
+}
+
 export interface TutorAnswer {
   text: string;
   sections?: string[];
   citations?: TutorCitation[];
   math_blocks?: string[];
   figures?: FigureRef[];
+  formal_statements?: TutorFormalDef[];
 }
 
 // qa mode (mirror schemas/output.py QAScope / QAAnswer)

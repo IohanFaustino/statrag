@@ -123,12 +123,18 @@ def test_labelled_def_covariance():
 
 
 def test_is_said_to_be_pattern():
+    """DR-8c: 'stationarity' expands into specific forms; a generic
+    'is said to be' pattern does NOT satisfy the specific named forms,
+    so gaps are still produced for each expanded concept."""
     query = "what is stationarity?"
     concepts = ["stationarity"]
     chunk = "Stationarity is said to be a property of a time series."
     sources = [_src(chunk)]
     result = detect_definition_gaps(concepts, query, sources)
-    assert result == []
+    # The generic "is said to be" doesn't cover strict/weak/covariance stationarity
+    result_concepts = {g.concept for g in result}
+    assert "strict stationarity" in result_concepts
+    assert "weak stationarity" in result_concepts
 
 
 def test_forms_of_query():
@@ -385,3 +391,160 @@ def test_extract_verbatim_imports_resolve():
     with patch("src.services.chat.llm.router.aclient_for", lambda m: fake_client):
         ex = _a.run(dr._extract_verbatim("concept", "some chunk text X is Y if Z"))
     assert ex is not None and ex.found and ex.statement == "X is Y if Z"
+
+
+# ---------------------------------------------------------------------------
+# DR-8a: Truncation fix — max_completion_tokens must be > 400
+# ---------------------------------------------------------------------------
+
+def test_extract_verbatim_max_completion_tokens_above_400():
+    """DR-8a: _extract_verbatim must request more than 400 tokens so that
+    long formal definitions are not truncated mid-sentence (the live bug
+    truncated at 'is said to be str')."""
+    import asyncio as _a
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+    import src.services.chat.agents.definition_recovery as dr
+
+    captured_kwargs: dict = {}
+
+    class _FakeCompletions:
+        async def create(self, **kw):
+            captured_kwargs.update(kw)
+            fake_msg = SimpleNamespace(content='{"found": true, "kind": "definition", "label": "Def 1", "statement": "X is Y if Z"}')
+            return SimpleNamespace(choices=[SimpleNamespace(message=fake_msg)])
+
+    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=_FakeCompletions()))
+
+    with patch("src.services.chat.llm.router.aclient_for", lambda m: fake_client):
+        _a.run(dr._extract_verbatim("concept", "chunk text"))
+
+    assert captured_kwargs.get("max_completion_tokens", 0) > 400, (
+        f"max_completion_tokens={captured_kwargs.get('max_completion_tokens')} must be > 400 to avoid truncation"
+    )
+
+
+# ---------------------------------------------------------------------------
+# DR-8b: Prefer clean text over OCR-image placeholders
+# ---------------------------------------------------------------------------
+
+def test_placeholder_penalty_scores_clean_text_higher():
+    """DR-8b: Chunks with ![image](...) placeholders should score lower than
+    clean text chunks when both contain the concept keyword."""
+    from src.services.chat.agents.definition_recovery import _placeholder_penalty
+
+    clean = "Definition 14.1 A process is strictly stationary if the joint distribution is invariant under time shifts."
+    ocr = "A process is ![image](fig1.png) stationary if ![image](fig2.png) the joint distribution is invariant."
+    assert _placeholder_penalty(clean) > _placeholder_penalty(ocr), (
+        "Clean text should have higher (less negative) score than OCR-placeholder text"
+    )
+
+
+def test_placeholder_penalty_zero_for_clean_text():
+    """DR-8b: Clean text with no image placeholders should have zero penalty."""
+    from src.services.chat.agents.definition_recovery import _placeholder_penalty
+
+    clean = "Definition 14.1 A process is strictly stationary if the joint distribution is invariant."
+    assert _placeholder_penalty(clean) == 0.0
+
+
+def test_placeholder_penalty_negative_for_image_placeholders():
+    """DR-8b: Text with image placeholders should have a negative penalty."""
+    from src.services.chat.agents.definition_recovery import _placeholder_penalty
+
+    ocr = "![image](chart1.png) shows the result"
+    assert _placeholder_penalty(ocr) < 0.0
+
+
+def test_recover_one_prefers_clean_over_ocr():
+    """DR-8b: _recover_one should prefer a clean-text source over an OCR-placeholder source
+    even if the OCR source appears first in the retrieval list."""
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    import src.services.chat.agents.definition_recovery as dr
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    from src.services.chat.agents.definition_cache import RecoveredDefinition
+
+    clean_chunk = "Definition 14.1 A process is strictly stationary if the joint distribution is invariant under time shifts."
+    ocr_chunk = "A process is ![image](fig1.png) strictly stationary if ![image](fig2.png) the joint distribution is invariant."
+
+    clean_src = _src_chunk(clean_chunk, chunk_id="clean:1")
+    ocr_src = _src_chunk(ocr_chunk, chunk_id="ocr:1")
+
+    # OCR source comes first in retrieval order
+    sources = [ocr_src, clean_src]
+
+    extracted_stmt = "A process is strictly stationary if the joint distribution is invariant under time shifts"
+
+    # Both chunks pass verbatim check, but we should pick the clean one
+    call_count = {"count": 0}
+    async def mock_extract(concept, chunk, model=None):
+        call_count["count"] += 1
+        return dr._ExtractedDef(found=True, kind="definition", label="Definition 14.1", statement=extracted_stmt)
+
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=(sources, None)), \
+         patch.object(dr, "_extract_verbatim", side_effect=mock_extract), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+
+    # Should recover from the clean source (chunkId="clean:1"), not the OCR one
+    assert len(out) == 1
+    assert out[0].chunkId == "clean:1"
+
+
+# ---------------------------------------------------------------------------
+# DR-8c: Expand generic concepts into specific forms
+# ---------------------------------------------------------------------------
+
+def test_expand_generic_stationarity():
+    """DR-8c: 'stationarity' should expand to 'strict stationarity', 'weak stationarity',
+    and 'covariance stationarity'."""
+    from src.services.chat.agents.definition_gaps import _expand_concept
+
+    expansions = _expand_concept("stationarity")
+    assert "strict stationarity" in expansions
+    assert "weak stationarity" in expansions
+    assert "covariance stationarity" in expansions
+
+
+def test_expand_generic_stationary():
+    """DR-8c: 'stationary' should also expand to specific forms."""
+    from src.services.chat.agents.definition_gaps import _expand_concept
+
+    expansions = _expand_concept("stationary")
+    assert "strict stationarity" in expansions
+    assert "weak stationarity" in expansions
+
+
+def test_expand_non_generic_concept_returns_self():
+    """DR-8c: A specific concept like 'strict stationarity' should not expand further."""
+    from src.services.chat.agents.definition_gaps import _expand_concept
+
+    expansions = _expand_concept("strict stationarity")
+    assert expansions == ["strict stationarity"]
+
+
+def test_detect_definition_gaps_expands_generic_stationarity():
+    """DR-8c: When the query asks about 'stationarity' and sources lack a formal definition,
+    detect_definition_gaps should produce gaps for the specific forms."""
+    query = "what is stationarity?"
+    concepts = ["stationarity"]
+    sources = [_src("Some practical text about plots and ACF, no formal definition.")]
+    result = detect_definition_gaps(concepts, query, sources)
+    # Should expand to specific forms since generic term detected
+    result_concepts = {g.concept for g in result}
+    assert "strict stationarity" in result_concepts
+    assert "weak stationarity" in result_concepts
+
+
+def test_detect_definition_gaps_no_double_expand():
+    """DR-8c: If both 'stationarity' and 'strict stationarity' are in concepts,
+    should not produce duplicate gaps."""
+    query = "what is stationarity?"
+    concepts = ["stationarity", "strict stationarity"]
+    sources = [_src("Some practical text, no formal definition.")]
+    result = detect_definition_gaps(concepts, query, sources)
+    norms = [g.norm for g in result]
+    # Should not have duplicate "strict stationarity"
+    assert norms.count("strict stationarity") <= 1

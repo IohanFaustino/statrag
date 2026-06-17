@@ -24,6 +24,7 @@ export const PHASE_OF: Record<string, Phase> = {
   expansion: "planning", plan: "planning",
   // tutor — retrieval
   retrieval: "retrieval", rerank: "retrieval", diversity: "retrieval", coverage: "retrieval",
+  wiki: "retrieval", def_recovery: "retrieval",
   // tutor — generation
   draft: "generation",
   // tutor — vision

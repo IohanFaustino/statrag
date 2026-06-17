@@ -137,7 +137,7 @@ async def _extract_verbatim(concept: str, chunk_text: str, model: str = _EXTRACT
     try:
         oa = aclient_for(model)
         messages, response_format = apply_structured_output(messages, model, _ExtractedDef)
-        kwargs = {"model": model, "messages": messages, "temperature": 0.0, "max_completion_tokens": 400}
+        kwargs = {"model": model, "messages": messages, "temperature": 0.0, "max_completion_tokens": 1200}
         if response_format is not None:
             kwargs["response_format"] = response_format
         resp = await oa.chat.completions.create(**kwargs)
@@ -149,6 +149,23 @@ async def _extract_verbatim(concept: str, chunk_text: str, model: str = _EXTRACT
 
 _KINDS = {"definition", "theorem", "proposition", "lemma", "corollary"}
 
+# ---------------------------------------------------------------------------
+# DR-8b: Placeholder penalty — penalise chunks containing OCR image
+# placeholders like ![image](...) so clean-text candidates are preferred.
+# ---------------------------------------------------------------------------
+
+_IMAGE_PLACEHOLDER_RE = re.compile(r"!\[image\]\([^)]*\)", re.IGNORECASE)
+
+
+def _placeholder_penalty(text: str) -> float:
+    """Return a negative score proportional to the number of ``![image](…)``
+    placeholders in *text*.  Clean text scores ``0.0``; each placeholder
+    adds ``-0.15`` so that a chunk with many placeholders is deprioritised
+    relative to a clean-text chunk covering the same concept.
+    """
+    n = len(_IMAGE_PLACEHOLDER_RE.findall(text))
+    return -0.15 * n
+
 
 async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None") -> "RecoveredDefinition | None":
     try:
@@ -158,12 +175,20 @@ async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None"
     except Exception:  # noqa: BLE001
         logger.exception("def cache_lookup raised for %s", gap.concept)
     try:
-        srcs, _ = hybrid_search(f"formal definition of {gap.concept}", book_slugs=books, top_k=3, rerank=False)
+        srcs, _ = hybrid_search(f"formal definition of {gap.concept}", book_slugs=books, top_k=5, rerank=False)
     except Exception:  # noqa: BLE001
         logger.exception("def retrieval failed for %s", gap.concept)
         return None
+
+    # DR-8b: sort candidates so clean-text chunks are tried before OCR-heavy ones
+    scored_srcs = []
     for s in srcs:
         chunk = getattr(s, "chunk", "") or getattr(s, "excerpt", "") or ""
+        penalty = _placeholder_penalty(chunk)
+        scored_srcs.append((penalty, s, chunk))
+    scored_srcs.sort(key=lambda t: t[0], reverse=True)  # highest (least negative) first
+
+    for _penalty, s, chunk in scored_srcs:
         if not chunk:
             continue
         ex = await _extract_verbatim(gap.concept, chunk)
