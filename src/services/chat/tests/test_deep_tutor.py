@@ -1907,3 +1907,143 @@ def test_convert_formal_statements_empty_when_deep_has_none(sample_sources):
     deep = _make_deep_answer()  # no formal_statements kwarg → default_factory=list
     ans = _convert_to_tutor_answer(deep, {}, sample_sources)
     assert ans.formal_statements == []
+
+
+# ---------------------------------------------------------------------------
+# Citation canonicalization (dedup, orphan prune, renumber)
+# ---------------------------------------------------------------------------
+
+
+def test_citation_dedup_prune_renumber(sample_sources):
+    """Regression: model emits duplicate chunkIds and orphan citation entries.
+
+    Live bug: chunkId "63646fbd" appeared at indexes 1/3/6, chunkId "400c85f7"
+    at 2/4; inline markers [1,2,5,7,8,9,10] but citations array had [1..10].
+
+    After canonicalization:
+      - each distinct chunkId appears once
+      - every inline [N] has a matching citation
+      - no orphan citation entries (no citation without an inline marker)
+      - indexes are contiguous from 1
+      - [F1]-style figure refs are untouched
+    """
+    import re
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    from src.services.chat.schemas.output import TutorCitation
+
+    # Build a DeepTutorAnswer whose citations list has:
+    #   - chunkId "aaa" at indexes 1 AND 3 (duplicate)
+    #   - chunkId "bbb" at indexes 2 AND 4 (duplicate)
+    #   - chunkId "ccc" at index 5 (orphan — no inline marker)
+    # And whose aspect text uses only [1] and [2].
+    deep = _make_deep_answer(
+        definition=(
+            "Stationarity means the distribution is unchanged by a time shift [1]. "
+            "Weak stationarity requires only first and second moments [2]."
+        ),
+    )
+    deep_cites = [
+        TutorCitation(index=1, chunkId="aaa", authors_short="A et al.", year=2024,
+                       book_name="Book A", chapter="ch01", section="1.1",
+                       page_from=10, page_to=15, quote="Stationarity definition"),
+        TutorCitation(index=2, chunkId="bbb", authors_short="B et al.", year=2023,
+                       book_name="Book B", chapter="ch02", section="2.1",
+                       page_from=20, page_to=25, quote="Weak stationarity"),
+        TutorCitation(index=3, chunkId="aaa", authors_short="A et al.", year=2024,
+                       book_name="Book A", chapter="ch01", section="1.1",
+                       page_from=10, page_to=15, quote="Stationarity definition (dup)"),
+        TutorCitation(index=4, chunkId="bbb", authors_short="B et al.", year=2023,
+                       book_name="Book B", chapter="ch02", section="2.1",
+                       page_from=20, page_to=25, quote="Weak stationarity (dup)"),
+        TutorCitation(index=5, chunkId="ccc", authors_short="C et al.", year=2022,
+                       book_name="Book C", chapter="ch03", section="3.1",
+                       page_from=30, page_to=35, quote="Orphan — never cited inline"),
+    ]
+    deep.citations = deep_cites
+
+    ans = _convert_to_tutor_answer(deep, {}, sample_sources)
+
+    # 1) Each distinct chunkId appears exactly once
+    chunk_ids = [c.chunkId for c in ans.citations]
+    assert "aaa" in chunk_ids, f"chunkId 'aaa' missing from {chunk_ids}"
+    assert "bbb" in chunk_ids, f"chunkId 'bbb' missing from {chunk_ids}"
+    assert chunk_ids.count("aaa") == 1, f"chunkId 'aaa' appears {chunk_ids.count('aaa')} times"
+    assert chunk_ids.count("bbb") == 1, f"chunkId 'bbb' appears {chunk_ids.count('bbb')} times"
+    # Orphan "ccc" must not appear
+    assert "ccc" not in chunk_ids, f"orphan chunkId 'ccc' should have been pruned"
+
+    # 2) Indexes are contiguous from 1
+    indexes = sorted(c.index for c in ans.citations)
+    assert indexes == list(range(1, len(indexes) + 1)), f"indexes not contiguous: {indexes}"
+
+    # 3) Every inline [N] marker in text maps to a citation
+    inline_markers = {int(m) for m in re.findall(r"(?<!\w)\[(\d+)\]", ans.text)}
+    cite_indexes = {c.index for c in ans.citations}
+    assert inline_markers == cite_indexes, (
+        f"inline markers {inline_markers} != citation indexes {cite_indexes}"
+    )
+
+    # 4) No orphan citations (every citation has an inline marker)
+    assert len(ans.citations) == len(inline_markers)
+
+    # 5) Aspects dict has consistent markers (same renumbering)
+    for aspect_key, aspect_text in ans.aspects.items():
+        if not aspect_text.strip():
+            continue
+        aspect_markers = {int(m) for m in re.findall(r"(?<!\w)\[(\d+)\]", aspect_text)}
+        # All markers in aspects must be in the citation set
+        assert aspect_markers <= cite_indexes, (
+            f"aspect '{aspect_key}' has orphan markers {aspect_markers - cite_indexes}"
+        )
+
+
+def test_citation_renumber_preserves_figure_refs(sample_sources):
+    """[F1]-style figure references must NOT be touched by canonicalization."""
+    import re
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    from src.services.chat.schemas.output import TutorCitation
+
+    deep = _make_deep_answer(
+        definition="See [1] and the figure [F1] for illustration.",
+    )
+    deep.citations = [
+        TutorCitation(index=1, chunkId="aaa", authors_short="A et al.", year=2024,
+                       book_name="Book A", chapter="ch01", section="1.1",
+                       page_from=10, page_to=15, quote="ref"),
+    ]
+    ans = _convert_to_tutor_answer(deep, {}, sample_sources)
+    assert "[F1]" in ans.text, "[F1] figure ref was incorrectly modified"
+    assert "[F1]" in ans.aspects.get("definition", ""), "[F1] in aspect was incorrectly modified"
+
+
+def test_citation_dedup_preserves_distinct_empty_chunkIds():
+    """Citations with empty/falsy chunkId are each kept as their own entry —
+    they are not deduped against each other or against corpus entries.
+    Uses sources that won't interfere with the explicit citation chunkIds."""
+    import re
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    from src.services.chat.schemas.output import TutorCitation
+
+    srcs = [
+        _src(1, "islp", "2.1", "Text.", chunk_id="src-a"),
+        _src(2, "islp", "2.2", "Text.", chunk_id="src-b"),
+    ]
+    deep = _make_deep_answer(
+        definition="Wikipedia says [1] and the textbook agrees [2].",
+    )
+    deep.citations = [
+        TutorCitation(index=1, chunkId="", authors_short="Wikipedia", year=2024,
+                       book_name="Wikipedia", chapter="", section="",
+                       quote="wiki ref", url="https://en.wikipedia.org/wiki/X"),
+        TutorCitation(index=2, chunkId="bbb", authors_short="B et al.", year=2023,
+                       book_name="Book B", chapter="ch02", section="2.1",
+                       page_from=20, page_to=25, quote="textbook ref"),
+    ]
+    ans = _convert_to_tutor_answer(deep, {}, srcs)
+
+    # Two distinct citations should survive
+    assert len(ans.citations) == 2
+    chunk_ids = [c.chunkId for c in ans.citations]
+    assert "bbb" in chunk_ids
+    # Contiguous from 1
+    assert sorted(c.index for c in ans.citations) == [1, 2]

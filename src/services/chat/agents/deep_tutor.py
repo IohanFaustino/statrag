@@ -2413,6 +2413,10 @@ def _convert_to_tutor_answer(
     # corresponding citations entry; synthesize the missing ones from sources
     # in marker order.
     enriched = _ensure_marker_citations(text, enriched, sources)
+    # Dedup by chunkId, prune orphan citations, renumber contiguous from 1.
+    # The LLM can assign the same chunkId multiple different [N] indexes and
+    # emit citation entries that never appear as inline [N] markers.
+    text, final_aspects, enriched = _canonicalize_citations(text, final_aspects, enriched)
 
     math_blocks = list(deep.math_blocks) if deep else []
     if not math_blocks:
@@ -2490,6 +2494,106 @@ def _ensure_marker_citations(
         ))
     out.sort(key=lambda c: c.index)
     return out
+
+
+def _canonicalize_citations(
+    text: str,
+    aspects: dict[str, str],
+    cites: list[TutorCitation],
+) -> tuple[str, dict[str, str], list[TutorCitation]]:
+    """Dedup by chunkId, prune orphans, renumber contiguous from 1.
+
+    Returns ``(text, aspects, cites)`` with all three consistent:
+    - each distinct chunkId appears once in ``cites``
+    - every inline ``[N]`` in ``text`` and every value in ``aspects``
+      maps to exactly one citation entry
+    - no orphan entries (citation with no inline marker)
+    - indexes are contiguous starting at 1
+    - ``[F1]``-style figure refs are untouched
+    """
+    # Step 1: Dedup by chunkId — keep first occurrence in index order;
+    # entries with empty/falsy chunkId are kept as-is (never deduped).
+    seen_chunk: dict[str, int] = {}
+    deduped: list[TutorCitation] = []
+    old_to_kept: dict[int, int] = {}
+    for c in cites:
+        cid = c.chunkId
+        if cid and cid in seen_chunk:
+            old_to_kept[c.index] = seen_chunk[cid]
+        else:
+            if cid:
+                seen_chunk[cid] = c.index
+            old_to_kept[c.index] = c.index
+            deduped.append(c)
+
+    # Step 2: Remap inline markers — replace old indexes with kept indexes,
+    # then collect the set of inline markers for orphan pruning.
+    def _remap_markers(s: str) -> tuple[str, set[int]]:
+        found: set[int] = set()
+
+        def _replace(m: re.Match) -> str:
+            old = int(m.group(1))
+            new = old_to_kept.get(old)
+            if new is None:
+                return ""
+            found.add(new)
+            return f"[{new}]"
+
+        return re.sub(r"(?<!\w)\[(\d+)\]", _replace, s), found
+
+    text, text_markers = _remap_markers(text)
+    aspect_markers: set[int] = set()
+    new_aspects: dict[str, str] = {}
+    for k, v in aspects.items():
+        new_v, am = _remap_markers(v)
+        new_aspects[k] = new_v
+        aspect_markers |= am
+    all_markers = text_markers | aspect_markers
+
+    # Step 3: Prune orphans — drop citations whose (remapped) index is not
+    # referenced inline anywhere.
+    surviving = [c for c in deduped if c.index in all_markers]
+
+    # Step 4: Renumber contiguous from 1 by first appearance in text.
+    # Scan text left-to-right to determine order.
+    order: dict[int, int] = {}
+    next_idx = 1
+    for m in re.finditer(r"(?<!\w)\[(\d+)\]", text):
+        old = int(m.group(1))
+        if old not in order:
+            order[old] = next_idx
+            next_idx += 1
+
+    # Any surviving marker not seen in text (only in aspects) gets a
+    # number after the text-ordered ones, in sorted order.
+    for old_idx in sorted(c.index for c in surviving):
+        if old_idx not in order:
+            order[old_idx] = next_idx
+            next_idx += 1
+
+    # Rewrite markers in text and aspects using the final order map.
+    def _renumber(s: str) -> str:
+        def _re(m: re.Match) -> str:
+            old = int(m.group(1))
+            new = order.get(old)
+            if new is None:
+                return ""
+            return f"[{new}]"
+        out = re.sub(r"(?<!\w)\[(\d+)\]", _re, s)
+        # ponytail: strip doubled spaces left by removed markers
+        return re.sub(r"  +", " ", out).strip()
+
+    text = _renumber(text)
+    new_aspects = {k: _renumber(v) for k, v in new_aspects.items()}
+
+    # Rewrite citation indexes.
+    final_cites = []
+    for c in surviving:
+        new_idx = order.get(c.index, c.index)
+        final_cites.append(c.model_copy(update={"index": new_idx}))
+    final_cites.sort(key=lambda c: c.index)
+
+    return text, new_aspects, final_cites
 
 
 def _reconcile_citations(
