@@ -714,6 +714,25 @@ SYNTHESIZE the briefs into the single coherent DeepTutorAnswer:
 """
 
 
+DEEP_TUTOR_FINALIZE_INSTRUCTIONS: str = """\
+You are the FINALIZER for a textbook tutor answer.
+You receive a rough draft plus the sources, the facets (sub-questions) the answer
+MUST cover, and approved figures. Produce the final answer as a DeepTutorAnswer.
+
+Hard rules:
+- COVER EVERY FACET. If the draft skipped a sub-question, answer it. Weave all
+  sub-questions into ONE continuous narrative arc (no disconnected sections).
+- ONE formal statement PER definition. Put each distinct definition/theorem in
+  its OWN formal_statements[] entry (kind/label/statement/cite) - never cram two
+  definitions into one block. Quote formal statements verbatim from the sources.
+- Every bare formula carries explanation: no orphan formula without saying what
+  it means in the surrounding prose.
+- Math delimiters well-formed: inline $...$, display $$...$$ on its own line.
+- Keep the draft's [N] citations and figure [Fn] markers; do not invent sources.
+- Preserve any <recovered_equations> / <formal_definitions> verbatim blocks.
+"""
+
+
 CRITIQUE_PROMPT: str = """\
 <role>
 You are an ANSWER-QUALITY AUDITOR. You decide whether the draft is ready or

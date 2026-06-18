@@ -1710,6 +1710,18 @@ def _build_user_message(
     )
 
 
+def _build_finalize_message(query, draft_aspects, sources, facets, figures=None):
+    base = _build_user_message(query, sources, figures=figures or [], plan=None)
+    draft_md = assemble_markdown(draft_aspects)
+    facet_list = "\n".join(f"- {f}" for f in (facets or []))
+    return (
+        f"<facets_to_cover>\n{facet_list}\n</facets_to_cover>\n\n"
+        f"<draft>\n{draft_md}\n</draft>\n\n"
+        f"Rewrite the draft into the final answer, covering every facet above and "
+        f"using one formal_statements[] entry per definition.\n\n{base}"
+    )
+
+
 async def build_synthesis_plan(
     query: str, sources: list[Source], *, model: str | None = None
 ) -> SynthesisPlan | None:

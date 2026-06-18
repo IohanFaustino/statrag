@@ -2047,3 +2047,17 @@ def test_citation_dedup_preserves_distinct_empty_chunkIds():
     assert "bbb" in chunk_ids
     # Contiguous from 1
     assert sorted(c.index for c in ans.citations) == [1, 2]
+
+
+def test_build_finalize_message_includes_draft_and_facets():
+    from src.services.chat.agents.deep_tutor import _build_finalize_message
+    draft_aspects = {"definition": "Stationarity means ... [1]", "tldr": "x"}
+    facets = ["strict stationarity", "weak stationarity", "unit root"]
+    msg = _build_finalize_message(
+        "What is stationarity, its versions, and a unit root?",
+        draft_aspects, sources=[], facets=facets, figures=[],
+    )
+    for f in facets:
+        assert f in msg
+    assert "Stationarity means" in msg
+    assert "one" in msg.lower() and "definition" in msg.lower()
