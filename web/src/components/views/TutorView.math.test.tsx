@@ -79,6 +79,43 @@ describe("renderInlineWithCites — inline-math tokenizer (desync + word-count)"
     });
   });
 
+  describe("bare-math atoms (letter + subscript/superscript)", () => {
+    it("renders y_{t-1} as KaTeX, not literal text", () => {
+      const html = render("y_{t-1}");
+      expect(html).toContain("<span></span>");
+      expect(html).not.toContain("y_{t-1}");
+    });
+
+    it("renders mixed bare + backslash atoms: y_{t} = \\phi_0 y_{t-1} + \\varepsilon_t", () => {
+      const input = String.raw`y_{t} = \phi_0 y_{t-1} + \varepsilon_t`;
+      const html = render(input);
+      // 3 bare atoms (y_{t}, y_{t-1}) + 2 backslash atoms (\phi_0, \varepsilon_t) = 4 math spans
+      // y_{t} = <math> \phi_0 <math> y_{t-1} + <math>\varepsilon_t
+      // Actually: y_{t} (bare), \phi_0 (backslash), y_{t-1} (bare), \varepsilon_t (backslash)
+      // Plus the "=" and "+" are plain text.
+      expect(mathSpanCount(html)).toBeGreaterThanOrEqual(3);
+      expect(html).not.toContain("y_{t-1}");
+      expect(html).not.toContain("y_{t}");
+    });
+
+    it("does NOT wrap ordinary prose words (no subscript/superscript)", () => {
+      const html = render("the quick brown fox");
+      expect(mathSpanCount(html)).toBe(0);
+    });
+
+    it("renders R^2 as KaTeX", () => {
+      const html = render("R^2");
+      expect(html).toContain("<span></span>");
+      expect(html).not.toContain("R^2");
+    });
+
+    it("renders x_i^2 as KaTeX", () => {
+      const html = render("x_i^2");
+      expect(html).toContain("<span></span>");
+      expect(html).not.toContain("x_i^2");
+    });
+  });
+
   describe("latex-heavy math is not mistaken for prose", () => {
     it("\\frac{1}{n}\\sum renders as math (not literal text)", () => {
       const input = String.raw`The mean is $\frac{1}{n}\sum_{i=1}^{n} X_i$ exactly`;
