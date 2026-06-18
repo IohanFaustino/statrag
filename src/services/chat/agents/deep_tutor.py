@@ -2778,7 +2778,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     default_model = _resolve_draft_default(getattr(req, "model", None))
     m_expansion = _resolve_stage_model("expansion", default_model, sm)
     m_draft = _resolve_stage_model("draft", default_model, sm)
-    m_finalize = _resolve_stage_model("finalize", os.environ.get("TUTOR_FINALIZE_MODEL", "") or settings.deepseek_model, sm)
+    m_finalize = _resolve_stage_model("finalize", os.environ.get("TUTOR_FINALIZE_MODEL", "") or settings.openai_model_full, sm)
     m_critique = _resolve_stage_model("critique", default_model, sm)
     m_image_judge = _resolve_stage_model("image_judge", default_model, sm)
     m_vision = _resolve_vision_model(sm)
@@ -3011,6 +3011,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     if _definitions_block:
         recovered_block = (recovered_block + "\n\n" + _definitions_block) if recovered_block else _definitions_block
 
+    finalize_applied = False
     _finalize = FINALIZE_ON and (sm or {}).get("finalize") != "off"
     async def _draft_coro():
         return await _stream_draft(
@@ -3042,8 +3043,14 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                 yield ev
             except asyncio.TimeoutError:
                 continue
-        deep, aspects = await fin_task
+        fin_deep, fin_aspects = await fin_task
         timings["finalize_ms"] = int((time.monotonic() - t_draft) * 1000) - timings["draft_ms"]
+        # best-effort: only adopt a non-empty finalize result; else keep the draft
+        if fin_deep is not None and (set(fin_aspects or {}) & set(ASPECT_HEADINGS)):
+            deep, aspects = fin_deep, fin_aspects
+            finalize_applied = True
+        else:
+            logger.info("finalize degraded (%s); keeping draft answer", m_finalize)
 
     # 3b. Seam guard — one silent non-streamed redraft on narrative seam failure
     async def _redraft(failing):
@@ -3162,6 +3169,10 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                         + f" refine_iters={refine_iters}, "
                         + f"copy_paste_risk={verdict.get('copy_paste_risk')})")
     retr_dump["timings"] = timings
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
+    retr_dump["finalizeModel"] = m_finalize if _finalize else None
+    retr_dump["finalizeRoute"] = ("structured" if is_structured_output_capable(m_finalize) else "tolerant") if _finalize else None
+    retr_dump["finalizeApplied"] = finalize_applied
     yield {"type": "retrieval_meta", "meta": retr_dump}
 
     yield {

@@ -2224,3 +2224,69 @@ def test_formal_statement_cite_preserves_orphan_source():
     assert indexes == list(range(1, len(indexes) + 1)), (
         f"indexes not contiguous: {indexes}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Finalize fallback + meta (best-effort finalize)
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_fallback_keeps_draft_when_finalize_returns_none(sample_sources):
+    """When _stream_finalize returns (None, {}), the draft answer must be
+    preserved — NOT overwritten with a 'Failed to generate an answer' error."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    deep = _make_deep_answer()
+    req = ChatRequest(message="What is stationarity?",
+                      mode="tutor", model="gpt-5.4-nano-2026-03-17")
+
+    async def fake_finalize_returning_none(query, aspects, sources, facets,
+                                           figures, on_delta, model):
+        return None, {}
+
+    with patch.object(deep_tutor, "FINALIZE_ON", True), \
+         patch.object(deep_tutor, "_stream_finalize", fake_finalize_returning_none), \
+         _patch_pipeline(deep, sample_sources):
+        events = asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    structured = next(e for e in events if e["type"] == "structured_output")
+    text = structured["data"]["text"]
+    assert "Failed to generate an answer" not in text, (
+        f"finalize fallback should keep draft, got: {text[:200]}"
+    )
+    # The draft answer must contain actual content
+    assert len(text.strip()) > 50, (
+        f"draft answer should be non-trivial, got {len(text)} chars"
+    )
+
+
+def test_finalize_meta_emits_route_and_applied(sample_sources):
+    """When finalize succeeds, retrieval_meta must carry finalizeApplied=True
+    and a finalizeRoute matching the model's structured-output capability."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    deep = _make_deep_answer()
+    final_aspects = {k: getattr(deep, k, "") for k in deep_tutor.ASPECT_HEADINGS}
+    req = ChatRequest(message="What is stationarity?",
+                      mode="tutor", model="gpt-5.4-nano-2026-03-17")
+
+    async def fake_finalize_ok(query, aspects, sources, facets,
+                               figures, on_delta, model):
+        if on_delta:
+            for k, v in final_aspects.items():
+                on_delta(k, v)
+        return deep, final_aspects
+
+    with patch.object(deep_tutor, "FINALIZE_ON", True), \
+         patch.object(deep_tutor, "_stream_finalize", fake_finalize_ok), \
+         patch("src.services.chat.llm.router.is_structured_output_capable", lambda m: True), \
+         _patch_pipeline(deep, sample_sources):
+        events = asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    meta_event = next(e for e in events if e["type"] == "retrieval_meta")
+    meta = meta_event["meta"]
+    assert meta["finalizeApplied"] is True, f"expected True, got {meta['finalizeApplied']}"
+    assert meta["finalizeRoute"] == "structured", f"expected structured, got {meta['finalizeRoute']}"
+    assert meta["finalizeModel"] is not None
