@@ -6,7 +6,7 @@
 // to a picker chat model). Locked nodes use a fixed model class (embedding /
 // cross-encoder / vision) that a chat model cannot replace.
 
-export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan";
+export type StageKey = "expansion" | "draft" | "image_judge" | "vision_explain" | "plan" | "finalize";
 
 export interface PipelineNode {
   id: string;
@@ -127,6 +127,15 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
       locked: false,
     },
     {
+      id: "finalize",
+      label: "Finalize + verify",
+      desc: "Silent draft → strong finalizer streams; covers every facet; one box per definition; best-effort fidelity gate.",
+      kind: "llm",
+      stage: "finalize",
+      defaultModel: "gpt-5.4-2026-03-05",
+      locked: false,
+    },
+    {
       id: "vision_explain",
       label: "Vision explain",
       desc: "Reads each placed figure with a vision model (on by default). Pick any chat model; a non-vision model falls back to the caption.",
@@ -159,7 +168,8 @@ export const TUTOR_PIPELINE: { nodes: PipelineNode[]; edges: PipelineEdge[] } = 
     { from: "def_recovery", to: "image_judge" },
     { from: "image_judge", to: "plan" },
     { from: "plan",       to: "draft" },
-    { from: "draft",      to: "vision_explain" },
+    { from: "draft",      to: "finalize" },
+    { from: "finalize",   to: "vision_explain" },
     { from: "vision_explain", to: "output" },
   ],
 };

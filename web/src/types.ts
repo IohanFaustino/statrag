@@ -62,6 +62,9 @@ export interface RetrievalMetadata {
   topK: number;
   scoreThreshold: number;
   mode: string;
+  finalizeModel?: string | null;
+  finalizeRoute?: "structured" | "tolerant" | null;
+  finalizeApplied?: boolean;
 }
 
 export interface Model {

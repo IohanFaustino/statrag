@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import MessageThread from "./MessageThread";
-import type { Message, QAStoryAnswer, FacilitateStory, ModeId } from "../types";
+import type { Message, QAStoryAnswer, FacilitateStory, ModeId, RetrievalMetadata } from "../types";
 
 // Minimal assistant message in "pending" state (thinking indicator shows)
 const pendingMsg: Message = {
@@ -118,5 +118,68 @@ describe("MessageThread — common-ground is facilitate-only", () => {
     render(<MessageThread thread={[facStoryMsg]} activeMode="qa"
       onOpenConcept={() => {}} isStreaming={false} streamingPhase="idle" />);
     expect(screen.queryByRole("button", { name: /law of large numbers/i })).toBeNull();
+  });
+});
+
+describe("MessageThread — finalize badge", () => {
+  const baseMeta: RetrievalMetadata = {
+    rewrittenQuery: "stationarity",
+    embedding: "text-embedding-3-large",
+    retrievalMs: 1200,
+    collections: ["stats_textbooks"],
+    filter: "",
+    topK: 20,
+    scoreThreshold: 0.3,
+    mode: "tutor",
+  };
+
+  it("shows Finalized badge when finalizeApplied is true with model and route", () => {
+    const meta: RetrievalMetadata = {
+      ...baseMeta,
+      finalizeModel: "gpt-5.4",
+      finalizeRoute: "structured",
+      finalizeApplied: true,
+    };
+    const msg: Message = {
+      role: "assistant", id: "f1", time: "12:03", timestamp: "2026-06-04T12:03:00Z",
+      mode: "tutor", model: "gpt-5.4", books: ["hansen"], sourceCount: 5, latencyMs: 3000,
+      blocks: [], status: "complete", retrievalMetadata: meta,
+    };
+    render(<MessageThread thread={[msg]} isStreaming={false} streamingPhase="idle" />);
+    expect(screen.getByText(/Finalized/)).toBeInTheDocument();
+    expect(screen.getByText(/gpt-5.4/)).toBeInTheDocument();
+    expect(screen.getByText(/structured/)).toBeInTheDocument();
+  });
+
+  it("hides Finalized badge when finalizeApplied is false", () => {
+    const meta: RetrievalMetadata = {
+      ...baseMeta,
+      finalizeModel: "deepseek-v4-pro",
+      finalizeRoute: "tolerant",
+      finalizeApplied: false,
+    };
+    const msg: Message = {
+      role: "assistant", id: "f2", time: "12:04", timestamp: "2026-06-04T12:04:00Z",
+      mode: "tutor", model: "deepseek-v4-pro", books: ["hansen"], sourceCount: 3, latencyMs: 2000,
+      blocks: [], status: "complete", retrievalMetadata: meta,
+    };
+    render(<MessageThread thread={[msg]} isStreaming={false} streamingPhase="idle" />);
+    expect(screen.queryByText(/Finalized/)).toBeNull();
+  });
+
+  it("hides Finalized badge when finalizeModel is null", () => {
+    const meta: RetrievalMetadata = {
+      ...baseMeta,
+      finalizeModel: null,
+      finalizeRoute: null,
+      finalizeApplied: false,
+    };
+    const msg: Message = {
+      role: "assistant", id: "f3", time: "12:05", timestamp: "2026-06-04T12:05:00Z",
+      mode: "tutor", model: "gpt-5.4", books: ["hansen"], sourceCount: 2, latencyMs: 1500,
+      blocks: [], status: "complete", retrievalMetadata: meta,
+    };
+    render(<MessageThread thread={[msg]} isStreaming={false} streamingPhase="idle" />);
+    expect(screen.queryByText(/Finalized/)).toBeNull();
   });
 });

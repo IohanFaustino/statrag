@@ -270,6 +270,40 @@ describe("PipelineDiagram", () => {
     expect(node).toBeDefined();
     expect(node!.locked).toBe(true);
   });
+
+  it("renders the Finalize + verify node between draft and vision_explain", () => {
+    const html = renderToStaticMarkup(
+      <PipelineDiagram
+        pickerModel="gpt-4o"
+        stageModels={{}}
+        providers={PROVIDERS}
+        onStageModelChange={() => {}}
+        diversityAuthors={3}
+        onDiversityChange={() => {}}
+      />,
+    );
+    expect(html).toContain("Finalize + verify");
+    expect(html).toContain('data-node="finalize"');
+    // finalize is a generation-phase LLM node with a model dropdown
+    expect(html).toContain('data-phase="generation"');
+  });
+
+  it("finalize node is swappable (not locked) with default full model", () => {
+    const node = TUTOR_PIPELINE.nodes.find((n) => n.id === "finalize");
+    expect(node).toBeDefined();
+    expect(node!.locked).toBe(false);
+    expect(node!.stage).toBe("finalize");
+    expect(node!.defaultModel).toBe("gpt-5.4-2026-03-05");
+  });
+
+  it("pipeline edges wire draft → finalize → vision_explain", () => {
+    const edgeFromDraft = TUTOR_PIPELINE.edges.find((e) => e.from === "draft");
+    expect(edgeFromDraft).toBeDefined();
+    expect(edgeFromDraft!.to).toBe("finalize");
+    const edgeFromFinalize = TUTOR_PIPELINE.edges.find((e) => e.from === "finalize");
+    expect(edgeFromFinalize).toBeDefined();
+    expect(edgeFromFinalize!.to).toBe("vision_explain");
+  });
 });
 
 describe("narrative-only pipeline (Task 6 — tutorWorkflow removed)", () => {
@@ -358,13 +392,14 @@ describe("plan node tooltip regression (I-1)", () => {
 });
 
 describe("stageDefaultModels (Default button reset map)", () => {
-  it("restores true per-stage defaults: nano for non-draft text stages, gpt-4o-mini vision, recommended draft — NOT the recommended model everywhere", () => {
+  it("restores true per-stage defaults: nano for non-draft text stages (except finalize=full), gpt-4o-mini vision, recommended draft", () => {
     const defaults = stageDefaultModels("gpt-5.4-nano-2026-03-17");
     expect(defaults).toEqual({
       expansion: "gpt-5.4-nano-2026-03-17",
       image_judge: "gpt-5.4-nano-2026-03-17",
       plan: "gpt-5.4-nano-2026-03-17",
       draft: "gpt-5.4-nano-2026-03-17",
+      finalize: "gpt-5.4-2026-03-05",
       vision_explain: "gpt-4o-mini",
     });
     // regression guard: the non-draft stages must NOT all fall back to the old recommended (qwen-plus)
