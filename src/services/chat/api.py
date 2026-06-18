@@ -199,6 +199,59 @@ def _resolve_figure_path(raw: str) -> Path | None:
     return None
 
 
+_MD_IMG = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+
+
+def _rewrite_chunk_image_paths(o):
+    """Recursively rewrite relative markdown image paths in str/dict/list.
+
+    Corpus chunks contain OCR image references like
+    ``![$$KPSS$$](markdown/Some Book/media/images/foo.png)`` or
+    ``![](images/abc123.jpg)``.  The browser cannot resolve these relative
+    paths, so we either resolve them to the existing ``/api/figures`` route
+    or remove the broken token entirely.
+    """
+    from urllib.parse import quote
+
+    def _rewrite_str(text: str) -> str:
+        if "![" not in text:
+            return text
+
+        def _resolve_relative(url: str) -> Path | None:
+            # Try absolute path first (existing figure paths stored as abs)
+            abs_resolved = _resolve_figure_path(url)
+            if abs_resolved is not None:
+                return abs_resolved
+            # Relative corpus paths: resolve against each whitelisted root
+            for root in _FIGURE_ROOTS:
+                try:
+                    candidate = (root / url).resolve(strict=True)
+                except (OSError, RuntimeError):
+                    continue
+                if any(str(candidate).startswith(str(r)) for r in _FIGURE_ROOTS):
+                    return candidate
+            return None
+
+        def _replace(m: re.Match) -> str:
+            alt, url = m.group(1), m.group(2)
+            if url.startswith(("http", "//", "data:", "/api/")) or url.startswith("/"):
+                return m.group(0)
+            resolved = _resolve_relative(url)
+            if resolved is not None:
+                return f"![{alt}](/api/figures?path={quote(str(resolved), safe='')})"
+            return ""
+
+        return re.sub(r"  +", " ", _MD_IMG.sub(_replace, text))
+
+    if isinstance(o, str):
+        return _rewrite_str(o)
+    if isinstance(o, dict):
+        return {k: _rewrite_chunk_image_paths(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_rewrite_chunk_image_paths(v) for v in o]
+    return o
+
+
 @app.get("/api/figures")
 def serve_figure(path: str = Query(...)) -> FileResponse:
     """Serve a figure image. Path must resolve under a whitelisted root and
@@ -297,7 +350,7 @@ async def chat_event_gen(req: ChatRequest):
                 pass
 
         async for ev in stream_chat(req, history=history):
-            ev = _normalize_math(_strip_ctrl(ev))
+            ev = _rewrite_chunk_image_paths(_normalize_math(_strip_ctrl(ev)))
             ev_type = ev.get("type", "message")
             if ev_type == "token":
                 assistant_text_buf.append(ev.get("text", ""))
@@ -427,7 +480,7 @@ async def concept_explore_route(request: Request) -> EventSourceResponse:
 
     async def gen():
         async for ev in concept_explore(body):
-            ev = _normalize_math(_strip_ctrl(ev))
+            ev = _rewrite_chunk_image_paths(_normalize_math(_strip_ctrl(ev)))
             yield {"event": ev.get("type", "message"), "data": json.dumps(ev)}
     return EventSourceResponse(gen(), ping=15)
 
