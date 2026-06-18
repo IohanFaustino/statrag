@@ -15,8 +15,9 @@ Append-only. Latest at top.
 - **Bundled fixes.** KPSS/ADF image-path 404s (source URL construction), formal-statement dangling-cite (citation index mismatch in `formal_statements[]`), box overflow (multiple definitions crammed into one entry — fixed by the finalize prompt rule), Route-B JSON contract (explicit `<output>` key listing).
 - **SSE meta.** `retrieval_meta` now carries `finalizeModel`, `finalizeRoute` (`"structured"`|`"tolerant"`), `finalizeApplied`. Frontend renders a `Finalized · <model> · <route>` badge when applied.
 - **Pipeline diagram.** New "Finalize + verify" node (generation phase) between draft and vision_explain. `tutorPipeline.ts`, `PipelineDiagram.tsx`, `tutor.html`, `36-deep-tutor.md` mermaid, `invariants.md` invariant 49, and this changelog entry all reflect it.
+- **Bare-math render fix (`0c0df49`).** `renderInlineWithCites` (TutorView) only auto-wrapped backslash-led math (`\phi_0`), so plain-letter atoms (`y_{t}`, `y_{t-1}`, `R^2`) fell through to the plain-run fallback and rendered literally. Added a bare-math branch + plain-run break that wraps `letter_{…}`/`letter^…` atoms as KaTeX — true-by-construction, fixes the leak for every finalize route (structured + tolerant), not just one model. Pixel-verified on :5175.
 
-**Gates:** backend tests + frontend tests green; tsc clean.
+**Gates:** backend 1106 passed / 3 skipped, frontend 334 passed, tsc clean. Merged into `feat/component-equation-enforcement` (`fe67ce7`); tutor-finalize-stage branch + worktree cleaned up. Known follow-ups (opt-in path): deepseek tolerant-route raw-LaTeX leak on complex definitions; component-equation validator retries on math-heavy questions.
 
 ---
 
