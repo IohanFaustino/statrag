@@ -2208,6 +2208,22 @@ async def critique(
 # ---------------------------------------------------------------------------
 
 
+_CORPUS_IMG_RE = re.compile(
+    r"!\[[^\]]*\]\((?:markdown|images)/[^)]+\)"
+)
+_CORPUS_IMG_TRUNC_RE = re.compile(
+    r"!\[[^\]]*\]\((?:markdown|images)/[^)]*$"
+)
+
+
+def _strip_corpus_images(text: str) -> str:
+    if "![" not in text:
+        return text
+    text = _CORPUS_IMG_RE.sub("", text)
+    text = _CORPUS_IMG_TRUNC_RE.sub("", text)
+    return re.sub(r"  +", " ", text)
+
+
 def _sources_to_payload(sources: list[Source]) -> list[dict]:
     return [
         {
@@ -2215,7 +2231,8 @@ def _sources_to_payload(sources: list[Source]) -> list[dict]:
             "authors": s.authors, "authors_short": s.authors_short, "year": s.year,
             "chapter": s.chapter, "section": s.section, "title": s.title,
             "page_from": s.page_from, "page_to": s.page_to, "page": s.page,
-            "excerpt": s.excerpt, "chunk": (s.chunk or "")[:1500],
+            "excerpt": _strip_corpus_images(s.excerpt or ""),
+            "chunk": _strip_corpus_images(s.chunk or "")[:1500],
             "score": round(float(s.score), 4), "chunkId": s.chunkId,
         }
         for s in sources
@@ -2779,7 +2796,11 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     default_model = _resolve_draft_default(getattr(req, "model", None))
     m_expansion = _resolve_stage_model("expansion", default_model, sm)
     m_draft = _resolve_stage_model("draft", default_model, sm)
-    m_finalize = _resolve_stage_model("finalize", os.environ.get("TUTOR_FINALIZE_MODEL", "") or settings.openai_model_full, sm)
+    _fin_override = (sm or {}).get("finalize")
+    if _fin_override and _fin_override != "off" and _fin_override in _known_chat_models():
+        m_finalize = _fin_override
+    else:
+        m_finalize = os.environ.get("TUTOR_FINALIZE_MODEL", "") or settings.openai_model_full
     m_critique = _resolve_stage_model("critique", default_model, sm)
     m_image_judge = _resolve_stage_model("image_judge", default_model, sm)
     m_vision = _resolve_vision_model(sm)

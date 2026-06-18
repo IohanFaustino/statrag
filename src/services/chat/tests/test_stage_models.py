@@ -115,3 +115,78 @@ def test_valid_override_reaches_draft_stage(monkeypatch):
     asyncio.run(_drain())
     assert captured["draft_model"] == "gpt-4o-mini"      # override honored
     assert captured["expansion_model"] == NANO            # untouched stage stays nano
+
+
+def test_finalize_defaults_to_full_model_not_nano(monkeypatch):
+    """BUG 1 regression: finalize must default to the full model, not nano.
+
+    _resolve_stage_model ignores the default_model arg for non-draft stages,
+    so passing it as default_model=...full_model still yields nano.
+    The call-site now bypasses _resolve_stage_model for finalize and resolves
+    explicitly: override → env → full model.
+    """
+    full = settings.openai_model_full
+    nano = settings.openai_model_nano
+    assert full != nano, "full and nano models must differ for this test"
+
+    # No stageModels, no TUTOR_FINALIZE_MODEL env → must resolve to full, not nano.
+    captured: dict[str, str] = {}
+
+    async def fake_finalize(query, draft_aspects, sources, facets, figures,
+                            on_aspect_delta, model):
+        captured["finalize_model"] = model
+        return {k: f"{k}_final" for k in dt.ASPECT_HEADINGS}, []
+
+    async def fake_draft(q, srcs, *, figures=None, on_aspect_delta=None,
+                        model=None, plan=None, **kwargs):
+        return None, {k: "" for k in dt.ASPECT_HEADINGS}
+
+    async def fake_recover(q, srcs):
+        return ""
+
+    async def fake_extract(q, *, model=None):
+        return ["x"]
+
+    async def fake_extract_ex(q, *, model=None, max_authors=4):
+        return dt.QueryPlan(["x"], 2, [], [])
+
+    async def fake_plan(q, srcs, *, model=None):
+        return None
+
+    async def fake_wide(q, slugs, pool):
+        from src.services.chat.schemas import RetrievalMetadata
+        return [], RetrievalMetadata(
+            rewrittenQuery=q, embedding="x", retrievalMs=1, collections=[],
+            filter="", topK=0, scoreThreshold=0.0, mode="empty")
+
+    def fake_density(*a, **kw):
+        from src.services.chat.schemas import Source
+        src = Source(
+            rank=1, book="b", chapter="c", section="s", title="t",
+            excerpt="test", score=0.9, chunkId="cid", chunk="test",
+        )
+        return [src], ["col"]
+
+    with monkeypatch.context() as m:
+        m.setattr(dt, "_stream_finalize", fake_finalize)
+        m.setattr(dt, "_stream_draft", fake_draft)
+        m.setattr(dt, "_recover_equations_block", fake_recover)
+        m.setattr(dt, "extract_concepts", fake_extract)
+        m.setattr(dt, "extract_concepts_ex", fake_extract_ex)
+        m.setattr(dt, "build_synthesis_plan", fake_plan)
+        m.setattr(dt, "_wide_candidates", fake_wide)
+        m.setattr(dt, "_density_select", fake_density)
+        m.setattr(dt, "FINALIZE_ON", True)
+        m.delenv("TUTOR_FINALIZE_MODEL", raising=False)
+
+        req = ChatRequest(message="finalize default test", model=full)
+
+        async def _drain():
+            return [e async for e in dt.run_deep_tutor(req)]
+
+        events = asyncio.run(_drain())
+
+    meta = next(e for e in events if e["type"] == "retrieval_meta")
+    assert meta["meta"]["finalizeModel"] == full, (
+        f"finalize model should be {full!r}, got {meta['meta']['finalizeModel']!r}"
+    )
