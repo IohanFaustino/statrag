@@ -2821,6 +2821,10 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     plan_qp, (candidates, retr_meta) = await asyncio.gather(planner_task, candidates_task)
     concepts = plan_qp.concepts
     facets = plan_qp.facets
+    # Scope A: guarantee every question in a multi-question prompt becomes a
+    # concept (→ definition recovery) and a facet (→ coverage + finalize).
+    from src.services.chat.agents.definition_gaps import augment_concepts_and_facets  # noqa: PLC0415
+    concepts, facets = augment_concepts_and_facets(query, concepts, facets)
     # Wikipedia augmentation: fetch one summary per concept concurrently with
     # density/coverage/images so its latency is hidden. Appended after corpus
     # below (augment-only). Awaited just before the source-bundle is finalized.
