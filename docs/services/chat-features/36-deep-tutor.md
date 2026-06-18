@@ -43,22 +43,26 @@ graph TD
   FR --> FJ["figure judge (T1)"]
   FJ --> PLAN["synthesis plan (parallel w/ figure judge)<br/>thesis + per-aspect outline + evidence ledger<br/>+ author contrasts (TUTOR_SYNTHESIS_PLAN / stageModels.plan)<br/>'off' = skip → legacy single-draft<br/>also skipped when planner rates question simple (perspectives ≤ 1)"]
   PLAN --> ND["narrative draft (single call, streamed)<br/>ONE continuous arc — 5 beats + intro<br/>thesis injected as &lt;thesis&gt; block<br/>response_format = DeepTutorAnswer"]
-  ND --> SG["seam guard (pure code, no env flag)<br/>lemma overlap · boilerplate · lang-drift · formalize-drop re-link<br/>→ quality[seam_continuity / lang_ok / thesis_adherence]"]
-  SG -->|pass| CRT
-  SG -->|fail: 1 silent redraft| RD["silent non-streamed redraft<br/>failing seams quoted verbatim<br/>accepted only if seam_continuity / lang_ok don't regress"]
-  RD --> CRT
-  CRT{TUTOR_DEEP_CRITIQUE?}
-  CRT -->|0 default| FIN
+  ND --> FZ{"TUTOR_FINALIZE?"}
+  FZ -->|on| FZN["Finalize (strong model, streams)<br/>covers every facet · 1 box/def · best-effort"]
+  FZN --> SG["seam guard (pure code, no env flag)<br/>lemma overlap · boilerplate · lang-drift · formalize-drop re-link<br/>→ quality[seam_continuity / lang_ok / thesis_adherence]"]
+  FZ -->|off| SG
+  SG --> VE["vision explain (figure captions)"]
+  VE --> VRF["_verify_finalized (pure code)<br/>drop dangling [Fn] refs · log missing facets"]
+  VRF --> CRT{TUTOR_DEEP_CRITIQUE?}
+  CRT -->|0 default| FIN["convert -> TutorAnswer<br/>(text + aspects + citations)"]
   CRT -->|1 opt-in| CR[critique]
   CR --> Q1{complete?}
   Q1 -->|yes| FIN
   Q1 -->|no, iter<cap| RF[refine retrieve + redraft]
   RF --> CR
-  Q1 -->|cap| FIN[convert -> TutorAnswer<br/>(text + aspects + citations)]
+  Q1 -->|cap| FIN
   FIN --> SSE["meta → token* (per-aspect attribution)<br/>→ structured_output → sources_full<br/>→ retrieval_meta (incl. timings) → usage → done"]
 
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style RD fill:#1f2a1a,stroke:#3fb950,color:#fff
 ```
 
@@ -171,6 +175,8 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 | `TUTOR_DEEP_VISION_MODEL` | `gpt-4o-mini` | Vision model used when `TUTOR_DEEP_VISION_EXPLAIN=1` |
 | `TUTOR_DEEP_WIKI` | `1` | `0` = disable Wikipedia augmentation. When `1`, one Wikipedia summary per extracted concept is fetched (concurrent with retrieval) and appended **after** the corpus sources at trailing ranks — corpus stays the authority (augment-only). Skipped entirely when the corpus returned nothing (no Wikipedia-only answers). Pure code via `research.wiki_evidence`; silent-degrades to corpus-only on any network failure. Surfaces as a clickable 🌐 source in the context panel + a `url` on the matching `TutorCitation`. |
 | `TUTOR_COVERAGE_CHECK` | `1` | `0` = skip the facet coverage check + re-query entirely. When `1`, an additional gate applies: coverage runs only when `len(facets) >= 4` or any facet contains `$` or the word `formula` — simple questions skip the extra nano call (see Phase-1 coverage gate). |
+| `TUTOR_FINALIZE` | `0` | Enable finalize+verify stage (doc [59-tutor-finalize.md](59-tutor-finalize.md)). When `0` (OFF), the draft is the final answer. When on, a strong finalizer model rewrites the draft for facet coverage, one-box-per-definition, and math quality; pure-code `_verify_finalized` guards follow. Best-effort: if the finalizer fails, the draft is kept. Per-request `stageModels["finalize"]` = `"off"` skips. |
+| `TUTOR_FINALIZE_MODEL` | `gpt-5.4-2026-03-05` (full model) | Model for the finalize call. Routes via structured (`json_schema`) for OpenAI-family or tolerant (`json_object` + `<output>` contract) for deepseek/gemini/qwen. Per-request `stageModels["finalize"]` overrides. |
 | `TUTOR_ADAPTIVE_ROUTING` | `1` | Phase 3: `1` = route by complexity tier — simple questions (planner `perspectives ≤ 1`) skip the synthesis-plan stage and the related-framings retrieval query; `0` = always standard (Phase-2 behavior, rollback). Full draft model in both tiers. |
 | `TUTOR_SYNTHESIS_PLAN` | `1` | `0` = skip the synthesis-plan step (legacy single-draft). Per-request: `stageModels.plan = "off"` or a model id |
 | `TUTOR_DIVERSITY` | `1` | `0` = disable author-perspective diversity selection |
@@ -183,6 +189,8 @@ The ``retrieval_meta`` event includes ``timings`` (ms per phase):
 `diversityAuthors` (request): `"auto"` = concept-extraction model picks the count (clamped to the cap **and** to authors available in the pool); `0`/`1` = off; `N≥2` = hard cap. Effective count is always ≤ authors available, so a single-author topic yields one author.
 
 > **Seam validator** (`agents/seams.py`) is **config-free** — no env flag. It runs automatically after every narrative draft, scores `quality["seam_continuity"]` / `quality["lang_ok"]` / `quality["thesis_adherence"]`, and triggers a one-time silent redraft on failure. See [57-tutor-narrative.md](57-tutor-narrative.md) for the full contract.
+
+> **Finalize + verify** (doc [59-tutor-finalize.md](59-tutor-finalize.md)) is **off by default** (`TUTOR_FINALIZE=0`). When on, a strong finalizer model rewrites the nano draft for facet completeness and one-box-per-definition; pure-code `_verify_finalized` strips dangling `[Fn]` refs and logs missing facets. Best-effort: if the finalizer fails, the draft answer is kept. The `retrieval_meta` SSE event carries `finalizeModel`, `finalizeRoute`, and `finalizeApplied`.
 
 ## Tests
 

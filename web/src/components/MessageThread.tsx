@@ -394,6 +394,14 @@ function AssistantMessageView({
             <span className="msg__badge-lat">{(msg.latencyMs / 1000).toFixed(1)}s</span>
           </>
         )}
+        {msg.retrievalMetadata?.finalizeApplied && msg.retrievalMetadata?.finalizeModel && (
+          <>
+            <span className="msg__badge-sep">·</span>
+            <span className="msg__badge-finalize">
+              Finalized · {msg.retrievalMetadata.finalizeModel} · {msg.retrievalMetadata.finalizeRoute}
+            </span>
+          </>
+        )}
       </div>
 
     </article>

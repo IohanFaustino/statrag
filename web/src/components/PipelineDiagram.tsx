@@ -59,6 +59,7 @@ const ROW_DEF: ReadonlyArray<{ id: string; h: number; io?: boolean }> = [
   { id: "image_judge",    h: 104 },
   { id: "plan",           h: 132 },
   { id: "draft",          h: 104 },
+  { id: "finalize",       h: 112 },
   { id: "vision_explain", h: 112 },
   { id: "output",         h: 46,  io: true },
 ];

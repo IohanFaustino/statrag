@@ -2047,3 +2047,246 @@ def test_citation_dedup_preserves_distinct_empty_chunkIds():
     assert "bbb" in chunk_ids
     # Contiguous from 1
     assert sorted(c.index for c in ans.citations) == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_finalize_stage_runs_when_enabled(monkeypatch):
+    import src.services.chat.agents.deep_tutor as dt
+    from src.services.chat.llm import router
+    calls = []
+
+    async def fake_stream_structured(messages, model, on_aspect_delta=None):
+        calls.append(model)
+        if on_aspect_delta:
+            on_aspect_delta("_raw", "final text")
+        return (
+            dt.DeepTutorAnswer(
+                tldr="t", definition="d", formal_statement="",
+                example_intuition="e", applications="a",
+                further_reading="f", citations=[],
+            ),
+            {k: "x" for k in dt.ASPECT_HEADINGS},
+        )
+
+    monkeypatch.setattr(dt, "_stream_structured", fake_stream_structured)
+    monkeypatch.setattr(router, "is_structured_output_capable", lambda m: True)
+    deep, aspects = await dt._stream_finalize(
+        "q", {"definition": "draft"}, sources=[], facets=["a"],
+        figures=[], on_aspect_delta=lambda *a: None, model="deepseek-v4-pro",
+    )
+    assert "deepseek-v4-pro" in calls
+    assert deep is not None
+
+
+def test_build_finalize_message_includes_draft_and_facets():
+    from src.services.chat.agents.deep_tutor import _build_finalize_message
+    draft_aspects = {"definition": "Stationarity means ... [1]", "tldr": "x"}
+    facets = ["strict stationarity", "weak stationarity", "unit root"]
+    msg = _build_finalize_message(
+        "What is stationarity, its versions, and a unit root?",
+        draft_aspects, sources=[], facets=facets, figures=[],
+    )
+    for f in facets:
+        assert f in msg
+    assert "Stationarity means" in msg
+    assert "one" in msg.lower() and "definition" in msg.lower()
+
+
+def test_verify_drops_broken_figure_refs_and_reports_missing_facets():
+    from src.services.chat.agents.deep_tutor import _verify_finalized
+    aspects = {"definition": "See [F1] and [F2].", "applications": "Use it."}
+    figures = [type("F", (), {"url": ""})(), type("F", (), {"url": "http://x/y.png"})()]
+    cleaned, missing = _verify_finalized(aspects, figures, facets=["unit root", "weak stationarity"])
+    assert "[F1]" not in cleaned["definition"]      # broken ref (empty url) stripped
+    assert "[F2]" in cleaned["definition"]           # valid ref kept
+    assert "unit root" in missing and "weak stationarity" in missing
+
+
+def test_canonicalize_citations_remaps_formal_statements_cite(sample_sources):
+    """formal_statements[].cite must be remapped when canonicalization
+    renumbers citations.  Without the fix, a TutorFormalDef.cite that
+    referenced original index 5 would stay at 5 even after dedup/prune
+    collapses the range to 1..3, producing a broken [5] pill."""
+    import re
+    from src.services.chat.agents.deep_tutor import _convert_to_tutor_answer
+    from src.services.chat.schemas.output import TutorCitation, TutorFormalDef
+
+    # Build a DeepTutorAnswer whose citations have duplicates and an orphan,
+    # so canonicalization renumbers.  Inline text uses [1] and [2].
+    deep = _make_deep_answer(
+        definition=(
+            "Strict stationarity [1] means the joint distribution is shift-invariant. "
+            "Weak stationarity [2] requires only first and second moments."
+        ),
+    )
+    deep_cites = [
+        TutorCitation(index=1, chunkId="aaa", authors_short="A et al.", year=2024,
+                       book_name="Book A", chapter="ch01", section="1.1",
+                       page_from=10, page_to=15, quote="Strict stationarity"),
+        TutorCitation(index=2, chunkId="bbb", authors_short="B et al.", year=2023,
+                       book_name="Book B", chapter="ch02", section="2.1",
+                       page_from=20, page_to=25, quote="Weak stationarity"),
+        TutorCitation(index=3, chunkId="aaa", authors_short="A et al.", year=2024,
+                       book_name="Book A", chapter="ch01", section="1.1",
+                       page_from=10, page_to=15, quote="Dup strict"),
+        TutorCitation(index=5, chunkId="ccc", authors_short="C et al.", year=2022,
+                       book_name="Book C", chapter="ch03", section="3.1",
+                       page_from=30, page_to=35, quote="Orphan"),
+    ]
+    deep.citations = deep_cites
+    # formal_statement with cite=3, which after dedup maps 3→1 (same chunkId
+    # as index 1), then after renumber 1→1.  A cite=5 (orphan) should still
+    # remap to whatever the pipeline decides — the key invariant is that
+    # the resulting cite exists in answer.citations.
+    deep.formal_statements = [
+        TutorFormalDef(kind="definition", label="Strict stationarity",
+                       statement="A time series is strictly stationary if…", cite=3),
+        TutorFormalDef(kind="definition", label="Weak stationarity",
+                       statement="A time series is weakly stationary if…", cite=5),
+    ]
+
+    ans = _convert_to_tutor_answer(deep, {}, sample_sources)
+
+    cite_indexes = {c.index for c in ans.citations}
+
+    # Every formal_statement cite must exist in the citation set
+    for fs in ans.formal_statements:
+        assert fs.cite in cite_indexes, (
+            f"formal_statement cite={fs.cite} not in citation indexes {cite_indexes}"
+        )
+
+    # After dedup: original index 3 (chunkId "aaa") → kept index 1.
+    # After renumber: 1→1.  So cite should be 1 (not 3).
+    strict_fs = [fs for fs in ans.formal_statements
+                 if fs.label == "Strict stationarity"][0]
+    assert strict_fs.cite == 1, (
+        f"expected remapped cite=1, got {strict_fs.cite}"
+    )
+
+    # The weak stationarity fs had original cite=5 (chunkId "ccc").
+    # Before the fs_markers fix, cite=5 was orphan-pruned because no inline
+    # [5] marker existed — formal_statements[].cite was not in all_markers.
+    # Now fs_markers adds formal-statement cites to the referenced set, so
+    # "ccc" survives pruning and gets a contiguous index.
+    weak_fs = [fs for fs in ans.formal_statements
+               if fs.label == "Weak stationarity"][0]
+    assert weak_fs.cite in cite_indexes, (
+        f"formal_statement cite={weak_fs.cite} must resolve to a real citation"
+    )
+
+
+def test_formal_statement_cite_preserves_orphan_source():
+    """Regression: a citation referenced ONLY via formal_statements[].cite
+    (no inline [N] marker in text or aspects) must NOT be orphan-pruned.
+    _convert_to_tutor_answer renders [cite] into the text via
+    _render_formal_statements, so the full pipeline would see [3] as an
+    inline marker.  The real bug is in _canonicalize_citations itself:
+    if all_markers excludes formal-statement cites, they get pruned.
+    Test _canonicalize_citations directly to isolate the failure mode."""
+    from src.services.chat.agents.deep_tutor import _canonicalize_citations
+    from src.services.chat.schemas.output import TutorCitation, TutorFormalDef
+
+    text = "Concept [1] is important [2]."
+    aspects = {"definition": text}
+    cites = [
+        TutorCitation(index=1, chunkId="aaa", authors_short="A et al.", year=2024,
+                       book_name="Book A", chapter="ch01", section="1.1",
+                       page_from=10, page_to=15, quote="Inline ref 1"),
+        TutorCitation(index=2, chunkId="bbb", authors_short="B et al.", year=2023,
+                       book_name="Book B", chapter="ch02", section="2.1",
+                       page_from=20, page_to=25, quote="Inline ref 2"),
+        TutorCitation(index=3, chunkId="ccc", authors_short="C et al.", year=2022,
+                       book_name="Book C", chapter="ch03", section="3.1",
+                       page_from=30, page_to=35, quote="Formal def source"),
+    ]
+    fs = [
+        TutorFormalDef(kind="definition", label="Strict stationarity",
+                       statement="A process is strictly stationary if…", cite=3),
+    ]
+
+    _, _, out_cites, out_fs = _canonicalize_citations(text, aspects, cites, fs)
+
+    cite_indexes = {c.index for c in out_cites}
+    chunk_ids = [c.chunkId for c in out_cites]
+
+    # The formal-statement's source (chunkId "ccc") must NOT be pruned
+    assert "ccc" in chunk_ids, (
+        f"formal-statement-only source pruned; chunks={chunk_ids}"
+    )
+
+    # The formal_statement's cite must resolve to a real citation index
+    assert out_fs[0].cite in cite_indexes, (
+        f"formal_statement cite={out_fs[0].cite} dangling, not in {cite_indexes}"
+    )
+
+    # Indexes must be contiguous from 1
+    indexes = sorted(c.index for c in out_cites)
+    assert indexes == list(range(1, len(indexes) + 1)), (
+        f"indexes not contiguous: {indexes}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Finalize fallback + meta (best-effort finalize)
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_fallback_keeps_draft_when_finalize_returns_none(sample_sources):
+    """When _stream_finalize returns (None, {}), the draft answer must be
+    preserved — NOT overwritten with a 'Failed to generate an answer' error."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    deep = _make_deep_answer()
+    req = ChatRequest(message="What is stationarity?",
+                      mode="tutor", model="gpt-5.4-nano-2026-03-17")
+
+    async def fake_finalize_returning_none(query, aspects, sources, facets,
+                                           figures, on_delta, model):
+        return None, {}
+
+    with patch.object(deep_tutor, "FINALIZE_ON", True), \
+         patch.object(deep_tutor, "_stream_finalize", fake_finalize_returning_none), \
+         _patch_pipeline(deep, sample_sources):
+        events = asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    structured = next(e for e in events if e["type"] == "structured_output")
+    text = structured["data"]["text"]
+    assert "Failed to generate an answer" not in text, (
+        f"finalize fallback should keep draft, got: {text[:200]}"
+    )
+    # The draft answer must contain actual content
+    assert len(text.strip()) > 50, (
+        f"draft answer should be non-trivial, got {len(text)} chars"
+    )
+
+
+def test_finalize_meta_emits_route_and_applied(sample_sources):
+    """When finalize succeeds, retrieval_meta must carry finalizeApplied=True
+    and a finalizeRoute matching the model's structured-output capability."""
+    from src.services.chat.agents import deep_tutor
+    from src.services.chat.schemas import ChatRequest
+
+    deep = _make_deep_answer()
+    final_aspects = {k: getattr(deep, k, "") for k in deep_tutor.ASPECT_HEADINGS}
+    req = ChatRequest(message="What is stationarity?",
+                      mode="tutor", model="gpt-5.4-nano-2026-03-17")
+
+    async def fake_finalize_ok(query, aspects, sources, facets,
+                               figures, on_delta, model):
+        if on_delta:
+            for k, v in final_aspects.items():
+                on_delta(k, v)
+        return deep, final_aspects
+
+    with patch.object(deep_tutor, "FINALIZE_ON", True), \
+         patch.object(deep_tutor, "_stream_finalize", fake_finalize_ok), \
+         patch("src.services.chat.llm.router.is_structured_output_capable", lambda m: True), \
+         _patch_pipeline(deep, sample_sources):
+        events = asyncio.run(_drain(deep_tutor.run_deep_tutor(req)))
+
+    meta_event = next(e for e in events if e["type"] == "retrieval_meta")
+    meta = meta_event["meta"]
+    assert meta["finalizeApplied"] is True, f"expected True, got {meta['finalizeApplied']}"
+    assert meta["finalizeRoute"] == "structured", f"expected structured, got {meta['finalizeRoute']}"
+    assert meta["finalizeModel"] is not None

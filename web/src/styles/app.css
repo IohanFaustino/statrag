@@ -587,6 +587,7 @@
 .msg__badge-mode { color: var(--text-secondary); font-weight: 500; }
 .msg__badge-sep { color: var(--text-tertiary); opacity: 0.5; }
 .msg__badge-lat { color: var(--accent-secondary); }
+.msg__badge-finalize { color: var(--accent-green, #3fb950); font-weight: 500; }
 
 .msg__body { display: flex; flex-direction: column; gap: 14px; }
 .msg__p {

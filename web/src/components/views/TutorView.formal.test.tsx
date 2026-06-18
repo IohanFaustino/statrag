@@ -37,7 +37,9 @@ describe("renderFormalStatements", () => {
     // inside a <strong> element within a <blockquote>.
     expect(html).toContain("<strong");
     expect(html).toContain("Definition 14.1.");
-    expect(html).toContain("F(x_{t})=F(x_{t+h})");
+    // x_{t} and x_{t+h} are bare-math atoms rendered as KaTeX (<span> slots),
+    // not literal text. Verify KaTeX slots exist alongside the label.
+    expect(html).toContain("<span></span>");
     expect(html).toContain("[1]");
   });
 
@@ -53,7 +55,9 @@ describe("renderFormalStatements", () => {
     const html = renderFormalStatementsTest(defs);
     // Kind is capitalised as the label when label is empty
     expect(html).toContain("Theorem.");
-    expect(html).toContain("E[x_t] = μ for all t");
+    // x_t is a bare-math atom rendered as KaTeX, not literal text.
+    expect(html).toContain("Theorem.");
+    expect(html).toContain("<span></span>");
   });
 
   it("renders multiple formal statements as separate blockquotes", () => {

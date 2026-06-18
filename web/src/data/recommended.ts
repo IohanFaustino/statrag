@@ -9,6 +9,9 @@ export const RECOMMENDED_MODEL_ID = "gpt-5.4-nano-2026-03-17";
 // `settings.openai_model_nano` used by `_resolve_stage_model` for every
 // non-draft stage (deep_tutor.py).
 export const NANO_MODEL_ID = "gpt-5.4-nano-2026-03-17";
+// Full reasoning model. Mirrors backend `settings.openai_model_full`
+// used by the finalize stage (deep_tutor.py).
+export const FULL_MODEL_ID = "gpt-5.4-2026-03-05";
 // Vision-explain default. Mirrors backend `_vision_default_model` (gpt-4o-mini).
 export const VISION_DEFAULT_MODEL_ID = "gpt-4o-mini";
 
@@ -23,6 +26,7 @@ export function stageDefaultModels(recommendedModel: string): Record<StageKey, s
     image_judge: NANO_MODEL_ID,
     plan: NANO_MODEL_ID,
     draft: recommendedModel,
+    finalize: FULL_MODEL_ID,
     vision_explain: VISION_DEFAULT_MODEL_ID,
   };
 }

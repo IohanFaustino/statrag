@@ -801,15 +801,23 @@ export function renderInlineWithCites(
         continue;
       }
     }
-    // Plain run until next special char
+    // Bare-math atom: ASCII letter immediately followed by _ or ^ (e.g. y_{t}, R^2).
+    // Ordinary prose words never have a subscript/superscript, so this branch only
+    // fires on genuine math tokens that the LLM omitted $-delimiters for.
+    if (/[A-Za-z]/.test(ch) && (text[i + 1] === "_" || text[i + 1] === "^")) {
+      const m = text.slice(i).match(/^[A-Za-z](?:[_^](?:\{[^{}]*\}|[A-Za-z0-9]))+/);
+      if (m) {
+        out.push(<MathInline key={key++} tex={m[0]} />);
+        i += m[0].length;
+        continue;
+      }
+    }
+    // Plain run until next special char.  Breaks before a letter that is
+    // immediately followed by _ or ^ so the bare-math branch can wrap it.
     let j = i + 1;
-    while (
-      j < text.length &&
-      text[j] !== "[" &&
-      text[j] !== "$" &&
-      text[j] !== "\\" &&
-      text[j] !== "*"
-    ) {
+    while (j < text.length) {
+      if (text[j] === "[" || text[j] === "$" || text[j] === "\\" || text[j] === "*") break;
+      if (/[A-Za-z]/.test(text[j]) && (text[j + 1] === "_" || text[j + 1] === "^")) break;
       j++;
     }
     out.push(<React.Fragment key={key++}>{text.slice(i, j)}</React.Fragment>);

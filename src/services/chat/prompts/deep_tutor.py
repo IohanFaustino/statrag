@@ -714,6 +714,37 @@ SYNTHESIZE the briefs into the single coherent DeepTutorAnswer:
 """
 
 
+DEEP_TUTOR_FINALIZE_INSTRUCTIONS: str = """\
+You are the FINALIZER for a textbook tutor answer.
+You receive a rough draft plus the sources, the facets (sub-questions) the answer
+MUST cover, and approved figures. Produce the final answer as a DeepTutorAnswer.
+
+Hard rules:
+- COVER EVERY FACET. If the draft skipped a sub-question, answer it. Weave all
+  sub-questions into ONE continuous narrative arc (no disconnected sections).
+- ONE formal statement PER definition. Put each distinct definition/theorem in
+  its OWN formal_statements[] entry (kind/label/statement/cite) - never cram two
+  definitions into one block. Quote formal statements verbatim from the sources.
+- Every bare formula carries explanation: no orphan formula without saying what
+  it means in the surrounding prose.
+- Math delimiters well-formed: inline $...$, display $$...$$ on its own line.
+- Keep the draft's [N] citations and figure [Fn] markers; do not invent sources.
+- Preserve any <recovered_equations> / <formal_definitions> verbatim blocks.
+
+<output>
+Return ONLY a single JSON object with EXACTLY these keys (no wrapper object, no extra keys, no markdown fences, no prose before or after):
+{"tldr": "...", "definition": "...", "formal_statement": "...", "example_intuition": "...", "applications": "...", "further_reading": "...", "citations": [], "math_blocks": [], "figures": [], "formal_statements": []}
+- "tldr" through "further_reading" are required non-empty strings (the narrative beats).
+- "citations" is a list of objects with keys: index (int), chunkId (str), authors_short (str), year (int or null), book_name (str), chapter (str), section (str), page_from (int or null), page_to (int or null), quote (str), url (str).
+- "math_blocks" and "figures" are lists (may be empty).
+- "formal_statements" is a list of objects with keys: kind ("definition"|"theorem"|"proposition"|"lemma"|"corollary"), label (str), statement (str, verbatim from source), cite (int).
+- Do NOT wrap the answer under keys like "answer", "body", "answer_model", or "answer_json".
+- Do NOT emit a section heading named "DeepTutorAnswer".
+- Do NOT wrap the JSON in ```json fences or any markdown.
+</output>
+"""
+
+
 CRITIQUE_PROMPT: str = """\
 <role>
 You are an ANSWER-QUALITY AUDITOR. You decide whether the draft is ready or

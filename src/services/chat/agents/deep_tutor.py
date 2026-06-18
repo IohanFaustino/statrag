@@ -724,6 +724,7 @@ def _is_generic_figure(f, vision_explanations: dict[str, str] | None) -> bool:
 # ---------------------------------------------------------------------------
 
 _ENABLE_CRITIQUE = os.environ.get("TUTOR_DEEP_CRITIQUE", "0") == "1"
+FINALIZE_ON = os.environ.get("TUTOR_FINALIZE", "0") not in ("0", "false", "")
 _MAX_REFINE_ITERS = int(os.environ.get("TUTOR_DEEP_MAX_REFINE", "1"))
 _TOP_SECTIONS = int(os.environ.get("TUTOR_DEEP_TOP_SECTIONS", "4"))
 _FINAL_TOP_N = int(os.environ.get("TUTOR_DEEP_FINAL_TOP_N", "8"))
@@ -951,7 +952,7 @@ _VISION_EXPLAIN: bool = _VISION_EXPLAIN_MODE == "1"
 # Only these LLM-text stages may be re-routed to a picker chat model. Other
 # stages (retrieval/rerank use no chat LLM; vision needs a vision model;
 # embedding needs an embedding model) are never overridden.
-_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge"})
+_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge", "finalize"})
 
 
 def _known_chat_models() -> set[str]:
@@ -1710,6 +1711,48 @@ def _build_user_message(
     )
 
 
+def _build_finalize_message(query, draft_aspects, sources, facets, figures=None):
+    base = _build_user_message(query, sources, figures=figures or [], plan=None)
+    draft_md = assemble_markdown(draft_aspects)
+    facet_list = "\n".join(f"- {f}" for f in (facets or []))
+    return (
+        f"<facets_to_cover>\n{facet_list}\n</facets_to_cover>\n\n"
+        f"<draft>\n{draft_md}\n</draft>\n\n"
+        f"Rewrite the draft into the final answer, covering every facet above and "
+        f"using one formal_statements[] entry per definition.\n\n{base}"
+    )
+
+
+def _verify_finalized(aspects, figures, facets):
+    ok = {i + 1 for i, f in enumerate(figures or []) if (getattr(f, "url", "") or "").strip()}
+    cleaned = {}
+    for k, v in aspects.items():
+        def _strip(m):
+            return m.group(0) if int(m.group(1)) in ok else ""
+        v = re.sub(r"(?<!\w)\[F(\d+)\]", _strip, v or "")
+        cleaned[k] = re.sub(r"  +", " ", v)
+    blob = " ".join(cleaned.values()).lower()
+    missing = [f for f in (facets or []) if f.lower() not in blob]
+    if missing:
+        logger.info("finalize verify: %d facet(s) not surfaced: %s", len(missing), "; ".join(missing))
+    return cleaned, missing
+
+
+async def _stream_finalize(query, draft_aspects, sources, facets, figures,
+                           on_aspect_delta, model):
+    from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_FINALIZE_INSTRUCTIONS  # noqa: PLC0415
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
+    user = _build_finalize_message(query, draft_aspects, sources, facets, figures)
+    messages = [
+        {"role": "system", "content": _maybe_append_groq_addendum(DEEP_TUTOR_FINALIZE_INSTRUCTIONS, model)},
+        {"role": "user", "content": user},
+    ]
+    if not is_structured_output_capable(model):
+        return await _stream_draft_via_router(model, messages,
+                                              {k: "" for k in ASPECT_HEADINGS}, on_aspect_delta)
+    return await _stream_structured(messages, model, on_aspect_delta)
+
+
 async def build_synthesis_plan(
     query: str, sources: list[Source], *, model: str | None = None
 ) -> SynthesisPlan | None:
@@ -1822,6 +1865,7 @@ async def _stream_draft_via_router(
         # fields with "" so a near-complete response is still usable instead
         # of failing strict construction.
         if not (set(payload) & set(ASPECT_HEADINGS)):
+            logger.warning("router draft (%s): JSON parsed but no aspect keys found; payload keys: %r", model, list(payload)[:10])
             return None, accumulated
         for key in ASPECT_HEADINGS:
             payload.setdefault(key, "")
@@ -2164,6 +2208,22 @@ async def critique(
 # ---------------------------------------------------------------------------
 
 
+_CORPUS_IMG_RE = re.compile(
+    r"!\[[^\]]*\]\((?:markdown|images)/[^)]+\)"
+)
+_CORPUS_IMG_TRUNC_RE = re.compile(
+    r"!\[[^\]]*\]\((?:markdown|images)/[^)]*$"
+)
+
+
+def _strip_corpus_images(text: str) -> str:
+    if "![" not in text:
+        return text
+    text = _CORPUS_IMG_RE.sub("", text)
+    text = _CORPUS_IMG_TRUNC_RE.sub("", text)
+    return re.sub(r"  +", " ", text)
+
+
 def _sources_to_payload(sources: list[Source]) -> list[dict]:
     return [
         {
@@ -2171,7 +2231,8 @@ def _sources_to_payload(sources: list[Source]) -> list[dict]:
             "authors": s.authors, "authors_short": s.authors_short, "year": s.year,
             "chapter": s.chapter, "section": s.section, "title": s.title,
             "page_from": s.page_from, "page_to": s.page_to, "page": s.page,
-            "excerpt": s.excerpt, "chunk": (s.chunk or "")[:1500],
+            "excerpt": _strip_corpus_images(s.excerpt or ""),
+            "chunk": _strip_corpus_images(s.chunk or "")[:1500],
             "score": round(float(s.score), 4), "chunkId": s.chunkId,
         }
         for s in sources
@@ -2416,7 +2477,8 @@ def _convert_to_tutor_answer(
     # Dedup by chunkId, prune orphan citations, renumber contiguous from 1.
     # The LLM can assign the same chunkId multiple different [N] indexes and
     # emit citation entries that never appear as inline [N] markers.
-    text, final_aspects, enriched = _canonicalize_citations(text, final_aspects, enriched)
+    _fs_in = list(deep.formal_statements) if deep and getattr(deep, "formal_statements", None) else []
+    text, final_aspects, enriched, _fs_out = _canonicalize_citations(text, final_aspects, enriched, _fs_in)
 
     math_blocks = list(deep.math_blocks) if deep else []
     if not math_blocks:
@@ -2455,7 +2517,7 @@ def _convert_to_tutor_answer(
     return TutorAnswer(
         text=text, sections=headings, citations=enriched,
         math_blocks=math_blocks, figures=figures, aspects=final_aspects,
-        formal_statements=list(deep.formal_statements) if deep and getattr(deep, "formal_statements", None) else [],
+        formal_statements=_fs_out,
         quality=quality,
     )
 
@@ -2500,16 +2562,19 @@ def _canonicalize_citations(
     text: str,
     aspects: dict[str, str],
     cites: list[TutorCitation],
-) -> tuple[str, dict[str, str], list[TutorCitation]]:
+    formal_statements: list | None = None,
+) -> tuple[str, dict[str, str], list[TutorCitation], list]:
     """Dedup by chunkId, prune orphans, renumber contiguous from 1.
 
-    Returns ``(text, aspects, cites)`` with all three consistent:
+    Returns ``(text, aspects, cites, formal_statements)`` with all four consistent:
     - each distinct chunkId appears once in ``cites``
     - every inline ``[N]`` in ``text`` and every value in ``aspects``
       maps to exactly one citation entry
     - no orphan entries (citation with no inline marker)
     - indexes are contiguous starting at 1
     - ``[F1]``-style figure refs are untouched
+    - each ``formal_statements[].cite`` is remapped through the same
+      old→kept→contiguous pipeline so it stays in range
     """
     # Step 1: Dedup by chunkId — keep first occurrence in index order;
     # entries with empty/falsy chunkId are kept as-is (never deduped).
@@ -2549,6 +2614,8 @@ def _canonicalize_citations(
         new_aspects[k] = new_v
         aspect_markers |= am
     all_markers = text_markers | aspect_markers
+    fs_markers = {old_to_kept.get(fs.cite, fs.cite) for fs in (formal_statements or [])}
+    all_markers |= fs_markers
 
     # Step 3: Prune orphans — drop citations whose (remapped) index is not
     # referenced inline anywhere.
@@ -2593,7 +2660,16 @@ def _canonicalize_citations(
         final_cites.append(c.model_copy(update={"index": new_idx}))
     final_cites.sort(key=lambda c: c.index)
 
-    return text, new_aspects, final_cites
+    # Step 5: Remap formal_statements[].cite through the same pipeline:
+    # old → kept (via old_to_kept) → final contiguous (via order).
+    remapped_fs = []
+    if formal_statements:
+        for fs in formal_statements:
+            kept = old_to_kept.get(fs.cite, fs.cite)
+            new_cite = order.get(kept, kept)
+            remapped_fs.append(fs.model_copy(update={"cite": new_cite}))
+
+    return text, new_aspects, final_cites, remapped_fs
 
 
 def _reconcile_citations(
@@ -2720,6 +2796,11 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     default_model = _resolve_draft_default(getattr(req, "model", None))
     m_expansion = _resolve_stage_model("expansion", default_model, sm)
     m_draft = _resolve_stage_model("draft", default_model, sm)
+    _fin_override = (sm or {}).get("finalize")
+    if _fin_override and _fin_override != "off" and _fin_override in _known_chat_models():
+        m_finalize = _fin_override
+    else:
+        m_finalize = os.environ.get("TUTOR_FINALIZE_MODEL", "") or settings.openai_model_full
     m_critique = _resolve_stage_model("critique", default_model, sm)
     m_image_judge = _resolve_stage_model("image_judge", default_model, sm)
     m_vision = _resolve_vision_model(sm)
@@ -2952,10 +3033,12 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     if _definitions_block:
         recovered_block = (recovered_block + "\n\n" + _definitions_block) if recovered_block else _definitions_block
 
+    finalize_applied = False
+    _finalize = FINALIZE_ON and (sm or {}).get("finalize") != "off"
     async def _draft_coro():
         return await _stream_draft(
             query, sources, figures=approved_figures,
-            on_aspect_delta=_emit_aspect_delta, model=m_draft, plan=plan,
+            on_aspect_delta=(None if _finalize else _emit_aspect_delta), model=m_draft, plan=plan,
             recovered_block=recovered_block,
         )
 
@@ -2970,6 +3053,26 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
             continue
     deep, aspects = await draft_task
     timings["draft_ms"] = int((time.monotonic() - t_draft) * 1000)
+
+    if _finalize:
+        async def _finalize_coro():
+            return await _stream_finalize(query, aspects, sources, facets,
+                                          approved_figures, _emit_aspect_delta, m_finalize)
+        fin_task = asyncio.create_task(_finalize_coro())
+        while not fin_task.done() or not sse_queue.empty():
+            try:
+                ev = await asyncio.wait_for(sse_queue.get(), timeout=0.1)
+                yield ev
+            except asyncio.TimeoutError:
+                continue
+        fin_deep, fin_aspects = await fin_task
+        timings["finalize_ms"] = int((time.monotonic() - t_draft) * 1000) - timings["draft_ms"]
+        # best-effort: only adopt a non-empty finalize result; else keep the draft
+        if fin_deep is not None and (set(fin_aspects or {}) & set(ASPECT_HEADINGS)):
+            deep, aspects = fin_deep, fin_aspects
+            finalize_applied = True
+        else:
+            logger.info("finalize degraded (%s); keeping draft answer", m_finalize)
 
     # 3b. Seam guard — one silent non-streamed redraft on narrative seam failure
     async def _redraft(failing):
@@ -3038,6 +3141,9 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         from src.services.chat.agents.definition_recovery import build_formal_statements  # noqa: PLC0415
         augmented_sources = list(augmented_sources) + _def_sources(recovered_defs, len(augmented_sources))
         deep.formal_statements = build_formal_statements(recovered_defs, augmented_sources)
+    if _finalize:
+        aspects, _missing_facets = _verify_finalized(aspects, approved_figures, facets)
+        _mirror_aspects(deep, aspects)
     answer = _convert_to_tutor_answer(deep, aspects, augmented_sources,
                                        approved_figures=approved_figures,
                                        vision_explanations=vision_explanations,
@@ -3085,6 +3191,10 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
                         + f" refine_iters={refine_iters}, "
                         + f"copy_paste_risk={verdict.get('copy_paste_risk')})")
     retr_dump["timings"] = timings
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
+    retr_dump["finalizeModel"] = m_finalize if _finalize else None
+    retr_dump["finalizeRoute"] = ("structured" if is_structured_output_capable(m_finalize) else "tolerant") if _finalize else None
+    retr_dump["finalizeApplied"] = finalize_applied
     yield {"type": "retrieval_meta", "meta": retr_dump}
 
     yield {

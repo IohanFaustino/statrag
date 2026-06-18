@@ -2,6 +2,24 @@
 
 Append-only. Latest at top.
 
+## 2026-06-18 — Tutor finalize+verify stage
+
+**Scope:** branch `tutor-finalize-stage`. Doc: [59-tutor-finalize.md](../services/chat-features/59-tutor-finalize.md). Invariant 49.
+
+**What changed:**
+
+- **Finalize+verify stage (new, off by default).** When `TUTOR_FINALIZE` is on, a strong finalizer model (`TUTOR_FINALIZE_MODEL`, default `gpt-5.4-2026-03-05`) rewrites the nano draft after the seam guard. The nano draft streams silently as a live preview; the finalizer overwrites it before `done`. The prompt (`DEEP_TUTOR_FINALIZE_INSTRUCTIONS`) carries hard rules: cover every facet, one `formal_statements[]` entry per definition, clean math, preserve `[N]`/`[Fn]` citations. Per-request `stageModels["finalize"]` overrides the model or sets `"off"`.
+- **Two routes, same output.** Route A (OpenAI family): `_stream_structured` with strict `json_schema`. Route B (deepseek/gemini/qwen/groq): `_stream_draft_via_router` with `json_object` + `<output>` contract in the prompt. The `<output>` block listing exact `DeepTutorAnswer` JSON keys is the bake-off fix — only `gpt-5.4` worked out-of-the-box with strict schema; Route-B models need the explicit contract. Both return `(DeepTutorAnswer, aspects)`.
+- **Best-effort adoption.** If the finalizer returns `None` or empty aspects, the draft answer is kept — the pipeline never blanks a user-facing answer. `finalize_applied` in `retrieval_meta` reflects adoption.
+- **Pure-code verify (`_verify_finalized`).** After finalize: (1) strips `[Fn]` figure refs whose image has no URL; (2) logs facets not surfaced in the answer text. Both advisory — never blocks output.
+- **Bundled fixes.** KPSS/ADF image-path 404s (source URL construction), formal-statement dangling-cite (citation index mismatch in `formal_statements[]`), box overflow (multiple definitions crammed into one entry — fixed by the finalize prompt rule), Route-B JSON contract (explicit `<output>` key listing).
+- **SSE meta.** `retrieval_meta` now carries `finalizeModel`, `finalizeRoute` (`"structured"`|`"tolerant"`), `finalizeApplied`. Frontend renders a `Finalized · <model> · <route>` badge when applied.
+- **Pipeline diagram.** New "Finalize + verify" node (generation phase) between draft and vision_explain. `tutorPipeline.ts`, `PipelineDiagram.tsx`, `tutor.html`, `36-deep-tutor.md` mermaid, `invariants.md` invariant 49, and this changelog entry all reflect it.
+
+**Gates:** backend tests + frontend tests green; tsc clean.
+
+---
+
 ## 2026-06-16 — Tutor definition recovery: formal_statements[] + pipeline/docs lockstep
 
 **Scope:** branch `tutor-definition-recovery-fixes`. Frontend + docs + backend Python changes (`definition_recovery.py`, `definition_gaps.py`, `test_definition_recovery.py`).

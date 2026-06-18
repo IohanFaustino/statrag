@@ -28,17 +28,23 @@
   DR --> CC{&quot;Coverage check (nano)&quot;}
   CC -. &quot;missing facet&quot; .-> RET
   CC --> WK[&quot;Wikipedia augment (TUTOR_DEEP_WIKI)<br/>append after corpus — augment-only&quot;]
-  WK --> FR[&quot;Definition recovery (gap-triggered, best-effort)&quot;]
+  WK --> FR[&quot;Formula recovery + definition recovery<br/>both best-effort, never block&quot;]
   FR --> FJ[&quot;Figure judge&quot;]
   FJ --> PL[&quot;Synthesis plan (LLM)&quot;]
   PL --> ND[&quot;Narrative draft (draft model)<br/>5 beats + intro — one call&quot;]
-  ND --> SG{&quot;Seam guard (pure code)&quot;}
+  ND --> FZ{&quot;TUTOR_FINALIZE?&quot;}
+  FZ -->|on| FZN[&quot;Finalize<br/>(strong model, streams)&quot;]
+  FZN --> SG{&quot;Seam guard (pure code)&quot;}
+  FZ -. &quot;off&quot; .-> SG
   SG -. &quot;fail: 1 silent redraft&quot; .-> ND
   SG --> VE[&quot;Vision explain&quot;]
-  VE --> A[&quot;TutorAnswer&quot;]
+  VE --> VRF[&quot;_verify_finalized (pure code)&quot;]
+  VRF --> A[&quot;TutorAnswer&quot;]
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
   Q["Question"] --> QP["Query planner (nano)<br/>concepts + queries + facets"]
   QP --> RET["Multi-query retrieval -> RRF"]
   RET --> DR["Density + author-diversity + rerank"]
@@ -49,14 +55,20 @@
   FR --> FJ["Figure judge"]
   FJ --> PL["Synthesis plan (LLM)"]
   PL --> ND["Narrative draft (draft model)<br/>5 beats + intro — one call"]
-  ND --> SG{"Seam guard (pure code)"}
+  ND --> FZ{"TUTOR_FINALIZE?"}
+  FZ -->|on| FZN["Finalize<br/>(strong model, streams)"]
+  FZN --> SG{"Seam guard (pure code)"}
+  FZ -. "off" .-> SG
   SG -. "fail: 1 silent redraft" .-> ND
   SG --> VE["Vision explain"]
-  VE --> A["TutorAnswer"]
+  VE --> VRF["_verify_finalized (pure code)"]
+  VRF --> A["TutorAnswer"]
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
-    <p class="caption">Full pipeline on the Chat &amp; deep-tutor page. The draft node is the only stage that uses the heavy draft model; everything else is nano. Seam guard is pure code — no LLM call on the happy path.</p>
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
+     <p class="caption">Full pipeline on the Chat &amp; deep-tutor page. The draft node is the only stage that uses the heavy draft model; everything else is nano. Seam guard and finalize verify are pure code — no LLM call on the happy path. When TUTOR_FINALIZE is on, a strong finalizer model rewrites the draft before the seam guard; when off, the draft passes through unchanged. After vision, _verify_finalized (pure code) drops dangling refs and logs missing facets.</p>
   </section>
   <section>
     <h2>Functions workflow</h2>
@@ -69,18 +81,24 @@
   DV --> DS[&quot;_density_select()&quot;]
   DS --> CV[&quot;coverage.py (COVERAGE_PROMPT)&quot;]
   CV -. &quot;missing facet&quot; .-> R
-  CV --> FR[&quot;formula_recovery.py (_recover_equations_block)&quot;]
+  CV --> FR[&quot;formula_recovery.py + definition_recovery.py<br/>both best-effort, never block&quot;]
   FR --> FJ[&quot;image_judge.py (figure judge)&quot;]
   FJ --> SP[&quot;build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)&quot;]
   SP --> ND[&quot;_stream_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection&quot;]
   ND -. &quot;DEEP_TUTOR_INSTRUCTIONS / per-beat Field descriptions&quot; .- PR2[(&quot;prompts/deep_tutor.py&quot;)]
-  ND --> SG[&quot;seams.check_seams() (pure code)&quot;]
-  SG -. &quot;fail&quot; .-> RD[&quot;_redraft() closure (via _seam_guard) — one retry&quot;]
+  ND --> FZ[&quot;_stream_finalize() (if TUTOR_FINALIZE)&quot;]
+  FZ -. &quot;off&quot; .-> SG
+  FZ -->|on| FZN[&quot;Finalize (strong model)&quot;]
+  FZN --> SG[&quot;seams.check_seams() (pure code)&quot;]
+  SG -. &quot;fail&quot; .-> RD[&quot;_redraft() closure — one retry&quot;]
   RD --> SG
   SG --> VE[&quot;vision.py (vision-explain)&quot;]
-  VE --> A[&quot;DeepTutorAnswer&quot;]
+  VE --> VRF[&quot;_verify_finalized() (pure code)&quot;]
+  VRF --> A[&quot;DeepTutorAnswer&quot;]
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style RD fill:#1f2a1a,stroke:#3fb950,color:#fff
   style CV fill:#1f2a1a,stroke:#3fb950,color:#fff
   style PR1 fill:#241a33,stroke:#9b6bd6,color:#fff
@@ -93,23 +111,29 @@
   DV --> DS["_density_select()"]
   DS --> CV["coverage.py (COVERAGE_PROMPT)"]
   CV -. "missing facet" .-> R
-  CV --> FR["formula_recovery.py (_recover_equations_block)<br/>+ definition_recovery.py (_recover_definitions_block)"]
+  CV --> FR["formula_recovery.py + definition_recovery.py<br/>both best-effort, never block"]
   FR --> FJ["image_judge.py (figure judge)"]
   FJ --> SP["build_synthesis_plan() (SYNTHESIS_PLAN_PROMPT)"]
   SP --> ND["_stream_draft()<br/>DEEP_TUTOR_INSTRUCTIONS + thesis injection"]
   ND -. "DEEP_TUTOR_INSTRUCTIONS / per-beat Field descriptions" .- PR2[("prompts/deep_tutor.py")]
-  ND --> SG["seams.check_seams() (pure code)"]
-  SG -. "fail" .-> RD["_redraft() closure (via _seam_guard) — one retry"]
+  ND --> FZ["_stream_finalize() (if TUTOR_FINALIZE)"]
+  FZ -. "off" .-> SG
+  FZ -->|on| FZN["Finalize (strong model)"]
+  FZN --> SG["seams.check_seams() (pure code)"]
+  SG -. "fail" .-> RD["_redraft() closure — one retry"]
   RD --> SG
   SG --> VE["vision.py (vision-explain)"]
-  VE --> A["DeepTutorAnswer"]
+  VE --> VRF["_verify_finalized() (pure code)"]
+  VRF --> A["DeepTutorAnswer"]
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style RD fill:#1f2a1a,stroke:#3fb950,color:#fff
   style CV fill:#1f2a1a,stroke:#3fb950,color:#fff
   style PR1 fill:#241a33,stroke:#9b6bd6,color:#fff
   style PR2 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
-    <p class="caption">Code call-graph — green = LLM-call or pure-code node, purple = prompt constant, red = synthesis/heavy stage. Seam guard is pure code (zero LLM). Verified from the runner source listed below.</p>
+     <p class="caption">Code call-graph — green = LLM-call or pure-code node, purple = prompt constant, red = synthesis/heavy stage. Seam guard and finalize verify are pure code (zero LLM). Finalize (red) runs only when TUTOR_FINALIZE is on. Verified from the runner source listed below.</p>
   </section>
   <section>
     <h2>Sources, prompts &amp; tools</h2>
@@ -139,6 +163,7 @@
       <tr><td>wikipedia augment</td><td><code>src/services/chat/agents/deep_tutor.py (_fetch_wiki_sources / _append_wiki_sources)</code> + <code>src/services/chat/research.py</code></td></tr>
       <tr><td>figure judge</td><td><code>src/services/chat/agents/image_judge.py</code></td></tr>
       <tr><td>narrative draft + seam guard</td><td><code>src/services/chat/agents/deep_tutor.py</code> + <code>src/services/chat/agents/seams.py</code></td></tr>
+      <tr><td>finalize + verify</td><td><code>src/services/chat/agents/deep_tutor.py</code> (<code>_stream_finalize</code>, <code>_build_finalize_message</code>, <code>_verify_finalized</code>)</td></tr>
       <tr><td>formula recovery</td><td><code>src/services/chat/agents/formula_recovery.py</code></td></tr>
       <tr><td>definition recovery</td><td><code>src/services/chat/agents/definition_recovery.py</code></td></tr>
       <tr><td>vision</td><td><code>src/services/chat/vision.py</code></td></tr>
