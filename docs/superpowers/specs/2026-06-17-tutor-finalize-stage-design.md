@@ -120,6 +120,30 @@ node in `36-deep-tutor.md` · modal pipeline node (`web/src/data/tutorPipeline.t
 · `docs/system/invariants.md` + `changelog.md` · tests
 (`src/services/chat/tests/test_deep_tutor.py` + frontend render test).
 
+## Amendment (2026-06-17, post-bake-off) — two finalizer routes, same output, frontend-distinguishable
+
+The bake-off found only `gpt-5.4` produced valid finalizer output out of the box;
+`deepseek-v4-pro` returned unparseable JSON and `gemini-3-pro` was unreachable
+(`gemini-2.5-pro` fallback failed). User decision: **support BOTH routes** rather
+than pick one model.
+
+- **Route A — structured** (OpenAI gpt family, `is_structured_output_capable` True):
+  `_stream_structured`, strict json_schema. Works today.
+- **Route B — tolerant** (deepseek / gemini / qwen / groq, capability False):
+  `_stream_draft_via_router` — json_object + `_loads_tolerant_json_object` +
+  `skip_format_checks`. **Must be hardened** so these models reliably yield a
+  valid `DeepTutorAnswer` (confirm deepseek thinking is disabled on this path;
+  ensure tolerant parse salvages chatty/partial payloads). Localize the current
+  failures with the bake-off repro before fixing.
+- **Same output contract:** both routes return `(DeepTutorAnswer, aspects)` and
+  feed the identical downstream (`_verify_finalized` → `_convert_to_tutor_answer`).
+- **Frontend-distinguishable:** the SSE meta carries the finalize model + route
+  (`finalizeModel`, `finalizeRoute`) so the modal (Task 7) shows which finalizer
+  produced the answer.
+- **Default model:** `gpt-5.4-2026-03-05` (the reliable route-A model); other
+  models selectable via `TUTOR_FINALIZE_MODEL` / `stageModels["finalize"]` and
+  served by route B.
+
 ## Out of scope
 
 - Auto-redraft on missing facet (C2 logs only until proven needed).
