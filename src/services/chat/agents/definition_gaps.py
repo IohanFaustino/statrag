@@ -67,7 +67,62 @@ def _has_labelled_def(concept: str, sources: list[Source]) -> bool:
     return False
 
 
-_MAX_GAPS = 3
+_MAX_ASKS = 5
+
+
+def multi_question_split(prompt: str) -> list[str]:
+    """Split a prompt into sentence-final-``?`` questions. Single-question or
+    no-``?`` prompts return ``[prompt.strip()]``. Pure, deterministic."""
+    if not prompt or not prompt.strip():
+        return []
+    parts = re.findall(r"[^?]*\?", prompt)
+    asks = [p.strip() for p in parts if p.strip()]
+    if len(asks) <= 1:
+        return [prompt.strip()]
+    return asks[:_MAX_ASKS]
+
+
+_SCAFFOLD_RE = re.compile(
+    r"^\s*(what\s+is|what\s+are|what\s+does|define|definition\s+of|explain|describe|"
+    r"how\s+is|how\s+does)\s+", re.IGNORECASE)
+_ARTICLE_RE = re.compile(r"^(a|an|the)\s+", re.IGNORECASE)
+
+
+def concepts_from_asks(asks: list[str]) -> list[str]:
+    """Best-effort bare subject of each ask (pure regex). Order preserved."""
+    out: list[str] = []
+    for ask in asks:
+        s = _SCAFFOLD_RE.sub("", ask.strip())
+        s = s.rstrip("?.!").strip()
+        s = _ARTICLE_RE.sub("", s).strip()
+        if s and s.lower() not in (c.lower() for c in out):
+            out.append(s)
+    return out
+
+
+def augment_concepts_and_facets(
+    query: str, concepts: list[str], facets: list[str]
+) -> tuple[list[str], list[str]]:
+    """For a multi-question prompt, union each question's subject into concepts
+    (ask-subjects FIRST so they survive the _MAX_GAPS cap) and each question
+    into facets. Single-question prompts: just ensure the subject is present."""
+    asks = multi_question_split(query)
+    ask_concepts = concepts_from_asks(asks)
+
+    def _dedup(seq: list[str]) -> list[str]:
+        seen: dict[str, str] = {}
+        for x in seq:
+            k = x.strip().lower()
+            if x.strip() and k not in seen:
+                seen[k] = x.strip()
+        return list(seen.values())
+
+    new_concepts = _dedup([*ask_concepts, *concepts])
+    new_facets = _dedup([*facets, *asks]) if len(asks) > 1 else _dedup(facets)
+    return new_concepts, new_facets
+
+
+_MAX_GAPS = 5
 
 # ---------------------------------------------------------------------------
 # DR-8c: Generic concept expansion — expand umbrella terms into the specific

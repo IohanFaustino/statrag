@@ -67,13 +67,13 @@ def test_concept_with_labelled_def_not_gap():
     assert result == []
 
 
-def test_cap_at_three():
-    # capping at _MAX_GAPS = 3
+def test_cap_at_five():
+    # capping at _MAX_GAPS = 5
     query = "define all"
-    concepts = ["a concept", "b concept", "c concept", "d concept"]
+    concepts = ["a concept", "b concept", "c concept", "d concept", "e concept", "f concept"]
     sources = [_src("nothing formal")]
     result = detect_definition_gaps(concepts, query, sources)
-    assert len(result) == 3
+    assert len(result) == 5
 
 
 def test_dedupe_by_norm():
