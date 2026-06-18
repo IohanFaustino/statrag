@@ -7,7 +7,7 @@
 
 ## What it is
 
-The tutor pipeline's narrative draft is produced by a cheap model (`TUTOR_DRAFT_MODEL`, default nano). On multi-faceted questions the draft can miss sub-questions, cram multiple definitions into one `formal_statements[]` box, or produce weak/incomplete math. The finalize+verify stage runs **after** the draft (and after the seam guard) and **before** vision explain: a stronger model rewrites the draft while the cheap nano draft runs silent, and the finalizer streams the result to the user.
+The tutor pipeline's narrative draft is produced by a cheap model (`TUTOR_DRAFT_MODEL`, default nano). On multi-faceted questions the draft can miss sub-questions, cram multiple definitions into one `formal_statements[]` box, or produce weak/incomplete math. The finalize+verify stage runs **after** the draft and **before** the seam guard: a stronger model rewrites the draft while the cheap nano draft runs silent, and the finalizer streams the result to the user.
 
 Three problems it fixes:
 
@@ -22,17 +22,17 @@ Three problems it fixes:
 ```mermaid
 flowchart TD
   ND["Narrative draft<br/>(nano, silent when finalize is on)"] --> FZ{"TUTOR_FINALIZE?"}
-  FZ -->|off| SG["Seam guard (pure code)"]
-  FZ -->|on| FIN["Finalize<br/>(strong model, streams)"]
-  FIN --> VRF["_verify_finalized (pure code)<br/>drop dangling [Fn] refs<br/>log missing facets"]
-  VRF --> SG
+  FZ -->|on| FZN["Finalize<br/>(strong model, streams)"]
+  FZN --> SG["Seam guard (pure code)"]
+  FZ -->|off| SG
   SG -->|pass| VE["Vision explain"]
-  VE --> SSE["SSE → frontend"]
+  VE --> VRF["_verify_finalized (pure code)<br/>drop dangling [Fn] refs<br/>log missing facets"]
+  VRF --> SSE["SSE → frontend"]
 
-  FIN -. "Route A (OpenAI):<br/>_stream_structured<br/>json_schema strict" .-> SA["DeepTutorAnswer + aspects"]
-  FIN -. "Route B (deepseek/gemini/qwen):<br/>_stream_draft_via_router<br/>json_object + tolerant parse" .-> SA
+  FZN -. "Route A (OpenAI):<br/>_stream_structured<br/>json_schema strict" .-> SA["DeepTutorAnswer + aspects"]
+  FZN -. "Route B (deepseek/gemini/qwen):<br/>_stream_draft_via_router<br/>json_object + tolerant parse" .-> SA
 
-  style FIN fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
   style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
 ```
@@ -71,7 +71,7 @@ else:
 
 ## Pure-code verify guards (`_verify_finalized`)
 
-After the finalizer overwrites the draft, `_verify_finalized` runs two checks before the seam guard:
+After the finalizer overwrites the draft, `_verify_finalized` runs two checks after vision explain, just before convert:
 
 1. **Drop dangling `[Fn]` figure references** — any `[Fn]` marker whose figure has no URL (empty or whitespace `url`) is stripped from the aspect text. Prevents broken inline figure references.
 2. **Log missing facets** — each facet from the planner's `facets` list that does not appear (case-insensitive) in the joined aspect text is logged at `INFO`. This is advisory; it never blocks or modifies the answer.

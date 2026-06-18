@@ -43,24 +43,26 @@ graph TD
   FR --> FJ["figure judge (T1)"]
   FJ --> PLAN["synthesis plan (parallel w/ figure judge)<br/>thesis + per-aspect outline + evidence ledger<br/>+ author contrasts (TUTOR_SYNTHESIS_PLAN / stageModels.plan)<br/>'off' = skip → legacy single-draft<br/>also skipped when planner rates question simple (perspectives ≤ 1)"]
   PLAN --> ND["narrative draft (single call, streamed)<br/>ONE continuous arc — 5 beats + intro<br/>thesis injected as &lt;thesis&gt; block<br/>response_format = DeepTutorAnswer"]
-  ND --> SG["seam guard (pure code, no env flag)<br/>lemma overlap · boilerplate · lang-drift · formalize-drop re-link<br/>→ quality[seam_continuity / lang_ok / thesis_adherence]"]
-  SG --> FZ{"TUTOR_FINALIZE?"}
-  FZ -->|off| CRT
-  FZ -->|on| FIN["Finalize + verify<br/>(strong model, streams)<br/>covers every facet · 1 box/def · best-effort"]
-  FIN --> VRF["_verify_finalized (pure code)<br/>drop dangling [Fn] refs · log missing facets"]
-  VRF --> CRT
-  CRT{TUTOR_DEEP_CRITIQUE?}
-  CRT -->|0 default| FIN
+  ND --> FZ{"TUTOR_FINALIZE?"}
+  FZ -->|on| FZN["Finalize (strong model, streams)<br/>covers every facet · 1 box/def · best-effort"]
+  FZN --> SG["seam guard (pure code, no env flag)<br/>lemma overlap · boilerplate · lang-drift · formalize-drop re-link<br/>→ quality[seam_continuity / lang_ok / thesis_adherence]"]
+  FZ -->|off| SG
+  SG --> VE["vision explain (figure captions)"]
+  VE --> VRF["_verify_finalized (pure code)<br/>drop dangling [Fn] refs · log missing facets"]
+  VRF --> CRT{TUTOR_DEEP_CRITIQUE?}
+  CRT -->|0 default| FIN["convert -> TutorAnswer<br/>(text + aspects + citations)"]
   CRT -->|1 opt-in| CR[critique]
   CR --> Q1{complete?}
   Q1 -->|yes| FIN
   Q1 -->|no, iter<cap| RF[refine retrieve + redraft]
   RF --> CR
-  Q1 -->|cap| FIN[convert -> TutorAnswer<br/>(text + aspects + citations)]
+  Q1 -->|cap| FIN
   FIN --> SSE["meta → token* (per-aspect attribution)<br/>→ structured_output → sources_full<br/>→ retrieval_meta (incl. timings) → usage → done"]
 
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style FZN fill:#3a1d1f,stroke:#E5484D,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff
   style RD fill:#1f2a1a,stroke:#3fb950,color:#fff
 ```
 
