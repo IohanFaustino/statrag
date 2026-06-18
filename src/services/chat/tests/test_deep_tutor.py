@@ -2049,6 +2049,35 @@ def test_citation_dedup_preserves_distinct_empty_chunkIds():
     assert sorted(c.index for c in ans.citations) == [1, 2]
 
 
+@pytest.mark.asyncio
+async def test_finalize_stage_runs_when_enabled(monkeypatch):
+    import src.services.chat.agents.deep_tutor as dt
+    from src.services.chat.llm import router
+    calls = []
+
+    async def fake_stream_structured(messages, model, on_aspect_delta=None):
+        calls.append(model)
+        if on_aspect_delta:
+            on_aspect_delta("_raw", "final text")
+        return (
+            dt.DeepTutorAnswer(
+                tldr="t", definition="d", formal_statement="",
+                example_intuition="e", applications="a",
+                further_reading="f", citations=[],
+            ),
+            {k: "x" for k in dt.ASPECT_HEADINGS},
+        )
+
+    monkeypatch.setattr(dt, "_stream_structured", fake_stream_structured)
+    monkeypatch.setattr(router, "is_structured_output_capable", lambda m: True)
+    deep, aspects = await dt._stream_finalize(
+        "q", {"definition": "draft"}, sources=[], facets=["a"],
+        figures=[], on_aspect_delta=lambda *a: None, model="deepseek-v4-pro",
+    )
+    assert "deepseek-v4-pro" in calls
+    assert deep is not None
+
+
 def test_build_finalize_message_includes_draft_and_facets():
     from src.services.chat.agents.deep_tutor import _build_finalize_message
     draft_aspects = {"definition": "Stationarity means ... [1]", "tldr": "x"}

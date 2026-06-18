@@ -724,6 +724,7 @@ def _is_generic_figure(f, vision_explanations: dict[str, str] | None) -> bool:
 # ---------------------------------------------------------------------------
 
 _ENABLE_CRITIQUE = os.environ.get("TUTOR_DEEP_CRITIQUE", "0") == "1"
+FINALIZE_ON = os.environ.get("TUTOR_FINALIZE", "0") not in ("0", "false", "")
 _MAX_REFINE_ITERS = int(os.environ.get("TUTOR_DEEP_MAX_REFINE", "1"))
 _TOP_SECTIONS = int(os.environ.get("TUTOR_DEEP_TOP_SECTIONS", "4"))
 _FINAL_TOP_N = int(os.environ.get("TUTOR_DEEP_FINAL_TOP_N", "8"))
@@ -951,7 +952,7 @@ _VISION_EXPLAIN: bool = _VISION_EXPLAIN_MODE == "1"
 # Only these LLM-text stages may be re-routed to a picker chat model. Other
 # stages (retrieval/rerank use no chat LLM; vision needs a vision model;
 # embedding needs an embedding model) are never overridden.
-_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge"})
+_OVERRIDABLE_STAGES = frozenset({"expansion", "draft", "critique", "image_judge", "finalize"})
 
 
 def _known_chat_models() -> set[str]:
@@ -1720,6 +1721,21 @@ def _build_finalize_message(query, draft_aspects, sources, facets, figures=None)
         f"Rewrite the draft into the final answer, covering every facet above and "
         f"using one formal_statements[] entry per definition.\n\n{base}"
     )
+
+
+async def _stream_finalize(query, draft_aspects, sources, facets, figures,
+                           on_aspect_delta, model):
+    from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_FINALIZE_INSTRUCTIONS  # noqa: PLC0415
+    from src.services.chat.llm.router import is_structured_output_capable  # noqa: PLC0415
+    user = _build_finalize_message(query, draft_aspects, sources, facets, figures)
+    messages = [
+        {"role": "system", "content": _maybe_append_groq_addendum(DEEP_TUTOR_FINALIZE_INSTRUCTIONS, model)},
+        {"role": "user", "content": user},
+    ]
+    if not is_structured_output_capable(model):
+        return await _stream_draft_via_router(model, messages,
+                                              {k: "" for k in ASPECT_HEADINGS}, on_aspect_delta)
+    return await _stream_structured(messages, model, on_aspect_delta)
 
 
 async def build_synthesis_plan(
@@ -2732,6 +2748,7 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     default_model = _resolve_draft_default(getattr(req, "model", None))
     m_expansion = _resolve_stage_model("expansion", default_model, sm)
     m_draft = _resolve_stage_model("draft", default_model, sm)
+    m_finalize = _resolve_stage_model("finalize", os.environ.get("TUTOR_FINALIZE_MODEL", "") or settings.deepseek_model, sm)
     m_critique = _resolve_stage_model("critique", default_model, sm)
     m_image_judge = _resolve_stage_model("image_judge", default_model, sm)
     m_vision = _resolve_vision_model(sm)
@@ -2964,10 +2981,11 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
     if _definitions_block:
         recovered_block = (recovered_block + "\n\n" + _definitions_block) if recovered_block else _definitions_block
 
+    _finalize = FINALIZE_ON and (sm or {}).get("finalize") != "off"
     async def _draft_coro():
         return await _stream_draft(
             query, sources, figures=approved_figures,
-            on_aspect_delta=_emit_aspect_delta, model=m_draft, plan=plan,
+            on_aspect_delta=(None if _finalize else _emit_aspect_delta), model=m_draft, plan=plan,
             recovered_block=recovered_block,
         )
 
@@ -2982,6 +3000,20 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
             continue
     deep, aspects = await draft_task
     timings["draft_ms"] = int((time.monotonic() - t_draft) * 1000)
+
+    if _finalize:
+        async def _finalize_coro():
+            return await _stream_finalize(query, aspects, sources, facets,
+                                          approved_figures, _emit_aspect_delta, m_finalize)
+        fin_task = asyncio.create_task(_finalize_coro())
+        while not fin_task.done() or not sse_queue.empty():
+            try:
+                ev = await asyncio.wait_for(sse_queue.get(), timeout=0.1)
+                yield ev
+            except asyncio.TimeoutError:
+                continue
+        deep, aspects = await fin_task
+        timings["finalize_ms"] = int((time.monotonic() - t_draft) * 1000) - timings["draft_ms"]
 
     # 3b. Seam guard — one silent non-streamed redraft on narrative seam failure
     async def _redraft(failing):
