@@ -1723,6 +1723,21 @@ def _build_finalize_message(query, draft_aspects, sources, facets, figures=None)
     )
 
 
+def _verify_finalized(aspects, figures, facets):
+    ok = {i + 1 for i, f in enumerate(figures or []) if (getattr(f, "url", "") or "").strip()}
+    cleaned = {}
+    for k, v in aspects.items():
+        def _strip(m):
+            return m.group(0) if int(m.group(1)) in ok else ""
+        v = re.sub(r"(?<!\w)\[F(\d+)\]", _strip, v or "")
+        cleaned[k] = re.sub(r"  +", " ", v)
+    blob = " ".join(cleaned.values()).lower()
+    missing = [f for f in (facets or []) if f.lower() not in blob]
+    if missing:
+        logger.info("finalize verify: %d facet(s) not surfaced: %s", len(missing), "; ".join(missing))
+    return cleaned, missing
+
+
 async def _stream_finalize(query, draft_aspects, sources, facets, figures,
                            on_aspect_delta, model):
     from src.services.chat.prompts.deep_tutor import DEEP_TUTOR_FINALIZE_INSTRUCTIONS  # noqa: PLC0415
@@ -3082,6 +3097,9 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         from src.services.chat.agents.definition_recovery import build_formal_statements  # noqa: PLC0415
         augmented_sources = list(augmented_sources) + _def_sources(recovered_defs, len(augmented_sources))
         deep.formal_statements = build_formal_statements(recovered_defs, augmented_sources)
+    if _finalize:
+        aspects, _missing_facets = _verify_finalized(aspects, approved_figures, facets)
+        _mirror_aspects(deep, aspects)
     answer = _convert_to_tutor_answer(deep, aspects, augmented_sources,
                                        approved_figures=approved_figures,
                                        vision_explanations=vision_explanations,

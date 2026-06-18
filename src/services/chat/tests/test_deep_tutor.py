@@ -2090,3 +2090,13 @@ def test_build_finalize_message_includes_draft_and_facets():
         assert f in msg
     assert "Stationarity means" in msg
     assert "one" in msg.lower() and "definition" in msg.lower()
+
+
+def test_verify_drops_broken_figure_refs_and_reports_missing_facets():
+    from src.services.chat.agents.deep_tutor import _verify_finalized
+    aspects = {"definition": "See [F1] and [F2].", "applications": "Use it."}
+    figures = [type("F", (), {"url": ""})(), type("F", (), {"url": "http://x/y.png"})()]
+    cleaned, missing = _verify_finalized(aspects, figures, facets=["unit root", "weak stationarity"])
+    assert "[F1]" not in cleaned["definition"]      # broken ref (empty url) stripped
+    assert "[F2]" in cleaned["definition"]           # valid ref kept
+    assert "unit root" in missing and "weak stationarity" in missing
