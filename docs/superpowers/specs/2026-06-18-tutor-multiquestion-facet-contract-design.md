@@ -13,7 +13,7 @@ Should become three distinct asks woven into one narrative, each with verbatim f
 
 - The robust decompose chain is off by default (`TUTOR_PLANNER_CHAIN=0`); the default single-call planner collapses "versions" into one bundled facet, so strict vs weak never become separate facets.
 - Nothing forces "one question → ≥1 facet."
-- Definition-form forcing (`_expand_concept`, `definition_gaps.py`) is a side-channel gated by `TUTOR_DEEP_DEFINITIONS` + `_query_is_definitional`, not bound to the planner's facet list. Its map (`_EXPAND`) covers stationarity→strict/weak/covariance but **has no `unit root`**, and `_DEFINITIONAL_RE` doesn't match "unit root".
+- Definition-form forcing (`_expand_concept`, `definition_gaps.py`) is fed the planner's `concepts`, not the per-question subjects. `TUTOR_DEEP_DEFINITIONS` already defaults ON and `_query_is_definitional` already matches "what is/are", so the machinery runs — but a multi-question prompt's later subjects (unit root, the versions) never reach the detector. Its map (`_GENERIC_EXPANSIONS`) expands stationarity→strict/weak/covariance; **unit root needs no map entry** (no sub-forms — it passes through as itself once it reaches the detector). The `_MAX_GAPS=3` cap also truncates the 4 required forms (strict/weak/covariance + unit root).
 
 ## Decisions
 
@@ -41,8 +41,8 @@ raw prompt
 Three units, each testable without an LLM:
 
 1. `multi_question_split(prompt) -> list[str]` — pure regex. Split on sentence-final `?`. Guards: cap N (e.g. ≤5), ignore non-sentence-final `?`, single-question prompts return `[prompt]`.
-2. `inject_definitional_forms(terms) -> list[str]` — promote the existing `_EXPAND` map out of the recovery side-channel; add `"unit root"` to `_EXPAND` and to `_DEFINITIONAL_RE`. Returns extra facet strings for any term with known forms.
-3. **Binding** — `_recover_definitions_block` (deep_tutor.py) is fed the post-injection definitional facets (today: `concepts` only) and auto-fires when any exist, bypassing the `TUTOR_DEEP_DEFINITIONS`-only gate for these.
+2. `concepts_from_asks(asks) -> list[str]` — pure regex; strips question scaffolding/articles to get each ask's bare subject ("stationarity", "unit root"). No map/regex changes needed; raise `_MAX_GAPS` 3→5 so 4 forms aren't truncated.
+3. **Binding** — at the single site where `concepts`/`facets` are read from the plan (`deep_tutor.py:2822`), union ask-subjects into `concepts` (FIRST, to survive the cap) and the asks into `facets`. Definition recovery (already default-on) then sees every question's subject.
 
 ## Enforcement ladder
 
