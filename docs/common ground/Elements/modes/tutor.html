@@ -34,11 +34,17 @@
   PL --> ND[&quot;Narrative draft (draft model)<br/>5 beats + intro — one call&quot;]
   ND --> SG{&quot;Seam guard (pure code)&quot;}
   SG -. &quot;fail: 1 silent redraft&quot; .-> ND
-  SG --> VE[&quot;Vision explain&quot;]
+  SG --> FZ{&quot;TUTOR_FINALIZE?&quot;}
+  FZ -. &quot;off&quot; .-> VE[&quot;Vision explain&quot;]
+  FZ -->|on| FIN[&quot;Finalize + verify<br/>(strong model, streams)&quot;]
+  FIN --> VRF[&quot;_verify_finalized (pure code)&quot;]
+  VRF --> VE
   VE --> A[&quot;TutorAnswer&quot;]
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
+  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style FIN fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff">flowchart TD
   Q["Question"] --> QP["Query planner (nano)<br/>concepts + queries + facets"]
   QP --> RET["Multi-query retrieval -> RRF"]
   RET --> DR["Density + author-diversity + rerank"]
@@ -51,12 +57,18 @@
   PL --> ND["Narrative draft (draft model)<br/>5 beats + intro — one call"]
   ND --> SG{"Seam guard (pure code)"}
   SG -. "fail: 1 silent redraft" .-> ND
-  SG --> VE["Vision explain"]
+  SG --> FZ{"TUTOR_FINALIZE?"}
+  FZ -. "off" .-> VE["Vision explain"]
+  FZ -->|on| FIN["Finalize + verify<br/>(strong model, streams)"]
+  FIN --> VRF["_verify_finalized (pure code)"]
+  VRF --> VE
   VE --> A["TutorAnswer"]
   style PL fill:#3a1d1f,stroke:#E5484D,color:#fff
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
-  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
-    <p class="caption">Full pipeline on the Chat &amp; deep-tutor page. The draft node is the only stage that uses the heavy draft model; everything else is nano. Seam guard is pure code — no LLM call on the happy path.</p>
+  style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
+  style FIN fill:#3a1d1f,stroke:#E5484D,color:#fff
+  style VRF fill:#1f2a1a,stroke:#3fb950,color:#fff</div></div>
+     <p class="caption">Full pipeline on the Chat &amp; deep-tutor page. The draft node is the only stage that uses the heavy draft model; everything else is nano. Seam guard and finalize verify are pure code — no LLM call on the happy path. When TUTOR_FINALIZE is on, a strong finalizer model rewrites the draft before verify; when off, the draft passes through unchanged.</p>
   </section>
   <section>
     <h2>Functions workflow</h2>
@@ -77,7 +89,8 @@
   ND --> SG[&quot;seams.check_seams() (pure code)&quot;]
   SG -. &quot;fail&quot; .-> RD[&quot;_redraft() closure (via _seam_guard) — one retry&quot;]
   RD --> SG
-  SG --> VE[&quot;vision.py (vision-explain)&quot;]
+  SG --> FZ[&quot;_stream_finalize() (if TUTOR_FINALIZE)&quot;]
+  FZ --> VE[&quot;vision.py (vision-explain)&quot;]
   VE --> A[&quot;DeepTutorAnswer&quot;]
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
@@ -101,7 +114,8 @@
   ND --> SG["seams.check_seams() (pure code)"]
   SG -. "fail" .-> RD["_redraft() closure (via _seam_guard) — one retry"]
   RD --> SG
-  SG --> VE["vision.py (vision-explain)"]
+  SG --> FZ["_stream_finalize() (if TUTOR_FINALIZE)<br/>_verify_finalized() (pure code)"]
+  FZ --> VE["vision.py (vision-explain)"]
   VE --> A["DeepTutorAnswer"]
   style ND fill:#3a1d1f,stroke:#E5484D,color:#fff
   style SG fill:#1f2a1a,stroke:#3fb950,color:#fff
@@ -109,7 +123,7 @@
   style CV fill:#1f2a1a,stroke:#3fb950,color:#fff
   style PR1 fill:#241a33,stroke:#9b6bd6,color:#fff
   style PR2 fill:#241a33,stroke:#9b6bd6,color:#fff</div></div>
-    <p class="caption">Code call-graph — green = LLM-call or pure-code node, purple = prompt constant, red = synthesis/heavy stage. Seam guard is pure code (zero LLM). Verified from the runner source listed below.</p>
+     <p class="caption">Code call-graph — green = LLM-call or pure-code node, purple = prompt constant, red = synthesis/heavy stage. Seam guard and finalize verify are pure code (zero LLM). Finalize (red) runs only when TUTOR_FINALIZE is on. Verified from the runner source listed below.</p>
   </section>
   <section>
     <h2>Sources, prompts &amp; tools</h2>
@@ -139,6 +153,7 @@
       <tr><td>wikipedia augment</td><td><code>src/services/chat/agents/deep_tutor.py (_fetch_wiki_sources / _append_wiki_sources)</code> + <code>src/services/chat/research.py</code></td></tr>
       <tr><td>figure judge</td><td><code>src/services/chat/agents/image_judge.py</code></td></tr>
       <tr><td>narrative draft + seam guard</td><td><code>src/services/chat/agents/deep_tutor.py</code> + <code>src/services/chat/agents/seams.py</code></td></tr>
+      <tr><td>finalize + verify</td><td><code>src/services/chat/agents/deep_tutor.py</code> (<code>_stream_finalize</code>, <code>_build_finalize_message</code>, <code>_verify_finalized</code>)</td></tr>
       <tr><td>formula recovery</td><td><code>src/services/chat/agents/formula_recovery.py</code></td></tr>
       <tr><td>definition recovery</td><td><code>src/services/chat/agents/definition_recovery.py</code></td></tr>
       <tr><td>vision</td><td><code>src/services/chat/vision.py</code></td></tr>
