@@ -730,6 +730,18 @@ Hard rules:
 - Math delimiters well-formed: inline $...$, display $$...$$ on its own line.
 - Keep the draft's [N] citations and figure [Fn] markers; do not invent sources.
 - Preserve any <recovered_equations> / <formal_definitions> verbatim blocks.
+
+<output>
+Return ONLY a single JSON object with EXACTLY these keys (no wrapper object, no extra keys, no markdown fences, no prose before or after):
+{"tldr": "...", "definition": "...", "formal_statement": "...", "example_intuition": "...", "applications": "...", "further_reading": "...", "citations": [], "math_blocks": [], "figures": [], "formal_statements": []}
+- "tldr" through "further_reading" are required non-empty strings (the narrative beats).
+- "citations" is a list of objects with keys: index (int), chunkId (str), authors_short (str), year (int or null), book_name (str), chapter (str), section (str), page_from (int or null), page_to (int or null), quote (str), url (str).
+- "math_blocks" and "figures" are lists (may be empty).
+- "formal_statements" is a list of objects with keys: kind ("definition"|"theorem"|"proposition"|"lemma"|"corollary"), label (str), statement (str, verbatim from source), cite (int).
+- Do NOT wrap the answer under keys like "answer", "body", "answer_model", or "answer_json".
+- Do NOT emit a section heading named "DeepTutorAnswer".
+- Do NOT wrap the JSON in ```json fences or any markdown.
+</output>
 """
 
 

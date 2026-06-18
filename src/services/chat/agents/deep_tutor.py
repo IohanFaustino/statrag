@@ -1865,6 +1865,7 @@ async def _stream_draft_via_router(
         # fields with "" so a near-complete response is still usable instead
         # of failing strict construction.
         if not (set(payload) & set(ASPECT_HEADINGS)):
+            logger.warning("router draft (%s): JSON parsed but no aspect keys found; payload keys: %r", model, list(payload)[:10])
             return None, accumulated
         for key in ASPECT_HEADINGS:
             payload.setdefault(key, "")
