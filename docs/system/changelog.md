@@ -2,6 +2,23 @@
 
 Append-only. Latest at top.
 
+## 2026-06-18 — Tutor multi-question facet contract (scope A)
+
+**Scope:** branch `tutor-multiquestion-facets`, merged `3ebec42`. Pure-code, no new deps. Spec/plan: `docs/superpowers/{specs,plans}/2026-06-18-tutor-multiquestion-facet-contract*`.
+
+**What changed:**
+- `definition_gaps.py`: `multi_question_split` (split a prompt on sentence-final `?`), `concepts_from_asks` (regex bare-subject of each ask), `augment_concepts_and_facets` (union ask-subjects into concepts → definition recovery, asks into facets → coverage + finalize); `_MAX_GAPS` 3→5 so strict/weak/covariance + unit root all fit.
+- `deep_tutor.py`: 1 call to `augment_concepts_and_facets` at the planner read site (`run_deep_tutor`).
+- True-by-construction: every question in a multi-question prompt becomes a covered facet + each subject reaches the detector, regardless of what the LLM planner emits.
+
+**Verified live (:5175):** "What is stationarity? What are its versions? What is a unit root?" now decomposes into STATIONARITY / UNIT ROOT / INTEGRATED VERSIONS subsections woven by the Introduction.
+
+**Known gap (→ Definition Recovery DR-5/DR-8, not scope A):** verbatim strict/weak/unit-root formal-definition boxes still don't render when general retrieval already pulled def prose (`_has_labelled_def`→not-a-gap); "versions" surfaced as I(0)/I(1). Plus a small trailing `$$` leak in the AR(p) formal-statement render.
+
+**Gates:** full chat suite green (9 new tests); merged result green.
+
+---
+
 ## 2026-06-18 — Tutor finalize+verify stage
 
 **Scope:** branch `tutor-finalize-stage`. Doc: [59-tutor-finalize.md](../services/chat-features/59-tutor-finalize.md). Invariant 49.
