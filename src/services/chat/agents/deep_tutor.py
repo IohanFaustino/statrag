@@ -2459,7 +2459,8 @@ def _convert_to_tutor_answer(
     # Dedup by chunkId, prune orphan citations, renumber contiguous from 1.
     # The LLM can assign the same chunkId multiple different [N] indexes and
     # emit citation entries that never appear as inline [N] markers.
-    text, final_aspects, enriched = _canonicalize_citations(text, final_aspects, enriched)
+    _fs_in = list(deep.formal_statements) if deep and getattr(deep, "formal_statements", None) else []
+    text, final_aspects, enriched, _fs_out = _canonicalize_citations(text, final_aspects, enriched, _fs_in)
 
     math_blocks = list(deep.math_blocks) if deep else []
     if not math_blocks:
@@ -2498,7 +2499,7 @@ def _convert_to_tutor_answer(
     return TutorAnswer(
         text=text, sections=headings, citations=enriched,
         math_blocks=math_blocks, figures=figures, aspects=final_aspects,
-        formal_statements=list(deep.formal_statements) if deep and getattr(deep, "formal_statements", None) else [],
+        formal_statements=_fs_out,
         quality=quality,
     )
 
@@ -2543,16 +2544,19 @@ def _canonicalize_citations(
     text: str,
     aspects: dict[str, str],
     cites: list[TutorCitation],
-) -> tuple[str, dict[str, str], list[TutorCitation]]:
+    formal_statements: list | None = None,
+) -> tuple[str, dict[str, str], list[TutorCitation], list]:
     """Dedup by chunkId, prune orphans, renumber contiguous from 1.
 
-    Returns ``(text, aspects, cites)`` with all three consistent:
+    Returns ``(text, aspects, cites, formal_statements)`` with all four consistent:
     - each distinct chunkId appears once in ``cites``
     - every inline ``[N]`` in ``text`` and every value in ``aspects``
       maps to exactly one citation entry
     - no orphan entries (citation with no inline marker)
     - indexes are contiguous starting at 1
     - ``[F1]``-style figure refs are untouched
+    - each ``formal_statements[].cite`` is remapped through the same
+      old→kept→contiguous pipeline so it stays in range
     """
     # Step 1: Dedup by chunkId — keep first occurrence in index order;
     # entries with empty/falsy chunkId are kept as-is (never deduped).
@@ -2592,6 +2596,8 @@ def _canonicalize_citations(
         new_aspects[k] = new_v
         aspect_markers |= am
     all_markers = text_markers | aspect_markers
+    fs_markers = {old_to_kept.get(fs.cite, fs.cite) for fs in (formal_statements or [])}
+    all_markers |= fs_markers
 
     # Step 3: Prune orphans — drop citations whose (remapped) index is not
     # referenced inline anywhere.
@@ -2636,7 +2642,16 @@ def _canonicalize_citations(
         final_cites.append(c.model_copy(update={"index": new_idx}))
     final_cites.sort(key=lambda c: c.index)
 
-    return text, new_aspects, final_cites
+    # Step 5: Remap formal_statements[].cite through the same pipeline:
+    # old → kept (via old_to_kept) → final contiguous (via order).
+    remapped_fs = []
+    if formal_statements:
+        for fs in formal_statements:
+            kept = old_to_kept.get(fs.cite, fs.cite)
+            new_cite = order.get(kept, kept)
+            remapped_fs.append(fs.model_copy(update={"cite": new_cite}))
+
+    return text, new_aspects, final_cites, remapped_fs
 
 
 def _reconcile_citations(

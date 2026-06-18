@@ -104,7 +104,10 @@
   background: var(--bg-tertiary);
   border-radius: var(--radius);
   font-style: normal;
+  overflow-x: auto;
+  min-width: 0;
 }
+.tutor-view__quote .katex { max-width: 100%; }
 
 /* Display math = a light "printed plate" (over/under hairline), not a boxed
    callout — keeps a scan-stop in dense answers without card chrome. */
