@@ -106,9 +106,9 @@ agents' work, and the checker is never the author.**
 
 | Seat | Who | Model | Mandate |
 |---|---|---|---|
-| Implementer | Pre-built domain specialist matched to the task's domain | cheap/fast for mechanical 1–2-file tasks with a complete spec; standard for multi-file integration | Implement exactly the task, TDD, self-review, commit, report status |
-| Spec reviewer | General-purpose, fresh context | standard | "Do NOT trust the report." Read the code, run the gates, compare line-by-line to the task text. Verdict: ✅ / ❌ with file:line |
-| Quality reviewer | General-purpose, fresh context | standard; **most capable model for the final whole-impl review** | Only after spec ✅. Strengths / Issues (Critical/Important/Minor) / Approved-or-Changes-needed |
+| Implementer | Fresh `ollama-cloud/glm-5.2` executor dispatched via OpenCode into a worktree (author-only) | `ollama-cloud/glm-5.2` | Implement exactly the task, TDD, self-review, report status. Implementer never runs git; orchestrator commits + runs gates at the boundary |
+| Spec reviewer | Fresh `ollama-cloud/glm-5.2` reviewer via OpenCode (checker ≠ author) | `ollama-cloud/glm-5.2` | "Do NOT trust the report." Read the code, run the gates, compare line-by-line to the task text. Verdict: ✅ / ❌ with file:line |
+| Quality reviewer | Fresh `ollama-cloud/glm-5.2` reviewer via OpenCode (checker ≠ author); **`iohan-powers-final-reviewer` for the final whole-impl review** | `ollama-cloud/glm-5.2` (final review: most capable) | Only after spec ✅. Strengths / Issues (Critical/Important/Minor) / Approved-or-Changes-needed |
 
 Loop: ❌ or Changes-needed → dispatch a **fix agent** (fresh, given the
 reviewer's findings verbatim + exact file paths) → re-review. Never skip the
@@ -145,15 +145,11 @@ Three sources of agents; use all three in one session, pick per task:
    harness-builder: role, context, tools, constraints, output schema, report
    format, all in the dispatch prompt (**Agent = Harness + model**).
 
-Model ladder (cost discipline): cheap/fast for mechanical; standard for
-integration and reviews; most capable ONLY for architecture judgment and the
-final holistic review. Escalate on BLOCKED-for-reasoning, never by default.
+Model roster (per the contract): executors (implement / check / inspect) run on `ollama-cloud/glm-5.2` via OpenCode; advisors (counsel only) run on `ollama-cloud/deepseek-v4-pro`; the final whole-branch review is `iohan-powers-final-reviewer` (most capable). Cheaper ollama models are fine for purely mechanical read-only sweeps. Escalate on BLOCKED-for-reasoning, never by default.
 
 ### Advisor seats — counsel without delegation of authority
 
-Besides workers and reviewers there are **advisors**: top-model consultation
-seats you call with a brief and get structured counsel back. They never
-implement and never decide — you do. Available:
+Besides workers and reviewers there are **advisors**: `ollama-cloud/deepseek-v4-pro` consultation seats you call with a brief and get structured counsel back. They never implement and never decide — you do. Available:
 
 - `creative_Advisor.md` — design counsel: you have an idea and want extra
   insight, alternatives with trade-offs, a failure-mode map, and a cut list.
@@ -360,7 +356,7 @@ Operational habits:
 ## Verification gates (in order, none skippable)
 
 1. Per-task: implementer self-review → spec review → quality review.
-2. Whole-impl: top-model final review over the full branch diff.
+2. Whole-impl: `iohan-powers-final-reviewer` (most capable) over the full branch diff.
 3. **Live human-path verification (Law 1)** — not done until you watched it
    work where the user will. Data-level checks (row counts) AND
    surface-level checks (pixels actually painted) — they fail independently.

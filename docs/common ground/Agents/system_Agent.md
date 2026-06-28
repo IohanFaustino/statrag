@@ -146,7 +146,7 @@ container. State cost/risk. Cheap-confirm gate.
 Implement back-to-front and front-to-back in the SAME pass: a new backend SSE
 field ships with its frontend consumer; a new request knob ships with its
 schema field AND its UI control. Respect the Chinese wall. Frontend changes on
-disjoint files may go to parallel sonnet background agents. OpenAI strict
+disjoint files may go to parallel `ollama-cloud/glm-5.2` executor dispatches (OpenCode, author-only). OpenAI strict
 structured outputs forbid open-keyed `dict` fields and truncate on length —
 guard schema changes.
 

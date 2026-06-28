@@ -154,7 +154,7 @@ For corpus work, the `rag-add-book` gates are your preview.
 
 ### 4 · EXECUTE
 Implement the backend yourself (Chinese wall respected). Frontend changes on
-disjoint files may go to parallel sonnet background agents. Move through the
+disjoint files may go to parallel `ollama-cloud/glm-5.2` executor dispatches (OpenCode, author-only). Move through the
 interconnect table top-to-bottom; nothing left behind. Keep prompts, schema, and
 logic consistent in the SAME pass — a knob with no schema field is a 400 waiting
 to happen.
