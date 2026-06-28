@@ -147,18 +147,14 @@ Diff `deep_tutor.py` against the pre-incident HEAD + the recovery commit to conf
 
 The operating contract now mandates **Rule Zero-Zero** (the orchestrator never executes — always dispatch to OpenCode + ollama-cloud): executors run on `ollama-cloud/glm-5.2`, advisors on `ollama-cloud/deepseek-v4-pro`, and the roster uses the `iohan-powers-*` agent names. The items below reconcile the rest of the repo with that contract.
 
-## B1. ⬜ Fix the live-verify port in the CLAUDE.md contract
+## B1. ✅ Fix the live-verify port in the CLAUDE.md contract
 
 | Field | Value |
 |---|---|
-| **Status** | ⬜ Not started. |
-| **Problem** | Rule 2 currently says "live-verify on :8080". `:8080` belongs to the unrelated **mindmap-caddy** container. |
+| **Status** | ✅ DONE (2026-06-28) — `:8080` → `:5175` corrected in CLAUDE.md rule 2. |
+| **Problem** | Rule 2 said "live-verify on :8080". `:8080` belongs to the unrelated **mindmap-caddy** container. |
 | **Correct value** | This repo's dev URL is **:5175** (prod `:5173` / backend `:8765`, dev backend `:8766`). |
-| **Fix** | Correct `:8080` → `:5175` in the contract text. Governance-file edit — the orchestrator may do directly. |
-
-### Next action
-
-Edit the live-verify port reference in CLAUDE.md rule 2.
+| **Fix** | Corrected `:8080` → `:5175` in the contract text (governance-file edit). |
 
 ---
 
@@ -225,18 +221,14 @@ Block on B4 decision, then rewrite all five agent docs in lockstep with the new 
 
 ---
 
-## B6. ⬜ Update memory (orchestrator-allowed, not a code deliverable)
+## B6. ✅ Update memory (orchestrator-allowed, not a code deliverable)
 
 | Field | Value |
 |---|---|
-| **Status** | ⬜ Not started. |
+| **Status** | ✅ DONE (2026-06-28) — memory body + description + `MEMORY.md` index line updated to glm-5.2 executors / deepseek-v4-pro advisors. |
 | **Files** | `~/.claude/projects/-home-iohan-Documents-toolbox-AI-models-RAG/memory/glm51-implementer-model.md` + its `MEMORY.md` index line. |
-| **Problem** | They say "always glm-5.1, never qwen" — now stale. |
-| **Fix** | Contract = `glm-5.2` executors + `deepseek-v4-pro` advisors. Update file body, title, and the `MEMORY.md` pointer. |
-
-### Next action
-
-Update the memory file (and title + MEMORY.md index line) to reflect glm-5.2 executors / deepseek-v4-pro advisors.
+| **Problem** | They said "always glm-5.1, never qwen" — stale. |
+| **Fix** | Roster = `glm-5.2` executors + `deepseek-v4-pro` advisors; added author-only + timeout/loop-watch guidance. |
 
 ---
 
