@@ -567,3 +567,72 @@ def test_detect_definition_gaps_no_double_expand():
     norms = [g.norm for g in result]
     # Should not have duplicate "strict stationarity"
     assert norms.count("strict stationarity") <= 1
+
+
+# ---------------------------------------------------------------------------
+# DR-8d: vision fallback chain for image-bound definitions
+# ---------------------------------------------------------------------------
+
+def test_dr8d_vision_not_called_when_text_succeeds():
+    """DR-8d: when the text path returns a verbatim definition, the vision
+    fallback (recover_formulas) must NOT be invoked."""
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    verbatim = "A process is strictly stationary if the joint distribution is invariant under time shifts"
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([_src_chunk(CHUNK)], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=True, kind="definition", label="Definition 14.1", statement=verbatim))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)), \
+         patch("src.services.chat.agents.formula_recovery.recover_formulas", new_callable=AsyncMock) as rf_mock:
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+    assert len(out) == 1
+    assert out[0].label == "Definition 14.1"
+    rf_mock.assert_not_called()
+
+
+def test_dr8d_vision_chain_builds_def_for_image_bound_definition():
+    """DR-8d: when the only candidate is an image placeholder (text extract
+    fails), definition recovery chains to formula_recovery's vision path and
+    builds a RecoveredDefinition from the transcribed equation."""
+    from unittest.mock import AsyncMock, patch
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    from src.services.chat.agents.formula_recovery import RecoveredEquation
+
+    image_chunk = "![image](media/x.png)"
+    src = _src_chunk(image_chunk, chunk_id="img:1")
+
+    eq = RecoveredEquation(term="strict stationarity", latex="X_t = \\mu + \\epsilon_t", citation="Hansen ch14")
+
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([src], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=False))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)), \
+         patch("src.services.chat.agents.formula_recovery.recover_formulas", new_callable=AsyncMock, return_value=[eq]) as rf_mock:
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+
+    rf_mock.assert_awaited_once()
+    assert len(out) == 1
+    rd = out[0]
+    assert isinstance(rd, RecoveredDefinition)
+    assert rd.kind == "definition"
+    assert "X_t" in rd.statement
+    assert rd.statement.startswith("$")
+    assert rd.statement.endswith("$")
+
+
+def test_dr8d_vision_returns_nothing_is_graceful():
+    """DR-8d: when the vision path yields no equations, definition recovery
+    returns empty (no raise)."""
+    from unittest.mock import AsyncMock, patch
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+
+    image_chunk = "![image](media/x.png)"
+    src = _src_chunk(image_chunk, chunk_id="img:1")
+
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([src], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=False))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)), \
+         patch("src.services.chat.agents.formula_recovery.recover_formulas", new_callable=AsyncMock, return_value=[]):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
+
+    assert out == []

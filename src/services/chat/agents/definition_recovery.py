@@ -167,6 +167,43 @@ def _placeholder_penalty(text: str) -> float:
     return -0.15 * n
 
 
+async def _recover_one_vision(query: str, gap: DefinitionGap, books: "list[str] | None") -> "RecoveredDefinition | None":
+    """DR-8d: vision fallback for image-bound definitions.
+
+    When the text path finds no verbatim definition but candidate chunks are
+    OCR-image placeholders, chain to ``formula_recovery``'s vision path
+    (``search_figures`` + ``inspect_figure``) to transcribe the defining
+    equation, then build a ``RecoveredDefinition`` from it. Best-effort;
+    never raises.
+
+    Fidelity = vision-trusted: the text token-recall gate (``is_verbatim``) is
+    intentionally NOT applied here — there is no clean source text to compare
+    against, and ``formula_recovery`` already vouches for the transcribed
+    LaTeX. (DR-8d)
+    """
+    try:
+        from src.services.chat.agents.formula_recovery import recover_formulas  # noqa: PLC0415
+        from src.services.chat.agents.formula_gaps import GapConcept  # noqa: PLC0415
+        eqs = await recover_formulas(query, [GapConcept(term=gap.concept, hint="definition", book_slugs=books or [])])
+        if not eqs:
+            return None
+        eq = eqs[0]
+        if not eq.latex.strip():
+            return None
+        latex = eq.latex
+        statement = latex if "$" in latex else f"$${latex}$$"
+        return RecoveredDefinition(
+            concept=gap.concept,
+            kind="definition",
+            label=gap.concept,
+            statement=statement,
+            book_name=(eq.citation or ""),
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("DR-8d vision fallback failed for %s", gap.concept)
+        return None
+
+
 async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None") -> "RecoveredDefinition | None":
     try:
         hit = await cache_lookup(gap.concept)
@@ -209,6 +246,15 @@ async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None"
         except Exception:  # noqa: BLE001
             logger.exception("def cache_write raised for %s", gap.concept)
         return rd
+
+    # DR-8d: text path exhausted — if any candidate chunk carried an image
+    # placeholder, chain to the vision fallback (formula_recovery's vision
+    # path). No ``is_verbatim`` gate on the vision output (vision-trusted).
+    if any(_IMAGE_PLACEHOLDER_RE.search(c) for _, _, c in scored_srcs):
+        vision = await _recover_one_vision(query, gap, books)
+        if vision:
+            return vision
+
     return None
 
 

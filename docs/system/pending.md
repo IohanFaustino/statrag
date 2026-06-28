@@ -90,9 +90,11 @@ Implement DR-5 (frontend structured render) + DR-8(c) (force strict/weak/covaria
 |---|---|---|
 | DR-5 | ✅ DONE | **Frontend structured render of `formal_statements[]` already built + wired + tested** — `renderFormalStatements` in `web/src/components/views/TutorView.tsx` (lines ~143-239), `TutorView.formal.test.tsx`. Boxes render whenever `formal_statements[]` is non-empty; the live "didn't render" symptom was an EMPTY list from the backend (DR-8c), not a missing renderer. |
 | DR-8c | ✅ DONE + LIVE-VERIFIED (2026-06-28, commit `5c4c91f`) | Forms produced FROM `_GENERIC_EXPANSIONS` are now **premium → always gaps** (bypass `_has_labelled_def`); directly-passed specific concepts keep the existing suppression (all prior tests intact). Regression test added (`test_generic_umbrella_premium_forms_bypass_prose_suppression`); full chat suite green. **Live on :5175** ("What is stationarity? What are its versions?") → `formal_statements` now has **3 verbatim entries** — strict/strongly stationary `[2]`, weak/covariance stationary `[2]`, covariance-stationary formal def `[5]` — each cited + KaTeX. The 2026-06-18 "strict/weak boxes didn't render" symptom is fixed. |
-| DR-8 a/b/d | ⬜ (verify) | (a) statement truncation; (b) prefer clean-text defs over OCR-image; (d) chain to formula recovery for image-math defs. Current build-state not yet inspected — verify before scoping. |
-| DR-6 | ⬜ | **Docs/modal lockstep.** `docs/services/chat-features/58-definition-recovery.md` + modal/diagram surfaces. |
-| — | 🟠 | **Small trailing `$$` leak** in the AR(p) formal-statement render. |
+| DR-8b | ✅ DONE | **Prefer clean-text defs over OCR-image placeholders** — `_placeholder_penalty` (DR-8b) sorts candidates so clean-text chunks are tried before OCR-heavy ones; regression tests in `test_definition_recovery.py`. |
+| DR-8a | ✅ Not-a-bug | **Statement truncation** — statements are stored full; live statements complete. `max_completion_tokens` already > 400 (regression test `test_extract_verbatim_max_completion_tokens_above_400`). |
+| DR-8d | ✅ DONE | **Vision fallback chain for image-bound definitions** — `_recover_one_vision` chains to `formula_recovery`'s vision path (search_figures + inspect_figure) when the text path is exhausted and candidates are image placeholders; vision-trusted (no token-recall gate); best-effort under `TUTOR_DEEP_DEFINITIONS`. 3 tests added. |
+| DR-6 | ✅ | **Docs/modal lockstep** — `docs/services/chat-features/58-definition-recovery.md` (DR-8d subsection) + `36-deep-tutor.md` mermaid node clause both updated. |
+| — | ✅ Not-reproduced | **Trailing `$$` leak** in the AR(p) formal-statement render — not reproduced: live statements are clean; the frontend already consumes/consumes spurious trailing `$` harmlessly. |
 
 ### Reference
 
@@ -104,10 +106,16 @@ Implement DR-5 (frontend structured render) + DR-8(c) (force strict/weak/covaria
 
 ### Next action (remaining A3)
 
+A3 is **complete** — all DR items ✅:
+
 1. ~~DR-8c fix~~ ✅ done + live-verified.
-2. Verify/scope **DR-8 a/b/d** (statement truncation, prefer clean-text over OCR, chain to formula recovery) — build-state not yet inspected.
-3. **DR-6** docs/modal lockstep (`58-definition-recovery.md` + modal/diagram).
-4. Trailing `$$` leak in the AR(p) formal-statement render.
+2. ~~DR-8 a/b/d~~ ✅ — DR-8a not-a-bug; DR-8b placeholder penalty done; DR-8d vision fallback chain + tests done.
+3. ~~DR-6~~ ✅ docs/modal lockstep (58-doc + mermaid node clause).
+4. ~~Trailing `$$` leak~~ ✅ not-reproduced (live statements clean; frontend already consumes spurious trailing `$`).
+
+Only **optional future polish** remains (e.g. surfacing the figure citation
+richer than a bare `book_name` string, or a dedicated vision-extract prompt
+tuned for definitions rather than equations).
 
 ---
 

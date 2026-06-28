@@ -39,7 +39,7 @@ graph TD
   CC --> M{sources empty?}
   M -->|yes| FAIL["## No corpus coverage"]
   M -->|no| WIKI["wikipedia augment (always-on; TUTOR_DEEP_WIKI)<br/>1 summary/concept (research.wiki_evidence) → append AFTER corpus<br/>at trailing ranks · pure code · silent-degrade · corpus-primary<br/>skipped when corpus empty"]
-  WIKI --> FR["formula recovery + definition recovery<br/>‖ formula: detect OCR-dropped equations → cache → vision → text re-query<br/>→ &lt;recovered_equations&gt; block (verbatim)<br/>‖ definition: detect definitional gaps → dedicated hybrid retrieval<br/>→ token-recall scoring → &lt;formal_definitions&gt; block (verbatim)<br/>both best-effort, pure-code + vision, never block the answer"]
+  WIKI --> FR["formula recovery + definition recovery<br/>‖ formula: detect OCR-dropped equations → cache → vision → text re-query<br/>→ &lt;recovered_equations&gt; block (verbatim)<br/>‖ definition: detect definitional gaps → dedicated hybrid retrieval<br/>→ token-recall scoring → &lt;formal_definitions&gt; block (verbatim)<br/>→ vision fallback for image-bound defs (DR-8d)<br/>both best-effort, pure-code + vision, never block the answer"]
   FR --> FJ["figure judge (T1)"]
   FJ --> PLAN["synthesis plan (parallel w/ figure judge)<br/>thesis + per-aspect outline + evidence ledger<br/>+ author contrasts (TUTOR_SYNTHESIS_PLAN / stageModels.plan)<br/>'off' = skip → legacy single-draft<br/>also skipped when planner rates question simple (perspectives ≤ 1)"]
   PLAN --> ND["narrative draft (single call, streamed)<br/>ONE continuous arc — 5 beats + intro<br/>thesis injected as &lt;thesis&gt; block<br/>response_format = DeepTutorAnswer"]

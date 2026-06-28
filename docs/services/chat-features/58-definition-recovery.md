@@ -87,3 +87,27 @@ conversations API, so reloaded conversations render correctly.
 ## Invariant
 
 See invariant 37 in `docs/system/invariants.md` for the best-effort contract.
+
+## DR-8d — vision fallback for image-bound definitions
+
+When the text path (cache → hybrid retrieval → verbatim extract + token-recall
+gate) is exhausted — i.e. no candidate chunk yielded a verbatim text
+definition — **and** at least one candidate chunk carried an OCR image
+placeholder (`![image](…)`), definition recovery chains to
+`formula_recovery`'s vision path (`search_figures` + `inspect_figure`) to
+transcribe the defining equation for the gap concept. The transcribed LaTeX
+is wrapped (if needed) in `$…$` and used verbatim as the `RecoveredDefinition`
+formal `statement`.
+
+- **Fidelity = vision-trusted.** The pure-code token-recall gate
+  (`is_verbatim`) is intentionally NOT applied to the vision output: there is
+  no clean source text to compare against, and `formula_recovery` already
+  vouches for the transcribed LaTeX (same trust boundary as equation
+  recovery).
+- **Best-effort under `TUTOR_DEEP_DEFINITIONS`.** No new env flag; the whole
+  fallback sits behind the existing definition-recovery gate. Any failure
+  (vision returns no equation, empty latex, or an exception) degrades
+  silently to `None` — never raises, never blocks the answer.
+- **Citation.** `book_name` carries the figure citation string from the
+  recovered equation so `_def_sources` still yields a usable citation row;
+  book/chapter/page are left empty when not available from the equation.
