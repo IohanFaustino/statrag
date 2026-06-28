@@ -162,62 +162,44 @@ The operating contract now mandates **Rule Zero-Zero** (the orchestrator never e
 
 | Field | Value |
 |---|---|
-| **Status** | ⬜ Not started. |
-| **Problem** | They currently say *"read `docs/common ground/Agents/X.md` and transform yourself into it"* — i.e. Claude **becomes** an implementer that edits code. That is a direct breach of Rule Zero-Zero. |
-| **Fix** | Convert them into **dispatch templates**: the orchestrator stays the orchestrator and dispatches fresh `ollama-cloud/glm-5.2` executors in a worktree. |
-
-### Next action
-
-Rewrite both shortcuts as dispatch templates (worktree + glm-5.2 executor + reviewer), removing the "transform yourself" language.
+| **Status** | ✅ DONE (2026-06-28, commit `0b3d99b`) — both shortcuts reframed as dispatch scopes; "transform yourself" removed; paradigm note (Rule Zero-Zero) added above the shortcut block. |
+| **Problem** | They said *"read `docs/common ground/Agents/X.md` and transform yourself into it"* — i.e. Claude **becomes** an implementer that edits code. A direct breach of Rule Zero-Zero. |
+| **Fix** | Reframed as orchestrator scopes dispatched to `ollama-cloud/glm-5.2` (author-only) in a worktree; the agent doc is the scope/checklist, not a persona. |
 
 ---
 
-## B3. ⬜ Reconcile the `orchestrator_Agent` / `creative_Advisor` / `debug_Advisor` shortcuts
+## B3. ✅ Reconcile the `orchestrator_Agent` / `creative_Advisor` / `debug_Advisor` shortcuts
 
 | Field | Value |
 |---|---|
-| **Status** | ⬜ Not started. |
-| **Problem** | Shortcuts still use old names; advisors not pinned to deepseek-v4-pro; `technical_Advisor` is named in the contract but has **no shortcut**. |
-| **Fix** | Rename to `iohan-powers-orchestrator`, `iohan-powers-creative-advisor`, `iohan-powers-debug-advisor`; pin advisors to `ollama-cloud/deepseek-v4-pro`; **add** `iohan-powers-technical-advisor`. |
-
-### Next action
-
-Update the three existing shortcuts and add the missing `technical_Advisor` shortcut.
+| **Status** | ✅ DONE (2026-06-28, commit `0b3d99b`) — shortcuts mapped to `iohan-powers-orchestrator` / `-creative-advisor` / `-debug-advisor`; advisors pinned to `ollama-cloud/deepseek-v4-pro`; **`technical_Advisor` shortcut added** (`iohan-powers-technical-advisor`). |
+| **Problem** | Shortcuts used old names; advisors not pinned to deepseek-v4-pro; `technical_Advisor` named in the contract but had **no shortcut**. |
+| **Fix** | Renamed + pinned + added the missing technical_Advisor shortcut. |
 
 ---
 
-## B4. 🟠 BLOCKING AMBIGUITY — needs a user decision before B2/B3/B5 land
+## B4. ✅ RESOLVED — paradigm is canonical as written
 
 | Field | Value |
 |---|---|
-| **Status** | 🟠 Blocking. |
-| **Conflict** | Rule 3 says all non-orchestrator agents are delegated to ollama-cloud via OpenCode — **NOT Claude subagents**. Yet rules 1-3 name `iohan-powers-*` agents which **ARE** Claude subagents in the registry. |
-| **Decision needed** | Are the `iohan-powers-*` names: (a) **role labels** whose execution is dispatched to ollama via OpenCode, or (b) **Claude subagents invoked directly**, with ollama dispatch only for the `glm-5.2` executors? |
-
-### Next action
-
-User decides (a) vs (b); document the answer in the contract before proceeding with B2/B3/B5.
+| **Status** | ✅ RESOLVED by user (2026-06-28). |
+| **Resolution** | The powers + dispatch paradigm in the CLAUDE.md contract is canonical and **identical across the user's projects**; the only per-project delta is **ports** (already adjusted to :5175 / :8766 / :5173 / :8765). The `iohan-powers-*` names are applied as written — no contradiction to resolve. This unblocked B2/B3/B5. |
 
 ---
 
-## B5. ⬜ Reconcile all `docs/common ground/Agents/*.md`
+## B5. ✅ Reconcile all `docs/common ground/Agents/*.md`
 
-| File | Status |
-|---|---|
-| `orchestrator_Agent.md` | ⬜ |
-| `feature_Agent.md` | ⬜ |
-| `system_Agent.md` | ⬜ |
-| `creative_Advisor.md` | ⬜ |
-| `debug_Advisor.md` | ⬜ |
+✅ DONE (2026-06-28, commit `48ce752`) — surgical model/mechanism updates, authored by a `glm-5.2` delegate (dispatched, author-only), inspected, then committed at the boundary.
 
-| Field | Value |
-|---|---|
-| **Problem** | All five still describe the old regime (`glm-5.1`, "transform yourself", old roster). |
-| **After B4, update to** | `glm-5.2` executors, `deepseek-v4-pro` advisors, Rule Zero-Zero, author-only dispatch + orchestrator-runs-gates, timeout/loop-watch protocol. Consider adding `technical_Advisor.md`. |
+| File | Status | What changed |
+|---|---|---|
+| `orchestrator_Agent.md` | ✅ | roster table + model-ladder + advisor + final-review refs → glm-5.2 executors / deepseek-v4-pro advisors / `iohan-powers-final-reviewer` |
+| `feature_Agent.md` | ✅ | "parallel sonnet background agents" → parallel glm-5.2 executor dispatches (OpenCode, author-only) |
+| `system_Agent.md` | ✅ | same sonnet→glm-5.2 dispatch fix |
+| `creative_Advisor.md` | ✅ | `read_as: self-transform` → dispatch-brief; `runs_on` → deepseek-v4-pro |
+| `debug_Advisor.md` | ✅ | same + inspector subagents → inspector runs via OpenCode; per-job model ladder → ollama roster |
 
-### Next action
-
-Block on B4 decision, then rewrite all five agent docs in lockstep with the new contract.
+**Note:** earlier "all five describe the old regime (glm-5.1/transform/old roster)" was largely a false-positive grep (matched "implement"/"5175"); the actual stale content was a small set of model-ladder/sonnet/top-model references, fixed surgically.
 
 ---
 
@@ -271,4 +253,4 @@ There are ~13 git worktrees, most on already-merged branches. Candidates for `gi
 - **Closing items:** edit them here (status → ✅, fill in the merge/commit), then remove the stale rows. Do not re-add closed items to CLAUDE.md.
 - **CLAUDE.md** keeps only a one-line pointer to this file (`docs/system/pending.md`).
 - **New pending work:** add a new section under the relevant part; never let CLAUDE.md grow a second table.
-- **Review order:** A3 (Definition Recovery) is the highest-leverage open feature; B4 is the highest-leverage governance blocker; C is quick housekeeping.
+- **Review order:** PART B (contract migration) is ✅ complete. A3 (Definition Recovery, DR-5 + DR-8c) is the highest-leverage open feature; C is quick housekeeping.
