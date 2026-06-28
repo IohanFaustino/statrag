@@ -159,30 +159,41 @@ def detect_definition_gaps(
     DR-8c: Generic concepts like "stationarity" are expanded into their
     specific named forms ("strict stationarity", "weak stationarity",
     "covariance stationarity") so the recovery pipeline searches for the
-    exact textbook definitions.
+    exact textbook definitions. Expanded forms that came FROM a
+    `_GENERIC_EXPANSIONS` entry are PREMIUM: they bypass
+    `_has_labelled_def` and are always treated as gaps (spec: "premium
+    concepts are always considered"). Non-expanded concepts (caller
+    passed in an already-specific form) keep the existing suppression
+    behavior — they remain gaps only when `_has_labelled_def` is False.
     """
     if not _query_is_definitional(query):
         return []
 
-    # DR-8c: expand generic concepts into specific forms
-    expanded_concepts: list[str] = []
+    # DR-8c: build (concept, is_premium) pairs. A concept is premium iff
+    # its lowercase-stripped form is a KEY in _GENERIC_EXPANSIONS, in
+    # which case each of its expansion values is premium. Non-keys
+    # produce a single non-premium entry (themselves).
+    pairs: list[tuple[str, bool]] = []
     for concept in concepts:
         if not concept or not concept.strip():
             continue
-        expanded = _expand_concept(concept.strip())
-        expanded_concepts.extend(expanded)
+        norm0 = concept.strip().lower()
+        forms = _GENERIC_EXPANSIONS.get(norm0)
+        if forms:
+            for f in forms:
+                pairs.append((f, True))      # premium: always a gap
+        else:
+            pairs.append((concept.strip(), False))
 
     by_norm: dict[str, DefinitionGap] = {}
-    for concept in expanded_concepts:
+    for concept, is_premium in pairs:
         if not concept or not concept.strip():
             continue
         norm = _norm(concept)
         if norm in by_norm:
             continue
-        if not _has_labelled_def(concept, sources):
-            by_norm[norm] = DefinitionGap(
-                concept=concept.strip(), norm=norm, book_slugs=[]
-            )
+        if is_premium or not _has_labelled_def(concept, sources):
+            by_norm[norm] = DefinitionGap(concept=concept.strip(), norm=norm, book_slugs=[])
 
     # Dedupe by norm, cap at _MAX_GAPS
     result = list(by_norm.values())[:_MAX_GAPS]

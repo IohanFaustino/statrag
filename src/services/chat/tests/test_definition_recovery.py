@@ -538,6 +538,25 @@ def test_detect_definition_gaps_expands_generic_stationarity():
     assert "weak stationarity" in result_concepts
 
 
+def test_generic_umbrella_premium_forms_bypass_prose_suppression():
+    # DR-8c regression: a GENERIC umbrella concept ("stationarity") must
+    # expand to strict/weak/covariance as gaps EVEN WHEN general-retrieval
+    # prose merely mentions the forms in passing (no "Definition N" box).
+    # Before the fix, _has_labelled_def suppressed strict+weak and only
+    # covariance survived.
+    query = "What is stationarity? What are its versions?"
+    concepts = ["stationarity"]
+    prose = _src(
+        "A process is strictly stationary when its joint distribution is "
+        "time-invariant; in practice we often assume weak stationarity."
+    )
+    result = detect_definition_gaps(concepts, query, [prose])
+    norms = {g.norm for g in result}
+    assert "strict stationarity" in norms
+    assert "weak stationarity" in norms
+    assert "covariance stationarity" in norms
+
+
 def test_detect_definition_gaps_no_double_expand():
     """DR-8c: If both 'stationarity' and 'strict stationarity' are in concepts,
     should not produce duplicate gaps."""
