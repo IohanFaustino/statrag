@@ -89,7 +89,7 @@ Implement DR-5 (frontend structured render) + DR-8(c) (force strict/weak/covaria
 | # | Status | Work |
 |---|---|---|
 | DR-5 | ✅ DONE | **Frontend structured render of `formal_statements[]` already built + wired + tested** — `renderFormalStatements` in `web/src/components/views/TutorView.tsx` (lines ~143-239), `TutorView.formal.test.tsx`. Boxes render whenever `formal_statements[]` is non-empty; the live "didn't render" symptom was an EMPTY list from the backend (DR-8c), not a missing renderer. |
-| DR-8c | 🟠 ROOT-CAUSE LOCALIZED | Expansion IS implemented (`_GENERIC_EXPANSIONS` stationarity→strict/weak/covariance in `definition_gaps.py`) but `_has_labelled_def` (line 50, gate at line 182) **over-suppresses**: generic-retrieval prose merely *mentioning* "...is strictly stationary... weak stationarity..." makes it return `True`, so `detect_definition_gaps(["stationarity"], …)` drops strict+weak and keeps only **covariance**. Verified 2026-06-28 by repro. **Fix (spec-aligned, "premium always considered"):** expanded specific forms bypass `_has_labelled_def` (always recover), OR require an actual `Definition N` box not loose prose. Small backend fix + the repro as regression test. |
+| DR-8c | ✅ DONE + LIVE-VERIFIED (2026-06-28, commit `5c4c91f`) | Forms produced FROM `_GENERIC_EXPANSIONS` are now **premium → always gaps** (bypass `_has_labelled_def`); directly-passed specific concepts keep the existing suppression (all prior tests intact). Regression test added (`test_generic_umbrella_premium_forms_bypass_prose_suppression`); full chat suite green. **Live on :5175** ("What is stationarity? What are its versions?") → `formal_statements` now has **3 verbatim entries** — strict/strongly stationary `[2]`, weak/covariance stationary `[2]`, covariance-stationary formal def `[5]` — each cited + KaTeX. The 2026-06-18 "strict/weak boxes didn't render" symptom is fixed. |
 | DR-8 a/b/d | ⬜ (verify) | (a) statement truncation; (b) prefer clean-text defs over OCR-image; (d) chain to formula recovery for image-math defs. Current build-state not yet inspected — verify before scoping. |
 | DR-6 | ⬜ | **Docs/modal lockstep.** `docs/services/chat-features/58-definition-recovery.md` + modal/diagram surfaces. |
 | — | 🟠 | **Small trailing `$$` leak** in the AR(p) formal-statement render. |
@@ -100,13 +100,14 @@ Implement DR-5 (frontend structured render) + DR-8(c) (force strict/weak/covaria
 
 ### Note — convergence with A2-GAP
 
-**A2-GAP and the strict/weak boxes are one bug, now localized to DR-8c** (`_has_labelled_def` over-suppression). Fix DR-8c and the verbatim strict/weak boxes render via the already-built DR-5 path.
+**A2-GAP and the strict/weak boxes were one bug, fixed via DR-8c** (commit `5c4c91f`, live-verified). The verbatim strict/weak boxes now render via the already-built DR-5 path.
 
-### Next action
+### Next action (remaining A3)
 
-1. **DR-8c fix** (immediate, dispatched + TDD): expanded premium forms bypass `_has_labelled_def`; regression test = the prose-present repro (strict+weak must be gaps, not just covariance). DR-5 needs nothing.
-2. Then verify/scope DR-8 a/b/d and the trailing `$$` leak.
-3. DR-6 docs lockstep.
+1. ~~DR-8c fix~~ ✅ done + live-verified.
+2. Verify/scope **DR-8 a/b/d** (statement truncation, prefer clean-text over OCR, chain to formula recovery) — build-state not yet inspected.
+3. **DR-6** docs/modal lockstep (`58-definition-recovery.md` + modal/diagram).
+4. Trailing `$$` leak in the AR(p) formal-statement render.
 
 ---
 
