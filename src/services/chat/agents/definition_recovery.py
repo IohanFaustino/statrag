@@ -87,6 +87,16 @@ def build_formal_statements(
     return out
 
 
+def resolve_formal_statements(
+    recovered: list[RecoveredDefinition],
+    sources: list[Source],
+) -> list[TutorFormalDef]:
+    '''DR-10: formal_statements are code-owned. Return code-built entries
+    from recovered definitions, or an empty list when there are none
+    (dropping any draft-authored, non-verbatim entries).'''
+    return build_formal_statements(recovered, sources) if recovered else []
+
+
 # ---------------------------------------------------------------------------
 # Definitions text block
 # ---------------------------------------------------------------------------
@@ -150,6 +160,53 @@ async def _extract_verbatim(concept: str, chunk_text: str, model: str = _EXTRACT
 _KINDS = {"definition", "theorem", "proposition", "lemma", "corollary"}
 
 # ---------------------------------------------------------------------------
+# DR-9: concept-relevance gate (pure code, deterministic)
+# ---------------------------------------------------------------------------
+
+_CONCEPT_STOPWORDS = {"a", "an", "the", "of", "for", "and", "or", "to", "in", "is"}
+_CONCEPT_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# DR-9.1: math-generic nouns that appear in MANY definitions and carry no
+# discriminative signal. A concept like "autocovariance function" must match on
+# its SPECIFIC token ("autocovariance"), never on the bare generic "function" —
+# otherwise an off-topic "...causal graphical model ... function" def slips
+# through (live 2026-06-28: gap "autocovariance function" matched a
+# causal-graphical-model def via the lone token "function").
+_GENERIC_TOKENS = {
+    "function", "model", "process", "variable", "variables", "method",
+    "theorem", "lemma", "proposition", "corollary", "definition", "property",
+    "value", "values", "space", "distribution", "system", "problem",
+    "condition", "form", "type", "class", "matrix", "vector", "equation",
+    "formula", "number", "point", "rule", "operator", "measure", "parameter",
+    "term", "random", "data", "sample", "general", "graphical",
+}
+
+
+def _concept_relevant(concept: str, statement: str, label: str = "") -> bool:
+    """DR-9: True if the recovered definition actually concerns *concept*.
+
+    A *specific* concept token (alphanumeric, length >= 4, not a stopword and
+    not a math-generic noun like "function"/"model"/"process") must appear, by a
+    short stem-prefix (first min(len,6) chars), in the lowercased
+    statement+label. Matching only on generic tokens does NOT count (DR-9.1) —
+    that is how off-topic defs slipped through. If a concept has no specific
+    tokens (all generic), fall back to all substantive tokens rather than
+    over-rejecting. Pure code, deterministic.
+    """
+    toks = [t for t in _CONCEPT_TOKEN_RE.findall(concept.lower())
+            if t not in _CONCEPT_STOPWORDS and len(t) >= 4]
+    specific = [t for t in toks if t not in _GENERIC_TOKENS]
+    judge = specific or toks  # all-generic concept -> can't discriminate, use all
+    if not judge:
+        return True  # cannot judge -> don't over-reject
+    haystack = (statement + " " + label).lower()
+    for t in judge:
+        prefix = t[: min(len(t), 6)]
+        if prefix in haystack:
+            return True
+    return False
+
+# ---------------------------------------------------------------------------
 # DR-8b: Placeholder penalty — penalise chunks containing OCR image
 # placeholders like ![image](...) so clean-text candidates are preferred.
 # ---------------------------------------------------------------------------
@@ -207,12 +264,24 @@ async def _recover_one_vision(query: str, gap: DefinitionGap, books: "list[str] 
 async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None") -> "RecoveredDefinition | None":
     try:
         hit = await cache_lookup(gap.concept)
-        if hit:
+        # DR-9.2: gate cache hits through the SAME concept-relevance check as
+        # fresh extractions. The cache is embedding-keyed and can return a
+        # semantically-near but off-topic entry (or a stale/poisoned one written
+        # before the relevance gate existed). Serving it would bypass DR-9, so an
+        # irrelevant hit is ignored and we recover fresh (self-healing cache).
+        if hit and _concept_relevant(gap.concept, hit.statement, hit.label):
             return hit
     except Exception:  # noqa: BLE001
         logger.exception("def cache_lookup raised for %s", gap.concept)
     try:
-        srcs, _ = hybrid_search(f"formal definition of {gap.concept}", book_slugs=books, top_k=5, rerank=False)
+        # DR-9: rerank the dedicated retrieval so on-topic chunks rank first
+        # (under rerank=True top_k is ignored; the count comes from rerank_top_n).
+        srcs, _ = hybrid_search(
+            f"formal definition of {gap.concept}",
+            book_slugs=books,
+            rerank=True,
+            rerank_top_n=5,
+        )
     except Exception:  # noqa: BLE001
         logger.exception("def retrieval failed for %s", gap.concept)
         return None
@@ -232,6 +301,8 @@ async def _recover_one(query: str, gap: DefinitionGap, books: "list[str] | None"
         if not ex or not ex.found or not ex.statement.strip():
             continue
         if not is_verbatim(ex.statement, chunk):   # fidelity gate (pure code, defined above)
+            continue
+        if not _concept_relevant(gap.concept, ex.statement, ex.label):   # DR-9 relevance gate
             continue
         rd = RecoveredDefinition(
             concept=gap.concept,

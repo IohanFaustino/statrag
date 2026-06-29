@@ -111,3 +111,18 @@ formal `statement`.
 - **Citation.** `book_name` carries the figure citation string from the
   recovered equation so `_def_sources` still yields a usable citation row;
   book/chapter/page are left empty when not available from the equation.
+
+## DR-9 — concept-relevance gate + reranked dedicated retrieval
+
+The dedicated retrieval in `_recover_one` now **reranks** (cross-encoder) by
+calling `hybrid_search(..., rerank=True, rerank_top_n=5)` so on-topic chunks
+rank first (previously `rerank=False` surfaced off-topic chunks at the top —
+live: for "weak stationarity" the top hits were an `agentic_patterns` chunk
+and a `peters` causal-inference chunk). On top of the rerank, a **pure-code
+concept-relevance gate** (`_concept_relevant`) drops any extracted definition
+that shares no concept token with the query: at least one substantive concept
+token (alphanumeric, length ≥ 4 after dropping stopwords a/an/the/of/for/and/
+or/to/in/is) must appear, by a short stem-prefix (first min(len,6) chars), in
+the lowercased statement+label. This prevents an off-topic verbatim definition
+(e.g. the labelled "Definition 6.32 (Causal graphical model)" from a peters
+chunk) from reaching the user even when `is_verbatim` passes.

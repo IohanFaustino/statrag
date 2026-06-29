@@ -3141,10 +3141,11 @@ async def run_deep_tutor(req: ChatRequest) -> AsyncIterator[dict]:
         # Mirror polished aspects back onto the DeepTutorAnswer so downstream
         # code (and any later serialisation of `deep`) sees the corrected text.
         _mirror_aspects(deep, aspects)
-    if recovered_defs and deep is not None:
-        from src.services.chat.agents.definition_recovery import build_formal_statements  # noqa: PLC0415
-        augmented_sources = list(augmented_sources) + _def_sources(recovered_defs, len(augmented_sources))
-        deep.formal_statements = build_formal_statements(recovered_defs, augmented_sources)
+    if deep is not None:
+        from src.services.chat.agents.definition_recovery import resolve_formal_statements  # noqa: PLC0415
+        if recovered_defs:
+            augmented_sources = list(augmented_sources) + _def_sources(recovered_defs, len(augmented_sources))
+        deep.formal_statements = resolve_formal_statements(recovered_defs, augmented_sources)
     if _finalize:
         aspects, _missing_facets = _verify_finalized(aspects, approved_figures, facets)
         _mirror_aspects(deep, aspects)

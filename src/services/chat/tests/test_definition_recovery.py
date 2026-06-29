@@ -336,11 +336,15 @@ def test_recover_definitions_empty_gaps():
 def test_recover_one_cache_hit_short_circuits():
     from src.services.chat.agents.definition_cache import RecoveredDefinition
     from src.services.chat.agents.definition_gaps import DefinitionGap
-    cached = RecoveredDefinition(concept="strict stationarity", statement="cached def", chunkId="x")
+    # DR-9.2: a cache hit must be concept-relevant to short-circuit, so the
+    # cached statement must actually concern the concept (realistic fixture).
+    cached = RecoveredDefinition(concept="strict stationarity",
+                                 statement="A process is strictly stationary if the joint distribution is invariant",
+                                 chunkId="x")
     with patch.object(dr, "cache_lookup", AsyncMock(return_value=cached)), \
          patch.object(dr, "hybrid_search") as hs:
         out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
-    assert len(out) == 1 and out[0].statement == "cached def"
+    assert len(out) == 1 and out[0].statement.startswith("A process is strictly stationary")
     hs.assert_not_called()
 
 
@@ -636,3 +640,130 @@ def test_dr8d_vision_returns_nothing_is_graceful():
         out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="strict stationarity", norm="strict stationarity")]))
 
     assert out == []
+
+
+# ---------------------------------------------------------------------------
+# DR-9: concept-relevance gate + reranked dedicated retrieval
+# ---------------------------------------------------------------------------
+
+def test_concept_relevant_unit():
+    """DR-9: unit test of _concept_relevant."""
+    from src.services.chat.agents.definition_recovery import _concept_relevant
+
+    assert _concept_relevant("weak stationarity", "A process is weakly stationary if ...") is True
+    assert _concept_relevant("weak stationarity", "A causal graphical model over X") is False
+    assert _concept_relevant("covariance stationarity", "X is covariance stationary if") is True
+
+
+def test_concept_relevant_ignores_generic_tokens():
+    """DR-9.1: a match on a GENERIC token (function/model/...) must NOT count.
+
+    Live 2026-06-28: gap concept "autocovariance function" matched an off-topic
+    "Definition 6.32 (Causal graphical model)" def purely because the bare token
+    "function" appeared in it. The specific token "autocovariance" is absent, so
+    the def must be rejected.
+    """
+    from src.services.chat.agents.definition_recovery import _concept_relevant
+
+    causal_def = (
+        "Definition 6.32 (Causal graphical model) A causal graphical model over "
+        "random variables X contains a probability function and a graph."
+    )
+    # "function" is present, but it is generic -> must NOT rescue the off-topic def
+    assert _concept_relevant("autocovariance function", causal_def) is False
+    # a real autocovariance def names its specific term -> kept
+    assert _concept_relevant(
+        "autocovariance function",
+        "The autocovariance function of a process measures covariance across lags.",
+    ) is True
+
+
+def test_dr92_poisoned_cache_hit_is_ignored():
+    """DR-9.2: a cache hit that is off-topic for the concept must NOT be served
+    (it would bypass the relevance gate). Live 2026-06-28: the cache held
+    'autocovariance function' -> a causal-graphical-model def; _recover_one
+    returned it directly. Now an irrelevant hit is ignored and we recover fresh
+    (here fresh retrieval finds nothing -> None)."""
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+    from src.services.chat.agents.definition_cache import RecoveredDefinition
+
+    poisoned = RecoveredDefinition(
+        concept="autocovariance function", kind="definition", label="Definition 6.32",
+        statement="Definition 6.32 (Causal graphical model) A causal graphical model over X ...",
+        book_name="peters", chunkId="poison",
+    )
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=poisoned)), \
+         patch.object(dr, "hybrid_search", return_value=([], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=False))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)), \
+         patch("src.services.chat.agents.formula_recovery.recover_formulas", new_callable=AsyncMock, return_value=[]):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="autocovariance function", norm="autocovariance function")]))
+    assert out == []  # poisoned cache hit ignored, no off-topic def served
+
+
+def test_dr9_dedicated_retrieval_uses_rerank():
+    """DR-9: the dedicated retrieval call must use rerank=True."""
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([], None)) as hs, \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)):
+        asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="weak stationarity", norm="weak stationarity")]))
+    assert hs.call_args.kwargs.get("rerank") is True
+
+
+def test_dr9_offtopic_definition_is_dropped():
+    """DR-9: an off-topic verbatim definition (causal graphical model) for the
+    concept 'weak stationarity' must be dropped by the relevance gate."""
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+
+    chunk = ("Definition 6.32 (Causal graphical model) A causal graphical model "
+             "over X is a tuple ...")
+    statement = "A causal graphical model over X is a tuple ..."  # substring -> is_verbatim passes
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([_src_chunk(chunk, chunk_id="peters:6.32")], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=True, kind="definition", label="Definition 6.32", statement=statement))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="weak stationarity", norm="weak stationarity")]))
+    assert out == []
+
+
+def test_dr9_ontopic_definition_is_kept():
+    """DR-9: an on-topic verbatim definition for 'weak stationarity' is kept."""
+    from src.services.chat.agents.definition_gaps import DefinitionGap
+
+    chunk = "A process is weakly stationary if its mean and variance are constant over time."
+    statement = "A process is weakly stationary if its mean and variance are constant over time."
+    with patch.object(dr, "cache_lookup", AsyncMock(return_value=None)), \
+         patch.object(dr, "hybrid_search", return_value=([_src_chunk(chunk, chunk_id="hansen:14")], None)), \
+         patch.object(dr, "_extract_verbatim", AsyncMock(return_value=dr._ExtractedDef(found=True, kind="definition", label="Definition 14.1", statement=statement))), \
+         patch.object(dr, "cache_write", AsyncMock(return_value=None)):
+        out = asyncio.run(dr.recover_definitions("q", [DefinitionGap(concept="weak stationarity", norm="weak stationarity")]))
+    assert len(out) == 1
+    assert "weakly stationary" in out[0].statement
+
+
+# ---------------------------------------------------------------------------
+# DR-10: formal_statements override is unconditional (drop draft-authored)
+# ---------------------------------------------------------------------------
+
+def test_dr10_resolve_drops_when_no_recovered():
+    # DR-10: empty recovered -> [] (draft-authored formal_statements dropped)
+    from src.services.chat.agents.definition_recovery import resolve_formal_statements
+    assert resolve_formal_statements([], ["anything"]) == []
+    assert resolve_formal_statements(None, []) == []
+
+
+def test_dr10_resolve_builds_when_recovered():
+    # DR-10: non-empty recovered -> same as build_formal_statements (verbatim preserved)
+    from src.services.chat.agents.definition_recovery import resolve_formal_statements, build_formal_statements
+    from src.services.chat.agents.definition_cache import RecoveredDefinition
+    rd = RecoveredDefinition(concept="weak stationarity", kind="definition", label="weak stationarity",
+                             statement="A time series is weakly stationary if ...", book_name="Hansen",
+                             chunkId="c1")
+    # build_formal_statements only emits when sources contain the matching chunkId
+    srcs = [_src("A time series is weakly stationary if ...")]  # _src uses chunkId="c1", rank=1
+    got = resolve_formal_statements([rd], srcs)
+    exp = build_formal_statements([rd], srcs)
+    assert [g.statement for g in got] == [e.statement for e in exp]
+    assert len(got) == 1 and "weakly stationary" in got[0].statement
