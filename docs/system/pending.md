@@ -2,6 +2,16 @@
 
 > Generated/maintained as the pending-work registry; CLAUDE.md links here. Update this file as items close. Last updated 2026-06-28.
 
+## ⏸️ Deferred to a later session (explicitly parked 2026-06-28)
+
+PART B (contract migration) and A3 (Definition Recovery, incl. DR-9/9.1/9.2/10) are ✅ done + live-verified; A5 ✅ verified. The following are intentionally **deferred** — implement another time:
+
+- **A4** — facilitate live re-cert on :5175 (branch already merged into main; optional).
+- **A1** — tutor finalize follow-ups (opt-in, `TUTOR_FINALIZE` OFF, non-blocking): deepseek raw-LaTeX leak; validator retry latency.
+- **A3 polish** — richer figure citation; definition-tuned vision prompt; **DR-10b** (broaden recovery so the ideal verbatim def shows even when `_has_labelled_def` suppresses the gap).
+- **C1/C2** — prune the 5 remaining **merged** worktrees (all hold untracked files, likely `chat.db`; need a `--force` decision). 5 unmerged worktrees kept. (`statrag-html-docs` pruned 2026-06-28.)
+- **Process** — opencode/ollama reviewer instability (dispatches hang); retroactive `glm-5.2` review owed for the DR-9/10 + B5 work once opencode is healthy.
+
 ## Status legend
 
 | Symbol | Meaning |
@@ -144,7 +154,7 @@ Run the live-verify pass on :5175 (concept-map panel end-to-end), then merge `fe
 
 | Field | Value |
 |---|---|
-| **Status** | 🟡 RECOVERED (recovery commit `d416c16`); hardened as CLAUDE.md **rule 0** + a memory entry. |
+| **Status** | ✅ VERIFIED (2026-06-28) — `deep_tutor.py` parses clean, all entrypoints present (`run_deep_tutor`, `_stream_draft`, `_recover_definitions_block`, `_render_formal_statements`), full chat suite green. No silent loss from the incident. Recovery commit `d416c16`; hardened as CLAUDE.md **rule 0** + memory. |
 | **What happened** | An Ollama implementer dispatched with `--dangerously-skip-permissions` ran `git reset --hard` and wiped uncommitted main work. |
 | **Hardening** | Rule 0 (dispatch isolation): commit a WIP recovery point OR dispatch into a dedicated git worktree; never the live primary checkout. Forbid destructive git in delegated agents. |
 | **Remaining** | Verify `src/services/chat/agents/deep_tutor.py` is the intended post-recovery state. |
@@ -170,7 +180,7 @@ The operating contract now mandates **Rule Zero-Zero** (the orchestrator never e
 
 ---
 
-## B2. ⬜ Rewrite the `feature_Agent` and `system_Agent` shortcuts in CLAUDE.md
+## B2. ✅ Rewrite the `feature_Agent` and `system_Agent` shortcuts in CLAUDE.md
 
 | Field | Value |
 |---|---|
